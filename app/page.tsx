@@ -21,17 +21,13 @@ export default async function HomePage() {
         />
       </GlassPanel>
 
-      <GlassPanel className="home-request-panel">
-        <div id="request-timeline" className="stack">
-          <div className="home-section-heading">
-            <span className="eyebrow">Missing a topic?</span>
-            <h2 style={{ margin: "12px 0 0", fontFamily: "var(--font-serif)", fontSize: "2rem" }}>
-              Request a timeline
-            </h2>
-          </div>
-          <RequestTimelineForm />
-        </div>
-      </GlassPanel>
+      <section id="request-timeline" className="home-request-strip">
+        <p className="home-request-copy">
+          <span className="eyebrow">Missing a topic?</span>
+          <span>Request a timeline</span>
+        </p>
+        <RequestTimelineForm />
+      </section>
 
       <GlassPanel className="home-featured-panel">
         <div className="home-section-heading">

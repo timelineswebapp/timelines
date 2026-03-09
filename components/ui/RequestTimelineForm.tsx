@@ -38,19 +38,21 @@ export function RequestTimelineForm() {
   }
 
   return (
-    <form
-      action={onSubmit}
-      className="stack"
-    >
-      <div className="form-grid" style={{ gridTemplateColumns: "1fr 160px" }}>
-        <input className="input" name="query" placeholder="Request a missing timeline" minLength={3} maxLength={120} required />
-        <input className="input" name="language" defaultValue="en" maxLength={20} />
-      </div>
-      <button className="button" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Submitting..." : "Submit request"}
+    <form action={onSubmit} className="request-form-compact">
+      <input type="hidden" name="language" value="en" />
+      <input
+        className="input"
+        name="query"
+        placeholder="Request a timeline or event"
+        minLength={3}
+        maxLength={120}
+        required
+      />
+      <button className="button secondary request-inline-button" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? "Sending..." : "Request"}
       </button>
-      {message ? <p className="small" style={{ color: "var(--success)", margin: 0 }}>{message}</p> : null}
-      {error ? <p className="small" style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
+      {message ? <p className="small request-form-message request-form-success">{message}</p> : null}
+      {error ? <p className="small request-form-message request-form-error">{error}</p> : null}
     </form>
   );
 }
