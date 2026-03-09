@@ -167,6 +167,14 @@ main {
   align-items: stretch;
 }
 
+.search-form-label {
+  align-self: center;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  line-height: 1;
+}
+
 .home-search-panel,
 .home-featured-panel,
 .home-request-panel,
@@ -177,19 +185,11 @@ main {
 }
 
 .home-search-panel {
-  text-align: center;
-  gap: 18px;
+  gap: 12px;
 }
 
 .home-search-form {
-  margin-top: 8px;
-}
-
-.home-request-action {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  grid-template-columns: max-content 1fr auto;
 }
 
 .timeline-summary-list {
@@ -568,6 +568,10 @@ main {
   .search-form,
   .home-search-form {
     grid-template-columns: 1fr;
+  }
+
+  .search-form-label {
+    font-size: 1.35rem;
   }
 
   .timeline-title {

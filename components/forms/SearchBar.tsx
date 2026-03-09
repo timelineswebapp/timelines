@@ -4,17 +4,20 @@ export function SearchBar({
   defaultValue = "",
   placeholder = "Search timelines",
   buttonLabel = "Search",
+  leadingLabel,
   className,
   inputId = "timeline-search"
 }: {
   defaultValue?: string;
   placeholder?: string;
   buttonLabel?: string;
+  leadingLabel?: string;
   className?: string;
   inputId?: string;
 }) {
   return (
     <form action="/search" method="get" className={cn("search-form", className)}>
+      {leadingLabel ? <span className="search-form-label">{leadingLabel}</span> : null}
       <label className="sr-only" htmlFor={inputId}>
         Search timelines
       </label>
