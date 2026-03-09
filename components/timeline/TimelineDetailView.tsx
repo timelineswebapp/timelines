@@ -1,90 +1,117 @@
-import Link from "next/link";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { TimelineDetail } from "@/src/lib/types";
-import { formatDisplayDate } from "@/src/lib/utils";
-import { AdSlot } from "@/components/timeline/AdSlot";
-import { StatusPill } from "@/components/ui/StatusPill";
+import { EventDetailSheet } from "@/components/timeline/EventDetailSheet";
+import { EventRow } from "@/components/timeline/EventRow";
+
+function getYearLabel(date: string) {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "UTC" }).format(parsed);
+}
+
+function getTimelineDateRange(timeline: TimelineDetail) {
+  const firstEvent = timeline.events[0];
+  const lastEvent = timeline.events[timeline.events.length - 1];
+
+  if (!firstEvent || !lastEvent) {
+    return "";
+  }
+
+  const start = getYearLabel(firstEvent.date);
+  const end = getYearLabel(lastEvent.date);
+  return start === end ? start : `${start}–${end}`;
+}
 
 export function TimelineDetailView({ timeline }: { timeline: TimelineDetail }) {
-  const midIndex = Math.max(1, Math.floor(timeline.events.length / 2));
+  const router = useRouter();
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const selectedEventIdRef = useRef<number | null>(null);
+  const hasSheetHistoryEntry = useRef(false);
+
+  useEffect(() => {
+    selectedEventIdRef.current = selectedEventId;
+  }, [selectedEventId]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (selectedEventIdRef.current !== null) {
+        hasSheetHistoryEntry.current = false;
+        setSelectedEventId(null);
+      }
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const selectedEvent = timeline.events.find((event) => event.id === selectedEventId) || null;
+  const dateRange = getTimelineDateRange(timeline);
+  const headerMeta = [dateRange, `${timeline.eventCount} events`].filter(Boolean).join(" · ");
+
+  const openEvent = (eventId: number) => {
+    const url = new URL(window.location.href);
+    url.hash = `event-${eventId}`;
+    const href = url.toString();
+
+    if (selectedEventIdRef.current === null) {
+      window.history.pushState({ eventSheet: true }, "", href);
+      hasSheetHistoryEntry.current = true;
+    } else {
+      window.history.replaceState({ eventSheet: true }, "", href);
+    }
+
+    setSelectedEventId(eventId);
+  };
+
+  const closeEvent = () => {
+    if (hasSheetHistoryEntry.current) {
+      hasSheetHistoryEntry.current = false;
+      window.history.back();
+      return;
+    }
+
+    setSelectedEventId(null);
+  };
 
   return (
-    <div className="content-grid">
-      <section className="glass section-card">
-        <span className="eyebrow">{timeline.category}</span>
-        <h1 className="page-title">{timeline.title}</h1>
-        <p className="lede">{timeline.description}</p>
-        <div className="timeline-meta" style={{ marginTop: 18 }}>
-          <StatusPill>{timeline.eventCount} events</StatusPill>
-          {timeline.tags.map((tag) => (
-            <Link href={`/tag/${tag.slug}`} key={tag.id} className="pill">
-              {tag.name}
-            </Link>
+    <>
+      <div className="timeline-page">
+        <button
+          type="button"
+          className="timeline-back"
+          onClick={() => {
+            if (selectedEventIdRef.current !== null) {
+              closeEvent();
+              return;
+            }
+
+            router.push("/");
+          }}
+        >
+          Back
+        </button>
+
+        <section className="timeline-header glass">
+          <span className="timeline-category">{timeline.category}</span>
+          <h1 className="timeline-title">{timeline.title}</h1>
+          <p className="timeline-header-meta">{headerMeta}</p>
+          <p className="timeline-description">{timeline.description}</p>
+        </section>
+
+        <section className="event-stream" aria-label={`${timeline.title} events`}>
+          {timeline.events.map((event) => (
+            <EventRow key={event.id} event={event} onOpen={openEvent} />
           ))}
-        </div>
-      </section>
+        </section>
+      </div>
 
-      <AdSlot label="After intro" />
-
-      <section className="timeline-shell">
-        {timeline.events.map((event, index) => (
-          <article key={event.id} className="event-card">
-            <details className="glass section-card event-details" open={index < 2}>
-              <summary className="event-summary">
-                <span className="eyebrow">{formatDisplayDate(event.date, event.datePrecision)}</span>
-                <h3>{event.title}</h3>
-                <p className="muted" style={{ margin: 0 }}>
-                  {event.description}
-                </p>
-              </summary>
-              <div className="event-body stack">
-                <div className="pill-row" style={{ flexWrap: "wrap" }}>
-                  <StatusPill>Importance {event.importance}/5</StatusPill>
-                  {event.location ? <StatusPill>{event.location}</StatusPill> : null}
-                  {event.tags.map((tag) => (
-                    <Link href={`/tag/${tag.slug}`} key={tag.id} className="pill">
-                      {tag.name}
-                    </Link>
-                  ))}
-                </div>
-                <div className="stack" style={{ gap: 10 }}>
-                  <strong>Sources</strong>
-                  {event.sources.map((source) => (
-                    <a key={source.id} href={source.url} target="_blank" rel="noreferrer" className="pill">
-                      {source.publisher} ({Math.round(source.credibilityScore * 100)}%)
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </details>
-            {index === midIndex ? <AdSlot label="Mid timeline" /> : null}
-          </article>
-        ))}
-      </section>
-
-      <AdSlot label="End of timeline" />
-
-      <section className="card-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-        <article className="glass section-card stack">
-          <strong>Source integrity</strong>
-          <p className="muted" style={{ margin: 0 }}>
-            Every event carries attached source references so editorial review stays tied to evidence, not UI state.
-          </p>
-        </article>
-        <article className="glass section-card stack">
-          <strong>Related timelines</strong>
-          {timeline.relatedTimelines.length > 0 ? (
-            timeline.relatedTimelines.map((item) => (
-              <Link key={item.id} href={`/timeline/${item.slug}`} className="pill">
-                {item.title}
-              </Link>
-            ))
-          ) : (
-            <p className="muted" style={{ margin: 0 }}>
-              More related timelines will appear as the catalog expands.
-            </p>
-          )}
-        </article>
-      </section>
-    </div>
+      <EventDetailSheet event={selectedEvent} open={selectedEvent !== null} onClose={closeEvent} />
+    </>
   );
 }

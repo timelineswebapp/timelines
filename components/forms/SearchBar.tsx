@@ -1,19 +1,33 @@
-export function SearchBar({ defaultValue = "" }: { defaultValue?: string }) {
+import { cn } from "@/src/lib/utils";
+
+export function SearchBar({
+  defaultValue = "",
+  placeholder = "Search timelines",
+  buttonLabel = "Search",
+  className,
+  inputId = "timeline-search"
+}: {
+  defaultValue?: string;
+  placeholder?: string;
+  buttonLabel?: string;
+  className?: string;
+  inputId?: string;
+}) {
   return (
-    <form action="/search" method="get" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}>
-      <label className="sr-only" htmlFor="timeline-search">
+    <form action="/search" method="get" className={cn("search-form", className)}>
+      <label className="sr-only" htmlFor={inputId}>
         Search timelines
       </label>
       <input
-        id="timeline-search"
+        id={inputId}
         className="input"
         type="search"
         name="q"
         defaultValue={defaultValue}
-        placeholder="Search timelines, events, and tags"
+        placeholder={placeholder}
       />
       <button className="button" type="submit">
-        Search
+        {buttonLabel}
       </button>
     </form>
   );

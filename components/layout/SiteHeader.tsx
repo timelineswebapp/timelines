@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { SearchBar } from "@/components/forms/SearchBar";
 
 export function SiteHeader() {
   return (
@@ -13,18 +12,12 @@ export function SiteHeader() {
           flexWrap: "wrap"
         }}
       >
-        <div>
-          <Link href="/" className="eyebrow">
-            TiMELiNES
-          </Link>
-        </div>
-        <nav style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-          <Link href="/search">Search</Link>
-          <Link href="/admin">Admin</Link>
-        </nav>
-      </div>
-      <div style={{ marginTop: 18 }}>
-        <SearchBar />
+        <Link href="/" className="eyebrow">
+          TiMELiNES
+        </Link>
+        <p className="small muted" style={{ margin: 0 }}>
+          Follow history through the timeline.
+        </p>
       </div>
     </header>
   );
