@@ -1,0 +1,267 @@
+{
+  "project": {
+    "name": "TiMELiNES",
+    "description": "TiMELiNES is a structured knowledge platform presenting complex histories and developments as chronological timelines.",
+    "phase": "Phase 1 - curated timelines (50-200)",
+    "future_phase": "Phase 2 - LLM assisted timeline generation and verification"
+  },
+
+  "product_goals": {
+    "primary_goal": "Present complex events and histories as structured chronological timelines.",
+    "phase1_goals": [
+      "Publish curated timelines",
+      "Enable search across timelines and events",
+      "Capture user requests for missing timelines",
+      "Provide admin dashboard for content creation and analytics",
+      "Ensure excellent SEO and fast page load times"
+    ],
+    "phase2_goals": [
+      "Generate timelines using LLM pipelines",
+      "Verify events against sources",
+      "Expand database into large structured event knowledge graph"
+    ]
+  },
+
+  "architecture": {
+    "principles": [
+      "Separation of Concerns",
+      "Frontend never accesses database directly",
+      "All data access via API layer",
+      "Strict schema validation",
+      "Scalable relational data model"
+    ],
+    "stack": {
+      "frontend": "Next.js 14 with TypeScript",
+      "backend": "Node API routes",
+      "database": "PostgreSQL (Neon)",
+      "hosting": "Vercel",
+      "storage": "Cloudflare R2",
+      "search": "PostgreSQL full-text search (upgrade to Meilisearch in Phase 2)"
+    }
+  },
+
+  "design_system": {
+    "ui_style": "Apple Liquid Glass",
+    "principles": [
+      "minimalistic",
+      "mobile-first",
+      "clean typography",
+      "light glass effects",
+      "clear hierarchy",
+      "timeline-focused layout"
+    ]
+  },
+
+  "routing": {
+    "pages": [
+      "/",
+      "/timeline/{slug}",
+      "/tag/{slug}",
+      "/search?q=",
+      "/admin"
+    ]
+  },
+
+  "database_schema": {
+    "tables": {
+      "timelines": {
+        "fields": [
+          "id",
+          "title",
+          "slug",
+          "description",
+          "category",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "events": {
+        "fields": [
+          "id",
+          "date",
+          "date_precision",
+          "title",
+          "description",
+          "importance",
+          "location",
+          "image_url",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "timeline_events": {
+        "fields": [
+          "timeline_id",
+          "event_id",
+          "event_order"
+        ]
+      },
+      "sources": {
+        "fields": [
+          "id",
+          "publisher",
+          "url",
+          "credibility_score"
+        ]
+      },
+      "event_sources": {
+        "fields": [
+          "event_id",
+          "source_id"
+        ]
+      },
+      "tags": {
+        "fields": [
+          "id",
+          "slug",
+          "name"
+        ]
+      },
+      "event_tags": {
+        "fields": [
+          "event_id",
+          "tag_id"
+        ]
+      },
+      "timeline_requests": {
+        "fields": [
+          "id",
+          "query",
+          "normalized_query",
+          "ip_hash",
+          "language",
+          "status",
+          "created_at"
+        ]
+      }
+    }
+  },
+
+  "search_system": {
+    "behavior": "Return timelines only",
+    "searchable_fields": [
+      "timeline.title",
+      "timeline.description",
+      "timeline.tags",
+      "event.title",
+      "event.description"
+    ],
+    "ranking_priority": [
+      "timeline.title",
+      "timeline.tags",
+      "event.title",
+      "event.description"
+    ]
+  },
+
+  "timeline_rendering": {
+    "generation": "Next.js static generation",
+    "strategy": "Incremental Static Regeneration",
+    "limits": {
+      "min_events": 20,
+      "recommended": "40-120",
+      "max_events": 300
+    }
+  },
+
+  "timeline_ui": {
+    "structure": [
+      "timeline header",
+      "vertical chronological event list",
+      "expandable event cards",
+      "sources section",
+      "related timelines",
+      "ads placements"
+    ]
+  },
+
+  "admin_dashboard": {
+    "modules": [
+      "dashboard_overview",
+      "timeline_management",
+      "event_management",
+      "source_management",
+      "tag_management",
+      "timeline_requests",
+      "analytics"
+    ],
+    "features": [
+      "create timelines",
+      "add/edit events",
+      "attach sources",
+      "tag events",
+      "view timeline requests",
+      "monitor traffic"
+    ]
+  },
+
+  "timeline_request_system": {
+    "input_rules": {
+      "min_length": 3,
+      "max_length": 120
+    },
+    "rate_limit": "3 requests per IP per day"
+  },
+
+  "import_pipeline": {
+    "formats": [
+      "CSV",
+      "JSON"
+    ],
+    "validation": "Zod schema validation",
+    "workflow": [
+      "upload",
+      "validate schema",
+      "detect duplicates",
+      "preview import",
+      "approve ingestion"
+    ]
+  },
+
+  "ads_system": {
+    "network": "Google AdSense",
+    "placements": [
+      "after intro",
+      "mid timeline",
+      "end of timeline"
+    ],
+    "max_ads_per_page": 3
+  },
+
+  "analytics": {
+    "services": [
+      "Google Analytics 4",
+      "Google Search Console"
+    ]
+  },
+
+  "environment_variables": [
+    "DATABASE_URL",
+    "NEXT_PUBLIC_SITE_URL",
+    "NEXT_PUBLIC_GA_ID",
+    "NEXT_PUBLIC_ADSENSE_ID",
+    "R2_ACCESS_KEY",
+    "R2_SECRET_KEY",
+    "R2_BUCKET"
+  ],
+
+  "deployment": {
+    "platform": "Vercel",
+    "workflow": [
+      "Codex generates code",
+      "Push to GitHub",
+      "Vercel auto-build",
+      "Deploy preview"
+    ]
+  },
+
+  "coding_standards": {
+    "language": "TypeScript",
+    "rules": [
+      "strict typing",
+      "repository pattern",
+      "schema validation",
+      "no database calls in frontend"
+    ]
+  }
+}
