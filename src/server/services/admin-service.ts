@@ -1,0 +1,30 @@
+import { analyticsRepository } from "@/src/server/repositories/analytics-repository";
+import { eventRepository } from "@/src/server/repositories/event-repository";
+import { requestRepository } from "@/src/server/repositories/request-repository";
+import { sourceRepository } from "@/src/server/repositories/source-repository";
+import { tagRepository } from "@/src/server/repositories/tag-repository";
+import { timelineRepository } from "@/src/server/repositories/timeline-repository";
+
+export const adminService = {
+  getDashboardOverview: analyticsRepository.getDashboardOverview,
+  getAnalyticsSnapshot: analyticsRepository.getAnalyticsSnapshot,
+  listTimelines: () => timelineRepository.listSummaries(100),
+  getTimelineById: timelineRepository.getById,
+  createTimeline: timelineRepository.create,
+  updateTimeline: timelineRepository.update,
+  deleteTimeline: timelineRepository.delete,
+  listEvents: eventRepository.list,
+  createEvent: eventRepository.create,
+  updateEvent: eventRepository.update,
+  deleteEvent: eventRepository.delete,
+  listSources: sourceRepository.list,
+  createSource: sourceRepository.create,
+  updateSource: sourceRepository.update,
+  deleteSource: sourceRepository.delete,
+  listTags: tagRepository.list,
+  createTag: tagRepository.create,
+  updateTag: tagRepository.update,
+  deleteTag: tagRepository.delete,
+  listRequests: requestRepository.list,
+  updateRequestStatus: requestRepository.updateStatus
+};
