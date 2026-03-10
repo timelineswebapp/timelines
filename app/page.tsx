@@ -8,6 +8,13 @@ export const revalidate = 3600;
 
 export default async function HomePage() {
   const timelines = await contentService.listFeaturedTimelines(6);
+  const placeholderTopics = [
+    "Roman Empire",
+    "Cold War",
+    "History of Medicine",
+    "Silk Road",
+    "Ancient Egypt"
+  ];
 
   return (
     <div className="home-shell">
@@ -16,28 +23,25 @@ export default async function HomePage() {
           className="home-search-form"
           leadingLabel="Timeline of:"
           placeholder="Search timelines"
-          buttonLabel="Open"
           inputId="home-timeline-search"
         />
       </GlassPanel>
 
       <section id="request-timeline" className="home-request-strip">
-        <p className="home-request-copy">
-          <span className="eyebrow">Missing a topic?</span>
-          <span>Request a timeline</span>
-        </p>
-        <RequestTimelineForm />
+        <RequestTimelineForm collapsible triggerLabel="MISSING A TOPIC?" />
       </section>
 
-      <GlassPanel className="home-featured-panel">
-        <div className="home-section-heading">
-          <span className="eyebrow">Featured timelines</span>
-        </div>
-      </GlassPanel>
+      <h2 className="featured-title">FEATURED TIMELINES</h2>
 
       <section className="timeline-summary-list" aria-label="Featured timelines">
         {timelines.map((timeline) => (
           <TimelineSummaryCard key={timeline.id} timeline={timeline} />
+        ))}
+        {placeholderTopics.map((topic) => (
+          <article key={topic} className="timeline-placeholder-card">
+            <span>{topic}</span>
+            <span className="timeline-placeholder-status">placeholder</span>
+          </article>
         ))}
       </section>
     </div>

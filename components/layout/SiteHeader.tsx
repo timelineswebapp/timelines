@@ -7,9 +7,7 @@ export function SiteHeader() {
         <Link href="/" className="site-logo">
           TiMELiNES
         </Link>
-        <p className="small muted" style={{ margin: 0 }}>
-          Follow history through the timeline.
-        </p>
+        <p className="site-tagline">Everything has a timeline</p>
       </div>
       <div className="site-header-divider" />
     </header>

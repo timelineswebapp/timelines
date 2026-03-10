@@ -3,14 +3,12 @@ import { cn } from "@/src/lib/utils";
 export function SearchBar({
   defaultValue = "",
   placeholder = "Search timelines",
-  buttonLabel = "Search",
   leadingLabel,
   className,
   inputId = "timeline-search"
 }: {
   defaultValue?: string;
   placeholder?: string;
-  buttonLabel?: string;
   leadingLabel?: string;
   className?: string;
   inputId?: string;
@@ -21,17 +19,21 @@ export function SearchBar({
       <label className="sr-only" htmlFor={inputId}>
         Search timelines
       </label>
-      <input
-        id={inputId}
-        className="input"
-        type="search"
-        name="q"
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-      />
-      <button className="button" type="submit">
-        {buttonLabel}
-      </button>
+      <div className="search-input-shell">
+        <input
+          id={inputId}
+          className="input search-input"
+          type="search"
+          name="q"
+          defaultValue={defaultValue}
+          placeholder={placeholder}
+        />
+        <button className="search-send-button" type="submit" aria-label="Search timelines">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M3.5 10.5 16 4l-3.5 12-3.1-4-5.9-1.5Z" fill="currentColor" />
+          </svg>
+        </button>
+      </div>
     </form>
   );
 }
