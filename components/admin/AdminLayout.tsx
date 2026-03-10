@@ -47,14 +47,14 @@ export function AdminLayout({
 
         {activeTab === "content" && contentSection && onContentSectionChange ? (
           <div className="admin-subnav">
-            {(["snapshot", "timelines", "events", "sources", "import_events", "requests"] as const).map((section) => (
+            {(["snapshot", "timelines", "events", "import_data", "requests"] as const).map((section) => (
               <button
                 key={section}
                 type="button"
                 className={`button admin-subtab ${contentSection === section ? "admin-subtab-active" : ""}`}
                 onClick={() => onContentSectionChange(section)}
               >
-                {section.replace("_", " ")}
+                {section === "import_data" ? "import data" : section.replace("_", " ")}
               </button>
             ))}
           </div>

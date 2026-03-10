@@ -1,4 +1,6 @@
 export type DatePrecision = "year" | "month" | "day" | "approximate";
+export type ImportFormat = "csv" | "json" | "text";
+export type ImportType = "timeline_with_events" | "events_into_existing_timeline";
 
 export type TimelineRequestStatus =
   | "pending"
@@ -12,6 +14,12 @@ export interface SourceRecord {
   publisher: string;
   url: string;
   credibilityScore: number;
+}
+
+export interface EmbeddedSourceInput {
+  title: string;
+  url: string;
+  publisher?: string | null;
 }
 
 export interface TagRecord {
@@ -231,8 +239,16 @@ export interface AdsDashboardData {
 }
 
 export interface ImportPreview {
-  format: "csv" | "json";
+  format: ImportFormat;
+  importType: ImportType;
   valid: boolean;
+  timeline: {
+    mode: "create" | "existing";
+    timelineId: number | null;
+    title: string;
+    description: string;
+    category: string;
+  };
   totals: {
     rows: number;
     duplicates: number;
@@ -243,12 +259,17 @@ export interface ImportPreview {
     date: string;
     title: string;
     description: string;
+    duplicate: boolean;
   }>;
+  skipDuplicates: boolean;
 }
 
 export interface ImportExecutionResult {
-  created: number;
-  skipped: number;
+  message: string;
+  timelineId: number;
+  eventsCreatedCount: number;
+  duplicatesSkipped: number;
+  timelineCreated: boolean;
 }
 
 export interface TimelineImportRow {

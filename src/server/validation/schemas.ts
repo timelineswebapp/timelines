@@ -9,6 +9,8 @@ const trimmedString = (min: number, max: number) =>
     .max(max);
 
 export const datePrecisionSchema = z.enum(["year", "month", "day", "approximate"]);
+export const importFormatSchema = z.enum(["csv", "json", "text"]);
+export const importTypeSchema = z.enum(["timeline_with_events", "events_into_existing_timeline"]);
 export const requestStatusSchema = z.enum(["pending", "reviewed", "planned", "rejected", "completed"]);
 export const adSlotSchema = z.enum([
   "home_feed_ad",
@@ -23,6 +25,12 @@ export const sourceSchema = z.object({
   publisher: trimmedString(2, 120),
   url: z.string().trim().url(),
   credibilityScore: z.coerce.number().min(0).max(1)
+});
+
+export const embeddedSourceSchema = z.object({
+  title: trimmedString(2, 160),
+  url: z.string().trim().url(),
+  publisher: z.string().trim().max(120).nullish().transform((value) => value || null)
 });
 
 export const tagSchema = z.object({
@@ -56,7 +64,7 @@ export const eventSchema = z.object({
   imageUrl: z.string().trim().url().nullable().optional().transform((value) => value || null),
   timelineId: z.coerce.number().int().positive(),
   eventOrder: z.coerce.number().int().min(1),
-  sourceIds: z.array(z.coerce.number().int().positive()).max(20).default([]),
+  sources: z.array(embeddedSourceSchema).max(20).default([]),
   tagIds: z.array(z.coerce.number().int().positive()).max(20).default([])
 });
 
@@ -99,8 +107,8 @@ export const searchQuerySchema = z.object({
 });
 
 export const importRowSchema = z.object({
-  date: z.string().trim().date(),
-  datePrecision: datePrecisionSchema,
+  date: z.string().trim().min(4).max(10),
+  datePrecision: datePrecisionSchema.optional(),
   title: trimmedString(3, 160),
   description: trimmedString(10, 2000),
   importance: z.coerce.number().int().min(1).max(5),
@@ -108,10 +116,18 @@ export const importRowSchema = z.object({
   imageUrl: z.string().trim().url().nullish()
 });
 
+export const importTimelineSchema = z.object({
+  title: trimmedString(3, 140),
+  description: trimmedString(20, 800),
+  category: trimmedString(2, 80)
+});
+
 export const importPreviewSchema = z.object({
-  format: z.enum(["csv", "json"]),
+  format: importFormatSchema,
+  importType: importTypeSchema,
   content: z.string().min(2).max(500000),
-  timelineId: z.coerce.number().int().positive()
+  timelineId: z.coerce.number().int().positive().nullable().optional(),
+  skipDuplicates: z.coerce.boolean().default(true)
 });
 
 export const adCampaignSchema = z.object({

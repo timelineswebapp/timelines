@@ -2,7 +2,6 @@ import { analyticsRepository } from "@/src/server/repositories/analytics-reposit
 import { adsRepository } from "@/src/server/repositories/ads-repository";
 import { eventRepository } from "@/src/server/repositories/event-repository";
 import { requestRepository } from "@/src/server/repositories/request-repository";
-import { sourceRepository } from "@/src/server/repositories/source-repository";
 import { tagRepository } from "@/src/server/repositories/tag-repository";
 import { timelineRepository } from "@/src/server/repositories/timeline-repository";
 
@@ -19,10 +18,6 @@ export const adminService = {
   createEvent: eventRepository.create,
   updateEvent: eventRepository.update,
   deleteEvent: eventRepository.delete,
-  listSources: sourceRepository.list,
-  createSource: sourceRepository.create,
-  updateSource: sourceRepository.update,
-  deleteSource: sourceRepository.delete,
   listTags: tagRepository.list,
   createTag: tagRepository.create,
   updateTag: tagRepository.update,

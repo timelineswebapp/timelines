@@ -1,4 +1,4 @@
-import type { EventRecord } from "@/src/lib/types";
+import type { EmbeddedSourceInput, EventRecord, SourceRecord } from "@/src/lib/types";
 import type { Sql } from "postgres";
 import { getSql } from "@/src/server/db/client";
 import { ApiError } from "@/src/server/api/responses";
@@ -14,7 +14,7 @@ type EventInput = {
   imageUrl: string | null;
   timelineId: number;
   eventOrder: number;
-  sourceIds: number[];
+  sources: EmbeddedSourceInput[];
   tagIds: number[];
 };
 
@@ -49,6 +49,93 @@ async function insertEventSources(sql: Sql, eventId: number, sourceIds: number[]
     INSERT INTO event_sources ${sql(rows, "event_id", "source_id")}
     ON CONFLICT DO NOTHING
   `;
+}
+
+function normalizeSourcePublisher(source: EmbeddedSourceInput): string {
+  return source.publisher?.trim() || source.title.trim();
+}
+
+async function resolveSourceIds(sql: Sql, sources: EmbeddedSourceInput[]): Promise<number[]> {
+  if (sources.length === 0) {
+    return [];
+  }
+
+  const normalized = Array.from(
+    new Map(
+      sources.map((source) => [
+        source.url.trim().toLowerCase(),
+        {
+          url: source.url.trim(),
+          publisher: normalizeSourcePublisher(source)
+        }
+      ])
+    ).values()
+  );
+
+  const urls = normalized.map((source) => source.url);
+  const existing = await sql<{ id: number; url: string }[]>`
+    SELECT id, url
+    FROM sources
+    WHERE url IN ${sql(urls)}
+  `;
+
+  const existingByUrl = new Map(existing.map((row) => [row.url.toLowerCase(), row.id]));
+  const missing = normalized.filter((source) => !existingByUrl.has(source.url.toLowerCase()));
+
+  if (missing.length > 0) {
+    const inserted = await Promise.all(
+      missing.map(async (source) => {
+        const [row] = await sql<{ id: number; url: string }[]>`
+          INSERT INTO sources (publisher, url, credibility_score)
+          VALUES (${source.publisher}, ${source.url}, ${0.8})
+          ON CONFLICT (url) DO UPDATE
+          SET publisher = COALESCE(NULLIF(EXCLUDED.publisher, ''), sources.publisher)
+          RETURNING id, url
+        `;
+
+        if (!row) {
+          throw new ApiError(500, "SOURCE_INSERT_FAILED", "Source insert failed.");
+        }
+
+        return row;
+      })
+    );
+
+    for (const row of inserted) {
+      existingByUrl.set(row.url.toLowerCase(), row.id);
+    }
+  }
+
+  return normalized
+    .map((source) => existingByUrl.get(source.url.toLowerCase()))
+    .filter((value): value is number => Boolean(value));
+}
+
+function resolveMemorySources(sources: EmbeddedSourceInput[]): SourceRecord[] {
+  if (sources.length === 0) {
+    return [];
+  }
+
+  const records = memoryStore.getSources();
+  const attached: SourceRecord[] = [];
+
+  for (const source of sources) {
+    const url = source.url.trim();
+    let record = records.find((candidate) => candidate.url.toLowerCase() === url.toLowerCase());
+    if (!record) {
+      record = {
+        id: memoryStore.nextSourceId(),
+        publisher: normalizeSourcePublisher(source),
+        url,
+        credibilityScore: 0.8
+      };
+      records.push(record);
+    }
+    attached.push(record);
+  }
+
+  memoryStore.setSources([...records]);
+  return attached;
 }
 
 async function insertEventTags(sql: Sql, eventId: number, tagIds: number[]): Promise<void> {
@@ -216,7 +303,7 @@ export const eventRepository = {
           sources: [],
           tags: []
         },
-        input.sourceIds,
+        resolveMemorySources(input.sources).map((source) => source.id),
         input.tagIds,
         memoryStore.getSources(),
         memoryStore.getTags()
@@ -252,13 +339,15 @@ export const eventRepository = {
         throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
       }
 
+      const sourceIds = await resolveSourceIds(query, input.sources);
+
       await query`
         INSERT INTO timeline_events (timeline_id, event_id, event_order)
         VALUES (${input.timelineId}, ${event.id}, ${input.eventOrder})
       `;
 
       await Promise.all([
-        insertEventSources(query, event.id, input.sourceIds),
+        insertEventSources(query, event.id, sourceIds),
         insertEventTags(query, event.id, input.tagIds)
       ]);
 
@@ -307,7 +396,7 @@ export const eventRepository = {
           imageUrl: input.imageUrl,
           updatedAt: new Date().toISOString()
         },
-        input.sourceIds,
+        resolveMemorySources(input.sources).map((source) => source.id),
         input.tagIds,
         memoryStore.getSources(),
         memoryStore.getTags()
@@ -353,6 +442,8 @@ export const eventRepository = {
         return null;
       }
 
+      const sourceIds = await resolveSourceIds(query, input.sources);
+
       const linkUpdate = await query`
         UPDATE timeline_events
         SET timeline_id = ${input.timelineId}, event_order = ${input.eventOrder}
@@ -369,7 +460,7 @@ export const eventRepository = {
       ]);
 
       await Promise.all([
-        insertEventSources(query, id, input.sourceIds),
+        insertEventSources(query, id, sourceIds),
         insertEventTags(query, id, input.tagIds)
       ]);
 

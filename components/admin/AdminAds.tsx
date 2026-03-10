@@ -69,7 +69,7 @@ export function AdminAds({
   );
 
   return (
-    <div className="stack">
+    <div className="stack admin-module-stack">
       <AdsSnapshot ads={ads} />
       <AdSlotsManager ads={ads} />
       <CampaignManager

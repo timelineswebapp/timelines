@@ -1,41 +1,57 @@
 import type { AnalyticsDataset } from "@/components/admin/admin-shared";
 
 export function AudienceMetrics({ dataset }: { dataset: AnalyticsDataset }) {
+  const report = dataset.analyticsReport;
+  const topTimelinesCount = report?.contentPerformance.topTimelines.length || 0;
+  const topEventsCount = report?.contentPerformance.topEvents.length || 0;
+  const searchesToday = report?.growth.searchesOverTime.at(-1)?.value || 0;
+  const noResultSearches = report?.searchIntelligence.noResultSearches || 0;
+
   return (
     <section className="glass section-card stack">
       <h2 style={{ marginTop: 0 }}>Audience</h2>
-      {!dataset.analyticsReport?.trackingConfigured ? (
+      {!report?.trackingConfigured ? (
         <p className="muted" style={{ margin: 0 }}>
           Live audience tracking is not configured. This module stays active with safe zero values and content-derived fallback metrics.
         </p>
       ) : null}
-      <div className="stats-row">
-        <div className="glass-card">
-          <strong>{dataset.analyticsReport?.audience.usersToday || 0}</strong>
-          <p className="muted">Users today</p>
-        </div>
-        <div className="glass-card">
-          <strong>{dataset.analyticsReport?.audience.usersWeek || 0}</strong>
-          <p className="muted">Users this week</p>
-        </div>
-        <div className="glass-card">
-          <strong>{dataset.analyticsReport?.audience.usersMonth || 0}</strong>
-          <p className="muted">Users this month</p>
-        </div>
-      </div>
-      <div className="stats-row">
-        <div className="glass-card">
-          <strong>{dataset.analyticsReport?.audience.newUsers || 0}</strong>
-          <p className="muted">New users</p>
-        </div>
-        <div className="glass-card">
-          <strong>{dataset.analyticsReport?.audience.returningUsers || 0}</strong>
-          <p className="muted">Returning users</p>
-        </div>
-        <div className="glass-card">
-          <strong>{dataset.analyticsSnapshot?.contentVelocity.requestsLast30Days || 0}</strong>
-          <p className="muted">Requests in 30 days</p>
-        </div>
+      <div className="admin-metric-tiles">
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Users today</span>
+          <strong className="admin-metric-value">{report?.audience.usersToday || 0}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Users week</span>
+          <strong className="admin-metric-value">{report?.audience.usersWeek || 0}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Users month</span>
+          <strong className="admin-metric-value">{report?.audience.usersMonth || 0}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Top timelines</span>
+          <strong className="admin-metric-value">{topTimelinesCount}</strong>
+          <span className="admin-metric-subtext">tracked list size</span>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Top events</span>
+          <strong className="admin-metric-value">{topEventsCount}</strong>
+          <span className="admin-metric-subtext">tracked list size</span>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Requests 30d</span>
+          <strong className="admin-metric-value">{dataset.analyticsSnapshot?.contentVelocity.requestsLast30Days || 0}</strong>
+          <span className="admin-metric-subtext">pending not tracked here</span>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Searches today</span>
+          <strong className="admin-metric-value">{searchesToday}</strong>
+          <span className="admin-metric-subtext">latest growth point</span>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">No-result searches</span>
+          <strong className="admin-metric-value">{noResultSearches}</strong>
+        </article>
       </div>
     </section>
   );

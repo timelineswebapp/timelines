@@ -12,7 +12,7 @@ export function AdminDashboard() {
   const [status, setStatus] = useState("Provide the admin token to unlock dashboard actions.");
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<TopTab>("analytics");
-  const [contentSection, setContentSection] = useState<"snapshot" | "timelines" | "events" | "sources" | "import_events" | "requests">("snapshot");
+  const [contentSection, setContentSection] = useState<"snapshot" | "timelines" | "events" | "import_data" | "requests">("snapshot");
   const [isLoaded, setIsLoaded] = useState(false);
 
   const adminHeaders = useMemo(

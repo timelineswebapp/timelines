@@ -1,36 +1,42 @@
 import { renderPercent, renderSeconds, type AnalyticsDataset } from "@/components/admin/admin-shared";
 
 export function BehaviorMetrics({ dataset }: { dataset: AnalyticsDataset }) {
+  const report = dataset.analyticsReport;
+
   return (
     <section className="glass section-card stack">
       <h2 style={{ marginTop: 0 }}>Behavior</h2>
-      <div className="stats-row">
-        <div className="glass-card">
-          <strong>{renderSeconds(dataset.analyticsReport?.behavior.avgSessionDuration || 0)}</strong>
-          <p className="muted">Avg session duration</p>
-        </div>
-        <div className="glass-card">
-          <strong>{(dataset.analyticsReport?.behavior.timelinesPerSession || 0).toFixed(2)}</strong>
-          <p className="muted">Timelines per session</p>
-        </div>
-        <div className="glass-card">
-          <strong>{renderPercent(dataset.analyticsReport?.behavior.bounceRate || 0)}</strong>
-          <p className="muted">Bounce rate</p>
-        </div>
+      <div className="admin-metric-tiles">
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Avg session</span>
+          <strong className="admin-metric-value">{renderSeconds(report?.behavior.avgSessionDuration || 0)}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Timelines / session</span>
+          <strong className="admin-metric-value">{(report?.behavior.timelinesPerSession || 0).toFixed(2)}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Events opened / session</span>
+          <strong className="admin-metric-value">{(report?.behavior.eventsOpenedPerSession || 0).toFixed(2)}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Bounce rate</span>
+          <strong className="admin-metric-value">{renderPercent(report?.behavior.bounceRate || 0)}</strong>
+        </article>
       </div>
-      <div className="admin-panel-grid">
-        <div className="glass-card stack">
+      <div className="admin-panel-grid admin-panel-grid-compact">
+        <div className="glass-card stack admin-list-card">
           <strong>Visits by hour</strong>
-          {(dataset.analyticsReport?.behavior.visitsByHour || []).map((point) => (
+          {(report?.behavior.visitsByHour || []).map((point) => (
             <div key={point.label} className="admin-metric-row">
               <span>{point.label}</span>
               <strong>{point.value}</strong>
             </div>
           ))}
         </div>
-        <div className="glass-card stack">
+        <div className="glass-card stack admin-list-card">
           <strong>Visits by day</strong>
-          {(dataset.analyticsReport?.behavior.visitsByDay || []).map((point) => (
+          {(report?.behavior.visitsByDay || []).map((point) => (
             <div key={point.label} className="admin-metric-row">
               <span>{point.label}</span>
               <strong>{point.value}</strong>

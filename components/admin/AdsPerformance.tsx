@@ -1,9 +1,32 @@
 import type { AdsDashboardData } from "@/src/lib/types";
 
 export function AdsPerformance({ ads }: { ads: AdsDashboardData | null }) {
+  const campaigns = ads?.campaigns || [];
+  const totalClicks = campaigns.reduce((sum, campaign) => sum + campaign.clicks, 0);
+  const totalRevenue = campaigns.reduce((sum, campaign) => sum + campaign.revenue, 0);
+  const totalImpressions = campaigns.reduce((sum, campaign) => sum + campaign.impressions, 0);
+
   return (
     <section className="glass section-card stack">
       <h2 style={{ marginTop: 0 }}>Performance</h2>
+      <div className="admin-metric-tiles">
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Campaigns</span>
+          <strong className="admin-metric-value">{campaigns.length}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Impressions</span>
+          <strong className="admin-metric-value">{totalImpressions}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Clicks</span>
+          <strong className="admin-metric-value">{totalClicks}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Revenue</span>
+          <strong className="admin-metric-value">{totalRevenue.toFixed(2)}</strong>
+        </article>
+      </div>
       <table className="table">
         <thead>
           <tr>
@@ -15,7 +38,7 @@ export function AdsPerformance({ ads }: { ads: AdsDashboardData | null }) {
           </tr>
         </thead>
         <tbody>
-          {(ads?.campaigns || []).map((campaign) => (
+          {campaigns.map((campaign) => (
             <tr key={campaign.id}>
               <td>{campaign.campaignName}</td>
               <td>{campaign.impressions}</td>

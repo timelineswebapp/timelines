@@ -4,15 +4,15 @@ import type {
   AdsDashboardData,
   AnalyticsSnapshot,
   DashboardOverview,
+  EmbeddedSourceInput,
   EventRecord,
-  SourceRecord,
   TagRecord,
   TimelineRequestRecord,
   TimelineSummary
 } from "@/src/lib/types";
 
 export type TopTab = "content" | "analytics" | "ads";
-export type ContentSection = "snapshot" | "timelines" | "events" | "sources" | "import_events" | "requests";
+export type ContentSection = "snapshot" | "timelines" | "events" | "import_data" | "requests";
 export type AdminFetcher = <T>(url: string, init?: RequestInit) => Promise<T>;
 
 export type ContentDataset = {
@@ -20,7 +20,6 @@ export type ContentDataset = {
   analyticsSnapshot: AnalyticsSnapshot | null;
   timelines: TimelineSummary[];
   events: EventRecord[];
-  sources: SourceRecord[];
   tags: TagRecord[];
   requests: TimelineRequestRecord[];
 };
@@ -36,6 +35,7 @@ export type TimelineDraft = {
   slug: string;
   description: string;
   category: string;
+  status: "published";
 };
 
 export type EventDraft = {
@@ -49,15 +49,8 @@ export type EventDraft = {
   importance: string;
   location: string;
   imageUrl: string;
-  sourceIds: string;
+  sources: EmbeddedSourceInput[];
   tagIds: string;
-};
-
-export type SourceDraft = {
-  id: number | null;
-  publisher: string;
-  url: string;
-  credibilityScore: string;
 };
 
 export type TagDraft = {
@@ -86,7 +79,6 @@ export const initialContentDataset: ContentDataset = {
   analyticsSnapshot: null,
   timelines: [],
   events: [],
-  sources: [],
   tags: [],
   requests: []
 };
@@ -101,7 +93,8 @@ export const initialTimelineDraft: TimelineDraft = {
   title: "",
   slug: "",
   description: "",
-  category: ""
+  category: "",
+  status: "published"
 };
 
 export const initialEventDraft: EventDraft = {
@@ -115,15 +108,8 @@ export const initialEventDraft: EventDraft = {
   importance: "3",
   location: "",
   imageUrl: "",
-  sourceIds: "",
+  sources: [],
   tagIds: ""
-};
-
-export const initialSourceDraft: SourceDraft = {
-  id: null,
-  publisher: "",
-  url: "",
-  credibilityScore: "0.8"
 };
 
 export const initialTagDraft: TagDraft = {

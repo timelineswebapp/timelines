@@ -54,7 +54,7 @@ export function AdminAnalytics({
   }, [loadAnalytics]);
 
   return (
-    <div className="stack">
+    <div className="stack admin-module-stack">
       <AudienceMetrics dataset={dataset} />
       <BehaviorMetrics dataset={dataset} />
       <ContentPerformance dataset={dataset} />

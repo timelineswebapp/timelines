@@ -7,16 +7,14 @@ import type {
   EventRecord,
   ImportExecutionResult,
   ImportPreview,
-  SourceRecord,
   TagRecord,
   TimelineRequestRecord,
   TimelineSummary
 } from "@/src/lib/types";
 import { ContentSnapshot } from "@/components/admin/ContentSnapshot";
 import { EventManager } from "@/components/admin/EventManager";
-import { ImportEvents } from "@/components/admin/ImportEvents";
+import { ImportData } from "@/components/admin/ImportData";
 import { RequestsManager } from "@/components/admin/RequestsManager";
-import { SourceManager } from "@/components/admin/SourceManager";
 import { TimelineManager } from "@/components/admin/TimelineManager";
 import {
   initialContentDataset,
@@ -24,9 +22,7 @@ import {
   type ContentDataset,
   type ContentSection,
   type EventDraft,
-  type SourceDraft,
   type StatusHandlers,
-  type TagDraft,
   type TimelineDraft
 } from "@/components/admin/admin-shared";
 
@@ -53,17 +49,16 @@ export function AdminContent({
     setStatus("Loading content datasets...");
 
     try {
-      const [overview, analyticsSnapshot, timelines, events, sources, tags, requests] = await Promise.all([
+      const [overview, analyticsSnapshot, timelines, events, tags, requests] = await Promise.all([
         fetchAdmin<DashboardOverview>("/api/admin/analytics"),
         fetchAdmin<AnalyticsSnapshot>("/api/admin/analytics?mode=snapshot"),
         fetchAdmin<TimelineSummary[]>("/api/admin/timelines"),
         fetchAdmin<EventRecord[]>("/api/admin/events"),
-        fetchAdmin<SourceRecord[]>("/api/admin/sources"),
         fetchAdmin<TagRecord[]>("/api/admin/tags"),
         fetchAdmin<TimelineRequestRecord[]>("/api/admin/requests")
       ]);
 
-      setDataset({ overview, analyticsSnapshot, timelines, events, sources, tags, requests });
+      setDataset({ overview, analyticsSnapshot, timelines, events, tags, requests });
       setStatus("Content module synchronized.");
       onLoaded();
     } catch (loadError) {
@@ -98,7 +93,13 @@ export function AdminContent({
   );
 
   const previewImport = useCallback(
-    async (input: { format: "json" | "csv"; timelineId: number; content: string }): Promise<ImportPreview> => {
+    async (input: {
+      format: "json" | "csv" | "text";
+      importType: "timeline_with_events" | "events_into_existing_timeline";
+      timelineId?: number | null;
+      content: string;
+      skipDuplicates: boolean;
+    }): Promise<ImportPreview> => {
       setError("");
       setStatus("Preparing import preview...");
 
@@ -119,7 +120,13 @@ export function AdminContent({
   );
 
   const approveImport = useCallback(
-    async (input: { format: "json" | "csv"; timelineId: number; content: string }): Promise<ImportExecutionResult> => {
+    async (input: {
+      format: "json" | "csv" | "text";
+      importType: "timeline_with_events" | "events_into_existing_timeline";
+      timelineId?: number | null;
+      content: string;
+      skipDuplicates: boolean;
+    }): Promise<ImportExecutionResult> => {
       setError("");
       setStatus("Importing approved rows...");
 
@@ -128,7 +135,7 @@ export function AdminContent({
           method: "POST",
           body: JSON.stringify(input)
         });
-        setStatus(`Import completed: ${result.created} created, ${result.skipped} skipped.`);
+        setStatus(`Import completed: ${result.eventsCreatedCount} created, ${result.duplicatesSkipped} duplicates skipped.`);
         await loadContent();
         return result;
       } catch (importError) {
@@ -169,6 +176,7 @@ export function AdminContent({
     return (
       <EventManager
         timelines={dataset.timelines}
+        tags={dataset.tags}
         events={dataset.events}
         onSubmit={(draft: EventDraft) =>
           submitJson(
@@ -184,10 +192,11 @@ export function AdminContent({
               importance: Number(draft.importance),
               location: draft.location || null,
               imageUrl: draft.imageUrl || null,
-              sourceIds: draft.sourceIds
-                .split(",")
-                .map((item) => Number(item.trim()))
-                .filter(Boolean),
+              sources: draft.sources.map((source) => ({
+                title: source.title,
+                url: source.url,
+                publisher: source.publisher || null
+              })),
               tagIds: draft.tagIds
                 .split(",")
                 .map((item) => Number(item.trim()))
@@ -200,40 +209,8 @@ export function AdminContent({
     );
   }
 
-  if (section === "sources") {
-    return (
-      <SourceManager
-        sources={dataset.sources}
-        tags={dataset.tags}
-        onSubmitSource={(draft: SourceDraft) =>
-          submitJson(
-            draft.id ? `/api/admin/sources/${draft.id}` : "/api/admin/sources",
-            draft.id ? "PATCH" : "POST",
-            {
-              publisher: draft.publisher,
-              url: draft.url,
-              credibilityScore: Number(draft.credibilityScore)
-            }
-          )
-        }
-        onDeleteSource={(id: number) => submitJson(`/api/admin/sources/${id}`, "DELETE")}
-        onSubmitTag={(draft: TagDraft) =>
-          submitJson(
-            draft.id ? `/api/admin/tags/${draft.id}` : "/api/admin/tags",
-            draft.id ? "PATCH" : "POST",
-            {
-              name: draft.name,
-              slug: draft.slug
-            }
-          )
-        }
-        onDeleteTag={(id: number) => submitJson(`/api/admin/tags/${id}`, "DELETE")}
-      />
-    );
-  }
-
-  if (section === "import_events") {
-    return <ImportEvents timelines={dataset.timelines} onPreview={previewImport} onApprove={approveImport} />;
+  if (section === "import_data") {
+    return <ImportData timelines={dataset.timelines} onPreview={previewImport} onApprove={approveImport} />;
   }
 
   return (
