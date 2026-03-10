@@ -90,23 +90,67 @@ export const timelineRepository = {
       return memoryStore.getTimelineSummaries().slice(0, limit);
     }
 
-    const rows = await sql<TimelineRow[]>`
-      SELECT id, title, slug, description, category, created_at, updated_at
+    const rows = await sql<
+      (TimelineRow & {
+        tags: TimelineSummary["tags"] | null;
+        event_count: number | null;
+        highlighted_event_titles: string[] | null;
+      })[]
+    >`
+      SELECT
+        timelines.id,
+        timelines.title,
+        timelines.slug,
+        timelines.description,
+        timelines.category,
+        timelines.created_at,
+        timelines.updated_at,
+        COALESCE(tags.tags, '[]'::jsonb) AS tags,
+        COALESCE(counts.event_count, 0) AS event_count,
+        COALESCE(highlights.highlighted_event_titles, ARRAY[]::text[]) AS highlighted_event_titles
       FROM timelines
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS event_count
+        FROM timeline_events
+        WHERE timeline_id = timelines.id
+      ) counts ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT ARRAY(
+          SELECT events.title
+          FROM timeline_events
+          INNER JOIN events ON events.id = timeline_events.event_id
+          WHERE timeline_events.timeline_id = timelines.id
+          ORDER BY timeline_events.event_order ASC
+          LIMIT 3
+        ) AS highlighted_event_titles
+      ) highlights ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(
+          jsonb_agg(
+            jsonb_build_object('id', timeline_tags.id, 'slug', timeline_tags.slug, 'name', timeline_tags.name)
+            ORDER BY timeline_tags.name ASC
+          ),
+          '[]'::jsonb
+        ) AS tags
+        FROM (
+          SELECT DISTINCT tags.id, tags.slug, tags.name
+          FROM timeline_events
+          INNER JOIN event_tags ON event_tags.event_id = timeline_events.event_id
+          INNER JOIN tags ON tags.id = event_tags.tag_id
+          WHERE timeline_events.timeline_id = timelines.id
+        ) AS timeline_tags
+      ) tags ON TRUE
       ORDER BY updated_at DESC, id DESC
       LIMIT ${limit}
     `;
 
-    return Promise.all(
-      rows.map(async (row) => {
-        const [tags, eventCount, highlightedEventTitles] = await Promise.all([
-          getTimelineTags(row.id),
-          getTimelineEventCount(row.id),
-          getTimelineEventHighlights(row.id)
-        ]);
-
-        return summaryFromRow(row, tags, eventCount, highlightedEventTitles);
-      })
+    return rows.map((row) =>
+      summaryFromRow(
+        row,
+        row.tags || [],
+        row.event_count || 0,
+        row.highlighted_event_titles || []
+      )
     );
   },
 

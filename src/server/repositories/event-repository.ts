@@ -1,5 +1,7 @@
 import type { EventRecord } from "@/src/lib/types";
+import type { Sql } from "postgres";
 import { getSql } from "@/src/server/db/client";
+import { ApiError } from "@/src/server/api/responses";
 import { attachTaxonomyToEvent, memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store";
 
 type EventInput = {
@@ -18,6 +20,51 @@ type EventInput = {
 
 function reorderEvents(events: EventRecord[]) {
   return [...events].sort((left, right) => left.date.localeCompare(right.date));
+}
+
+async function assertTimelineExists(sql: Sql, timelineId: number): Promise<void> {
+  const [timeline] = await sql<{ id: number }[]>`
+    SELECT id
+    FROM timelines
+    WHERE id = ${timelineId}
+    LIMIT 1
+  `;
+
+  if (!timeline) {
+    throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
+  }
+}
+
+async function insertEventSources(sql: Sql, eventId: number, sourceIds: number[]): Promise<void> {
+  if (sourceIds.length === 0) {
+    return;
+  }
+
+  const rows = sourceIds.map((sourceId) => ({
+    event_id: eventId,
+    source_id: sourceId
+  }));
+
+  await sql`
+    INSERT INTO event_sources ${sql(rows, "event_id", "source_id")}
+    ON CONFLICT DO NOTHING
+  `;
+}
+
+async function insertEventTags(sql: Sql, eventId: number, tagIds: number[]): Promise<void> {
+  if (tagIds.length === 0) {
+    return;
+  }
+
+  const rows = tagIds.map((tagId) => ({
+    event_id: eventId,
+    tag_id: tagId
+  }));
+
+  await sql`
+    INSERT INTO event_tags ${sql(rows, "event_id", "tag_id")}
+    ON CONFLICT DO NOTHING
+  `;
 }
 
 export const eventRepository = {
@@ -96,62 +143,56 @@ export const eventRepository = {
       return event;
     }
 
-    const [event] = await sql<{
-      id: number;
-      date: string;
-      date_precision: EventRecord["datePrecision"];
-      title: string;
-      description: string;
-      importance: number;
-      location: string | null;
-      image_url: string | null;
-      created_at: string;
-      updated_at: string;
-    }[]>`
-      INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-      VALUES (${input.date}, ${input.datePrecision}, ${input.title}, ${input.description}, ${input.importance}, ${input.location}, ${input.imageUrl})
-      RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
-    `;
+    return sql.begin(async (tx) => {
+      const query = tx as unknown as Sql;
+      await assertTimelineExists(query, input.timelineId);
 
-    if (!event) {
-      throw new Error("Event insert failed.");
-    }
-
-    await sql`
-      INSERT INTO timeline_events (timeline_id, event_id, event_order)
-      VALUES (${input.timelineId}, ${event.id}, ${input.eventOrder})
-    `;
-
-    for (const sourceId of input.sourceIds) {
-      await sql`
-        INSERT INTO event_sources (event_id, source_id)
-        VALUES (${event.id}, ${sourceId})
-        ON CONFLICT DO NOTHING
+      const [event] = await query<{
+        id: number;
+        date: string;
+        date_precision: EventRecord["datePrecision"];
+        title: string;
+        description: string;
+        importance: number;
+        location: string | null;
+        image_url: string | null;
+        created_at: string;
+        updated_at: string;
+      }[]>`
+        INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
+        VALUES (${input.date}, ${input.datePrecision}, ${input.title}, ${input.description}, ${input.importance}, ${input.location}, ${input.imageUrl})
+        RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
       `;
-    }
 
-    for (const tagId of input.tagIds) {
-      await sql`
-        INSERT INTO event_tags (event_id, tag_id)
-        VALUES (${event.id}, ${tagId})
-        ON CONFLICT DO NOTHING
+      if (!event) {
+        throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
+      }
+
+      await query`
+        INSERT INTO timeline_events (timeline_id, event_id, event_order)
+        VALUES (${input.timelineId}, ${event.id}, ${input.eventOrder})
       `;
-    }
 
-    return {
-      id: event.id,
-      date: event.date,
-      datePrecision: event.date_precision,
-      title: event.title,
-      description: event.description,
-      importance: event.importance,
-      location: event.location,
-      imageUrl: event.image_url,
-      createdAt: event.created_at,
-      updatedAt: event.updated_at,
-      sources: [],
-      tags: []
-    };
+      await Promise.all([
+        insertEventSources(query, event.id, input.sourceIds),
+        insertEventTags(query, event.id, input.tagIds)
+      ]);
+
+      return {
+        id: event.id,
+        date: event.date,
+        datePrecision: event.date_precision,
+        title: event.title,
+        description: event.description,
+        importance: event.importance,
+        location: event.location,
+        imageUrl: event.image_url,
+        createdAt: event.created_at,
+        updatedAt: event.updated_at,
+        sources: [],
+        tags: []
+      };
+    });
   },
 
   async update(id: number, input: EventInput): Promise<EventRecord | null> {
@@ -195,71 +236,74 @@ export const eventRepository = {
       return updatedEvent;
     }
 
-    const [event] = await sql<{
-      id: number;
-      date: string;
-      date_precision: EventRecord["datePrecision"];
-      title: string;
-      description: string;
-      importance: number;
-      location: string | null;
-      image_url: string | null;
-      created_at: string;
-      updated_at: string;
-    }[]>`
-      UPDATE events
-      SET
-        date = ${input.date},
-        date_precision = ${input.datePrecision},
-        title = ${input.title},
-        description = ${input.description},
-        importance = ${input.importance},
-        location = ${input.location},
-        image_url = ${input.imageUrl}
-      WHERE id = ${id}
-      RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
-    `;
+    return sql.begin(async (tx) => {
+      const query = tx as unknown as Sql;
+      await assertTimelineExists(query, input.timelineId);
 
-    if (!event) {
-      return null;
-    }
-
-    await sql`
-      UPDATE timeline_events
-      SET timeline_id = ${input.timelineId}, event_order = ${input.eventOrder}
-      WHERE event_id = ${id}
-    `;
-    await sql`DELETE FROM event_sources WHERE event_id = ${id}`;
-    await sql`DELETE FROM event_tags WHERE event_id = ${id}`;
-
-    for (const sourceId of input.sourceIds) {
-      await sql`
-        INSERT INTO event_sources (event_id, source_id)
-        VALUES (${id}, ${sourceId})
+      const [event] = await query<{
+        id: number;
+        date: string;
+        date_precision: EventRecord["datePrecision"];
+        title: string;
+        description: string;
+        importance: number;
+        location: string | null;
+        image_url: string | null;
+        created_at: string;
+        updated_at: string;
+      }[]>`
+        UPDATE events
+        SET
+          date = ${input.date},
+          date_precision = ${input.datePrecision},
+          title = ${input.title},
+          description = ${input.description},
+          importance = ${input.importance},
+          location = ${input.location},
+          image_url = ${input.imageUrl}
+        WHERE id = ${id}
+        RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
       `;
-    }
 
-    for (const tagId of input.tagIds) {
-      await sql`
-        INSERT INTO event_tags (event_id, tag_id)
-        VALUES (${id}, ${tagId})
+      if (!event) {
+        return null;
+      }
+
+      const linkUpdate = await query`
+        UPDATE timeline_events
+        SET timeline_id = ${input.timelineId}, event_order = ${input.eventOrder}
+        WHERE event_id = ${id}
       `;
-    }
 
-    return {
-      id: event.id,
-      date: event.date,
-      datePrecision: event.date_precision,
-      title: event.title,
-      description: event.description,
-      importance: event.importance,
-      location: event.location,
-      imageUrl: event.image_url,
-      createdAt: event.created_at,
-      updatedAt: event.updated_at,
-      sources: [],
-      tags: []
-    };
+      if (linkUpdate.count !== 1) {
+        throw new ApiError(409, "EVENT_LINK_MISSING", "Event timeline link is missing.");
+      }
+
+      await Promise.all([
+        query`DELETE FROM event_sources WHERE event_id = ${id}`,
+        query`DELETE FROM event_tags WHERE event_id = ${id}`
+      ]);
+
+      await Promise.all([
+        insertEventSources(query, id, input.sourceIds),
+        insertEventTags(query, id, input.tagIds)
+      ]);
+
+      return {
+        id: event.id,
+        date: event.date,
+        datePrecision: event.date_precision,
+        title: event.title,
+        description: event.description,
+        importance: event.importance,
+        location: event.location,
+        imageUrl: event.image_url,
+        createdAt: event.created_at,
+        updatedAt: event.updated_at,
+        sources: [],
+        tags: []
+      };
+    });
   },
 
   async delete(id: number): Promise<boolean> {
