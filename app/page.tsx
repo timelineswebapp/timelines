@@ -11,7 +11,7 @@ export default function HomePage() {
       <section className="home-search-strip" aria-label="Search timelines">
         <SearchBar
           className="home-search-form home-search-form-solo"
-          placeholder="Search timelines"
+          placeholder="timeline of.."
           inputId="home-timeline-search"
         />
       </section>

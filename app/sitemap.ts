@@ -6,12 +6,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const slugs = await contentService.listStaticSlugs(200);
   const staticEntries: MetadataRoute.Sitemap = [
     "",
-    "/search",
-    "/admin"
+    "/search"
   ].map((pathname) => ({
     url: `${config.siteUrl}${pathname}`,
     lastModified: new Date(),
-    changeFrequency: pathname === "/admin" ? "weekly" : "daily",
+    changeFrequency: "daily",
     priority: pathname === "" ? 1 : 0.7
   }));
 

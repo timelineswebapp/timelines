@@ -42,7 +42,12 @@ export function AdminDashboard() {
   const adminHeaders = useMemo(
     () => ({
       "content-type": "application/json",
-      ...(token ? { "x-admin-token": token } : {})
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+            "x-admin-token": token
+          }
+        : {})
     }),
     [token]
   );
