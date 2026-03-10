@@ -81,8 +81,16 @@ export function EventDetailSheet({
         <div className="sheet-handle" />
         <div className="event-sheet-header">
           <span className="eyebrow sheet-date">{formatDisplayDate(event.date, event.datePrecision)}</span>
-          <button type="button" className="sheet-close" onClick={onClose} aria-label="Close event details">
-            Close
+          <button type="button" className="sheet-icon-button" onClick={onClose} aria-label="Close event details">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path
+                d="M5.25 5.25 14.75 14.75M14.75 5.25 5.25 14.75"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="1.8"
+              />
+            </svg>
           </button>
         </div>
 

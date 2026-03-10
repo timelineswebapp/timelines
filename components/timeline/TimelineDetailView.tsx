@@ -93,8 +93,18 @@ export function TimelineDetailView({ timeline }: { timeline: TimelineDetail }) {
 
             router.push("/");
           }}
+          aria-label="Go back"
         >
-          Back
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M11.75 4.75 6.5 10l5.25 5.25"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.8"
+            />
+          </svg>
         </button>
 
         <section className="timeline-header glass">

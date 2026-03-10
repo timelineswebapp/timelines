@@ -69,23 +69,39 @@ export function RequestTimelineForm({
             <section className="request-modal glass" onClick={(event) => event.stopPropagation()}>
               <div className="request-modal-header">
                 <strong>Request a timeline</strong>
-                <button type="button" className="sheet-close" onClick={() => setIsOpen(false)} aria-label="Close request form">
-                  Close
+                <button type="button" className="sheet-icon-button" onClick={() => setIsOpen(false)} aria-label="Close request form">
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path
+                      d="M5.25 5.25 14.75 14.75M14.75 5.25 5.25 14.75"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeWidth="1.8"
+                    />
+                  </svg>
                 </button>
               </div>
               <form action={onSubmit} className="request-form-compact">
                 <input type="hidden" name="language" value="en" />
-                <input
-                  className="input"
-                  name="query"
-                  placeholder="Request a timeline or event"
-                  minLength={3}
-                  maxLength={120}
-                  required
-                />
-                <button className="button secondary request-inline-button" type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Sending..." : "Request"}
-                </button>
+                <div className="request-input-shell">
+                  <input
+                    className="input request-input"
+                    name="query"
+                    placeholder="Request a timeline or event"
+                    minLength={3}
+                    maxLength={120}
+                    required
+                  />
+                  <button className="request-send-button" type="submit" disabled={isSubmitting} aria-label="Send request">
+                    {isSubmitting ? (
+                      <span className="request-send-text">...</span>
+                    ) : (
+                      <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <path d="M3.5 10.5 16 4l-3.5 12-3.1-4-5.9-1.5Z" fill="currentColor" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 {message ? <p className="small request-form-message request-form-success">{message}</p> : null}
                 {error ? <p className="small request-form-message request-form-error">{error}</p> : null}
               </form>
@@ -94,17 +110,25 @@ export function RequestTimelineForm({
         ) : (
           <form action={onSubmit} className="request-form-compact">
             <input type="hidden" name="language" value="en" />
-            <input
-              className="input"
-              name="query"
-              placeholder="Request a timeline or event"
-              minLength={3}
-              maxLength={120}
-              required
-            />
-            <button className="button secondary request-inline-button" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Sending..." : "Request"}
-            </button>
+            <div className="request-input-shell">
+              <input
+                className="input request-input"
+                name="query"
+                placeholder="Request a timeline or event"
+                minLength={3}
+                maxLength={120}
+                required
+              />
+              <button className="request-send-button" type="submit" disabled={isSubmitting} aria-label="Send request">
+                {isSubmitting ? (
+                  <span className="request-send-text">...</span>
+                ) : (
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M3.5 10.5 16 4l-3.5 12-3.1-4-5.9-1.5Z" fill="currentColor" />
+                  </svg>
+                )}
+              </button>
+            </div>
             {message ? <p className="small request-form-message request-form-success">{message}</p> : null}
             {error ? <p className="small request-form-message request-form-error">{error}</p> : null}
           </form>
