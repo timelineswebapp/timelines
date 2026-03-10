@@ -689,6 +689,24 @@ main {
   gap: 12px;
 }
 
+.admin-subtab {
+  background: linear-gradient(180deg, rgba(255, 244, 224, 0.9), rgba(245, 227, 197, 0.82));
+  border-color: rgba(189, 145, 86, 0.28);
+  color: #5b4225;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 10px 24px rgba(153, 112, 49, 0.08);
+}
+
+.admin-subtab-active {
+  background: linear-gradient(180deg, rgba(220, 171, 99, 0.96), rgba(186, 129, 51, 0.92));
+  border-color: rgba(161, 110, 42, 0.34);
+  color: #fff7ea;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 243, 220, 0.3),
+    0 16px 30px rgba(153, 112, 49, 0.18);
+}
+
 .admin-panel-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

@@ -51,7 +51,7 @@ export function AdminLayout({
               <button
                 key={section}
                 type="button"
-                className={`button ${contentSection === section ? "" : "secondary"}`}
+                className={`button admin-subtab ${contentSection === section ? "admin-subtab-active" : ""}`}
                 onClick={() => onContentSectionChange(section)}
               >
                 {section.replace("_", " ")}
