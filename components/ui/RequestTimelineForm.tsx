@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CloseIcon, SendIcon } from "@/components/ui/Icons";
 
 export function RequestTimelineForm({
   triggerLabel = "MISSING A TOPIC?",
@@ -70,15 +71,7 @@ export function RequestTimelineForm({
               <div className="request-modal-header">
                 <strong>Request a timeline</strong>
                 <button type="button" className="sheet-icon-button" onClick={() => setIsOpen(false)} aria-label="Close request form">
-                  <svg viewBox="0 0 20 20" aria-hidden="true">
-                    <path
-                      d="M5.25 5.25 14.75 14.75M14.75 5.25 5.25 14.75"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeWidth="1.8"
-                    />
-                  </svg>
+                  <CloseIcon />
                 </button>
               </div>
               <form action={onSubmit} className="request-form-compact">
@@ -96,9 +89,7 @@ export function RequestTimelineForm({
                     {isSubmitting ? (
                       <span className="request-send-text">...</span>
                     ) : (
-                      <svg viewBox="0 0 20 20" aria-hidden="true">
-                        <path d="M3.5 10.5 16 4l-3.5 12-3.1-4-5.9-1.5Z" fill="currentColor" />
-                      </svg>
+                      <SendIcon />
                     )}
                   </button>
                 </div>
@@ -123,9 +114,7 @@ export function RequestTimelineForm({
                 {isSubmitting ? (
                   <span className="request-send-text">...</span>
                 ) : (
-                  <svg viewBox="0 0 20 20" aria-hidden="true">
-                    <path d="M3.5 10.5 16 4l-3.5 12-3.1-4-5.9-1.5Z" fill="currentColor" />
-                  </svg>
+                  <SendIcon />
                 )}
               </button>
             </div>

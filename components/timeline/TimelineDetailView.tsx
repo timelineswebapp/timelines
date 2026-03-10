@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { TimelineDetail } from "@/src/lib/types";
 import { EventDetailSheet } from "@/components/timeline/EventDetailSheet";
 import { EventRow } from "@/components/timeline/EventRow";
+import { ArrowLeftIcon } from "@/components/ui/Icons";
 
 function getYearLabel(date: string) {
   const parsed = new Date(`${date}T00:00:00Z`);
@@ -95,16 +96,7 @@ export function TimelineDetailView({ timeline }: { timeline: TimelineDetail }) {
           }}
           aria-label="Go back"
         >
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path
-              d="M11.75 4.75 6.5 10l5.25 5.25"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.8"
-            />
-          </svg>
+          <ArrowLeftIcon />
         </button>
 
         <section className="timeline-header glass">

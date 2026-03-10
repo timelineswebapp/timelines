@@ -1,4 +1,5 @@
 import { cn } from "@/src/lib/utils";
+import { SendIcon } from "@/components/ui/Icons";
 
 export function SearchBar({
   defaultValue = "",
@@ -29,9 +30,7 @@ export function SearchBar({
           placeholder={placeholder}
         />
         <button className="search-send-button" type="submit" aria-label="Search timelines">
-          <svg viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M3.5 10.5 16 4l-3.5 12-3.1-4-5.9-1.5Z" fill="currentColor" />
-          </svg>
+          <SendIcon />
         </button>
       </div>
     </form>
