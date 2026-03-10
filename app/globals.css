@@ -683,6 +683,25 @@ main {
   align-self: start;
 }
 
+.admin-subnav,
+.admin-panel-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-panel-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-split,
+.admin-metric-row,
+.ad-slot-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .admin-section + .admin-section {
   margin-top: 20px;
 }
@@ -709,6 +728,26 @@ main {
   position: relative;
   overflow: hidden;
   min-height: 120px;
+}
+
+.ad-slot-content {
+  gap: 10px;
+}
+
+.ad-slot-headline {
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.ad-slot-link {
+  width: fit-content;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(180deg, rgba(133, 204, 255, 0.18), rgba(77, 145, 210, 0.14));
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  font-weight: 700;
 }
 
 .ad-slot::after {
@@ -910,7 +949,8 @@ main {
 
 @media (max-width: 900px) {
   .hero-grid,
-  .admin-grid {
+  .admin-grid,
+  .admin-panel-grid {
     grid-template-columns: 1fr;
   }
 
