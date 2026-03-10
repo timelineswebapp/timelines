@@ -147,10 +147,14 @@ main {
   display: inline-flex;
   align-items: flex-end;
   gap: 0.02em;
-  color: #223a57;
+  color: transparent;
+  background: linear-gradient(180deg, rgba(117, 141, 170, 0.96) 0%, rgba(62, 84, 110, 0.96) 38%, rgba(27, 46, 69, 0.98) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.36),
-    0 10px 20px rgba(77, 145, 210, 0.08);
+    0 1px 0 rgba(255, 255, 255, 0.18),
+    0 10px 20px rgba(77, 145, 210, 0.06);
 }
 
 .site-logo::after {
@@ -166,16 +170,14 @@ main {
   z-index: -1;
 }
 
-.site-logo-soft {
-  font-size: 0.84em;
-  font-weight: 650;
-  color: rgba(34, 58, 87, 0.94);
-  transform: translateY(-0.02em);
-}
-
 .site-logo-strong {
   font-weight: 700;
-  color: #1a2d44;
+}
+
+.site-logo-lower {
+  font-size: 0.8em;
+  font-weight: 650;
+  transform: translateY(-0.04em);
 }
 
 .site-tagline {
@@ -370,9 +372,21 @@ main {
   padding: 22px;
 }
 
+.home-search-strip {
+  display: grid;
+}
+
 .home-search-form {
   gap: 12px;
   padding: 6px;
+}
+
+.home-search-form-solo {
+  padding: 0;
+}
+
+.home-search-form-solo .search-input-shell {
+  width: 100%;
 }
 
 .home-request-strip {
