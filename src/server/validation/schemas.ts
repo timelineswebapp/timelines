@@ -10,6 +10,14 @@ const trimmedString = (min: number, max: number) =>
 
 export const datePrecisionSchema = z.enum(["year", "month", "day", "approximate"]);
 export const requestStatusSchema = z.enum(["pending", "reviewed", "planned", "rejected", "completed"]);
+export const adSlotSchema = z.enum([
+  "home_feed_ad",
+  "timeline_inline_1",
+  "timeline_inline_2",
+  "timeline_bottom",
+  "search_bottom"
+]);
+export const adCampaignStatusSchema = z.enum(["draft", "active", "paused", "completed"]);
 
 export const sourceSchema = z.object({
   publisher: trimmedString(2, 120),
@@ -104,4 +112,18 @@ export const importPreviewSchema = z.object({
   format: z.enum(["csv", "json"]),
   content: z.string().min(2).max(500000),
   timelineId: z.coerce.number().int().positive()
+});
+
+export const adCampaignSchema = z.object({
+  slot: adSlotSchema,
+  campaignName: trimmedString(3, 140),
+  advertiser: trimmedString(2, 120),
+  creativeImage: z.string().trim().url().nullable().optional().transform((value) => value || null),
+  headline: trimmedString(3, 140),
+  description: trimmedString(10, 400),
+  cta: trimmedString(2, 40),
+  targetUrl: z.string().trim().url(),
+  startDate: z.string().trim().date(),
+  endDate: z.string().trim().date(),
+  status: adCampaignStatusSchema
 });

@@ -33,6 +33,12 @@ export interface EventRecord {
   updatedAt: string;
   sources: SourceRecord[];
   tags: TagRecord[];
+  timelineLinks?: Array<{
+    timelineId: number;
+    slug: string;
+    title: string;
+    eventOrder: number;
+  }>;
 }
 
 export interface TimelineSummary {
@@ -106,6 +112,124 @@ export interface AnalyticsSnapshot {
   }>;
 }
 
+export interface MetricDistribution {
+  label: string;
+  value: number;
+}
+
+export interface TimeSeriesPoint {
+  label: string;
+  value: number;
+}
+
+export interface RankedTimelineMetric {
+  timelineId: number;
+  title: string;
+  slug: string;
+  views: number;
+  eventOpenRate: number;
+  avgReadTime: number;
+}
+
+export interface RankedEventMetric {
+  eventId: number;
+  title: string;
+  views: number;
+  eventOpenRate: number;
+  avgReadTime: number;
+}
+
+export interface SearchQueryMetric {
+  query: string;
+  total: number;
+}
+
+export interface AdminAnalyticsReport {
+  audience: {
+    usersToday: number;
+    usersWeek: number;
+    usersMonth: number;
+    newUsers: number;
+    returningUsers: number;
+    countryDistribution: MetricDistribution[];
+    deviceDistribution: MetricDistribution[];
+    browserDistribution: MetricDistribution[];
+  };
+  behavior: {
+    avgSessionDuration: number;
+    timelinesPerSession: number;
+    eventsOpenedPerSession: number;
+    bounceRate: number;
+    visitsByHour: TimeSeriesPoint[];
+    visitsByDay: TimeSeriesPoint[];
+  };
+  contentPerformance: {
+    topTimelines: RankedTimelineMetric[];
+    topEvents: RankedEventMetric[];
+  };
+  searchIntelligence: {
+    topSearchQueries: SearchQueryMetric[];
+    noResultSearches: number;
+    searchClickRate: number;
+  };
+  growth: {
+    trafficOverTime: TimeSeriesPoint[];
+    searchesOverTime: TimeSeriesPoint[];
+    timelineViewsOverTime: TimeSeriesPoint[];
+  };
+  trackingConfigured: boolean;
+}
+
+export type AdSlotKey =
+  | "home_feed_ad"
+  | "timeline_inline_1"
+  | "timeline_inline_2"
+  | "timeline_bottom"
+  | "search_bottom";
+
+export type AdCampaignStatus = "draft" | "active" | "paused" | "completed";
+
+export interface AdCampaignRecord {
+  id: number;
+  slot: AdSlotKey;
+  campaignName: string;
+  advertiser: string;
+  creativeImage: string | null;
+  headline: string;
+  description: string;
+  cta: string;
+  targetUrl: string;
+  startDate: string;
+  endDate: string;
+  status: AdCampaignStatus;
+  impressions: number;
+  clicks: number;
+  revenue: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdSlotAssignment {
+  slot: AdSlotKey;
+  label: string;
+  activeCampaign: AdCampaignRecord | null;
+}
+
+export interface AdsSnapshot {
+  revenueToday: number;
+  revenueMonth: number;
+  activeCampaigns: number;
+  fillRate: number;
+  impressionsToday: number;
+  ctr: number;
+}
+
+export interface AdsDashboardData {
+  snapshot: AdsSnapshot;
+  slots: AdSlotAssignment[];
+  campaigns: AdCampaignRecord[];
+}
+
 export interface ImportPreview {
   format: "csv" | "json";
   valid: boolean;
@@ -120,6 +244,11 @@ export interface ImportPreview {
     title: string;
     description: string;
   }>;
+}
+
+export interface ImportExecutionResult {
+  created: number;
+  skipped: number;
 }
 
 export interface TimelineImportRow {

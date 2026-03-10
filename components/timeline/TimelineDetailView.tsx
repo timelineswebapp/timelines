@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { TimelineDetail } from "@/src/lib/types";
+import type { AdSlotAssignment, TimelineDetail } from "@/src/lib/types";
+import { AdSlot } from "@/components/timeline/AdSlot";
 import { EventDetailSheet } from "@/components/timeline/EventDetailSheet";
 import { EventRow } from "@/components/timeline/EventRow";
 import { ArrowLeftIcon } from "@/components/ui/Icons";
@@ -29,7 +30,17 @@ function getTimelineDateRange(timeline: TimelineDetail) {
   return start === end ? start : `${start}–${end}`;
 }
 
-export function TimelineDetailView({ timeline }: { timeline: TimelineDetail }) {
+function assignmentForSlot(assignments: AdSlotAssignment[], slot: AdSlotAssignment["slot"]) {
+  return assignments.find((assignment) => assignment.slot === slot) || null;
+}
+
+export function TimelineDetailView({
+  timeline,
+  adAssignments = []
+}: {
+  timeline: TimelineDetail;
+  adAssignments?: AdSlotAssignment[];
+}) {
   const router = useRouter();
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const selectedEventIdRef = useRef<number | null>(null);
@@ -54,6 +65,9 @@ export function TimelineDetailView({ timeline }: { timeline: TimelineDetail }) {
   const selectedEvent = timeline.events.find((event) => event.id === selectedEventId) || null;
   const dateRange = getTimelineDateRange(timeline);
   const headerMeta = [dateRange, `${timeline.eventCount} events`].filter(Boolean).join(" · ");
+  const timelineInlineOne = assignmentForSlot(adAssignments, "timeline_inline_1");
+  const timelineInlineTwo = assignmentForSlot(adAssignments, "timeline_inline_2");
+  const timelineBottom = assignmentForSlot(adAssignments, "timeline_bottom");
 
   const openEvent = (eventId: number) => {
     const url = new URL(window.location.href);
@@ -107,9 +121,14 @@ export function TimelineDetailView({ timeline }: { timeline: TimelineDetail }) {
         </section>
 
         <section className="event-stream" aria-label={`${timeline.title} events`}>
-          {timeline.events.map((event) => (
-            <EventRow key={event.id} event={event} onOpen={openEvent} />
+          {timeline.events.map((event, index) => (
+            <Fragment key={event.id}>
+              <EventRow event={event} onOpen={openEvent} />
+              {index === 2 && timelineInlineOne ? <AdSlot assignment={timelineInlineOne} className="timeline-inline-ad" /> : null}
+              {index === 7 && timelineInlineTwo ? <AdSlot assignment={timelineInlineTwo} className="timeline-inline-ad" /> : null}
+            </Fragment>
           ))}
+          {timelineBottom ? <AdSlot assignment={timelineBottom} className="timeline-bottom-ad" /> : null}
         </section>
       </div>
 

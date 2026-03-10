@@ -71,7 +71,19 @@ export const eventRepository = {
   async list(): Promise<EventRecord[]> {
     const sql = getSql();
     if (!sql) {
-      return memoryStore.getTimelines().flatMap((timeline) => timeline.events);
+      return memoryStore.getTimelines().flatMap((timeline) =>
+        timeline.events.map((event) => ({
+          ...event,
+          timelineLinks: [
+            {
+              timelineId: timeline.id,
+              slug: timeline.slug,
+              title: timeline.title,
+              eventOrder: timeline.events.findIndex((candidate) => candidate.id === event.id) + 1
+            }
+          ]
+        }))
+      );
     }
 
     const rows = await sql<{
@@ -85,12 +97,69 @@ export const eventRepository = {
       image_url: string | null;
       created_at: string;
       updated_at: string;
+      source_ids: number[] | null;
+      tag_ids: number[] | null;
     }[]>`
-      SELECT id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
+      SELECT
+        events.id,
+        events.date::text AS date,
+        events.date_precision,
+        events.title,
+        events.description,
+        events.importance,
+        events.location,
+        events.image_url,
+        events.created_at::text AS created_at,
+        events.updated_at::text AS updated_at,
+        ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+        ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
       FROM events
-      ORDER BY date DESC, id DESC
+      LEFT JOIN event_sources ON event_sources.event_id = events.id
+      LEFT JOIN event_tags ON event_tags.event_id = events.id
+      GROUP BY events.id
+      ORDER BY events.date DESC, events.id DESC
       LIMIT 200
     `;
+
+    const eventIds = rows.map((row) => row.id);
+    const sourceIds = Array.from(new Set(rows.flatMap((row) => row.source_ids || [])));
+    const tagIds = Array.from(new Set(rows.flatMap((row) => row.tag_ids || [])));
+    const timelineLinks = eventIds.length
+      ? await sql<{
+          event_id: number;
+          timeline_id: number;
+          slug: string;
+          title: string;
+          event_order: number;
+        }[]>`
+          SELECT
+            timeline_events.event_id,
+            timeline_events.timeline_id,
+            timelines.slug,
+            timelines.title,
+            timeline_events.event_order
+          FROM timeline_events
+          INNER JOIN timelines ON timelines.id = timeline_events.timeline_id
+          WHERE timeline_events.event_id IN ${sql(eventIds)}
+          ORDER BY timeline_events.event_order ASC
+        `
+      : [];
+    const [sources, tags] = await Promise.all([
+      sourceIds.length
+        ? sql<{ id: number; publisher: string; url: string; credibility_score: string }[]>`
+            SELECT id, publisher, url, credibility_score::text
+            FROM sources
+            WHERE id IN ${sql(sourceIds)}
+          `
+        : Promise.resolve([]),
+      tagIds.length
+        ? sql<{ id: number; slug: string; name: string }[]>`
+            SELECT id, slug, name
+            FROM tags
+            WHERE id IN ${sql(tagIds)}
+          `
+        : Promise.resolve([])
+    ]);
 
     return rows.map((row) => ({
       id: row.id,
@@ -103,8 +172,23 @@ export const eventRepository = {
       imageUrl: row.image_url,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      sources: [],
-      tags: []
+      sources: sources
+        .filter((source) => (row.source_ids || []).includes(source.id))
+        .map((source) => ({
+          id: source.id,
+          publisher: source.publisher,
+          url: source.url,
+          credibilityScore: Number(source.credibility_score)
+        })),
+      tags: tags.filter((tag) => (row.tag_ids || []).includes(tag.id)),
+      timelineLinks: timelineLinks
+        .filter((link) => link.event_id === row.id)
+        .map((link) => ({
+          timelineId: link.timeline_id,
+          slug: link.slug,
+          title: link.title,
+          eventOrder: link.event_order
+        }))
     }));
   },
 

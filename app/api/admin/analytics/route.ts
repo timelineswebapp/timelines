@@ -9,6 +9,9 @@ export const GET = withAdminAuth(async (request: Request) => {
   if (searchParams.get("mode") === "snapshot") {
     return ok(await adminService.getAnalyticsSnapshot());
   }
+  if (searchParams.get("mode") === "report") {
+    return ok(await adminService.getAnalyticsReport());
+  }
 
   return ok(await adminService.getDashboardOverview());
 });

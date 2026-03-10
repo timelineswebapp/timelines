@@ -1,8 +1,18 @@
-import type { AnalyticsSnapshot, DashboardOverview, TimelineRequestStatus } from "@/src/lib/types";
+import type { AdminAnalyticsReport, AnalyticsSnapshot, DashboardOverview, TimelineRequestStatus } from "@/src/lib/types";
 import { config } from "@/src/lib/config";
 import { getSql } from "@/src/server/db/client";
 import { getSampleDashboardOverview } from "@/src/server/dev/sample-data";
 import { memoryStore } from "@/src/server/dev/memory-store";
+import { eventRepository } from "@/src/server/repositories/event-repository";
+import { timelineRepository } from "@/src/server/repositories/timeline-repository";
+
+const HOUR_LABELS = Array.from({ length: 24 }, (_, index) => `${index.toString().padStart(2, "0")}:00`);
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTH_WINDOW_DAYS = 30;
+
+function zeroSeries(labels: string[]) {
+  return labels.map((label) => ({ label, value: 0 }));
+}
 
 export const analyticsRepository = {
   async getDashboardOverview(): Promise<DashboardOverview> {
@@ -124,6 +134,141 @@ export const analyticsRepository = {
         databaseConfigured: Boolean(config.databaseUrl)
       },
       topCategories
+    };
+  },
+
+  async getAnalyticsReport(): Promise<AdminAnalyticsReport> {
+    const [timelineSummaries, events] = await Promise.all([
+      timelineRepository.listSummaries(10),
+      eventRepository.list()
+    ]);
+
+    const topTimelines = timelineSummaries.slice(0, 10).map((timeline) => ({
+      timelineId: timeline.id,
+      title: timeline.title,
+      slug: timeline.slug,
+      views: 0,
+      eventOpenRate: 0,
+      avgReadTime: 0
+    }));
+
+    const topEvents = events.slice(0, 10).map((event) => ({
+      eventId: event.id,
+      title: event.title,
+      views: 0,
+      eventOpenRate: 0,
+      avgReadTime: 0
+    }));
+
+    const sql = getSql();
+    const trackingConfigured = Boolean(config.gaId);
+
+    if (!sql) {
+      const now = Date.now();
+      const windowStart = now - 1000 * 60 * 60 * 24 * MONTH_WINDOW_DAYS;
+      const requestsLast30Days = memoryStore
+        .getRequests()
+        .filter((request) => new Date(request.createdAt).getTime() >= windowStart).length;
+
+      return {
+        audience: {
+          usersToday: 0,
+          usersWeek: 0,
+          usersMonth: 0,
+          newUsers: 0,
+          returningUsers: 0,
+          countryDistribution: [],
+          deviceDistribution: [],
+          browserDistribution: []
+        },
+        behavior: {
+          avgSessionDuration: 0,
+          timelinesPerSession: 0,
+          eventsOpenedPerSession: 0,
+          bounceRate: 0,
+          visitsByHour: zeroSeries(HOUR_LABELS),
+          visitsByDay: zeroSeries(DAY_LABELS)
+        },
+        contentPerformance: {
+          topTimelines,
+          topEvents
+        },
+        searchIntelligence: {
+          topSearchQueries: [],
+          noResultSearches: 0,
+          searchClickRate: 0
+        },
+        growth: {
+          trafficOverTime: zeroSeries(["Week 1", "Week 2", "Week 3", "Week 4"]),
+          searchesOverTime: [
+            { label: "Requests (30d)", value: requestsLast30Days }
+          ],
+          timelineViewsOverTime: zeroSeries(["Week 1", "Week 2", "Week 3", "Week 4"])
+        },
+        trackingConfigured
+      };
+    }
+
+    const [requestRows, timelineRows, eventRows] = await Promise.all([
+      sql<{ label: string; value: number }[]>`
+        SELECT TO_CHAR(created_at, 'Dy') AS label, COUNT(*)::int AS value
+        FROM timeline_requests
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY TO_CHAR(created_at, 'Dy')
+      `,
+      sql<{ label: string; value: number }[]>`
+        SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS label, COUNT(*)::int AS value
+        FROM timelines
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+        ORDER BY label ASC
+      `,
+      sql<{ label: string; value: number }[]>`
+        SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS label, COUNT(*)::int AS value
+        FROM events
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+        ORDER BY label ASC
+      `
+    ]);
+
+    return {
+      audience: {
+        usersToday: 0,
+        usersWeek: 0,
+        usersMonth: 0,
+        newUsers: 0,
+        returningUsers: 0,
+        countryDistribution: [],
+        deviceDistribution: [],
+        browserDistribution: []
+      },
+      behavior: {
+        avgSessionDuration: 0,
+        timelinesPerSession: 0,
+        eventsOpenedPerSession: 0,
+        bounceRate: 0,
+        visitsByHour: zeroSeries(HOUR_LABELS),
+        visitsByDay: DAY_LABELS.map((label) => ({
+          label,
+          value: requestRows.find((row) => row.label === label)?.value || 0
+        }))
+      },
+      contentPerformance: {
+        topTimelines,
+        topEvents
+      },
+      searchIntelligence: {
+        topSearchQueries: [],
+        noResultSearches: 0,
+        searchClickRate: 0
+      },
+      growth: {
+        trafficOverTime: timelineRows,
+        searchesOverTime: requestRows,
+        timelineViewsOverTime: eventRows
+      },
+      trackingConfigured
     };
   }
 };

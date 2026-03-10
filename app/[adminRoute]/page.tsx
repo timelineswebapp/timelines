@@ -28,7 +28,7 @@ export default function AdminPage({ params }: { params: { adminRoute: string } }
           Editorial operations
         </h1>
         <p className="section-copy">
-          Timeline, event, source, tag, request, analytics, and import controls are isolated behind authenticated API routes.
+          Content, analytics, ad inventory, and import controls are isolated behind authenticated API routes.
         </p>
       </GlassPanel>
       <AdminDashboard />
