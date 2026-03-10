@@ -3,16 +3,16 @@
 import { useState } from "react";
 
 export function RequestTimelineForm({
-  collapsible = false,
-  triggerLabel = "MISSING A TOPIC?"
+  triggerLabel = "MISSING A TOPIC?",
+  variant = "inline"
 }: {
-  collapsible?: boolean;
   triggerLabel?: string;
+  variant?: "inline" | "modal";
 }) {
   const [message, setMessage] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isOpen, setIsOpen] = useState(!collapsible);
+  const [isOpen, setIsOpen] = useState(variant !== "modal");
 
   async function onSubmit(formData: FormData) {
     setIsSubmitting(true);
@@ -37,6 +37,12 @@ export function RequestTimelineForm({
       }
 
       setMessage("Request captured. Editorial review will pick it up from the admin queue.");
+      if (variant === "modal") {
+        window.setTimeout(() => {
+          setIsOpen(false);
+          setMessage("");
+        }, 1200);
+      }
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "Unable to submit request.");
     } finally {
@@ -46,10 +52,10 @@ export function RequestTimelineForm({
 
   return (
     <div className="request-inline-shell">
-      {collapsible ? (
+      {variant === "modal" ? (
         <button
           type="button"
-          className="request-toggle-button"
+          className="eyebrow request-toggle-button"
           onClick={() => setIsOpen((current) => !current)}
           aria-expanded={isOpen}
         >
@@ -58,22 +64,51 @@ export function RequestTimelineForm({
       ) : null}
 
       {isOpen ? (
-        <form action={onSubmit} className="request-form-compact">
-          <input type="hidden" name="language" value="en" />
-          <input
-            className="input"
-            name="query"
-            placeholder="Request a timeline or event"
-            minLength={3}
-            maxLength={120}
-            required
-          />
-          <button className="button secondary request-inline-button" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Sending..." : "Request"}
-          </button>
-          {message ? <p className="small request-form-message request-form-success">{message}</p> : null}
-          {error ? <p className="small request-form-message request-form-error">{error}</p> : null}
-        </form>
+        variant === "modal" ? (
+          <div className="request-modal-backdrop" onClick={() => setIsOpen(false)}>
+            <section className="request-modal glass" onClick={(event) => event.stopPropagation()}>
+              <div className="request-modal-header">
+                <strong>Request a timeline</strong>
+                <button type="button" className="sheet-close" onClick={() => setIsOpen(false)} aria-label="Close request form">
+                  Close
+                </button>
+              </div>
+              <form action={onSubmit} className="request-form-compact">
+                <input type="hidden" name="language" value="en" />
+                <input
+                  className="input"
+                  name="query"
+                  placeholder="Request a timeline or event"
+                  minLength={3}
+                  maxLength={120}
+                  required
+                />
+                <button className="button secondary request-inline-button" type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Sending..." : "Request"}
+                </button>
+                {message ? <p className="small request-form-message request-form-success">{message}</p> : null}
+                {error ? <p className="small request-form-message request-form-error">{error}</p> : null}
+              </form>
+            </section>
+          </div>
+        ) : (
+          <form action={onSubmit} className="request-form-compact">
+            <input type="hidden" name="language" value="en" />
+            <input
+              className="input"
+              name="query"
+              placeholder="Request a timeline or event"
+              minLength={3}
+              maxLength={120}
+              required
+            />
+            <button className="button secondary request-inline-button" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Sending..." : "Request"}
+            </button>
+            {message ? <p className="small request-form-message request-form-success">{message}</p> : null}
+            {error ? <p className="small request-form-message request-form-error">{error}</p> : null}
+          </form>
+        )
       ) : null}
     </div>
   );

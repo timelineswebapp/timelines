@@ -281,13 +281,7 @@ main {
 
 .request-toggle-button {
   width: fit-content;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--highlight-strong);
-  font-size: 0.92rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  cursor: pointer;
 }
 
 .featured-title {
@@ -304,24 +298,6 @@ main {
 .timeline-summary-card {
   border-radius: var(--radius-xl);
   overflow: hidden;
-}
-
-.timeline-placeholder-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 22px;
-  border-radius: var(--radius-xl);
-  border: 1px dashed rgba(19, 32, 51, 0.18);
-  background: rgba(255, 255, 255, 0.44);
-  color: var(--muted);
-}
-
-.timeline-placeholder-status {
-  font-size: 0.8rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .timeline-summary-link {
@@ -574,6 +550,30 @@ main {
   background: rgba(8, 18, 34, 0.32);
 }
 
+.request-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 18, 34, 0.26);
+}
+
+.request-modal {
+  width: min(560px, 100%);
+  padding: 20px;
+  border-radius: 28px;
+}
+
+.request-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .event-sheet {
   width: min(760px, 100%);
   margin: 0 auto;
@@ -647,12 +647,6 @@ main {
   border: 0;
 }
 
-@media (min-width: 760px) {
-  .timeline-summary-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 900px) {
   .hero-grid,
   .admin-grid {
@@ -694,6 +688,10 @@ main {
 
   .request-form-compact {
     grid-template-columns: 1fr;
+  }
+
+  .request-modal {
+    padding: 18px;
   }
 
   .search-form-label {
