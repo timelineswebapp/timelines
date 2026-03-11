@@ -86,6 +86,37 @@ function inferPrecisionFromDate(rawDate?: string): TimelineImportRow["datePrecis
   return null;
 }
 
+function isValidSqlDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const parts = value.split("-").map(Number);
+  if (parts.length !== 3) {
+    return false;
+  }
+
+  const [yearPart, monthPart, dayPart] = parts;
+  if (
+    typeof yearPart !== "number" ||
+    typeof monthPart !== "number" ||
+    typeof dayPart !== "number"
+  ) {
+    return false;
+  }
+
+  const date = new Date(Date.UTC(yearPart, monthPart - 1, dayPart));
+
+  return (
+    Number.isInteger(yearPart) &&
+    Number.isInteger(monthPart) &&
+    Number.isInteger(dayPart) &&
+    date.getUTCFullYear() === yearPart &&
+    date.getUTCMonth() === monthPart - 1 &&
+    date.getUTCDate() === dayPart
+  );
+}
+
 function isDateValidationError(error: unknown): error is Error {
   if (!(error instanceof Error)) {
     return false;
@@ -93,8 +124,9 @@ function isDateValidationError(error: unknown): error is Error {
 
   return [
     "Day precision dates must use YYYY-MM-DD.",
-    "Month precision dates must use YYYY-MM.",
-    "Year precision dates must use YYYY.",
+    "Month precision dates must use YYYY-MM-01.",
+    "Year precision dates must use YYYY-01-01.",
+    "Approximate precision dates must use a valid SQL date in YYYY-MM-DD format.",
     "Date must be in YYYY-MM-DD, YYYY-MM, or YYYY format."
   ].includes(error.message);
 }
@@ -123,11 +155,51 @@ function throwCsvValidationError(
 function normalizeDate(rawDate: string, rawPrecision?: TimelineImportRow["datePrecision"]) {
   const value = rawDate.trim();
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    if (rawPrecision && rawPrecision !== "day") {
-      throw new Error("Day precision dates must use YYYY-MM-DD.");
+  if (rawPrecision) {
+    if (rawPrecision === "day") {
+      if (!isValidSqlDate(value)) {
+        throw new Error("Day precision dates must use YYYY-MM-DD.");
+      }
+
+      return {
+        date: value,
+        datePrecision: "day" as const
+      };
     }
 
+    if (rawPrecision === "month") {
+      if (!isValidSqlDate(value) || !/^\d{4}-\d{2}-01$/.test(value)) {
+        throw new Error("Month precision dates must use YYYY-MM-01.");
+      }
+
+      return {
+        date: value,
+        datePrecision: "month" as const
+      };
+    }
+
+    if (rawPrecision === "year") {
+      if (!isValidSqlDate(value) || !/^\d{4}-01-01$/.test(value)) {
+        throw new Error("Year precision dates must use YYYY-01-01.");
+      }
+
+      return {
+        date: value,
+        datePrecision: "year" as const
+      };
+    }
+
+    if (!isValidSqlDate(value)) {
+      throw new Error("Approximate precision dates must use a valid SQL date in YYYY-MM-DD format.");
+    }
+
+    return {
+      date: value,
+      datePrecision: "approximate" as const
+    };
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return {
       date: value,
       datePrecision: "day" as const
@@ -135,10 +207,6 @@ function normalizeDate(rawDate: string, rawPrecision?: TimelineImportRow["datePr
   }
 
   if (/^\d{4}-\d{2}$/.test(value)) {
-    if (rawPrecision && rawPrecision !== "month") {
-      throw new Error("Month precision dates must use YYYY-MM.");
-    }
-
     return {
       date: `${value}-01`,
       datePrecision: "month" as const
@@ -146,10 +214,6 @@ function normalizeDate(rawDate: string, rawPrecision?: TimelineImportRow["datePr
   }
 
   if (/^\d{4}$/.test(value)) {
-    if (rawPrecision && rawPrecision !== "year") {
-      throw new Error("Year precision dates must use YYYY.");
-    }
-
     return {
       date: `${value}-01-01`,
       datePrecision: "year" as const
@@ -268,16 +332,16 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
       }
 
       if (isDateValidationError(error)) {
-        const inferredPrecision = inferPrecisionFromDate(normalizedRow.date);
+        const normalizedPrecision = normalizedRow.datePrecision || inferPrecisionFromDate(normalizedRow.date);
         throw new ApiError(
           400,
           "VALIDATION_FAILED",
-          `Row ${index + 2}: date='${normalizedRow.date || ""}', precision='${normalizedRow.datePrecision || ""}', normalized precision='${inferredPrecision || "unknown"}'`,
+          `Row ${index + 2}: date='${normalizedRow.date || ""}', precision='${normalizedRow.datePrecision || ""}', normalized precision='${normalizedPrecision || "unknown"}'`,
           {
             row: index + 2,
             parsedDate: normalizedRow.date || null,
             parsedDatePrecision: normalizedRow.datePrecision || null,
-            normalizedPrecision: inferredPrecision,
+            normalizedPrecision,
             normalizedHeaderKeys,
             fields: [
               {
