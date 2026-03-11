@@ -596,6 +596,12 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
       throw new ApiError(409, "NO_EVENTS_IMPORTED", "No events were persisted for the imported timeline.");
     }
 
+    await query`
+      UPDATE timelines
+      SET updated_at = NOW()
+      WHERE id = ${timelineId}
+    `;
+
     return {
       message: "Timeline and events successfully imported",
       timelineId,
