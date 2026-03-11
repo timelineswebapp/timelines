@@ -26,17 +26,42 @@ type ParsedImportData = {
 
 type CsvRow = Record<string, string>;
 
+const CANONICAL_CSV_HEADERS = [
+  "timeline_title",
+  "timeline_slug",
+  "timeline_description",
+  "category",
+  "event_order",
+  "date",
+  "date_precision",
+  "title",
+  "description",
+  "importance",
+  "location",
+  "image_url",
+  "source_publisher",
+  "source_url",
+  "source_credibility",
+  "tags"
+] as const;
+
 const CSV_FIELD_ALIASES = {
+  timeline_title: ["timeline_title", "timelineTitle"],
+  timeline_slug: ["timeline_slug", "timelineSlug"],
+  timeline_description: ["timeline_description", "timelineDescription"],
+  category: ["category", "timeline_category", "timelineCategory"],
+  event_order: ["event_order", "eventOrder"],
   date: ["date"],
-  datePrecision: ["datePrecision", "date_precision"],
+  date_precision: ["date_precision", "datePrecision"],
   title: ["title"],
   description: ["description"],
   importance: ["importance"],
   location: ["location"],
-  imageUrl: ["imageUrl", "image_url"],
-  timelineTitle: ["timelineTitle", "timeline_title"],
-  timelineDescription: ["timelineDescription", "timeline_description"],
-  timelineCategory: ["timelineCategory", "timeline_category", "category"]
+  image_url: ["image_url", "imageUrl"],
+  source_publisher: ["source_publisher", "sourcePublisher"],
+  source_url: ["source_url", "sourceUrl"],
+  source_credibility: ["source_credibility", "sourceCredibility"],
+  tags: ["tags"]
 } as const;
 
 type TimelineSummaryForImport = {
@@ -74,6 +99,39 @@ function getCsvValueWithAlias(row: CsvRow, aliases: readonly string[]) {
     value: undefined,
     alias: aliases[0] ?? "unknown"
   };
+}
+
+function normalizeCsvRow(row: CsvRow) {
+  const normalized = {} as Record<(typeof CANONICAL_CSV_HEADERS)[number], string | undefined>;
+  const normalizedHeaderKeys = {} as Record<(typeof CANONICAL_CSV_HEADERS)[number], string>;
+
+  for (const header of CANONICAL_CSV_HEADERS) {
+    const { value, alias } = getCsvValueWithAlias(row, CSV_FIELD_ALIASES[header]);
+    normalized[header] = value;
+    normalizedHeaderKeys[header] = alias;
+  }
+
+  return {
+    row: normalized,
+    normalizedHeaderKeys
+  };
+}
+
+function validateCsvHeaderCount(fields: string[] | undefined) {
+  const actualHeaderCount = fields?.length ?? 0;
+  if (actualHeaderCount !== CANONICAL_CSV_HEADERS.length) {
+    throw new ApiError(
+      400,
+      "VALIDATION_FAILED",
+      `CSV header count mismatch: expected ${CANONICAL_CSV_HEADERS.length} columns but parsed ${actualHeaderCount}.`,
+      {
+        expectedFieldCount: CANONICAL_CSV_HEADERS.length,
+        actualHeaderCount,
+        parsedHeaders: fields || [],
+        canonicalHeaders: [...CANONICAL_CSV_HEADERS]
+      }
+    );
+  }
 }
 
 function inferPrecisionFromDate(rawDate?: string): TimelineImportRow["datePrecision"] | null {
@@ -373,6 +431,8 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
     skipEmptyLines: true
   });
 
+  validateCsvHeaderCount(result.meta.fields);
+
   if (result.errors.length > 0) {
     const firstError = result.errors[0];
     throwCsvValidationError(firstError?.message || "CSV parsing failed.", {
@@ -391,30 +451,15 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
   }
 
   const events = result.data.map((row, index) => {
-    const dateField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.date);
-    const datePrecisionField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.datePrecision);
-    const titleField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.title);
-    const descriptionField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.description);
-    const importanceField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.importance);
-    const locationField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.location);
-    const imageUrlField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.imageUrl);
+    const { row: normalizedCsvRow, normalizedHeaderKeys } = normalizeCsvRow(row);
     const normalizedRow = {
-      date: dateField.value,
-      datePrecision: datePrecisionField.value,
-      title: titleField.value,
-      description: descriptionField.value,
-      importance: importanceField.value,
-      location: locationField.value || null,
-      imageUrl: imageUrlField.value || null
-    };
-    const normalizedHeaderKeys = {
-      date: dateField.alias,
-      datePrecision: datePrecisionField.alias,
-      title: titleField.alias,
-      description: descriptionField.alias,
-      importance: importanceField.alias,
-      location: locationField.alias,
-      imageUrl: imageUrlField.alias
+      date: normalizedCsvRow.date,
+      datePrecision: normalizedCsvRow.date_precision,
+      title: normalizedCsvRow.title,
+      description: normalizedCsvRow.description,
+      importance: normalizedCsvRow.importance,
+      location: normalizedCsvRow.location || null,
+      imageUrl: normalizedCsvRow.image_url || null
     };
 
     try {
@@ -467,10 +512,11 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
   });
 
   if (importType === "timeline_with_events") {
-    const timelineTitle = getCsvValue(firstRow, CSV_FIELD_ALIASES.timelineTitle);
-    const timelineSlug = getCsvValue(firstRow, ["timelineSlug", "timeline_slug"]);
-    const timelineDescription = getCsvValue(firstRow, CSV_FIELD_ALIASES.timelineDescription);
-    const timelineCategory = getCsvValue(firstRow, CSV_FIELD_ALIASES.timelineCategory);
+    const { row: normalizedFirstRow } = normalizeCsvRow(firstRow);
+    const timelineTitle = normalizedFirstRow.timeline_title;
+    const timelineSlug = normalizedFirstRow.timeline_slug;
+    const timelineDescription = normalizedFirstRow.timeline_description;
+    const timelineCategory = normalizedFirstRow.category;
 
     return {
       timeline: (() => {
