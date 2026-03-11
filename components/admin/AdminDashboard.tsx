@@ -81,11 +81,15 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
       const payload = (await response.json()) as {
         ok: boolean;
         data?: T;
-        error?: { message?: string };
+        error?: { code?: string; message?: string };
       };
 
       if (!response.ok || !payload.ok || payload.data === undefined) {
-        throw new Error(payload.error?.message || `Request failed for ${url}`);
+        const error = new Error(payload.error?.message || `Request failed for ${url}`) as Error & {
+          code?: string;
+        };
+        error.code = payload.error?.code;
+        throw error;
       }
 
       return payload.data;

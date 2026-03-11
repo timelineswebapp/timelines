@@ -8,6 +8,10 @@ import type {
   TimelineSummary
 } from "@/src/lib/types";
 
+type AdminRequestError = Error & {
+  code?: string;
+};
+
 const DEFAULT_IMPORT_CONTENT = `{
   "timeline": {
     "title": "Sample timeline",
@@ -53,6 +57,24 @@ export function ImportData({
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [result, setResult] = useState<ImportExecutionResult | null>(null);
   const [feedbackError, setFeedbackError] = useState("");
+  const [feedbackErrorTitle, setFeedbackErrorTitle] = useState("");
+
+  function getErrorTitle(error: unknown) {
+    const requestError = error as AdminRequestError | undefined;
+
+    switch (requestError?.code) {
+      case "UNAUTHORIZED":
+        return "Unauthorized";
+      case "VALIDATION_FAILED":
+        return "Validation failed";
+      case "INTERNAL_ERROR":
+        return "Internal server error";
+      case "DATABASE_UNAVAILABLE":
+        return "Database unavailable";
+      default:
+        return "Import failed";
+    }
+  }
 
   return (
     <section className="glass section-card stack">
@@ -131,11 +153,13 @@ export function ImportData({
               skipDuplicates
             }).then((nextPreview) => {
               setFeedbackError("");
+              setFeedbackErrorTitle("");
               setResult(null);
               setPreview(nextPreview);
             }).catch((error: unknown) => {
               setResult(null);
               setPreview(null);
+              setFeedbackErrorTitle(getErrorTitle(error));
               setFeedbackError(error instanceof Error ? error.message : "Import preview failed.");
             })
           }
@@ -155,11 +179,13 @@ export function ImportData({
               skipDuplicates
             }).then((nextResult) => {
               setFeedbackError("");
+              setFeedbackErrorTitle("");
               setPreview(null);
               setResult(nextResult);
             }).catch((error: unknown) => {
               setResult(null);
-              setFeedbackError(error instanceof Error ? error.message : "Import failed - database unavailable.");
+              setFeedbackErrorTitle(getErrorTitle(error));
+              setFeedbackError(error instanceof Error ? error.message : "Import failed.");
             })
           }
           disabled={importType === "events_into_existing_timeline" && !timelineId}
@@ -202,7 +228,7 @@ export function ImportData({
 
       {feedbackError ? (
         <div className="glass-card stack" style={{ borderColor: "rgba(200, 83, 83, 0.32)" }}>
-          <strong style={{ color: "var(--danger)" }}>Import failed - database unavailable</strong>
+          <strong style={{ color: "var(--danger)" }}>{feedbackErrorTitle || "Import failed"}</strong>
           <p className="muted" style={{ margin: 0 }}>
             {feedbackError}
           </p>
