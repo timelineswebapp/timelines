@@ -250,10 +250,22 @@ export interface ImportPreview {
     description: string;
     category: string;
   };
+  timelines: Array<{
+    mode: "create" | "existing";
+    timelineId: number | null;
+    title: string;
+    slug: string;
+    description: string;
+    category: string;
+    rows: number;
+    duplicates: number;
+    accepted: number;
+  }>;
   totals: {
     rows: number;
     duplicates: number;
     accepted: number;
+    timelines: number;
   };
   errors: string[];
   preview: Array<{
@@ -261,6 +273,8 @@ export interface ImportPreview {
     title: string;
     description: string;
     duplicate: boolean;
+    timelineSlug?: string;
+    timelineTitle?: string;
   }>;
   skipDuplicates: boolean;
 }
@@ -284,6 +298,15 @@ export interface ImportExecutionResult {
   importedEventsCount: number;
   skippedTimelinesCount: number;
   skippedEventsCount: number;
+  affectedTimelineSlugs: string[];
+  timelineResults: Array<{
+    timelineId: number;
+    title: string;
+    slug: string;
+    importedEventsCount: number;
+    skippedEventsCount: number;
+    timelineCreated: boolean;
+  }>;
   reasons: ImportReason[];
 }
 

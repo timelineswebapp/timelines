@@ -15,13 +15,24 @@ import { memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store
 import { importPreviewSchema, importRowSchema, importTimelineSchema } from "@/src/server/validation/schemas";
 
 type ParsedImportData = {
-  timeline: {
-    title: string;
-    slug: string;
-    description: string;
-    category: string;
-  } | null;
-  events: TimelineImportRow[];
+  timelineGroups: ParsedTimelineGroup[];
+  events: ParsedEventRow[];
+};
+
+type ParsedTimelineMetadata = {
+  title: string;
+  slug: string;
+  description: string;
+  category: string;
+};
+
+type ParsedEventRow = TimelineImportRow & {
+  sourceRow: number;
+};
+
+type ParsedTimelineGroup = {
+  timeline: ParsedTimelineMetadata;
+  events: ParsedEventRow[];
 };
 
 type CsvRow = Record<string, string>;
@@ -211,7 +222,7 @@ function extractValidationFields(error: unknown) {
   }));
 }
 
-function normalizeStructuredRow(row: unknown, rowNumber: number): TimelineImportRow {
+function normalizeStructuredRow(row: unknown, rowNumber: number): ParsedEventRow {
   try {
     return normalizeRow(row);
   } catch (error) {
@@ -260,7 +271,7 @@ function normalizeStructuredRow(row: unknown, rowNumber: number): TimelineImport
   }
 }
 
-function normalizeTimelineMetadata(input: unknown, message: string) {
+function normalizeTimelineMetadata(input: unknown, message: string): ParsedTimelineMetadata {
   try {
     const parsed = importTimelineSchema.parse(input);
     return {
