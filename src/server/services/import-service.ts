@@ -22,6 +22,40 @@ type ParsedImportData = {
   events: TimelineImportRow[];
 };
 
+type CsvRow = Record<string, string>;
+
+function getCsvValue(row: CsvRow, aliases: string[]): string | undefined {
+  for (const alias of aliases) {
+    const value = row[alias];
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function throwCsvValidationError(
+  message: string,
+  details?: {
+    row?: number;
+    code?: string;
+    field?: string;
+  }
+): never {
+  throw new ApiError(
+    400,
+    "VALIDATION_FAILED",
+    message,
+    details
+      ? {
+          ...details,
+          row: typeof details.row === "number" ? details.row + 2 : undefined
+        }
+      : undefined
+  );
+}
+
 function normalizeDate(rawDate: string, rawPrecision?: TimelineImportRow["datePrecision"]) {
   const value = rawDate.trim();
 
@@ -113,42 +147,90 @@ function parseJsonImport(importType: ImportType, content: string): ParsedImportD
 }
 
 function parseCsvImport(importType: ImportType, content: string): ParsedImportData {
-  const result = Papa.parse<Record<string, string>>(content, {
+  const result = Papa.parse<CsvRow>(content, {
     header: true,
     skipEmptyLines: true
   });
 
   if (result.errors.length > 0) {
-    throw new Error(result.errors[0]?.message || "CSV parsing failed.");
+    const firstError = result.errors[0];
+    throwCsvValidationError(firstError?.message || "CSV parsing failed.", {
+      row: typeof firstError?.row === "number" ? firstError.row : undefined,
+      code: firstError?.code
+    });
   }
 
   if (result.data.length === 0) {
-    throw new Error("CSV import must include at least one row.");
+    throwCsvValidationError("CSV import must include at least one data row.");
   }
 
   const firstRow = result.data[0];
   if (!firstRow) {
-    throw new Error("CSV import must include at least one row.");
+    throwCsvValidationError("CSV import must include at least one data row.");
   }
-  const events = result.data.map((row) =>
-    normalizeRow({
-      date: row.date,
-      datePrecision: row.datePrecision,
-      title: row.title,
-      description: row.description,
-      importance: row.importance,
-      location: row.location || null,
-      imageUrl: row.imageUrl || null
-    })
-  );
+
+  const events = result.data.map((row, index) => {
+    const normalizedRow = {
+      date: getCsvValue(row, ["date"]),
+      datePrecision: getCsvValue(row, ["datePrecision", "date_precision"]),
+      title: getCsvValue(row, ["title"]),
+      description: getCsvValue(row, ["description"]),
+      importance: getCsvValue(row, ["importance"]),
+      location: getCsvValue(row, ["location"]) || null,
+      imageUrl: getCsvValue(row, ["imageUrl", "image_url"]) || null
+    };
+
+    try {
+      return normalizeRow(normalizedRow);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      if (error instanceof Error && "issues" in error) {
+        throw new ApiError(400, "VALIDATION_FAILED", "CSV row validation failed.", {
+          row: index + 2,
+          fields: (error as { issues?: Array<{ path?: string[]; message?: string }> }).issues?.map((issue) => ({
+            field: issue.path?.join(".") || "unknown",
+            message: issue.message || "Invalid value"
+          }))
+        });
+      }
+
+      throwCsvValidationError(error instanceof Error ? error.message : "CSV row validation failed.", {
+        row: index,
+        code: "CSV_ROW_INVALID"
+      });
+    }
+  });
 
   if (importType === "timeline_with_events") {
+    const timelineTitle = getCsvValue(firstRow, ["timelineTitle", "timeline_title"]);
+    const timelineDescription = getCsvValue(firstRow, ["timelineDescription", "timeline_description"]);
+    const timelineCategory = getCsvValue(firstRow, ["timelineCategory", "timeline_category", "category"]);
+
     return {
-      timeline: importTimelineSchema.parse({
-        title: firstRow.timelineTitle,
-        description: firstRow.timelineDescription,
-        category: firstRow.timelineCategory
-      }),
+      timeline: (() => {
+        try {
+          return importTimelineSchema.parse({
+            title: timelineTitle,
+            description: timelineDescription,
+            category: timelineCategory
+          });
+        } catch (error) {
+          if (error instanceof Error && "issues" in error) {
+            throw new ApiError(400, "VALIDATION_FAILED", "CSV timeline metadata validation failed.", {
+              row: 2,
+              fields: (error as { issues?: Array<{ path?: string[]; message?: string }> }).issues?.map((issue) => ({
+                field: issue.path?.join(".") || "unknown",
+                message: issue.message || "Invalid value"
+              }))
+            });
+          }
+
+          throw error;
+        }
+      })(),
       events
     };
   }
