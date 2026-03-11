@@ -51,7 +51,7 @@ export function ImportData({
   }) => Promise<ImportExecutionResult>;
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [format, setFormat] = useState<"json" | "csv" | "text">("json");
+  const [format, setFormat] = useState<"json" | "csv" | "text">("csv");
   const [importType, setImportType] = useState<ImportType>("timeline_with_events");
   const [timelineId, setTimelineId] = useState("");
   const [content, setContent] = useState(DEFAULT_IMPORT_CONTENT);
