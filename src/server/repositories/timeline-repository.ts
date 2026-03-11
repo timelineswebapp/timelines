@@ -170,6 +170,44 @@ export const timelineRepository = {
     return rows.map((row) => row.slug);
   },
 
+  async listRegistryExport(): Promise<Array<{
+    timelineTitle: string;
+    timelineSlug: string;
+    category: string;
+    eventCount: number;
+    lastUpdated: string;
+  }>> {
+    const sql = getSql();
+    if (!sql) {
+      return memoryStore.getTimelines().map((timeline) => ({
+        timelineTitle: timeline.title,
+        timelineSlug: timeline.slug,
+        category: timeline.category,
+        eventCount: timeline.events.length,
+        lastUpdated: timeline.updatedAt
+      }));
+    }
+
+    return sql<{
+      timelineTitle: string;
+      timelineSlug: string;
+      category: string;
+      eventCount: number;
+      lastUpdated: string;
+    }[]>`
+      SELECT
+        timelines.title AS "timelineTitle",
+        timelines.slug AS "timelineSlug",
+        timelines.category,
+        COUNT(timeline_events.event_id)::int AS "eventCount",
+        timelines.updated_at::text AS "lastUpdated"
+      FROM timelines
+      LEFT JOIN timeline_events ON timeline_events.timeline_id = timelines.id
+      GROUP BY timelines.id
+      ORDER BY timelines.updated_at DESC, timelines.id DESC
+    `;
+  },
+
   async getBySlug(slug: string): Promise<TimelineDetail | null> {
     const sql = getSql();
     if (!sql) {

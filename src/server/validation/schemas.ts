@@ -118,6 +118,27 @@ export const importRowSchema = z.object({
 
 export const importTimelineSchema = z.object({
   title: trimmedString(3, 140),
+  slug: z
+    .string()
+    .trim()
+    .max(160)
+    .optional()
+    .transform((value, ctx) => {
+      if (!value) {
+        return undefined;
+      }
+
+      const computed = slugify(value);
+      if (!computed) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Slug is invalid."
+        });
+        return z.NEVER;
+      }
+
+      return computed;
+    }),
   description: trimmedString(20, 800),
   category: trimmedString(2, 80)
 });

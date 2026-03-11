@@ -246,6 +246,7 @@ export interface ImportPreview {
     mode: "create" | "existing";
     timelineId: number | null;
     title: string;
+    slug: string;
     description: string;
     category: string;
   };
@@ -264,12 +265,26 @@ export interface ImportPreview {
   skipDuplicates: boolean;
 }
 
+export interface ImportReason {
+  type: "timeline_skipped" | "event_skipped";
+  message: string;
+  timelineSlug: string;
+  row?: number;
+  date?: string | null;
+  title?: string | null;
+}
+
 export interface ImportExecutionResult {
   message: string;
   timelineId: number;
   eventsCreatedCount: number;
   duplicatesSkipped: number;
   timelineCreated: boolean;
+  importedTimelinesCount: number;
+  importedEventsCount: number;
+  skippedTimelinesCount: number;
+  skippedEventsCount: number;
+  reasons: ImportReason[];
 }
 
 export interface TimelineImportRow {

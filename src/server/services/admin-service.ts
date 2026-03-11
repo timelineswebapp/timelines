@@ -10,6 +10,7 @@ export const adminService = {
   getAnalyticsSnapshot: analyticsRepository.getAnalyticsSnapshot,
   getAnalyticsReport: analyticsRepository.getAnalyticsReport,
   listTimelines: () => timelineRepository.listSummaries(100),
+  exportTimelinesRegistry: timelineRepository.listRegistryExport,
   getTimelineById: timelineRepository.getById,
   createTimeline: timelineRepository.create,
   updateTimeline: timelineRepository.update,

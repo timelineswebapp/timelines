@@ -29,10 +29,12 @@ const DEFAULT_IMPORT_CONTENT = `{
 
 export function ImportData({
   timelines,
+  onDownloadRegistry,
   onPreview,
   onApprove
 }: {
   timelines: TimelineSummary[];
+  onDownloadRegistry: () => Promise<void>;
   onPreview: (input: {
     format: "json" | "csv" | "text";
     importType: ImportType;
@@ -80,6 +82,12 @@ export function ImportData({
     <section className="glass section-card stack">
       <h2 style={{ marginTop: 0 }}>Import data</h2>
       <p className="muted">Upload structured timeline data or import events into an existing timeline through the same preview and approval flow.</p>
+
+      <div className="pill-row">
+        <button className="button secondary" type="button" onClick={() => void onDownloadRegistry()}>
+          Download Existing Timelines
+        </button>
+      </div>
 
       <div className="form-grid" style={{ gridTemplateColumns: "180px 1fr" }}>
         <select className="select" value={format} onChange={(event) => setFormat(event.target.value as "json" | "csv" | "text")}>
@@ -221,8 +229,24 @@ export function ImportData({
         <div className="glass-card stack">
           <strong>{result.message}</strong>
           <p className="muted" style={{ margin: 0 }}>
-            Timeline ID: {result.timelineId} • Events created: {result.eventsCreatedCount} • Duplicates skipped: {result.duplicatesSkipped}
+            Timeline ID: {result.timelineId} • Imported timelines: {result.importedTimelinesCount} • Imported events: {result.importedEventsCount}
           </p>
+          <p className="muted" style={{ margin: 0 }}>
+            Skipped timelines: {result.skippedTimelinesCount} • Skipped events: {result.skippedEventsCount}
+          </p>
+          <p className="muted" style={{ margin: 0 }}>
+            Events created: {result.eventsCreatedCount} • Duplicates skipped: {result.duplicatesSkipped}
+          </p>
+          {result.reasons.length > 0 ? (
+            <div className="admin-lists">
+              {result.reasons.slice(0, 8).map((reason, index) => (
+                <article key={`${reason.type}-${reason.timelineSlug}-${reason.row || index}`} className="glass-card stack">
+                  <strong>{reason.type === "timeline_skipped" ? "Timeline skipped" : "Event skipped"}</strong>
+                  <p className="small muted" style={{ margin: 0 }}>{reason.message}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

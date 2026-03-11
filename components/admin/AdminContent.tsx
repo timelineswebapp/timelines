@@ -147,6 +147,41 @@ export function AdminContent({
     [fetchAdmin, loadContent, setError, setStatus]
   );
 
+  const downloadRegistry = useCallback(async () => {
+    setError("");
+    setStatus("Preparing timeline registry export...");
+
+    try {
+      const response = await fetch("/api/admin/timelines/export", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "x-admin-token": token
+        }
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as
+          | { ok?: boolean; error?: { message?: string } }
+          | null;
+        throw new Error(payload?.error?.message || "Unable to export timelines.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "existing-timelines.csv";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Timeline registry downloaded.");
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Timeline export failed.");
+      setStatus("Timeline export failed.");
+    }
+  }, [setError, setStatus, token]);
+
   if (section === "snapshot") {
     return <ContentSnapshot dataset={dataset} />;
   }
@@ -210,7 +245,14 @@ export function AdminContent({
   }
 
   if (section === "import_data") {
-    return <ImportData timelines={dataset.timelines} onPreview={previewImport} onApprove={approveImport} />;
+    return (
+      <ImportData
+        timelines={dataset.timelines}
+        onDownloadRegistry={downloadRegistry}
+        onPreview={previewImport}
+        onApprove={approveImport}
+      />
+    );
   }
 
   return (
