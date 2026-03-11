@@ -224,7 +224,10 @@ function extractValidationFields(error: unknown) {
 
 function normalizeStructuredRow(row: unknown, rowNumber: number): ParsedEventRow {
   try {
-    return normalizeRow(row);
+    return {
+      ...normalizeRow(row),
+      sourceRow: rowNumber
+    };
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
@@ -286,6 +289,41 @@ function normalizeTimelineMetadata(input: unknown, message: string): ParsedTimel
       fields
     });
   }
+}
+
+function groupTimelineRows(rows: Array<{ timeline: ParsedTimelineMetadata; event: ParsedEventRow }>): ParsedTimelineGroup[] {
+  const groups = new Map<string, ParsedTimelineGroup>();
+
+  for (const row of rows) {
+    const existing = groups.get(row.timeline.slug);
+    if (!existing) {
+      groups.set(row.timeline.slug, {
+        timeline: row.timeline,
+        events: [row.event]
+      });
+      continue;
+    }
+
+    if (
+      existing.timeline.title !== row.timeline.title ||
+      existing.timeline.description !== row.timeline.description ||
+      existing.timeline.category !== row.timeline.category
+    ) {
+      throw new ApiError(
+        400,
+        "VALIDATION_FAILED",
+        `Row ${row.event.sourceRow}: timeline metadata conflicts with earlier rows for slug '${row.timeline.slug}'.`,
+        {
+          row: row.event.sourceRow,
+          timelineSlug: row.timeline.slug
+        }
+      );
+    }
+
+    existing.events.push(row.event);
+  }
+
+  return Array.from(groups.values());
 }
 
 function throwCsvValidationError(
@@ -414,21 +452,26 @@ function parseJsonImport(importType: ImportType, content: string): ParsedImportD
     }
 
     return {
-      timeline: normalizeTimelineMetadata(payload.timeline, "JSON timeline metadata validation failed."),
-      events: payload.events.map((row, index) => normalizeStructuredRow(row, index + 1))
+      timelineGroups: [
+        {
+          timeline: normalizeTimelineMetadata(payload.timeline, "JSON timeline metadata validation failed."),
+          events: payload.events.map((row, index) => normalizeStructuredRow(row, index + 1))
+        }
+      ],
+      events: []
     };
   }
 
   if (Array.isArray(parsed)) {
     return {
-      timeline: null,
+      timelineGroups: [],
       events: parsed.map((row, index) => normalizeStructuredRow(row, index + 1))
     };
   }
 
   if (parsed && typeof parsed === "object" && Array.isArray((parsed as { events?: unknown }).events)) {
     return {
-      timeline: null,
+      timelineGroups: [],
       events: (parsed as { events: unknown[] }).events.map((row, index) => normalizeStructuredRow(row, index + 1))
     };
   }
@@ -461,7 +504,7 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
     throwCsvValidationError("CSV import must include at least one data row.");
   }
 
-  const events = result.data.map((row, index) => {
+  const events: ParsedEventRow[] = result.data.map((row, index) => {
     const { row: normalizedCsvRow, normalizedHeaderKeys } = normalizeCsvRow(row);
     const normalizedRow = {
       date: normalizedCsvRow.date,
@@ -474,7 +517,10 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
     };
 
     try {
-      return normalizeRow(normalizedRow);
+      return {
+        ...normalizeRow(normalizedRow),
+        sourceRow: index + 2
+      };
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
@@ -523,32 +569,30 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
   });
 
   if (importType === "timeline_with_events") {
-    const { row: normalizedFirstRow } = normalizeCsvRow(firstRow);
-    const timelineTitle = normalizedFirstRow.timeline_title;
-    const timelineSlug = normalizedFirstRow.timeline_slug;
-    const timelineDescription = normalizedFirstRow.timeline_description;
-    const timelineCategory = normalizedFirstRow.category;
-
     return {
-      timeline: (() => {
-        const metadata = normalizeTimelineMetadata(
-          {
-            title: timelineTitle,
-            slug: timelineSlug,
-            description: timelineDescription,
-            category: timelineCategory
-          },
-          "CSV timeline metadata validation failed."
-        );
-
-        return metadata;
-      })(),
-      events
+      timelineGroups: groupTimelineRows(
+        result.data.map((row, index) => {
+          const { row: normalizedCsvRow } = normalizeCsvRow(row);
+          return {
+            timeline: normalizeTimelineMetadata(
+              {
+                title: normalizedCsvRow.timeline_title,
+                slug: normalizedCsvRow.timeline_slug,
+                description: normalizedCsvRow.timeline_description,
+                category: normalizedCsvRow.category
+              },
+              "CSV timeline metadata validation failed."
+            ),
+            event: events[index] as ParsedEventRow
+          };
+        })
+      ),
+      events: []
     };
   }
 
   return {
-    timeline: null,
+    timelineGroups: [],
     events
   };
 }
@@ -604,21 +648,26 @@ function parseTextImport(importType: ImportType, content: string): ParsedImportD
 
   if (importType === "timeline_with_events") {
     return {
-      timeline: normalizeTimelineMetadata(
+      timelineGroups: [
         {
-          title,
-          slug: undefined,
-          description,
-          category
-        },
-        "Text timeline metadata validation failed."
-      ),
-      events
+          timeline: normalizeTimelineMetadata(
+            {
+              title,
+              slug: undefined,
+              description,
+              category
+            },
+            "Text timeline metadata validation failed."
+          ),
+          events
+        }
+      ],
+      events: []
     };
   }
 
   return {
-    timeline: null,
+    timelineGroups: [],
     events
   };
 }
@@ -755,16 +804,20 @@ async function getTimelineEventSignatures(sql: Sql | null, timelineId: number): 
   return new Set(rows.map((row) => `${row.date}:${row.title.trim().toLowerCase()}`));
 }
 
-function buildPreviewRows(events: TimelineImportRow[], duplicateSet: Set<string>) {
-  return events.slice(0, 8).map((row) => ({
-    date: row.date,
-    title: row.title,
-    description: row.description,
-    duplicate: duplicateSet.has(`${row.date}:${row.title.trim().toLowerCase()}`)
+function buildPreviewRows(
+  rows: Array<{ event: ParsedEventRow; duplicateSet: Set<string>; timeline: ParsedTimelineMetadata }>
+) {
+  return rows.slice(0, 8).map(({ event, duplicateSet, timeline }) => ({
+    date: event.date,
+    title: event.title,
+    description: event.description,
+    duplicate: duplicateSet.has(`${event.date}:${event.title.trim().toLowerCase()}`),
+    timelineSlug: timeline.slug,
+    timelineTitle: timeline.title
   }));
 }
 
-function buildDuplicateSet(events: TimelineImportRow[], existingSignatures: Set<string>) {
+function buildDuplicateSet(events: ParsedEventRow[], existingSignatures: Set<string>) {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
 
@@ -792,51 +845,140 @@ function ensureExistingTimelineId(input: { timelineId?: number | null }, importT
 }
 
 async function executeMemoryImport(parsed: ParsedImportData, importType: ImportType, skipDuplicates: boolean, timelineId?: number | null): Promise<ImportExecutionResult> {
-  let targetTimeline: TimelineDetail | undefined;
-  let timelineCreated = false;
-  let skippedTimelinesCount = 0;
   const reasons: ImportReason[] = [];
+  const timelineResults: ImportExecutionResult["timelineResults"] = [];
+  const affectedTimelineSlugs: string[] = [];
+  let primaryTimelineId = 0;
+  let primaryTimelineCreated = false;
+  let importedTimelinesCount = 0;
+  let importedEventsCount = 0;
+  let skippedTimelinesCount = 0;
+  let skippedEventsCount = 0;
 
   if (importType === "timeline_with_events") {
-    if (!parsed.timeline) {
-      throw new ApiError(400, "TIMELINE_METADATA_REQUIRED", "Timeline metadata is required.");
+    for (const group of parsed.timelineGroups) {
+      let targetTimeline: TimelineDetail | undefined;
+      let timelineCreated = false;
+
+      const existingTimeline = await getTimelineSummaryBySlug(null, group.timeline.slug);
+      if (existingTimeline) {
+        skippedTimelinesCount += 1;
+        reasons.push({
+          type: "timeline_skipped",
+          timelineSlug: existingTimeline.slug,
+          message: `Timeline slug '${existingTimeline.slug}' already exists. Reusing existing timeline.`
+        });
+        targetTimeline = memoryStore.getTimelines().find((candidate) => candidate.id === existingTimeline.id);
+        if (!targetTimeline) {
+          throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
+        }
+      } else {
+        targetTimeline = {
+          id: memoryStore.nextTimelineId(),
+          title: group.timeline.title,
+          slug: group.timeline.slug,
+          description: group.timeline.description,
+          category: group.timeline.category,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          tags: [],
+          eventCount: 0,
+          highlightedEventTitles: [],
+          events: [],
+          relatedTimelines: []
+        };
+        memoryStore.setTimelines([...memoryStore.getTimelines(), targetTimeline]);
+        timelineCreated = true;
+        importedTimelinesCount += 1;
+      }
+
+      const duplicateSet = buildDuplicateSet(group.events, await getTimelineEventSignatures(null, targetTimeline.id));
+      let created = 0;
+      const startOrder = targetTimeline.events.length;
+
+      for (const row of group.events) {
+        const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
+        if (duplicateSet.has(signature)) {
+          skippedEventsCount += 1;
+          reasons.push({
+            type: "event_skipped",
+            timelineSlug: targetTimeline.slug,
+            row: row.sourceRow,
+            date: row.date,
+            title: row.title,
+            message: `Event '${row.title}' on ${row.date} already exists under timeline '${targetTimeline.slug}'.`
+          });
+          continue;
+        }
+
+        targetTimeline.events.push({
+          id: memoryStore.nextEventId(),
+          date: row.date,
+          datePrecision: row.datePrecision,
+          title: row.title,
+          description: row.description,
+          importance: row.importance,
+          location: row.location || null,
+          imageUrl: row.imageUrl || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          sources: [],
+          tags: [],
+          timelineLinks: [
+            {
+              timelineId: targetTimeline.id,
+              slug: targetTimeline.slug,
+              title: targetTimeline.title,
+              eventOrder: startOrder + created + 1
+            }
+          ]
+        });
+        created += 1;
+      }
+
+      if (timelineCreated && created < 1) {
+        throw new ApiError(409, "NO_EVENTS_IMPORTED", "No events were persisted for the imported timeline.");
+      }
+
+      importedEventsCount += created;
+      targetTimeline.events.sort((left, right) => left.date.localeCompare(right.date));
+      touchTimelineSummary(targetTimeline);
+      affectedTimelineSlugs.push(targetTimeline.slug);
+      timelineResults.push({
+        timelineId: targetTimeline.id,
+        title: targetTimeline.title,
+        slug: targetTimeline.slug,
+        importedEventsCount: created,
+        skippedEventsCount: duplicateSet.size,
+        timelineCreated
+      });
+
+      if (!primaryTimelineId) {
+        primaryTimelineId = targetTimeline.id;
+        primaryTimelineCreated = timelineCreated;
+      }
     }
 
-    const existingTimeline = await getTimelineSummaryBySlug(null, parsed.timeline.slug);
-    if (existingTimeline) {
-      skippedTimelinesCount = 1;
-      reasons.push({
-        type: "timeline_skipped",
-        timelineSlug: existingTimeline.slug,
-        message: `Timeline slug '${existingTimeline.slug}' already exists. Reusing existing timeline.`
-      });
-      targetTimeline = memoryStore.getTimelines().find((candidate) => candidate.id === existingTimeline.id);
-      if (!targetTimeline) {
-        throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
-      }
-    } else {
-      targetTimeline = {
-        id: memoryStore.nextTimelineId(),
-        title: parsed.timeline.title,
-        slug: parsed.timeline.slug,
-        description: parsed.timeline.description,
-        category: parsed.timeline.category,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tags: [],
-        eventCount: 0,
-        highlightedEventTitles: [],
-        events: [],
-        relatedTimelines: []
-      };
-      memoryStore.setTimelines([...memoryStore.getTimelines(), targetTimeline]);
-      timelineCreated = true;
-    }
-  } else {
-    targetTimeline = memoryStore.getTimelines().find((candidate) => candidate.id === timelineId);
-    if (!targetTimeline) {
-      throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
-    }
+    return {
+      message: "Timelines and events successfully imported",
+      timelineId: primaryTimelineId,
+      eventsCreatedCount: importedEventsCount,
+      duplicatesSkipped: skippedEventsCount,
+      timelineCreated: primaryTimelineCreated,
+      importedTimelinesCount,
+      importedEventsCount,
+      skippedTimelinesCount,
+      skippedEventsCount,
+      affectedTimelineSlugs,
+      timelineResults,
+      reasons
+    };
+  }
+
+  let targetTimeline: TimelineDetail | undefined;
+  targetTimeline = memoryStore.getTimelines().find((candidate) => candidate.id === timelineId);
+  if (!targetTimeline) {
+    throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
   }
 
   const duplicateSet = buildDuplicateSet(parsed.events, await getTimelineEventSignatures(null, targetTimeline.id));
@@ -844,14 +986,14 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
   let duplicateCount = 0;
   const startOrder = targetTimeline.events.length;
 
-  for (const [index, row] of parsed.events.entries()) {
+  for (const row of parsed.events) {
     const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
     if (duplicateSet.has(signature)) {
       duplicateCount += 1;
       reasons.push({
         type: "event_skipped",
         timelineSlug: targetTimeline.slug,
-        row: index + 2,
+        row: row.sourceRow,
         date: row.date,
         title: row.title,
         message: `Event '${row.title}' on ${row.date} already exists under timeline '${targetTimeline.slug}'.`
@@ -892,11 +1034,22 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
     timelineId: targetTimeline.id,
     eventsCreatedCount: created,
     duplicatesSkipped: duplicateCount,
-    timelineCreated,
-    importedTimelinesCount: timelineCreated ? 1 : 0,
+    timelineCreated: false,
+    importedTimelinesCount: 0,
     importedEventsCount: created,
-    skippedTimelinesCount,
+    skippedTimelinesCount: 0,
     skippedEventsCount: duplicateCount,
+    affectedTimelineSlugs: [targetTimeline.slug],
+    timelineResults: [
+      {
+        timelineId: targetTimeline.id,
+        title: targetTimeline.title,
+        slug: targetTimeline.slug,
+        importedEventsCount: created,
+        skippedEventsCount: duplicateCount,
+        timelineCreated: false
+      }
+    ],
     reasons
   };
 }
@@ -906,69 +1059,150 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
 
   return sql.begin(async (tx) => {
     const query = tx as unknown as Sql;
-    let timelineId = existingTimelineId || 0;
-    let existingTimelineEventCount = 0;
-    let timelineCreated = false;
-    let timelineSlug = "";
-    let skippedTimelinesCount = 0;
     const reasons: ImportReason[] = [];
+    const timelineResults: ImportExecutionResult["timelineResults"] = [];
+    const affectedTimelineSlugs: string[] = [];
+    let primaryTimelineId = 0;
+    let primaryTimelineCreated = false;
+    let importedTimelinesCount = 0;
+    let importedEventsCount = 0;
+    let skippedTimelinesCount = 0;
+    let skippedEventsCount = 0;
 
     if (importType === "timeline_with_events") {
-      if (!parsed.timeline) {
-        throw new ApiError(400, "TIMELINE_METADATA_REQUIRED", "Timeline metadata is required.");
-      }
+      for (const group of parsed.timelineGroups) {
+        let timelineId = 0;
+        let existingTimelineEventCount = 0;
+        let timelineCreated = false;
+        let timelineSlug = group.timeline.slug;
+        const existingTimeline = await getTimelineSummaryBySlug(query, group.timeline.slug);
 
-      const existingTimeline = await getTimelineSummaryBySlug(query, parsed.timeline.slug);
-      if (existingTimeline) {
-        timelineId = existingTimeline.id;
-        existingTimelineEventCount = existingTimeline.eventCount;
-        timelineSlug = existingTimeline.slug;
-        skippedTimelinesCount = 1;
-        reasons.push({
-          type: "timeline_skipped",
-          timelineSlug,
-          message: `Timeline slug '${timelineSlug}' already exists. Reusing existing timeline.`
-        });
-      } else {
-        const [timelineRow] = await query<{ id: number }[]>`
-          INSERT INTO timelines (title, slug, description, category)
-          VALUES (${parsed.timeline.title}, ${parsed.timeline.slug}, ${parsed.timeline.description}, ${parsed.timeline.category})
-          RETURNING id
-        `;
+        if (existingTimeline) {
+          timelineId = existingTimeline.id;
+          existingTimelineEventCount = existingTimeline.eventCount;
+          timelineSlug = existingTimeline.slug;
+          skippedTimelinesCount += 1;
+          reasons.push({
+            type: "timeline_skipped",
+            timelineSlug,
+            message: `Timeline slug '${timelineSlug}' already exists. Reusing existing timeline.`
+          });
+        } else {
+          const [timelineRow] = await query<{ id: number }[]>`
+            INSERT INTO timelines (title, slug, description, category)
+            VALUES (${group.timeline.title}, ${group.timeline.slug}, ${group.timeline.description}, ${group.timeline.category})
+            RETURNING id
+          `;
 
-        if (!timelineRow) {
-          throw new ApiError(500, "TIMELINE_INSERT_FAILED", "Timeline insert failed.");
+          if (!timelineRow) {
+            throw new ApiError(500, "TIMELINE_INSERT_FAILED", "Timeline insert failed.");
+          }
+
+          timelineId = timelineRow.id;
+          timelineCreated = true;
+          importedTimelinesCount += 1;
         }
 
-        timelineId = timelineRow.id;
-        timelineSlug = parsed.timeline.slug;
-        timelineCreated = true;
+        const duplicateSet = buildDuplicateSet(group.events, await getTimelineEventSignatures(query, timelineId));
+        let created = 0;
+        let groupDuplicateCount = 0;
+
+        for (const row of group.events) {
+          const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
+          if (duplicateSet.has(signature)) {
+            groupDuplicateCount += 1;
+            skippedEventsCount += 1;
+            reasons.push({
+              type: "event_skipped",
+              timelineSlug,
+              row: row.sourceRow,
+              date: row.date,
+              title: row.title,
+              message: `Event '${row.title}' on ${row.date} already exists under timeline '${timelineSlug}'.`
+            });
+            continue;
+          }
+
+          const [eventRow] = await query<{ id: number }[]>`
+            INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
+            VALUES (${row.date}, ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+            RETURNING id
+          `;
+
+          if (!eventRow) {
+            throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
+          }
+
+          await query`
+            INSERT INTO timeline_events (timeline_id, event_id, event_order)
+            VALUES (${timelineId}, ${eventRow.id}, ${existingTimelineEventCount + created + 1})
+          `;
+          created += 1;
+        }
+
+        if (timelineCreated && created < 1) {
+          throw new ApiError(409, "NO_EVENTS_IMPORTED", "No events were persisted for the imported timeline.");
+        }
+
+        importedEventsCount += created;
+        affectedTimelineSlugs.push(timelineSlug);
+        timelineResults.push({
+          timelineId,
+          title: group.timeline.title,
+          slug: timelineSlug,
+          importedEventsCount: created,
+          skippedEventsCount: groupDuplicateCount,
+          timelineCreated
+        });
+
+        await query`
+          UPDATE timelines
+          SET updated_at = NOW()
+          WHERE id = ${timelineId}
+        `;
+
+        if (!primaryTimelineId) {
+          primaryTimelineId = timelineId;
+          primaryTimelineCreated = timelineCreated;
+        }
       }
-    } else {
-      const summary = await getTimelineSummaryById(query, ensureExistingTimelineId({ timelineId: existingTimelineId }, importType));
-      if (!summary) {
-        throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
-      }
-      timelineId = summary.id;
-      existingTimelineEventCount = summary.eventCount;
-      timelineSlug = summary.slug;
+
+      return {
+        message: "Timelines and events successfully imported",
+        timelineId: primaryTimelineId,
+        eventsCreatedCount: importedEventsCount,
+        duplicatesSkipped: skippedEventsCount,
+        timelineCreated: primaryTimelineCreated,
+        importedTimelinesCount,
+        importedEventsCount,
+        skippedTimelinesCount,
+        skippedEventsCount,
+        affectedTimelineSlugs,
+        timelineResults,
+        reasons
+      };
     }
 
-    const duplicateSet = buildDuplicateSet(parsed.events, await getTimelineEventSignatures(query, timelineId));
+    const summary = await getTimelineSummaryById(query, ensureExistingTimelineId({ timelineId: existingTimelineId }, importType));
+    if (!summary) {
+      throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
+    }
 
+    const duplicateSet = buildDuplicateSet(parsed.events, await getTimelineEventSignatures(query, summary.id));
     let created = 0;
     let duplicateCount = 0;
-    for (const [index, row] of parsed.events.entries()) {
+    for (const row of parsed.events) {
       const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
       if (duplicateSet.has(signature)) {
         duplicateCount += 1;
+        skippedEventsCount += 1;
         reasons.push({
           type: "event_skipped",
-          timelineSlug,
-          row: index + 2,
+          timelineSlug: summary.slug,
+          row: row.sourceRow,
           date: row.date,
           title: row.title,
-          message: `Event '${row.title}' on ${row.date} already exists under timeline '${timelineSlug}'.`
+          message: `Event '${row.title}' on ${row.date} already exists under timeline '${summary.slug}'.`
         });
         continue;
       }
@@ -985,31 +1219,38 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
 
       await query`
         INSERT INTO timeline_events (timeline_id, event_id, event_order)
-        VALUES (${timelineId}, ${eventRow.id}, ${existingTimelineEventCount + created + 1})
+        VALUES (${summary.id}, ${eventRow.id}, ${summary.eventCount + created + 1})
       `;
       created += 1;
-    }
-
-    if (timelineCreated && created < 1) {
-      throw new ApiError(409, "NO_EVENTS_IMPORTED", "No events were persisted for the imported timeline.");
     }
 
     await query`
       UPDATE timelines
       SET updated_at = NOW()
-      WHERE id = ${timelineId}
+      WHERE id = ${summary.id}
     `;
 
     return {
       message: "Timeline and events successfully imported",
-      timelineId,
+      timelineId: summary.id,
       eventsCreatedCount: created,
       duplicatesSkipped: duplicateCount,
-      timelineCreated,
-      importedTimelinesCount: timelineCreated ? 1 : 0,
+      timelineCreated: false,
+      importedTimelinesCount: 0,
       importedEventsCount: created,
-      skippedTimelinesCount,
+      skippedTimelinesCount: 0,
       skippedEventsCount: duplicateCount,
+      affectedTimelineSlugs: [summary.slug],
+      timelineResults: [
+        {
+          timelineId: summary.id,
+          title: summary.title,
+          slug: summary.slug,
+          importedEventsCount: created,
+          skippedEventsCount: duplicateCount,
+          timelineCreated: false
+        }
+      ],
       reasons
     };
   });
@@ -1020,66 +1261,125 @@ export const importService = {
     const input = importPreviewSchema.parse(rawInput);
     const parsed = parseImportContent(input.format, input.importType, input.content);
 
-    let timelineContext;
     if (input.importType === "timeline_with_events") {
-      if (!parsed.timeline) {
+      if (parsed.timelineGroups.length === 0) {
         throw new ApiError(400, "TIMELINE_METADATA_REQUIRED", "Timeline metadata is required.");
       }
-      const existingTimeline = await getTimelineSummaryBySlug(getSql(), parsed.timeline.slug);
+      const timelineContexts = await Promise.all(
+        parsed.timelineGroups.map(async (group) => {
+          const existingTimeline = await getTimelineSummaryBySlug(getSql(), group.timeline.slug);
+          const duplicateSet = buildDuplicateSet(
+            group.events,
+            existingTimeline ? await getTimelineEventSignatures(getSql(), existingTimeline.id) : new Set()
+          );
 
-      timelineContext = existingTimeline
-        ? {
-            mode: "existing" as const,
-            timelineId: existingTimeline.id,
-            title: existingTimeline.title,
-            slug: existingTimeline.slug,
-            description: existingTimeline.description,
-            category: existingTimeline.category
-          }
-        : {
-            mode: "create" as const,
-            timelineId: null,
-            title: parsed.timeline.title,
-            slug: parsed.timeline.slug,
-            description: parsed.timeline.description,
-            category: parsed.timeline.category
+          return {
+            timeline: existingTimeline
+              ? {
+                  mode: "existing" as const,
+                  timelineId: existingTimeline.id,
+                  title: existingTimeline.title,
+                  slug: existingTimeline.slug,
+                  description: existingTimeline.description,
+                  category: existingTimeline.category,
+                  rows: group.events.length,
+                  duplicates: duplicateSet.size,
+                  accepted: group.events.length - duplicateSet.size
+                }
+              : {
+                  mode: "create" as const,
+                  timelineId: null,
+                  title: group.timeline.title,
+                  slug: group.timeline.slug,
+                  description: group.timeline.description,
+                  category: group.timeline.category,
+                  rows: group.events.length,
+                  duplicates: duplicateSet.size,
+                  accepted: group.events.length - duplicateSet.size
+                },
+            previewRows: buildPreviewRows(group.events.map((event) => ({
+              event,
+              duplicateSet,
+              timeline: group.timeline
+            })))
           };
-    } else {
-      const timelineId = ensureExistingTimelineId(input, input.importType);
-      const summary = await getTimelineSummaryById(getSql(), timelineId);
-      if (!summary) {
-        throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
+        })
+      );
+
+      const allPreviewRows = timelineContexts.flatMap((item) => item.previewRows).slice(0, 8);
+      const primaryTimeline = timelineContexts[0]?.timeline;
+      if (!primaryTimeline) {
+        throw new ApiError(400, "VALIDATION_FAILED", "Import preview did not produce any timelines.");
       }
 
-      timelineContext = {
-        mode: "existing" as const,
-        timelineId: summary.id,
-        title: summary.title,
-        slug: summary.slug,
-        description: summary.description,
-        category: summary.category
+      return {
+        format: input.format,
+        importType: input.importType,
+        valid: true,
+        timeline: primaryTimeline,
+        timelines: timelineContexts.map((item) => item.timeline),
+        totals: {
+          rows: parsed.timelineGroups.reduce((sum, group) => sum + group.events.length, 0),
+          duplicates: timelineContexts.reduce((sum, item) => sum + item.timeline.duplicates, 0),
+          accepted: timelineContexts.reduce((sum, item) => sum + item.timeline.accepted, 0),
+          timelines: timelineContexts.length
+        },
+        errors: [],
+        preview: allPreviewRows,
+        skipDuplicates: input.skipDuplicates
       };
     }
 
+    const timelineId = ensureExistingTimelineId(input, input.importType);
+    const summary = await getTimelineSummaryById(getSql(), timelineId);
+    if (!summary) {
+      throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
+    }
+
+    const timelineContext = {
+      mode: "existing" as const,
+      timelineId: summary.id,
+      title: summary.title,
+      slug: summary.slug,
+      description: summary.description,
+      category: summary.category,
+      rows: parsed.events.length,
+      duplicates: 0,
+      accepted: 0
+    };
+
     const duplicateSet = buildDuplicateSet(
       parsed.events,
-      timelineContext.mode === "existing"
-        ? await getTimelineEventSignatures(getSql(), timelineContext.timelineId)
-        : new Set()
+      await getTimelineEventSignatures(getSql(), timelineContext.timelineId)
     );
+    timelineContext.duplicates = duplicateSet.size;
+    timelineContext.accepted = parsed.events.length - duplicateSet.size;
 
     return {
       format: input.format,
       importType: input.importType,
       valid: true,
       timeline: timelineContext,
+      timelines: [timelineContext],
       totals: {
         rows: parsed.events.length,
         duplicates: duplicateSet.size,
-        accepted: parsed.events.length - duplicateSet.size
+        accepted: parsed.events.length - duplicateSet.size,
+        timelines: 1
       },
       errors: [],
-      preview: buildPreviewRows(parsed.events, duplicateSet),
+      preview: buildPreviewRows(
+        parsed.events.map((event) => ({
+          event,
+          duplicateSet,
+          timeline: {
+            title: summary.title,
+            slug: summary.slug,
+            description: summary.description,
+            category: summary.category
+          }
+        }))
+      ),
       skipDuplicates: input.skipDuplicates
     };
   },
@@ -1088,7 +1388,7 @@ export const importService = {
     const input = importPreviewSchema.parse(rawInput);
     const parsed = parseImportContent(input.format, input.importType, input.content);
 
-    if (input.importType === "timeline_with_events" && !parsed.timeline) {
+    if (input.importType === "timeline_with_events" && parsed.timelineGroups.length === 0) {
       throw new ApiError(400, "TIMELINE_METADATA_REQUIRED", "Timeline metadata is required.");
     }
 

@@ -206,17 +206,30 @@ export function ImportData({
         <div className="glass-card stack">
           <strong>Preview</strong>
           <p className="muted" style={{ margin: 0 }}>
-            {preview.timeline.mode === "create" ? "New timeline" : "Existing timeline"}: {preview.timeline.title}
+            {preview.totals.timelines} timelines • {preview.totals.accepted} events will be inserted • {preview.totals.duplicates} duplicates detected
           </p>
-          <p className="muted" style={{ margin: 0 }}>
-            {preview.totals.accepted} events will be inserted • {preview.totals.duplicates} duplicates detected
-          </p>
+          {preview.timelines.length > 1 ? (
+            <div className="admin-lists">
+              {preview.timelines.slice(0, 8).map((timeline) => (
+                <article key={timeline.slug} className="glass-card stack">
+                  <strong>{timeline.title}</strong>
+                  <p className="small muted" style={{ margin: 0 }}>
+                    {timeline.mode === "create" ? "New timeline" : "Existing timeline"} • {timeline.accepted} accepted • {timeline.duplicates} duplicates
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              {preview.timeline.mode === "create" ? "New timeline" : "Existing timeline"}: {preview.timeline.title}
+            </p>
+          )}
           <div className="admin-lists">
             {preview.preview.map((item) => (
-              <article key={`${item.date}-${item.title}`} className="glass-card stack">
+              <article key={`${item.timelineSlug || "timeline"}-${item.date}-${item.title}`} className="glass-card stack">
                 <strong>{item.title}</strong>
                 <p className="small muted" style={{ margin: 0 }}>
-                  {item.date} {item.duplicate ? "• duplicate" : "• new"}
+                  {item.timelineTitle ? `${item.timelineTitle} • ` : ""}{item.date} {item.duplicate ? "• duplicate" : "• new"}
                 </p>
                 <p className="small muted" style={{ margin: 0 }}>{item.description}</p>
               </article>
@@ -237,6 +250,18 @@ export function ImportData({
           <p className="muted" style={{ margin: 0 }}>
             Events created: {result.eventsCreatedCount} • Duplicates skipped: {result.duplicatesSkipped}
           </p>
+          {result.timelineResults.length > 1 ? (
+            <div className="admin-lists">
+              {result.timelineResults.slice(0, 8).map((timeline) => (
+                <article key={timeline.slug} className="glass-card stack">
+                  <strong>{timeline.title}</strong>
+                  <p className="small muted" style={{ margin: 0 }}>
+                    {timeline.timelineCreated ? "Created" : "Reused"} • {timeline.importedEventsCount} imported • {timeline.skippedEventsCount} skipped
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : null}
           {result.reasons.length > 0 ? (
             <div className="admin-lists">
               {result.reasons.slice(0, 8).map((reason, index) => (
