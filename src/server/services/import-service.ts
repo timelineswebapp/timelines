@@ -24,7 +24,20 @@ type ParsedImportData = {
 
 type CsvRow = Record<string, string>;
 
-function getCsvValue(row: CsvRow, aliases: string[]): string | undefined {
+const CSV_FIELD_ALIASES = {
+  date: ["date"],
+  datePrecision: ["datePrecision", "date_precision"],
+  title: ["title"],
+  description: ["description"],
+  importance: ["importance"],
+  location: ["location"],
+  imageUrl: ["imageUrl", "image_url"],
+  timelineTitle: ["timelineTitle", "timeline_title"],
+  timelineDescription: ["timelineDescription", "timeline_description"],
+  timelineCategory: ["timelineCategory", "timeline_category", "category"]
+} as const;
+
+function getCsvValue(row: CsvRow, aliases: readonly string[]): string | undefined {
   for (const alias of aliases) {
     const value = row[alias];
     if (typeof value === "string") {
@@ -33,6 +46,57 @@ function getCsvValue(row: CsvRow, aliases: string[]): string | undefined {
   }
 
   return undefined;
+}
+
+function getCsvValueWithAlias(row: CsvRow, aliases: readonly string[]) {
+  for (const alias of aliases) {
+    const value = row[alias];
+    if (typeof value === "string") {
+      return {
+        value,
+        alias
+      };
+    }
+  }
+
+  return {
+    value: undefined,
+    alias: aliases[0] ?? "unknown"
+  };
+}
+
+function inferPrecisionFromDate(rawDate?: string): TimelineImportRow["datePrecision"] | null {
+  const value = rawDate?.trim();
+  if (!value) {
+    return null;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return "day";
+  }
+
+  if (/^\d{4}-\d{2}$/.test(value)) {
+    return "month";
+  }
+
+  if (/^\d{4}$/.test(value)) {
+    return "year";
+  }
+
+  return null;
+}
+
+function isDateValidationError(error: unknown): error is Error {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return [
+    "Day precision dates must use YYYY-MM-DD.",
+    "Month precision dates must use YYYY-MM.",
+    "Year precision dates must use YYYY.",
+    "Date must be in YYYY-MM-DD, YYYY-MM, or YYYY format."
+  ].includes(error.message);
 }
 
 function throwCsvValidationError(
@@ -170,14 +234,30 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
   }
 
   const events = result.data.map((row, index) => {
+    const dateField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.date);
+    const datePrecisionField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.datePrecision);
+    const titleField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.title);
+    const descriptionField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.description);
+    const importanceField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.importance);
+    const locationField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.location);
+    const imageUrlField = getCsvValueWithAlias(row, CSV_FIELD_ALIASES.imageUrl);
     const normalizedRow = {
-      date: getCsvValue(row, ["date"]),
-      datePrecision: getCsvValue(row, ["datePrecision", "date_precision"]),
-      title: getCsvValue(row, ["title"]),
-      description: getCsvValue(row, ["description"]),
-      importance: getCsvValue(row, ["importance"]),
-      location: getCsvValue(row, ["location"]) || null,
-      imageUrl: getCsvValue(row, ["imageUrl", "image_url"]) || null
+      date: dateField.value,
+      datePrecision: datePrecisionField.value,
+      title: titleField.value,
+      description: descriptionField.value,
+      importance: importanceField.value,
+      location: locationField.value || null,
+      imageUrl: imageUrlField.value || null
+    };
+    const normalizedHeaderKeys = {
+      date: dateField.alias,
+      datePrecision: datePrecisionField.alias,
+      title: titleField.alias,
+      description: descriptionField.alias,
+      importance: importanceField.alias,
+      location: locationField.alias,
+      imageUrl: imageUrlField.alias
     };
 
     try {
@@ -187,9 +267,34 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
         throw error;
       }
 
+      if (isDateValidationError(error)) {
+        const inferredPrecision = inferPrecisionFromDate(normalizedRow.date);
+        throw new ApiError(
+          400,
+          "VALIDATION_FAILED",
+          `Row ${index + 2}: date='${normalizedRow.date || ""}', precision='${normalizedRow.datePrecision || ""}', normalized precision='${inferredPrecision || "unknown"}'`,
+          {
+            row: index + 2,
+            parsedDate: normalizedRow.date || null,
+            parsedDatePrecision: normalizedRow.datePrecision || null,
+            normalizedPrecision: inferredPrecision,
+            normalizedHeaderKeys,
+            fields: [
+              {
+                field: "date",
+                message: error.message
+              }
+            ]
+          }
+        );
+      }
+
       if (error instanceof Error && "issues" in error) {
         throw new ApiError(400, "VALIDATION_FAILED", "CSV row validation failed.", {
           row: index + 2,
+          parsedDate: normalizedRow.date || null,
+          parsedDatePrecision: normalizedRow.datePrecision || null,
+          normalizedHeaderKeys,
           fields: (error as { issues?: Array<{ path?: string[]; message?: string }> }).issues?.map((issue) => ({
             field: issue.path?.join(".") || "unknown",
             message: issue.message || "Invalid value"
@@ -205,9 +310,9 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
   });
 
   if (importType === "timeline_with_events") {
-    const timelineTitle = getCsvValue(firstRow, ["timelineTitle", "timeline_title"]);
-    const timelineDescription = getCsvValue(firstRow, ["timelineDescription", "timeline_description"]);
-    const timelineCategory = getCsvValue(firstRow, ["timelineCategory", "timeline_category", "category"]);
+    const timelineTitle = getCsvValue(firstRow, CSV_FIELD_ALIASES.timelineTitle);
+    const timelineDescription = getCsvValue(firstRow, CSV_FIELD_ALIASES.timelineDescription);
+    const timelineCategory = getCsvValue(firstRow, CSV_FIELD_ALIASES.timelineCategory);
 
     return {
       timeline: (() => {
