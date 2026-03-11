@@ -1,6 +1,6 @@
 import type { EmbeddedSourceInput, EventRecord, SourceRecord } from "@/src/lib/types";
 import type { Sql } from "postgres";
-import { getSql } from "@/src/server/db/client";
+import { getSql, getWriteSql } from "@/src/server/db/client";
 import { ApiError } from "@/src/server/api/responses";
 import { attachTaxonomyToEvent, memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store";
 
@@ -280,39 +280,7 @@ export const eventRepository = {
   },
 
   async create(input: EventInput): Promise<EventRecord> {
-    const sql = getSql();
-    if (!sql) {
-      const timelines = memoryStore.getTimelines();
-      const timeline = timelines.find((item) => item.id === input.timelineId);
-      if (!timeline) {
-        throw new Error("Timeline not found.");
-      }
-
-      const event = attachTaxonomyToEvent(
-        {
-          id: memoryStore.nextEventId(),
-          date: input.date,
-          datePrecision: input.datePrecision,
-          title: input.title,
-          description: input.description,
-          importance: input.importance,
-          location: input.location,
-          imageUrl: input.imageUrl,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          sources: [],
-          tags: []
-        },
-        resolveMemorySources(input.sources).map((source) => source.id),
-        input.tagIds,
-        memoryStore.getSources(),
-        memoryStore.getTags()
-      );
-
-      timeline.events = reorderEvents([...timeline.events, event]);
-      touchTimelineSummary(timeline);
-      return event;
-    }
+    const sql = getWriteSql("event create");
 
     return sql.begin(async (tx) => {
       const query = tx as unknown as Sql;
@@ -369,45 +337,7 @@ export const eventRepository = {
   },
 
   async update(id: number, input: EventInput): Promise<EventRecord | null> {
-    const sql = getSql();
-    if (!sql) {
-      const timelines = memoryStore.getTimelines();
-      const currentTimeline = timelines.find((timeline) => timeline.events.some((event) => event.id === id));
-      const targetTimeline = timelines.find((timeline) => timeline.id === input.timelineId);
-
-      if (!currentTimeline || !targetTimeline) {
-        return null;
-      }
-
-      const existingEvent = currentTimeline.events.find((event) => event.id === id);
-      if (!existingEvent) {
-        return null;
-      }
-
-      const updatedEvent = attachTaxonomyToEvent(
-        {
-          ...existingEvent,
-          date: input.date,
-          datePrecision: input.datePrecision,
-          title: input.title,
-          description: input.description,
-          importance: input.importance,
-          location: input.location,
-          imageUrl: input.imageUrl,
-          updatedAt: new Date().toISOString()
-        },
-        resolveMemorySources(input.sources).map((source) => source.id),
-        input.tagIds,
-        memoryStore.getSources(),
-        memoryStore.getTags()
-      );
-
-      currentTimeline.events = currentTimeline.events.filter((event) => event.id !== id);
-      targetTimeline.events = reorderEvents([...targetTimeline.events, updatedEvent]);
-      touchTimelineSummary(currentTimeline);
-      touchTimelineSummary(targetTimeline);
-      return updatedEvent;
-    }
+    const sql = getWriteSql("event update");
 
     return sql.begin(async (tx) => {
       const query = tx as unknown as Sql;
@@ -482,17 +412,7 @@ export const eventRepository = {
   },
 
   async delete(id: number): Promise<boolean> {
-    const sql = getSql();
-    if (!sql) {
-      const timelines = memoryStore.getTimelines();
-      const timeline = timelines.find((item) => item.events.some((event) => event.id === id));
-      if (!timeline) {
-        return false;
-      }
-      timeline.events = timeline.events.filter((event) => event.id !== id);
-      touchTimelineSummary(timeline);
-      return true;
-    }
+    const sql = getWriteSql("event delete");
 
     const result = await sql`DELETE FROM events WHERE id = ${id}`;
     return result.count > 0;

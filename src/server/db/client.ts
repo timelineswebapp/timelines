@@ -1,5 +1,6 @@
 import postgres, { type Sql } from "postgres";
 import { config, assertDatabaseConfigured } from "@/src/lib/config";
+import { ApiError } from "@/src/server/api/responses";
 
 let sqlInstance: Sql | null = null;
 let hasWarnedFallback = false;
@@ -34,6 +35,15 @@ export function getSql(): Sql | null {
   });
 
   return sqlInstance;
+}
+
+export function getWriteSql(operation: string): Sql {
+  const sql = getSql();
+  if (!sql) {
+    throw new ApiError(503, "DATABASE_UNAVAILABLE", `DATABASE_URL missing - ${operation} cannot persist.`);
+  }
+
+  return sql;
 }
 
 export async function closeSql(): Promise<void> {

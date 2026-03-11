@@ -1,6 +1,6 @@
 import type { TimelineDetail, TimelineSummary } from "@/src/lib/types";
 import { slugify } from "@/src/lib/utils";
-import { getSql } from "@/src/server/db/client";
+import { getSql, getWriteSql } from "@/src/server/db/client";
 import { memoryStore, touchTimelineSummary, withRelatedTimelines } from "@/src/server/dev/memory-store";
 
 interface TimelineRow {
@@ -430,27 +430,7 @@ export const timelineRepository = {
   },
 
   async create(input: { title: string; slug: string; description: string; category: string }): Promise<TimelineSummary> {
-    const sql = getSql();
-    if (!sql) {
-      const nextId = memoryStore.nextTimelineId();
-      const timeline: TimelineDetail = {
-        id: nextId,
-        title: input.title,
-        slug: input.slug || slugify(input.title),
-        description: input.description,
-        category: input.category,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        tags: [],
-        eventCount: 0,
-        highlightedEventTitles: [],
-        events: [],
-        relatedTimelines: []
-      };
-      memoryStore.setTimelines([...memoryStore.getTimelines(), timeline]);
-      const { events: _events, relatedTimelines: _relatedTimelines, ...summary } = timeline;
-      return summary;
-    }
+    const sql = getWriteSql("timeline create");
 
     const [row] = await sql<TimelineRow[]>`
       INSERT INTO timelines (title, slug, description, category)
@@ -466,22 +446,7 @@ export const timelineRepository = {
   },
 
   async update(id: number, input: { title: string; slug: string; description: string; category: string }): Promise<TimelineSummary | null> {
-    const sql = getSql();
-    if (!sql) {
-      const timelines = memoryStore.getTimelines();
-      const timeline = timelines.find((item) => item.id === id);
-      if (!timeline) {
-        return null;
-      }
-
-      timeline.title = input.title;
-      timeline.slug = input.slug || slugify(input.title);
-      timeline.description = input.description;
-      timeline.category = input.category;
-      touchTimelineSummary(timeline);
-      const { events: _events, relatedTimelines: _relatedTimelines, ...summary } = timeline;
-      return summary;
-    }
+    const sql = getWriteSql("timeline update");
 
     const [row] = await sql<TimelineRow[]>`
       UPDATE timelines
@@ -504,16 +469,7 @@ export const timelineRepository = {
   },
 
   async delete(id: number): Promise<boolean> {
-    const sql = getSql();
-    if (!sql) {
-      const timelines = memoryStore.getTimelines();
-      const next = timelines.filter((timeline) => timeline.id !== id);
-      if (next.length === timelines.length) {
-        return false;
-      }
-      memoryStore.setTimelines(next);
-      return true;
-    }
+    const sql = getWriteSql("timeline delete");
 
     const result = await sql`
       DELETE FROM timelines

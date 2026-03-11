@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { TimelineRequestRecord, TimelineRequestStatus } from "@/src/lib/types";
 import { normalizeQuery } from "@/src/lib/utils";
-import { getSql } from "@/src/server/db/client";
+import { getSql, getWriteSql } from "@/src/server/db/client";
 import { memoryStore } from "@/src/server/dev/memory-store";
 
 function hashIp(ip: string): string {
@@ -107,16 +107,7 @@ export const requestRepository = {
   },
 
   async updateStatus(id: number, status: TimelineRequestStatus): Promise<TimelineRequestRecord | null> {
-    const sql = getSql();
-    if (!sql) {
-      const requests = memoryStore.getRequests();
-      const request = requests.find((item) => item.id === id);
-      if (!request) {
-        return null;
-      }
-      request.status = status;
-      return request;
-    }
+    const sql = getWriteSql("request status update");
 
     const [row] = await sql<{
       id: number;

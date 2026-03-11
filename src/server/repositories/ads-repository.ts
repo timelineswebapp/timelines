@@ -1,5 +1,5 @@
 import type { AdCampaignRecord, AdSlotAssignment, AdSlotKey, AdsDashboardData, AdsSnapshot } from "@/src/lib/types";
-import { getSql } from "@/src/server/db/client";
+import { getSql, getWriteSql } from "@/src/server/db/client";
 
 const SLOT_LABELS: Record<AdSlotKey, string> = {
   home_feed_ad: "Home feed ad",
@@ -195,21 +195,7 @@ export const adsRepository = {
   },
 
   async createCampaign(input: CampaignInput): Promise<AdCampaignRecord> {
-    const sql = getSql();
-    if (!sql) {
-      const now = new Date().toISOString();
-      const campaign: AdCampaignRecord = {
-        id: nextCampaignId++,
-        ...input,
-        impressions: 0,
-        clicks: 0,
-        revenue: 0,
-        createdAt: now,
-        updatedAt: now
-      };
-      memoryCampaigns = [campaign, ...memoryCampaigns];
-      return campaign;
-    }
+    const sql = getWriteSql("ad campaign create");
 
     const [row] = await sql<{
       id: number;
@@ -284,16 +270,7 @@ export const adsRepository = {
   },
 
   async updateCampaign(id: number, input: CampaignInput): Promise<AdCampaignRecord | null> {
-    const sql = getSql();
-    if (!sql) {
-      const campaign = memoryCampaigns.find((item) => item.id === id);
-      if (!campaign) {
-        return null;
-      }
-
-      Object.assign(campaign, input, { updatedAt: new Date().toISOString() });
-      return campaign;
-    }
+    const sql = getWriteSql("ad campaign update");
 
     const [row] = await sql<{
       id: number;
@@ -352,15 +329,7 @@ export const adsRepository = {
   },
 
   async deleteCampaign(id: number): Promise<boolean> {
-    const sql = getSql();
-    if (!sql) {
-      const next = memoryCampaigns.filter((item) => item.id !== id);
-      if (next.length === memoryCampaigns.length) {
-        return false;
-      }
-      memoryCampaigns = next;
-      return true;
-    }
+    const sql = getWriteSql("ad campaign delete");
 
     const result = await sql`
       DELETE FROM ad_campaigns

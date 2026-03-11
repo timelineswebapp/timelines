@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { GlassPanel } from "@/components/ui/GlassPanel";
 import { getAdminRouteSlug } from "@/src/lib/admin-route";
+import { config } from "@/src/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export default function AdminPage({ params }: { params: { adminRoute: string } }
           Content, analytics, ad inventory, and import controls are isolated behind authenticated API routes.
         </p>
       </GlassPanel>
-      <AdminDashboard />
+      <AdminDashboard initialDatabaseConnected={Boolean(config.databaseUrl)} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { TagRecord } from "@/src/lib/types";
-import { getSql } from "@/src/server/db/client";
+import { getSql, getWriteSql } from "@/src/server/db/client";
 import { memoryStore } from "@/src/server/dev/memory-store";
 
 export const tagRepository = {
@@ -33,12 +33,7 @@ export const tagRepository = {
   },
 
   async create(input: Omit<TagRecord, "id">): Promise<TagRecord> {
-    const sql = getSql();
-    if (!sql) {
-      const tag = { id: memoryStore.nextTagId(), ...input };
-      memoryStore.setTags([...memoryStore.getTags(), tag]);
-      return tag;
-    }
+    const sql = getWriteSql("tag create");
 
     const [row] = await sql<TagRecord[]>`
       INSERT INTO tags (slug, name)
@@ -54,16 +49,7 @@ export const tagRepository = {
   },
 
   async update(id: number, input: Omit<TagRecord, "id">): Promise<TagRecord | null> {
-    const sql = getSql();
-    if (!sql) {
-      const tags = memoryStore.getTags();
-      const tag = tags.find((item) => item.id === id);
-      if (!tag) {
-        return null;
-      }
-      Object.assign(tag, input);
-      return tag;
-    }
+    const sql = getWriteSql("tag update");
 
     const [row] = await sql<TagRecord[]>`
       UPDATE tags
@@ -76,16 +62,7 @@ export const tagRepository = {
   },
 
   async delete(id: number): Promise<boolean> {
-    const sql = getSql();
-    if (!sql) {
-      const tags = memoryStore.getTags();
-      const next = tags.filter((item) => item.id !== id);
-      if (next.length === tags.length) {
-        return false;
-      }
-      memoryStore.setTags(next);
-      return true;
-    }
+    const sql = getWriteSql("tag delete");
 
     const result = await sql`DELETE FROM tags WHERE id = ${id}`;
     return result.count > 0;

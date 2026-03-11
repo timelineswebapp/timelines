@@ -9,7 +9,7 @@ import type {
 } from "@/src/lib/types";
 import { slugify } from "@/src/lib/utils";
 import { ApiError } from "@/src/server/api/responses";
-import { getSql } from "@/src/server/db/client";
+import { getSql, getWriteSql } from "@/src/server/db/client";
 import { memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store";
 import { importPreviewSchema, importRowSchema, importTimelineSchema } from "@/src/server/validation/schemas";
 
@@ -443,10 +443,7 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
 }
 
 async function executeDatabaseImport(parsed: ParsedImportData, importType: ImportType, skipDuplicates: boolean, existingTimelineId?: number | null): Promise<ImportExecutionResult> {
-  const sql = getSql();
-  if (!sql) {
-    return executeMemoryImport(parsed, importType, skipDuplicates, existingTimelineId);
-  }
+  const sql = getWriteSql("import");
 
   return sql.begin(async (tx) => {
     const query = tx as unknown as Sql;
@@ -511,6 +508,10 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
         VALUES (${timelineId}, ${eventRow.id}, ${existingTimelineEventCount + created + 1})
       `;
       created += 1;
+    }
+
+    if (importType === "timeline_with_events" && created < 1) {
+      throw new ApiError(409, "NO_EVENTS_IMPORTED", "No events were persisted for the imported timeline.");
     }
 
     return {

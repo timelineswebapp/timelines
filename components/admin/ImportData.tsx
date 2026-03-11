@@ -52,6 +52,7 @@ export function ImportData({
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [result, setResult] = useState<ImportExecutionResult | null>(null);
+  const [feedbackError, setFeedbackError] = useState("");
 
   return (
     <section className="glass section-card stack">
@@ -129,8 +130,13 @@ export function ImportData({
               content,
               skipDuplicates
             }).then((nextPreview) => {
+              setFeedbackError("");
               setResult(null);
               setPreview(nextPreview);
+            }).catch((error: unknown) => {
+              setResult(null);
+              setPreview(null);
+              setFeedbackError(error instanceof Error ? error.message : "Import preview failed.");
             })
           }
           disabled={importType === "events_into_existing_timeline" && !timelineId}
@@ -148,8 +154,12 @@ export function ImportData({
               content,
               skipDuplicates
             }).then((nextResult) => {
+              setFeedbackError("");
               setPreview(null);
               setResult(nextResult);
+            }).catch((error: unknown) => {
+              setResult(null);
+              setFeedbackError(error instanceof Error ? error.message : "Import failed - database unavailable.");
             })
           }
           disabled={importType === "events_into_existing_timeline" && !timelineId}
@@ -186,6 +196,15 @@ export function ImportData({
           <strong>{result.message}</strong>
           <p className="muted" style={{ margin: 0 }}>
             Timeline ID: {result.timelineId} • Events created: {result.eventsCreatedCount} • Duplicates skipped: {result.duplicatesSkipped}
+          </p>
+        </div>
+      ) : null}
+
+      {feedbackError ? (
+        <div className="glass-card stack" style={{ borderColor: "rgba(200, 83, 83, 0.32)" }}>
+          <strong style={{ color: "var(--danger)" }}>Import failed - database unavailable</strong>
+          <p className="muted" style={{ margin: 0 }}>
+            {feedbackError}
           </p>
         </div>
       ) : null}

@@ -5,6 +5,7 @@ import type { ContentSection, TopTab } from "@/components/admin/admin-shared";
 export function AdminLayout({
   token,
   onTokenChange,
+  databaseConnected,
   activeTab,
   onTabChange,
   contentSection,
@@ -16,6 +17,7 @@ export function AdminLayout({
 }: {
   token: string;
   onTokenChange: (value: string) => void;
+  databaseConnected: boolean;
   activeTab: TopTab;
   onTabChange: (tab: TopTab) => void;
   contentSection?: ContentSection;
@@ -42,6 +44,10 @@ export function AdminLayout({
           onChange={(event) => onTokenChange(event.target.value)}
           placeholder="Admin API token"
         />
+
+        <div className={`pill admin-db-indicator ${databaseConnected ? "admin-db-indicator-connected" : "admin-db-indicator-disconnected"}`}>
+          {databaseConnected ? "Database Connected" : "Database Not Connected"}
+        </div>
 
         <AdminTabs activeTab={activeTab} onTabChange={onTabChange} />
 

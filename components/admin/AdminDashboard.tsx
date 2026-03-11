@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminAds } from "@/components/admin/AdminAds";
 import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import { AdminContent } from "@/components/admin/AdminContent";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import type { AnalyticsSnapshot } from "@/src/lib/types";
 import type { TopTab } from "@/components/admin/admin-shared";
 
-export function AdminDashboard() {
+export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseConnected: boolean }) {
   const [token, setToken] = useState("");
   const [status, setStatus] = useState("Provide the admin token to unlock dashboard actions.");
   const [error, setError] = useState("");
+  const [databaseConnected, setDatabaseConnected] = useState(initialDatabaseConnected);
   const [activeTab, setActiveTab] = useState<TopTab>("analytics");
   const [contentSection, setContentSection] = useState<"snapshot" | "timelines" | "events" | "import_data" | "requests">("snapshot");
   const [isLoaded, setIsLoaded] = useState(false);
@@ -27,6 +29,44 @@ export function AdminDashboard() {
     }),
     [token]
   );
+
+  useEffect(() => {
+    if (!token) {
+      setDatabaseConnected(initialDatabaseConnected);
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetch("/api/admin/analytics?mode=snapshot", {
+      headers: {
+        ...adminHeaders
+      }
+    })
+      .then(async (response) => {
+        if (response.status === 401) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          ok: boolean;
+          data?: AnalyticsSnapshot;
+        };
+
+        if (!cancelled) {
+          setDatabaseConnected(Boolean(response.ok && payload.ok && payload.data?.operational.databaseConfigured));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDatabaseConnected(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adminHeaders, initialDatabaseConnected, token]);
 
   const fetchAdmin = useCallback(
     async <T,>(url: string, init?: RequestInit): Promise<T> => {
@@ -66,6 +106,7 @@ export function AdminDashboard() {
     <AdminLayout
       token={token}
       onTokenChange={setToken}
+      databaseConnected={databaseConnected}
       activeTab={activeTab}
       onTabChange={setActiveTab}
       contentSection={contentSection}

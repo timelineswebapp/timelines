@@ -757,6 +757,20 @@ main {
     0 12px 28px rgba(77, 145, 210, 0.18);
 }
 
+.admin-db-indicator {
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.admin-db-indicator-connected {
+  color: var(--success);
+}
+
+.admin-db-indicator-disconnected {
+  color: var(--danger);
+}
+
 .admin-subnav,
 .admin-panel-grid {
   display: grid;
