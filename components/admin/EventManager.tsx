@@ -171,63 +171,65 @@ export function EventManager({
         </select>
       </div>
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Event</th>
-            <th>Timeline</th>
-            <th>Date</th>
-            <th>Sources</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {visibleEvents.map((event) => {
-            const parentTimeline = event.timelineLinks?.[0] || null;
+      <div className="admin-table-scroll">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Timeline</th>
+              <th>Date</th>
+              <th>Sources</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {visibleEvents.map((event) => {
+              const parentTimeline = event.timelineLinks?.[0] || null;
 
-            return (
-              <tr key={event.id}>
-                <td>
-                  <strong>{event.title}</strong>
-                  <div className="small muted">{event.description.slice(0, 90)}{event.description.length > 90 ? "..." : ""}</div>
-                </td>
-                <td>{parentTimeline?.title || "Unlinked"}</td>
-                <td>{event.date}</td>
-                <td>{event.sources.length}</td>
-                <td>
-                  <div className="pill-row">
-                    <button
-                      className="button secondary"
-                      type="button"
-                      onClick={() => {
-                        setDraft(mapEventToDraft(event));
-                        setIsEditorOpen(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    {parentTimeline ? (
-                      <Link className="button secondary" href={`/timeline/${parentTimeline.slug}`} target="_blank">
-                        Open timeline
-                      </Link>
-                    ) : null}
-                    <button className="button danger" type="button" onClick={() => setDeleteTarget(event)}>
-                      Delete
-                    </button>
-                  </div>
+              return (
+                <tr key={event.id}>
+                  <td>
+                    <strong>{event.title}</strong>
+                    <div className="small muted">{event.description.slice(0, 90)}{event.description.length > 90 ? "..." : ""}</div>
+                  </td>
+                  <td>{parentTimeline?.title || "Unlinked"}</td>
+                  <td>{event.date}</td>
+                  <td>{event.sources.length}</td>
+                  <td>
+                    <div className="pill-row">
+                      <button
+                        className="button secondary"
+                        type="button"
+                        onClick={() => {
+                          setDraft(mapEventToDraft(event));
+                          setIsEditorOpen(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      {parentTimeline ? (
+                        <Link className="button secondary" href={`/timeline/${parentTimeline.slug}`} target="_blank">
+                          Open timeline
+                        </Link>
+                      ) : null}
+                      <button className="button danger" type="button" onClick={() => setDeleteTarget(event)}>
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {visibleEvents.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="muted">
+                  No events match the current search or timeline filter.
                 </td>
               </tr>
-            );
-          })}
-          {visibleEvents.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="muted">
-                No events match the current search or timeline filter.
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
 
       <div className="admin-pagination">
         <button className="button secondary" type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>

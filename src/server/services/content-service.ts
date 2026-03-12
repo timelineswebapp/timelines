@@ -12,6 +12,10 @@ export const contentService = {
     return timelineRepository.listStaticSlugs(limit);
   },
 
+  listSitemapEntries(): Promise<Array<{ slug: string; updatedAt: string }>> {
+    return timelineRepository.listSitemapEntries();
+  },
+
   getTimeline(slug: string): Promise<TimelineDetail | null> {
     return timelineRepository.getBySlug(slug);
   },

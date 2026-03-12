@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Fragment } from "react";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { AdSlot } from "@/components/timeline/AdSlot";
@@ -7,6 +8,12 @@ import { adsService } from "@/src/server/services/ads-service";
 import { contentService } from "@/src/server/services/content-service";
 
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/"
+  }
+};
 
 export default async function HomePage() {
   const [homeFeedAd, featuredTimelines] = await Promise.all([

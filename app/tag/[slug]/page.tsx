@@ -1,9 +1,32 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { GlassPanel } from "@/components/ui/GlassPanel";
 import { TimelineSummaryCard } from "@/components/timeline/TimelineSummaryCard";
 import { contentService } from "@/src/server/services/content-service";
 
 export const revalidate = 3600;
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const detail = await contentService.getTagDetail(slug);
+
+  if (!detail) {
+    return {
+      title: "Tag not found | TiMELiNES",
+      alternates: {
+        canonical: `/tag/${slug}`
+      }
+    };
+  }
+
+  return {
+    title: `${detail.tag.name} timelines | TiMELiNES`,
+    description: `Browse timelines connected by the ${detail.tag.name} tag.`,
+    alternates: {
+      canonical: `/tag/${detail.tag.slug}`
+    }
+  };
+}
 
 export default async function TagPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

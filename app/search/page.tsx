@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { AdSlot } from "@/components/timeline/AdSlot";
 import { GlassPanel } from "@/components/ui/GlassPanel";
@@ -6,6 +7,25 @@ import { adsService } from "@/src/server/services/ads-service";
 import { contentService } from "@/src/server/services/content-service";
 
 export const revalidate = 3600;
+
+export async function generateMetadata({
+  searchParams
+}: {
+  searchParams: Promise<{ q?: string }>;
+}): Promise<Metadata> {
+  const { q = "" } = await searchParams;
+  const query = q.trim();
+
+  return {
+    title: query ? `Search: ${query} | TiMELiNES` : "Search timelines | TiMELiNES",
+    description: query
+      ? `Search results for "${query}" across structured timelines and event chronologies.`
+      : "Search structured timelines and event chronologies across the TiMELiNES catalog.",
+    alternates: {
+      canonical: query ? `/search?q=${encodeURIComponent(query)}` : "/search"
+    }
+  };
+}
 
 export default async function SearchPage({
   searchParams

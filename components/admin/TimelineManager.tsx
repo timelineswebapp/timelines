@@ -83,64 +83,66 @@ export function TimelineManager({
         />
       </div>
 
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Timeline</th>
-            <th>Category</th>
-            <th>Status</th>
-            <th>Events</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {visibleTimelines.map((timeline) => (
-            <tr key={timeline.id}>
-              <td>
-                <strong>{timeline.title}</strong>
-                <div className="small muted">{timeline.slug}</div>
-              </td>
-              <td>{timeline.category}</td>
-              <td>published</td>
-              <td>{timeline.eventCount}</td>
-              <td>
-                <div className="pill-row">
-                  <button
-                    className="button secondary"
-                    type="button"
-                    onClick={() => {
-                      setDraft({
-                        id: timeline.id,
-                        title: timeline.title,
-                        slug: timeline.slug,
-                        description: timeline.description,
-                        category: timeline.category,
-                        status: "published"
-                      });
-                      setIsEditorOpen(true);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <Link className="button secondary" href={`/timeline/${timeline.slug}`} target="_blank">
-                    View timeline
-                  </Link>
-                  <button className="button danger" type="button" onClick={() => setDeleteTarget(timeline)}>
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {visibleTimelines.length === 0 ? (
+      <div className="admin-table-scroll">
+        <table className="table">
+          <thead>
             <tr>
-              <td colSpan={5} className="muted">
-                No timelines match the current search.
-              </td>
+              <th>Timeline</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Events</th>
+              <th />
             </tr>
-          ) : null}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visibleTimelines.map((timeline) => (
+              <tr key={timeline.id}>
+                <td>
+                  <strong>{timeline.title}</strong>
+                  <div className="small muted">{timeline.slug}</div>
+                </td>
+                <td>{timeline.category}</td>
+                <td>published</td>
+                <td>{timeline.eventCount}</td>
+                <td>
+                  <div className="pill-row">
+                    <button
+                      className="button secondary"
+                      type="button"
+                      onClick={() => {
+                        setDraft({
+                          id: timeline.id,
+                          title: timeline.title,
+                          slug: timeline.slug,
+                          description: timeline.description,
+                          category: timeline.category,
+                          status: "published"
+                        });
+                        setIsEditorOpen(true);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <Link className="button secondary" href={`/timeline/${timeline.slug}`} target="_blank">
+                      View timeline
+                    </Link>
+                    <button className="button danger" type="button" onClick={() => setDeleteTarget(timeline)}>
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {visibleTimelines.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="muted">
+                  No timelines match the current search.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
 
       <div className="admin-pagination">
         <button className="button secondary" type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>

@@ -13,6 +13,11 @@ interface TimelineRow {
   updated_at: string;
 }
 
+interface TimelineSitemapRow {
+  slug: string;
+  updated_at: string;
+}
+
 function summaryFromRow(row: TimelineRow, tags: TimelineSummary["tags"], eventCount: number, highlightedEventTitles: string[]): TimelineSummary {
   return {
     id: row.id,
@@ -168,6 +173,27 @@ export const timelineRepository = {
     `;
 
     return rows.map((row) => row.slug);
+  },
+
+  async listSitemapEntries(): Promise<Array<{ slug: string; updatedAt: string }>> {
+    const sql = getSql();
+    if (!sql) {
+      return memoryStore.getTimelines().map((timeline) => ({
+        slug: timeline.slug,
+        updatedAt: timeline.updatedAt
+      }));
+    }
+
+    const rows = await sql<TimelineSitemapRow[]>`
+      SELECT slug, updated_at::text AS updated_at
+      FROM timelines
+      ORDER BY updated_at DESC, id DESC
+    `;
+
+    return rows.map((row) => ({
+      slug: row.slug,
+      updatedAt: row.updated_at
+    }));
   },
 
   async listRegistryExport(): Promise<Array<{

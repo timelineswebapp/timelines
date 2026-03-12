@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { config } from "@/src/lib/config";
 import "@/app/globals.css";
 
 const serif = Cormorant_Garamond({
@@ -16,6 +17,7 @@ const sans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: config.metadataBase,
   title: "TiMELiNES",
   description: "Structured timelines for complex histories, developments, and events."
 };

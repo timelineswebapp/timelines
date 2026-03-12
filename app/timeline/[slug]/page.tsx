@@ -16,13 +16,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const timeline = await contentService.getTimeline(slug);
   if (!timeline) {
     return {
-      title: "Timeline not found"
+      title: "Timeline not found",
+      alternates: {
+        canonical: `/timeline/${slug}`
+      }
     };
   }
 
   return {
     title: `${timeline.title} | TiMELiNES`,
-    description: timeline.description
+    description: timeline.description,
+    alternates: {
+      canonical: `/timeline/${timeline.slug}`
+    }
   };
 }
 
