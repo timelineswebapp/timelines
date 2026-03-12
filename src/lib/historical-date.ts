@@ -15,6 +15,11 @@ const MONTH_NAMES = [
   "December"
 ] as const;
 
+const APPROXIMATE_PREFIX = /^(?:c\.|ca\.|circa)\s*/i;
+
+type ChronologyModifier = "early" | "mid" | "late" | null;
+type Era = "BCE" | "CE";
+
 type HistoricalDateParts = {
   legacyDate: string;
   displayDate: string;
@@ -22,6 +27,35 @@ type HistoricalDateParts = {
   sortYear: number;
   sortMonth: number | null;
   sortDay: number | null;
+};
+
+type HistoricalParseOptions = {
+  approximate?: boolean;
+  modifier?: ChronologyModifier;
+  forceEra?: boolean;
+};
+
+type HistoricalSortLike = {
+  sortYear?: number | null;
+  sortMonth?: number | null;
+  sortDay?: number | null;
+  date: string;
+  datePrecision: DatePrecision;
+  title?: string;
+  displayDate?: string | null;
+  eventOrder?: number | null;
+  id?: number | null;
+};
+
+type EraYear = {
+  year: number;
+  forceEra: boolean;
+};
+
+type NumericDate = {
+  year: number;
+  month: number;
+  day: number;
 };
 
 function assertNonZeroYear(year: number) {
@@ -74,6 +108,39 @@ function assertValidDay(year: number, month: number, day: number) {
   }
 }
 
+function toCanonicalEra(rawEra: string | undefined): Era {
+  const normalized = (rawEra || "CE").toUpperCase();
+  if (normalized === "BCE" || normalized === "BC") {
+    return "BCE";
+  }
+
+  return "CE";
+}
+
+function ordinalSuffix(value: number) {
+  const remainder = value % 100;
+  if (remainder >= 11 && remainder <= 13) {
+    return "th";
+  }
+
+  switch (value % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}
+
+function formatCenturyDisplay(century: number, era: Era, modifier: ChronologyModifier, approximate: boolean) {
+  const base = `${century}${ordinalSuffix(century)} century ${era}`;
+  const withModifier = modifier ? `${modifier} ${base}` : base;
+  return approximate ? `c. ${withModifier}` : withModifier;
+}
+
 function formatYearLabel(year: number, forceEra = false) {
   assertNonZeroYear(year);
   const absoluteYear = Math.abs(year).toString();
@@ -94,24 +161,25 @@ function formatDisplayDateFromParts(
   month: number | null,
   day: number | null,
   precision: DatePrecision,
-  forceEra = false
+  options?: HistoricalParseOptions
 ) {
+  const approximate = options?.approximate || false;
+  const forceEra = options?.forceEra || false;
   const yearLabel = formatYearLabel(year, forceEra);
 
-  if (precision === "year" || month === null) {
-    return yearLabel;
+  let label = yearLabel;
+
+  if (precision !== "year" && month !== null) {
+    const monthLabel = MONTH_NAMES[month - 1];
+    if (monthLabel) {
+      label =
+        precision === "day" && day !== null
+          ? `${monthLabel} ${day}, ${yearLabel}`
+          : `${monthLabel} ${yearLabel}`;
+    }
   }
 
-  const monthLabel = MONTH_NAMES[month - 1];
-  if (!monthLabel) {
-    return yearLabel;
-  }
-
-  if (precision === "month" || day === null) {
-    return `${monthLabel} ${yearLabel}`;
-  }
-
-  return `${monthLabel} ${day}, ${yearLabel}`;
+  return approximate ? `c. ${label}` : label;
 }
 
 function parseIsoYear(rawDate: string) {
@@ -163,19 +231,14 @@ function parseSqlLegacyBcDay(rawDate: string) {
   };
 }
 
-function parseYearWithEra(rawDate: string) {
-  const match = rawDate.match(/^(\d{1,6})\s*(BCE|CE)$/i);
+function parseEraYear(rawDate: string): EraYear | null {
+  const match = rawDate.match(/^(\d{1,6})\s*(BCE|BC|CE|AD)$/i);
   if (!match) {
     return null;
   }
 
   const absoluteYear = Number(match[1]);
-  const rawEra = match[2];
-  if (!rawEra) {
-    return null;
-  }
-
-  const era = rawEra.toUpperCase();
+  const era = toCanonicalEra(match[2]);
   const year = era === "BCE" ? -absoluteYear : absoluteYear;
   assertNonZeroYear(year);
 
@@ -185,20 +248,119 @@ function parseYearWithEra(rawDate: string) {
   };
 }
 
-function parseApproximateYear(rawDate: string) {
-  const match = rawDate.match(/^(?:c\.|ca\.|circa)\s*(\d{1,6})(?:\s*(BCE|CE))?$/i);
+function parseEraMonthOrDay(rawDate: string): NumericDate | { year: number; month: number; day: null } | null {
+  const match = rawDate.match(/^(\d{1,6})\s*(BCE|BC|CE|AD)\s*-\s*(\d{2})(?:\s*-\s*(\d{2}))?$/i);
   if (!match) {
     return null;
   }
 
   const absoluteYear = Number(match[1]);
-  const era = (match[2] || "CE").toUpperCase();
+  const era = toCanonicalEra(match[2]);
+  const month = Number(match[3]);
+  const rawDay = match[4];
   const year = era === "BCE" ? -absoluteYear : absoluteYear;
+
   assertNonZeroYear(year);
+  assertValidMonth(month);
+
+  if (rawDay) {
+    const day = Number(rawDay);
+    assertValidDay(year, month, day);
+    return {
+      year,
+      month,
+      day
+    };
+  }
 
   return {
     year,
-    era
+    month,
+    day: null
+  };
+}
+
+function parseCenturyExpression(rawDate: string) {
+  const match = rawDate.match(/^(?:(early|mid|late)[-\s]+)?(\d{1,2})(?:st|nd|rd|th)\s+century\s*(BCE|BC|CE|AD)?$/i);
+  if (!match) {
+    return null;
+  }
+
+  const modifier = ((match[1] || null)?.toLowerCase() || null) as ChronologyModifier;
+  const century = Number(match[2]);
+  if (!Number.isInteger(century) || century < 1) {
+    throw new Error("Century must be a positive ordinal.");
+  }
+
+  const era = toCanonicalEra(match[3]);
+  let startYear = era === "BCE" ? -(century * 100) : (century - 1) * 100 + 1;
+  let endYear = era === "BCE" ? -((century - 1) * 100 + 1) : century * 100;
+
+  assertNonZeroYear(startYear);
+  assertNonZeroYear(endYear);
+
+  const span = endYear - startYear;
+  const anchorRatio = modifier === "early" ? 0.25 : modifier === "late" ? 0.75 : 0.5;
+  const anchorYear = Math.round(startYear + span * anchorRatio);
+  assertNonZeroYear(anchorYear);
+
+  return {
+    century,
+    era,
+    modifier,
+    anchorYear
+  };
+}
+
+function normalizeApproximatePrefix(rawDate: string) {
+  if (!APPROXIMATE_PREFIX.test(rawDate)) {
+    return {
+      approximate: false,
+      value: rawDate.trim()
+    };
+  }
+
+  return {
+    approximate: true,
+    value: rawDate.replace(APPROXIMATE_PREFIX, "").trim()
+  };
+}
+
+function resolvePrecisionRank(precision: DatePrecision) {
+  switch (precision) {
+    case "approximate":
+      return 0;
+    case "year":
+      return 1;
+    case "month":
+      return 2;
+    case "day":
+      return 3;
+    default:
+      return 0;
+  }
+}
+
+function buildHistoricalParts(
+  year: number,
+  month: number | null,
+  day: number | null,
+  precision: DatePrecision,
+  options?: HistoricalParseOptions
+): HistoricalDateParts {
+  const effectiveMonth = month ?? 1;
+  const effectiveDay = day ?? 1;
+
+  assertNonZeroYear(year);
+  assertValidDay(year, effectiveMonth, effectiveDay);
+
+  return {
+    legacyDate: toLegacyDateString(year, effectiveMonth, effectiveDay),
+    displayDate: formatDisplayDateFromParts(year, month, day, precision, options),
+    datePrecision: precision,
+    sortYear: year,
+    sortMonth: month,
+    sortDay: day
   };
 }
 
@@ -208,112 +370,83 @@ export function parseHistoricalDateInput(rawDate: string, rawPrecision?: DatePre
     throw new Error("Date is required.");
   }
 
-  const approximate = parseApproximateYear(value);
-  if (approximate) {
-    if (rawPrecision && rawPrecision !== "approximate") {
-      throw new Error("Approximate chronology requires approximate precision.");
+  const { approximate, value: normalizedValue } = normalizeApproximatePrefix(value);
+  const explicitPrecision = rawPrecision || null;
+  const isoDay = parseIsoDay(normalizedValue);
+  const isoMonth = parseIsoMonth(normalizedValue);
+  const isoYear = parseIsoYear(normalizedValue);
+  const sqlLegacyBcDay = parseSqlLegacyBcDay(normalizedValue);
+  const eraYear = parseEraYear(normalizedValue);
+  const eraMonthOrDay = parseEraMonthOrDay(normalizedValue);
+  const century = parseCenturyExpression(normalizedValue);
+  const normalizedDay =
+    sqlLegacyBcDay || (eraMonthOrDay && eraMonthOrDay.day !== null ? eraMonthOrDay : null) || isoDay;
+  const normalizedMonth =
+    (eraMonthOrDay && eraMonthOrDay.day === null ? eraMonthOrDay : null) || isoMonth;
+
+  if (century) {
+    if (explicitPrecision && explicitPrecision !== "approximate") {
+      throw new Error("Century expressions must use approximate precision.");
     }
 
     return {
-      legacyDate: toLegacyDateString(approximate.year, 1, 1),
-      displayDate: value,
+      legacyDate: toLegacyDateString(century.anchorYear, 1, 1),
+      displayDate: formatCenturyDisplay(century.century, century.era, century.modifier, true),
       datePrecision: "approximate",
-      sortYear: approximate.year,
+      sortYear: century.anchorYear,
       sortMonth: null,
       sortDay: null
     };
   }
 
-  const explicitPrecision = rawPrecision || null;
-  const isoDay = parseIsoDay(value);
-  const isoMonth = parseIsoMonth(value);
-  const isoYear = parseIsoYear(value);
-  const sqlLegacyBcDay = parseSqlLegacyBcDay(value);
-  const eraYear = parseYearWithEra(value);
-  const normalizedDay = sqlLegacyBcDay || isoDay;
-
   if (explicitPrecision === "day") {
     if (!normalizedDay) {
-      throw new Error("Day precision dates must use YYYY-MM-DD.");
+      throw new Error("Day precision dates must use YYYY-MM-DD or an explicit BCE/CE day.");
     }
 
-    assertNonZeroYear(normalizedDay.year);
-    assertValidDay(normalizedDay.year, normalizedDay.month, normalizedDay.day);
-    return {
-      legacyDate: toLegacyDateString(normalizedDay.year, normalizedDay.month, normalizedDay.day),
-      displayDate: formatDisplayDateFromParts(normalizedDay.year, normalizedDay.month, normalizedDay.day, "day"),
-      datePrecision: "day",
-      sortYear: normalizedDay.year,
-      sortMonth: normalizedDay.month,
-      sortDay: normalizedDay.day
-    };
+    return buildHistoricalParts(normalizedDay.year, normalizedDay.month, normalizedDay.day, "day", {
+      approximate,
+      forceEra: eraYear?.forceEra || (eraMonthOrDay ? eraMonthOrDay.year > 0 : false)
+    });
   }
 
   if (explicitPrecision === "month") {
-    if (isoMonth) {
-      assertNonZeroYear(isoMonth.year);
-      assertValidMonth(isoMonth.month);
-      return {
-        legacyDate: toLegacyDateString(isoMonth.year, isoMonth.month, 1),
-        displayDate: formatDisplayDateFromParts(isoMonth.year, isoMonth.month, null, "month"),
-        datePrecision: "month",
-        sortYear: isoMonth.year,
-        sortMonth: isoMonth.month,
-        sortDay: null
-      };
+    if (normalizedMonth) {
+      return buildHistoricalParts(normalizedMonth.year, normalizedMonth.month, null, "month", {
+        approximate,
+        forceEra: normalizedMonth.year > 0 && !!eraMonthOrDay
+      });
     }
 
     if (normalizedDay && normalizedDay.day === 1) {
-      assertNonZeroYear(normalizedDay.year);
-      assertValidDay(normalizedDay.year, normalizedDay.month, normalizedDay.day);
-      return {
-        legacyDate: toLegacyDateString(normalizedDay.year, normalizedDay.month, normalizedDay.day),
-        displayDate: formatDisplayDateFromParts(normalizedDay.year, normalizedDay.month, null, "month"),
-        datePrecision: "month",
-        sortYear: normalizedDay.year,
-        sortMonth: normalizedDay.month,
-        sortDay: null
-      };
+      return buildHistoricalParts(normalizedDay.year, normalizedDay.month, null, "month", {
+        approximate,
+        forceEra: normalizedDay.year > 0 && !!eraMonthOrDay
+      });
     }
 
-    throw new Error("Month precision dates must use YYYY-MM or YYYY-MM-01.");
+    throw new Error("Month precision dates must use YYYY-MM, YYYY-MM-01, or an explicit BCE/CE month.");
   }
 
   if (explicitPrecision === "year") {
     if (eraYear) {
-      return {
-        legacyDate: toLegacyDateString(eraYear.year, 1, 1),
-        displayDate: formatDisplayDateFromParts(eraYear.year, null, null, "year", true),
-        datePrecision: "year",
-        sortYear: eraYear.year,
-        sortMonth: null,
-        sortDay: null
-      };
+      return buildHistoricalParts(eraYear.year, null, null, "year", {
+        approximate,
+        forceEra: true
+      });
     }
 
     if (isoYear) {
-      assertNonZeroYear(isoYear.year);
-      return {
-        legacyDate: toLegacyDateString(isoYear.year, 1, 1),
-        displayDate: formatDisplayDateFromParts(isoYear.year, null, null, "year"),
-        datePrecision: "year",
-        sortYear: isoYear.year,
-        sortMonth: null,
-        sortDay: null
-      };
+      return buildHistoricalParts(isoYear.year, null, null, "year", {
+        approximate
+      });
     }
 
     if (normalizedDay && normalizedDay.month === 1 && normalizedDay.day === 1) {
-      assertNonZeroYear(normalizedDay.year);
-      assertValidDay(normalizedDay.year, normalizedDay.month, normalizedDay.day);
-      return {
-        legacyDate: toLegacyDateString(normalizedDay.year, normalizedDay.month, normalizedDay.day),
-        displayDate: formatDisplayDateFromParts(normalizedDay.year, null, null, "year"),
-        datePrecision: "year",
-        sortYear: normalizedDay.year,
-        sortMonth: null,
-        sortDay: null
-      };
+      return buildHistoricalParts(normalizedDay.year, null, null, "year", {
+        approximate,
+        forceEra: normalizedDay.year > 0 && !!sqlLegacyBcDay
+      });
     }
 
     throw new Error("Year precision dates must use YYYY, YYYY-01-01, or an explicit BCE/CE year.");
@@ -321,68 +454,92 @@ export function parseHistoricalDateInput(rawDate: string, rawPrecision?: DatePre
 
   if (explicitPrecision === "approximate") {
     if (normalizedDay) {
-      assertNonZeroYear(normalizedDay.year);
-      assertValidDay(normalizedDay.year, normalizedDay.month, normalizedDay.day);
-      return {
-        legacyDate: toLegacyDateString(normalizedDay.year, normalizedDay.month, normalizedDay.day),
-        displayDate: value,
-        datePrecision: "approximate",
-        sortYear: normalizedDay.year,
-        sortMonth: normalizedDay.month,
-        sortDay: normalizedDay.day
-      };
+      return buildHistoricalParts(normalizedDay.year, normalizedDay.month, normalizedDay.day, "approximate", {
+        approximate: true,
+        forceEra: normalizedDay.year > 0 && !!eraMonthOrDay
+      });
+    }
+
+    if (normalizedMonth) {
+      return buildHistoricalParts(normalizedMonth.year, normalizedMonth.month, null, "approximate", {
+        approximate: true,
+        forceEra: normalizedMonth.year > 0 && !!eraMonthOrDay
+      });
+    }
+
+    if (eraYear) {
+      return buildHistoricalParts(eraYear.year, null, null, "approximate", {
+        approximate: true,
+        forceEra: true
+      });
+    }
+
+    if (isoYear) {
+      return buildHistoricalParts(isoYear.year, null, null, "approximate", {
+        approximate: true
+      });
     }
 
     throw new Error("Approximate precision dates must use a supported historical date expression.");
   }
 
+  if (approximate) {
+    if (normalizedDay) {
+      return buildHistoricalParts(normalizedDay.year, normalizedDay.month, normalizedDay.day, "approximate", {
+        approximate: true,
+        forceEra: normalizedDay.year > 0 && !!eraMonthOrDay
+      });
+    }
+
+    if (normalizedMonth) {
+      return buildHistoricalParts(normalizedMonth.year, normalizedMonth.month, null, "approximate", {
+        approximate: true,
+        forceEra: normalizedMonth.year > 0 && !!eraMonthOrDay
+      });
+    }
+
+    if (eraYear) {
+      return buildHistoricalParts(eraYear.year, null, null, "approximate", {
+        approximate: true,
+        forceEra: true
+      });
+    }
+
+    if (isoYear) {
+      return buildHistoricalParts(isoYear.year, null, null, "approximate", {
+        approximate: true
+      });
+    }
+  }
+
+  if (eraMonthOrDay) {
+    if (eraMonthOrDay.day === null) {
+      return buildHistoricalParts(eraMonthOrDay.year, eraMonthOrDay.month, null, "month", {
+        forceEra: eraMonthOrDay.year > 0
+      });
+    }
+
+    return buildHistoricalParts(eraMonthOrDay.year, eraMonthOrDay.month, eraMonthOrDay.day, "day", {
+      forceEra: eraMonthOrDay.year > 0
+    });
+  }
+
   if (eraYear) {
-    return {
-      legacyDate: toLegacyDateString(eraYear.year, 1, 1),
-      displayDate: formatDisplayDateFromParts(eraYear.year, null, null, "year", true),
-      datePrecision: "year",
-      sortYear: eraYear.year,
-      sortMonth: null,
-      sortDay: null
-    };
+    return buildHistoricalParts(eraYear.year, null, null, "year", {
+      forceEra: true
+    });
   }
 
   if (normalizedDay) {
-    assertNonZeroYear(normalizedDay.year);
-    assertValidDay(normalizedDay.year, normalizedDay.month, normalizedDay.day);
-    return {
-      legacyDate: toLegacyDateString(normalizedDay.year, normalizedDay.month, normalizedDay.day),
-      displayDate: formatDisplayDateFromParts(normalizedDay.year, normalizedDay.month, normalizedDay.day, "day"),
-      datePrecision: "day",
-      sortYear: normalizedDay.year,
-      sortMonth: normalizedDay.month,
-      sortDay: normalizedDay.day
-    };
+    return buildHistoricalParts(normalizedDay.year, normalizedDay.month, normalizedDay.day, "day");
   }
 
-  if (isoMonth) {
-    assertNonZeroYear(isoMonth.year);
-    assertValidMonth(isoMonth.month);
-    return {
-      legacyDate: toLegacyDateString(isoMonth.year, isoMonth.month, 1),
-      displayDate: formatDisplayDateFromParts(isoMonth.year, isoMonth.month, null, "month"),
-      datePrecision: "month",
-      sortYear: isoMonth.year,
-      sortMonth: isoMonth.month,
-      sortDay: null
-    };
+  if (normalizedMonth) {
+    return buildHistoricalParts(normalizedMonth.year, normalizedMonth.month, null, "month");
   }
 
   if (isoYear) {
-    assertNonZeroYear(isoYear.year);
-    return {
-      legacyDate: toLegacyDateString(isoYear.year, 1, 1),
-      displayDate: formatDisplayDateFromParts(isoYear.year, null, null, "year"),
-      datePrecision: "year",
-      sortYear: isoYear.year,
-      sortMonth: null,
-      sortDay: null
-    };
+    return buildHistoricalParts(isoYear.year, null, null, "year");
   }
 
   throw new Error("Date must use a supported historical format.");
@@ -409,31 +566,34 @@ export function formatHistoricalYearLabel(input: {
   datePrecision: DatePrecision;
   displayDate?: string | null;
   sortYear?: number | null;
+  forceEra?: boolean;
 }) {
+  if (input.displayDate?.trim()) {
+    const trimmed = input.displayDate.trim();
+    const eraMatch = trimmed.match(/^c\.\s+(.+)$/i);
+    const withoutApproximate = eraMatch?.[1] || trimmed;
+    const centuryMatch = withoutApproximate.match(/^(?:early|mid|late)\s+\d+(?:st|nd|rd|th)\s+century\s+(BCE|CE)$/i);
+    if (centuryMatch) {
+      return withoutApproximate;
+    }
+
+    const yearMatch = withoutApproximate.match(/(\d+)\s*(BCE|CE)$/i);
+    const matchedYear = yearMatch?.[1];
+    const matchedEra = yearMatch?.[2];
+    if (matchedYear && matchedEra) {
+      return `${matchedYear} ${matchedEra.toUpperCase()}`;
+    }
+  }
+
   if (typeof input.sortYear === "number" && input.sortYear !== 0) {
-    return formatYearLabel(input.sortYear);
+    return formatYearLabel(input.sortYear, input.forceEra);
   }
 
   const parsed = parseHistoricalDateInput(input.date, input.datePrecision);
-  return formatYearLabel(parsed.sortYear);
+  return formatYearLabel(parsed.sortYear, input.forceEra);
 }
 
-export function compareHistoricalSort(
-  left: {
-    sortYear?: number | null;
-    sortMonth?: number | null;
-    sortDay?: number | null;
-    date: string;
-    datePrecision: DatePrecision;
-  },
-  right: {
-    sortYear?: number | null;
-    sortMonth?: number | null;
-    sortDay?: number | null;
-    date: string;
-    datePrecision: DatePrecision;
-  }
-) {
+export function compareHistoricalSort(left: HistoricalSortLike, right: HistoricalSortLike) {
   const leftParts =
     typeof left.sortYear === "number"
       ? left
@@ -455,5 +615,26 @@ export function compareHistoricalSort(
     return (leftParts.sortDay || 0) - (rightParts.sortDay || 0);
   }
 
-  return 0;
+  const precisionDelta = resolvePrecisionRank(left.datePrecision) - resolvePrecisionRank(right.datePrecision);
+  if (precisionDelta !== 0) {
+    return precisionDelta;
+  }
+
+  if (typeof left.eventOrder === "number" && typeof right.eventOrder === "number" && left.eventOrder !== right.eventOrder) {
+    return left.eventOrder - right.eventOrder;
+  }
+
+  if (typeof left.id === "number" && typeof right.id === "number" && left.id !== right.id) {
+    return left.id - right.id;
+  }
+
+  const leftTitle = left.title?.trim().toLowerCase() || "";
+  const rightTitle = right.title?.trim().toLowerCase() || "";
+  if (leftTitle !== rightTitle) {
+    return leftTitle.localeCompare(rightTitle);
+  }
+
+  const leftDisplay = left.displayDate?.trim() || left.date;
+  const rightDisplay = right.displayDate?.trim() || right.date;
+  return leftDisplay.localeCompare(rightDisplay);
 }

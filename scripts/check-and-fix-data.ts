@@ -1,10 +1,28 @@
 import { loadEnvConfig } from "@next/env";
 import type { Sql } from "postgres";
+import { compareHistoricalSort, parseHistoricalDateInput } from "@/src/lib/historical-date";
 import { slugify } from "@/src/lib/utils";
 
 loadEnvConfig(process.cwd());
 
 type Mode = "audit" | "write";
+
+type EventChronologyRow = {
+  id: number;
+  title: string;
+  legacy_date: string;
+  date_precision: "year" | "month" | "day" | "approximate";
+  sort_year: number | null;
+  sort_month: number | null;
+  sort_day: number | null;
+  display_date: string | null;
+};
+
+type TimelineEventOrderRow = EventChronologyRow & {
+  timeline_id: number;
+  timeline_slug: string;
+  event_order: number;
+};
 
 type Report = {
   mode: Mode;
@@ -21,11 +39,13 @@ type Report = {
       timelineSlug: string;
       updatedRows: number;
     }>;
-    canonicalizedEventDates: Array<{
+    chronologyCanonicalizedEvents: Array<{
       eventId: number;
       title: string;
-      from: string;
-      to: string;
+      fromLegacyDate: string;
+      toLegacyDate: string;
+      fromDisplayDate: string | null;
+      toDisplayDate: string;
       precision: string;
     }>;
     touchedTimelines: Array<{
@@ -42,9 +62,27 @@ type Report = {
     duplicateEventsPerTimeline: Array<{
       timelineId: number;
       timelineSlug: string;
-      date: string;
+      chronologyKey: string;
       title: string;
       count: number;
+    }>;
+    chronologyDriftEvents: Array<{
+      eventId: number;
+      title: string;
+      legacyDate: string;
+      displayDate: string | null;
+      expectedLegacyDate: string;
+      expectedDisplayDate: string;
+      expectedSortYear: number;
+      expectedSortMonth: number | null;
+      expectedSortDay: number | null;
+    }>;
+    chronologyParseFailures: Array<{
+      eventId: number;
+      title: string;
+      sourceValue: string;
+      precision: string;
+      message: string;
     }>;
     unusedSources: Array<{
       sourceId: number;
@@ -80,6 +118,21 @@ function getMode(): Mode {
   return process.argv.includes("--write") ? "write" : "audit";
 }
 
+function chronologySourceValue(row: EventChronologyRow) {
+  return row.display_date?.trim() || row.legacy_date;
+}
+
+function chronologySignature(row: EventChronologyRow) {
+  const parsed = parseHistoricalDateInput(chronologySourceValue(row), row.date_precision);
+  return [
+    parsed.sortYear,
+    parsed.sortMonth ?? "",
+    parsed.sortDay ?? "",
+    parsed.datePrecision,
+    row.title.trim().toLowerCase()
+  ].join("|");
+}
+
 async function main() {
   const mode = getMode();
   const { closeSql, getWriteSql } = await import("@/src/server/db/client");
@@ -96,12 +149,14 @@ async function main() {
     },
     fixes: {
       resequencedTimelines: [],
-      canonicalizedEventDates: [],
+      chronologyCanonicalizedEvents: [],
       touchedTimelines: []
     },
     findings: {
       orphanEvents: [],
       duplicateEventsPerTimeline: [],
+      chronologyDriftEvents: [],
+      chronologyParseFailures: [],
       unusedSources: [],
       unusedTags: [],
       timelineSlugMismatches: [],
@@ -135,7 +190,6 @@ async function main() {
 
   const [
     orphanEvents,
-    duplicateEvents,
     unusedSources,
     unusedTags,
     timelines,
@@ -144,35 +198,15 @@ async function main() {
     blankEventRows,
     blankSourceRows,
     blankTagRows,
-    nonCanonicalEvents,
-    sequenceMismatches
+    chronologyRows,
+    timelineEventRows
   ] = await Promise.all([
     sql<{ event_id: number; title: string; date: string }[]>`
-      SELECT events.id AS event_id, events.title, events.date::text AS date
+      SELECT events.id AS event_id, events.title, COALESCE(events.display_date, events.date::text) AS date
       FROM events
       LEFT JOIN timeline_events ON timeline_events.event_id = events.id
       WHERE timeline_events.event_id IS NULL
       ORDER BY events.id ASC
-    `,
-    sql<{
-      timeline_id: number;
-      timeline_slug: string;
-      date: string;
-      title: string;
-      count: number;
-    }[]>`
-      SELECT
-        timelines.id AS timeline_id,
-        timelines.slug AS timeline_slug,
-        events.date::text AS date,
-        events.title,
-        COUNT(*)::int AS count
-      FROM timeline_events
-      INNER JOIN timelines ON timelines.id = timeline_events.timeline_id
-      INNER JOIN events ON events.id = timeline_events.event_id
-      GROUP BY timelines.id, timelines.slug, events.date, events.title
-      HAVING COUNT(*) > 1
-      ORDER BY timelines.slug ASC, events.date ASC, events.title ASC
     `,
     sql<{ source_id: number; publisher: string; url: string }[]>`
       SELECT sources.id AS source_id, sources.publisher, sources.url
@@ -232,46 +266,36 @@ async function main() {
       FROM tags
       WHERE btrim(name) = '' OR btrim(slug) = ''
     `,
-    sql<{ id: number; title: string; date: string; date_precision: string; canonical_date: string }[]>`
+    sql<EventChronologyRow[]>`
       SELECT
         id,
         title,
-        date::text AS date,
+        date::text AS legacy_date,
         date_precision,
-        CASE
-          WHEN date_precision = 'year' THEN to_char(date, 'YYYY') || '-01-01'
-          WHEN date_precision = 'month' THEN to_char(date, 'YYYY-MM') || '-01'
-          ELSE date::text
-        END AS canonical_date
+        sort_year,
+        sort_month,
+        sort_day,
+        display_date
       FROM events
-      WHERE
-        (date_precision = 'year' AND to_char(date, 'MM-DD') <> '01-01')
-        OR (date_precision = 'month' AND to_char(date, 'DD') <> '01')
       ORDER BY id ASC
     `,
-    sql<{ timeline_id: number; timeline_slug: string; mismatched_rows: number }[]>`
-      WITH ordered AS (
-        SELECT
-          timeline_events.timeline_id,
-          timelines.slug AS timeline_slug,
-          timeline_events.event_id,
-          timeline_events.event_order,
-          row_number() OVER (
-            PARTITION BY timeline_events.timeline_id
-            ORDER BY timeline_events.event_order ASC, events.date ASC, timeline_events.event_id ASC
-          ) AS expected_order
-        FROM timeline_events
-        INNER JOIN timelines ON timelines.id = timeline_events.timeline_id
-        INNER JOIN events ON events.id = timeline_events.event_id
-      )
+    sql<TimelineEventOrderRow[]>`
       SELECT
-        timeline_id,
-        timeline_slug,
-        COUNT(*)::int AS mismatched_rows
-      FROM ordered
-      WHERE event_order <> expected_order
-      GROUP BY timeline_id, timeline_slug
-      ORDER BY timeline_slug ASC
+        timeline_events.timeline_id,
+        timelines.slug AS timeline_slug,
+        timeline_events.event_order,
+        events.id,
+        events.title,
+        events.date::text AS legacy_date,
+        events.date_precision,
+        events.sort_year,
+        events.sort_month,
+        events.sort_day,
+        events.display_date
+      FROM timeline_events
+      INNER JOIN timelines ON timelines.id = timeline_events.timeline_id
+      INNER JOIN events ON events.id = timeline_events.event_id
+      ORDER BY timeline_events.timeline_id ASC, timeline_events.event_order ASC, events.id ASC
     `
   ]);
 
@@ -279,14 +303,6 @@ async function main() {
     eventId: row.event_id,
     title: row.title,
     date: row.date
-  }));
-
-  report.findings.duplicateEventsPerTimeline = duplicateEvents.map((row) => ({
-    timelineId: row.timeline_id,
-    timelineSlug: row.timeline_slug,
-    date: row.date,
-    title: row.title,
-    count: row.count
   }));
 
   report.findings.unusedSources = unusedSources.map((row) => ({
@@ -361,75 +377,213 @@ async function main() {
     }
   }
 
+  const chronologyByEventId = new Map<number, ReturnType<typeof parseHistoricalDateInput>>();
+
+  for (const row of chronologyRows) {
+    const sourceValue = chronologySourceValue(row);
+
+    try {
+      const parsed = parseHistoricalDateInput(sourceValue, row.date_precision);
+      chronologyByEventId.set(row.id, parsed);
+
+      if (
+        row.legacy_date !== parsed.legacyDate ||
+        row.display_date !== parsed.displayDate ||
+        row.sort_year !== parsed.sortYear ||
+        row.sort_month !== parsed.sortMonth ||
+        row.sort_day !== parsed.sortDay
+      ) {
+        report.findings.chronologyDriftEvents.push({
+          eventId: row.id,
+          title: row.title,
+          legacyDate: row.legacy_date,
+          displayDate: row.display_date,
+          expectedLegacyDate: parsed.legacyDate,
+          expectedDisplayDate: parsed.displayDate,
+          expectedSortYear: parsed.sortYear,
+          expectedSortMonth: parsed.sortMonth,
+          expectedSortDay: parsed.sortDay
+        });
+      }
+    } catch (error) {
+      report.findings.chronologyParseFailures.push({
+        eventId: row.id,
+        title: row.title,
+        sourceValue,
+        precision: row.date_precision,
+        message: error instanceof Error ? error.message : "Unknown chronology parse failure"
+      });
+    }
+  }
+
+  const duplicateMap = new Map<string, {
+    timelineId: number;
+    timelineSlug: string;
+    chronologyKey: string;
+    title: string;
+    count: number;
+  }>();
+
+  for (const row of timelineEventRows) {
+    const parsed = chronologyByEventId.get(row.id);
+    if (!parsed) {
+      continue;
+    }
+
+    const chronologyKey = [
+      parsed.sortYear,
+      parsed.sortMonth ?? "",
+      parsed.sortDay ?? "",
+      parsed.datePrecision,
+      row.title.trim().toLowerCase()
+    ].join("|");
+
+    const key = `${row.timeline_id}:${chronologyKey}`;
+    const existing = duplicateMap.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      duplicateMap.set(key, {
+        timelineId: row.timeline_id,
+        timelineSlug: row.timeline_slug,
+        chronologyKey,
+        title: row.title,
+        count: 1
+      });
+    }
+  }
+
+  report.findings.duplicateEventsPerTimeline = [...duplicateMap.values()].filter((row) => row.count > 1);
+
+  const timelineSequenceMismatches = new Map<number, {
+    timelineSlug: string;
+    rows: Array<{ eventId: number; expectedOrder: number }>;
+  }>();
+
+  const rowsByTimeline = new Map<number, TimelineEventOrderRow[]>();
+  for (const row of timelineEventRows) {
+    const bucket = rowsByTimeline.get(row.timeline_id) || [];
+    bucket.push(row);
+    rowsByTimeline.set(row.timeline_id, bucket);
+  }
+
+  for (const [timelineId, rows] of rowsByTimeline.entries()) {
+    const sortedRows = [...rows].sort((left, right) => {
+      if (left.event_order !== right.event_order) {
+        return left.event_order - right.event_order;
+      }
+
+      const chronologyDelta = compareHistoricalSort(
+        {
+          id: left.id,
+          title: left.title,
+          date: chronologySourceValue(left),
+          displayDate: left.display_date,
+          datePrecision: left.date_precision,
+          sortYear: left.sort_year,
+          sortMonth: left.sort_month,
+          sortDay: left.sort_day
+        },
+        {
+          id: right.id,
+          title: right.title,
+          date: chronologySourceValue(right),
+          displayDate: right.display_date,
+          datePrecision: right.date_precision,
+          sortYear: right.sort_year,
+          sortMonth: right.sort_month,
+          sortDay: right.sort_day
+        }
+      );
+
+      if (chronologyDelta !== 0) {
+        return chronologyDelta;
+      }
+
+      return left.id - right.id;
+    });
+
+    const mismatchedRows = sortedRows
+      .map((row, index) => ({
+        eventId: row.id,
+        expectedOrder: index + 1,
+        actualOrder: row.event_order
+      }))
+      .filter((row) => row.expectedOrder !== row.actualOrder);
+
+    if (mismatchedRows.length > 0) {
+      timelineSequenceMismatches.set(timelineId, {
+        timelineSlug: rows[0]?.timeline_slug || "unknown",
+        rows: mismatchedRows.map((row) => ({
+          eventId: row.eventId,
+          expectedOrder: row.expectedOrder
+        }))
+      });
+    }
+  }
+
   if (mode === "write") {
     const touchedTimelineMap = new Map<number, string>();
 
     await sql.begin(async (tx) => {
       const transaction = tx as unknown as Sql;
 
-      for (const mismatch of sequenceMismatches) {
-        const orderedRows = await transaction<{ event_id: number; expected_order: number }[]>`
-          SELECT
-            timeline_events.event_id,
-            row_number() OVER (
-              PARTITION BY timeline_events.timeline_id
-              ORDER BY timeline_events.event_order ASC, events.date ASC, timeline_events.event_id ASC
-            )::int AS expected_order
-          FROM timeline_events
-          INNER JOIN events ON events.id = timeline_events.event_id
-          WHERE timeline_events.timeline_id = ${mismatch.timeline_id}
-          ORDER BY expected_order ASC
-        `;
-
-        await transaction`
-          UPDATE timeline_events
-          SET event_order = event_order + 1000000
-          WHERE timeline_id = ${mismatch.timeline_id}
-        `;
-
-        for (const row of orderedRows) {
-          await transaction`
-            UPDATE timeline_events
-            SET event_order = ${row.expected_order}
-            WHERE timeline_id = ${mismatch.timeline_id}
-              AND event_id = ${row.event_id}
-          `;
-        }
-
-        report.fixes.resequencedTimelines.push({
-          timelineId: mismatch.timeline_id,
-          timelineSlug: mismatch.timeline_slug,
-          updatedRows: mismatch.mismatched_rows
-        });
-
-        touchedTimelineMap.set(mismatch.timeline_id, mismatch.timeline_slug);
-      }
-
-      for (const event of nonCanonicalEvents) {
+      for (const drift of report.findings.chronologyDriftEvents) {
         await transaction`
           UPDATE events
-          SET date = ${event.canonical_date}
-          WHERE id = ${event.id}
+          SET
+            date = CAST(CAST(${drift.expectedLegacyDate} AS TEXT) AS DATE),
+            sort_year = ${drift.expectedSortYear},
+            sort_month = ${drift.expectedSortMonth},
+            sort_day = ${drift.expectedSortDay},
+            display_date = ${drift.expectedDisplayDate}
+          WHERE id = ${drift.eventId}
         `;
 
-        report.fixes.canonicalizedEventDates.push({
-          eventId: event.id,
-          title: event.title,
-          from: event.date,
-          to: event.canonical_date,
-          precision: event.date_precision
+        report.fixes.chronologyCanonicalizedEvents.push({
+          eventId: drift.eventId,
+          title: drift.title,
+          fromLegacyDate: drift.legacyDate,
+          toLegacyDate: drift.expectedLegacyDate,
+          fromDisplayDate: drift.displayDate,
+          toDisplayDate: drift.expectedDisplayDate,
+          precision: chronologyRows.find((row) => row.id === drift.eventId)?.date_precision || "unknown"
         });
 
         const linkedTimelines = await transaction<{ id: number; slug: string }[]>`
           SELECT timelines.id, timelines.slug
           FROM timeline_events
           INNER JOIN timelines ON timelines.id = timeline_events.timeline_id
-          WHERE timeline_events.event_id = ${event.id}
+          WHERE timeline_events.event_id = ${drift.eventId}
         `;
 
         for (const timeline of linkedTimelines) {
           touchedTimelineMap.set(timeline.id, timeline.slug);
         }
+      }
+
+      for (const [timelineId, mismatch] of timelineSequenceMismatches.entries()) {
+        await transaction`
+          UPDATE timeline_events
+          SET event_order = event_order + 1000000
+          WHERE timeline_id = ${timelineId}
+        `;
+
+        for (const row of mismatch.rows) {
+          await transaction`
+            UPDATE timeline_events
+            SET event_order = ${row.expectedOrder}
+            WHERE timeline_id = ${timelineId}
+              AND event_id = ${row.eventId}
+          `;
+        }
+
+        report.fixes.resequencedTimelines.push({
+          timelineId,
+          timelineSlug: mismatch.timelineSlug,
+          updatedRows: mismatch.rows.length
+        });
+        touchedTimelineMap.set(timelineId, mismatch.timelineSlug);
       }
 
       if (touchedTimelineMap.size > 0) {

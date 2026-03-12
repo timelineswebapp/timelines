@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseHistoricalDateInput } from "@/src/lib/historical-date";
 import { closeSql, getSql } from "@/src/server/db/client";
 import { sampleTimelines } from "@/src/server/dev/sample-data";
 
@@ -32,9 +33,22 @@ async function seed() {
     }
 
     for (const [index, event] of timeline.events.entries()) {
+      const chronology = parseHistoricalDateInput(event.displayDate || event.legacyDate || event.date, event.datePrecision);
       const [eventRow] = await sql<{ id: number }[]>`
-        INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-        VALUES (${event.date}, ${event.datePrecision}, ${event.title}, ${event.description}, ${event.importance}, ${event.location}, ${event.imageUrl})
+        INSERT INTO events (date, date_precision, sort_year, sort_month, sort_day, display_date, title, description, importance, location, image_url)
+        VALUES (
+          CAST(CAST(${chronology.legacyDate} AS TEXT) AS DATE),
+          ${chronology.datePrecision},
+          ${chronology.sortYear},
+          ${chronology.sortMonth},
+          ${chronology.sortDay},
+          ${chronology.displayDate},
+          ${event.title},
+          ${event.description},
+          ${event.importance},
+          ${event.location},
+          ${event.imageUrl}
+        )
         RETURNING id
       `;
 

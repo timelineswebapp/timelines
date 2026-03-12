@@ -8,6 +8,7 @@ import type {
   TimelineRequestRecord,
   TimelineSummary
 } from "@/src/lib/types";
+import { parseHistoricalDateInput } from "@/src/lib/historical-date";
 import { slugify } from "@/src/lib/utils";
 
 interface SampleTimelineSeed {
@@ -183,20 +184,29 @@ function buildTimelineSummary(seed: SampleTimelineSeed, index: number): Timeline
 function buildTimelineDetail(seed: SampleTimelineSeed, index: number): TimelineDetail {
   const summary = buildTimelineSummary(seed, index);
   const timelineTags = allTags.filter((tag) => seed.tags.includes(tag.name));
-  const events: EventRecord[] = seed.events.map((event, eventIndex) => ({
-    id: index * 100 + eventIndex + 1,
-    date: event.date,
-    datePrecision: event.datePrecision,
-    title: event.title,
-    description: event.description,
-    importance: event.importance,
-    location: event.location || null,
-    imageUrl: null,
-    createdAt: "2025-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-    sources: [{ ...seed.source }],
-    tags: timelineTags
-  }));
+  const events: EventRecord[] = seed.events.map((event, eventIndex) => {
+    const chronology = parseHistoricalDateInput(event.date, event.datePrecision);
+
+    return {
+      id: index * 100 + eventIndex + 1,
+      date: chronology.legacyDate,
+      legacyDate: chronology.legacyDate,
+      displayDate: chronology.displayDate,
+      datePrecision: chronology.datePrecision,
+      sortYear: chronology.sortYear,
+      sortMonth: chronology.sortMonth,
+      sortDay: chronology.sortDay,
+      title: event.title,
+      description: event.description,
+      importance: event.importance,
+      location: event.location || null,
+      imageUrl: null,
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      sources: [{ ...seed.source }],
+      tags: timelineTags
+    };
+  });
 
   return {
     ...summary,
