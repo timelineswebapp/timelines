@@ -198,12 +198,29 @@ function inferPublisherFromUrl(url: string) {
   }
 }
 
+function normalizeImportSourceUrl(rawUrl: string | undefined) {
+  const trimmed = rawUrl?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(?:\/.*)?$/i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+
+  return trimmed;
+}
+
 function normalizeImportSources(input: {
   source_publisher?: string;
   source_url?: string;
   source_credibility?: string;
 }): ImportSourceInput[] {
-  const url = input.source_url?.trim();
+  const url = normalizeImportSourceUrl(input.source_url);
   if (!url) {
     return [];
   }
@@ -500,7 +517,7 @@ async function resolveImportSourceIds(sql: Sql, sources: ImportSourceInput[]): P
       sources.map((source) => [
         source.url.trim().toLowerCase(),
         {
-          publisher: source.publisher.trim() || inferPublisherFromUrl(source.url),
+          publisher: source.publisher?.trim() || inferPublisherFromUrl(source.url),
           url: source.url.trim(),
           credibilityScore: source.credibilityScore ?? 0.8
         }
@@ -621,7 +638,7 @@ function resolveMemoryImportSources(input: ImportSourceInput[]): SourceRecord[] 
     if (!record) {
       record = {
         id: memoryStore.nextSourceId(),
-        publisher: source.publisher.trim() || inferPublisherFromUrl(url),
+        publisher: source.publisher?.trim() || inferPublisherFromUrl(url),
         url,
         credibilityScore: source.credibilityScore ?? 0.8
       };

@@ -23,7 +23,7 @@ export interface EmbeddedSourceInput {
 }
 
 export interface ImportSourceInput {
-  publisher: string;
+  publisher?: string | null;
   url: string;
   credibilityScore?: number | null;
 }

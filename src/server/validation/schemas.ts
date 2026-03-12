@@ -8,6 +8,32 @@ const trimmedString = (min: number, max: number) =>
     .min(min)
     .max(max);
 
+const nullableTrimmedString = (max: number) =>
+  z.string().trim().max(max).nullish().transform((value) => value || null);
+
+const nullableCredibilityScore = z
+  .union([z.string(), z.number(), z.null(), z.undefined()])
+  .transform((value) => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      const parsed = Number(trimmed);
+      return Number.isFinite(parsed) ? parsed : Number.NaN;
+    }
+
+    return value;
+  })
+  .refine((value) => value === null || (typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1), {
+    message: "Credibility score must be between 0 and 1."
+  });
+
 export const datePrecisionSchema = z.enum(["year", "month", "day", "approximate"]);
 export const importFormatSchema = z.enum(["csv", "json", "text"]);
 export const importTypeSchema = z.enum(["timeline_with_events", "events_into_existing_timeline"]);
@@ -116,9 +142,9 @@ export const importRowSchema = z.object({
   imageUrl: z.string().trim().url().nullish(),
   sources: z.array(
     z.object({
-      publisher: trimmedString(1, 120),
+      publisher: nullableTrimmedString(120),
       url: z.string().trim().url(),
-      credibilityScore: z.coerce.number().min(0).max(1).nullish().transform((value) => value ?? null)
+      credibilityScore: nullableCredibilityScore
     })
   ).max(20).default([]),
   tags: z.array(trimmedString(1, 60)).max(20).default([])
