@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS events (
   id BIGSERIAL PRIMARY KEY,
   date DATE NOT NULL,
   date_precision TEXT NOT NULL CHECK (date_precision IN ('year', 'month', 'day', 'approximate')),
+  sort_year INTEGER,
+  sort_month SMALLINT,
+  sort_day SMALLINT,
+  display_date TEXT,
   title TEXT NOT NULL,
   description TEXT NOT NULL,
   importance INTEGER NOT NULL CHECK (importance BETWEEN 1 AND 5),
@@ -98,6 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_timelines_slug ON timelines(slug);
 CREATE INDEX IF NOT EXISTS idx_timelines_category ON timelines(category);
 CREATE INDEX IF NOT EXISTS idx_timelines_search_vector ON timelines USING GIN(search_vector);
 CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
+CREATE INDEX IF NOT EXISTS idx_events_historical_sort ON events(sort_year, sort_month, sort_day);
 CREATE INDEX IF NOT EXISTS idx_events_search_vector ON events USING GIN(search_vector);
 CREATE INDEX IF NOT EXISTS idx_timeline_events_order ON timeline_events(timeline_id, event_order);
 CREATE INDEX IF NOT EXISTS idx_tags_slug ON tags(slug);

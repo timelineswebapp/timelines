@@ -1,6 +1,7 @@
 import type { TimelineDetail, TimelineSummary } from "@/src/lib/types";
 import { slugify } from "@/src/lib/utils";
 import { getSql, getWriteSql } from "@/src/server/db/client";
+import { hasHistoricalChronologyColumns } from "@/src/server/db/schema-capabilities";
 import { memoryStore, touchTimelineSummary, withRelatedTimelines } from "@/src/server/dev/memory-store";
 
 interface TimelineRow {
@@ -252,43 +253,91 @@ export const timelineRepository = {
       return null;
     }
 
+    const hasHistoricalColumns = await hasHistoricalChronologyColumns(sql);
+
     const [tags, eventRows, relatedRows] = await Promise.all([
       getTimelineTags(timelineRow.id),
-      sql<{
-        id: number;
-        date: string;
-        date_precision: TimelineDetail["events"][number]["datePrecision"];
-        title: string;
-        description: string;
-        importance: number;
-        location: string | null;
-        image_url: string | null;
-        created_at: string;
-        updated_at: string;
-        source_ids: number[] | null;
-        tag_ids: number[] | null;
-      }[]>`
-        SELECT
-          events.id,
-          events.date::text AS date,
-          events.date_precision,
-          events.title,
-          events.description,
-          events.importance,
-          events.location,
-          events.image_url,
-          events.created_at::text AS created_at,
-          events.updated_at::text AS updated_at,
-          ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
-          ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
-        FROM timeline_events
-        INNER JOIN events ON events.id = timeline_events.event_id
-        LEFT JOIN event_sources ON event_sources.event_id = events.id
-        LEFT JOIN event_tags ON event_tags.event_id = events.id
-        WHERE timeline_events.timeline_id = ${timelineRow.id}
-        GROUP BY events.id, timeline_events.event_order
-        ORDER BY timeline_events.event_order ASC
-      `,
+      hasHistoricalColumns
+        ? sql<{
+            id: number;
+            date: string;
+            legacy_date: string;
+            display_date: string | null;
+            sort_year: number | null;
+            sort_month: number | null;
+            sort_day: number | null;
+            date_precision: TimelineDetail["events"][number]["datePrecision"];
+            title: string;
+            description: string;
+            importance: number;
+            location: string | null;
+            image_url: string | null;
+            created_at: string;
+            updated_at: string;
+            source_ids: number[] | null;
+            tag_ids: number[] | null;
+          }[]>`
+            SELECT
+              events.id,
+              COALESCE(events.display_date, events.date::text) AS date,
+              events.date::text AS legacy_date,
+              events.display_date,
+              events.sort_year,
+              events.sort_month,
+              events.sort_day,
+              events.date_precision,
+              events.title,
+              events.description,
+              events.importance,
+              events.location,
+              events.image_url,
+              events.created_at::text AS created_at,
+              events.updated_at::text AS updated_at,
+              ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+              ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
+            FROM timeline_events
+            INNER JOIN events ON events.id = timeline_events.event_id
+            LEFT JOIN event_sources ON event_sources.event_id = events.id
+            LEFT JOIN event_tags ON event_tags.event_id = events.id
+            WHERE timeline_events.timeline_id = ${timelineRow.id}
+            GROUP BY events.id, timeline_events.event_order
+            ORDER BY timeline_events.event_order ASC
+          `
+        : sql<{
+            id: number;
+            date: string;
+            date_precision: TimelineDetail["events"][number]["datePrecision"];
+            title: string;
+            description: string;
+            importance: number;
+            location: string | null;
+            image_url: string | null;
+            created_at: string;
+            updated_at: string;
+            source_ids: number[] | null;
+            tag_ids: number[] | null;
+          }[]>`
+            SELECT
+              events.id,
+              events.date::text AS date,
+              events.date_precision,
+              events.title,
+              events.description,
+              events.importance,
+              events.location,
+              events.image_url,
+              events.created_at::text AS created_at,
+              events.updated_at::text AS updated_at,
+              ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+              ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
+            FROM timeline_events
+            INNER JOIN events ON events.id = timeline_events.event_id
+            LEFT JOIN event_sources ON event_sources.event_id = events.id
+            LEFT JOIN event_tags ON event_tags.event_id = events.id
+            WHERE timeline_events.timeline_id = ${timelineRow.id}
+            GROUP BY events.id, timeline_events.event_order
+            ORDER BY timeline_events.event_order ASC
+          `,
       sql<TimelineRow[]>`
         SELECT id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
         FROM timelines
@@ -329,6 +378,11 @@ export const timelineRepository = {
         id: row.id,
         date: row.date,
         datePrecision: row.date_precision,
+        legacyDate: "legacy_date" in row ? row.legacy_date : row.date,
+        displayDate: "display_date" in row ? row.display_date : null,
+        sortYear: "sort_year" in row ? row.sort_year : null,
+        sortMonth: "sort_month" in row ? row.sort_month : null,
+        sortDay: "sort_day" in row ? row.sort_day : null,
         title: row.title,
         description: row.description,
         importance: row.importance,

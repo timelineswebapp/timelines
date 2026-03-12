@@ -81,7 +81,14 @@ export function EventDetailSheet({
       >
         <div className="sheet-handle" />
         <div className="event-sheet-header">
-          <span className="eyebrow sheet-date">{formatDisplayDate(event.date, event.datePrecision)}</span>
+          <span className="eyebrow sheet-date">
+            {formatDisplayDate(event.date, event.datePrecision, {
+              displayDate: event.displayDate,
+              sortYear: event.sortYear,
+              sortMonth: event.sortMonth,
+              sortDay: event.sortDay
+            })}
+          </span>
           <button type="button" className="sheet-icon-button" onClick={onClose} aria-label="Close event details">
             <CloseIcon />
           </button>

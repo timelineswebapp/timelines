@@ -1,33 +1,29 @@
 import { clsx } from "clsx";
+import { formatHistoricalDisplayDate } from "@/src/lib/historical-date";
+import type { DatePrecision } from "@/src/lib/types";
 
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return clsx(parts);
 }
 
-export function formatDisplayDate(date: string, precision: "year" | "month" | "day" | "approximate"): string {
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
+export function formatDisplayDate(
+  date: string,
+  precision: DatePrecision,
+  options?: {
+    displayDate?: string | null;
+    sortYear?: number | null;
+    sortMonth?: number | null;
+    sortDay?: number | null;
   }
-
-  if (precision === "year") {
-    return new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "UTC" }).format(parsed);
-  }
-
-  if (precision === "month") {
-    return new Intl.DateTimeFormat("en", {
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC"
-    }).format(parsed);
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC"
-  }).format(parsed);
+): string {
+  return formatHistoricalDisplayDate({
+    date,
+    datePrecision: precision,
+    displayDate: options?.displayDate,
+    sortYear: options?.sortYear,
+    sortMonth: options?.sortMonth,
+    sortDay: options?.sortDay
+  });
 }
 
 export function normalizeQuery(value: string): string {

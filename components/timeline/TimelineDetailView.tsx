@@ -4,20 +4,12 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AdSlotAssignment, TimelineDetail } from "@/src/lib/types";
+import { formatHistoricalYearLabel } from "@/src/lib/historical-date";
 import { AdSlot } from "@/components/timeline/AdSlot";
 import { EventDetailSheet } from "@/components/timeline/EventDetailSheet";
 import { EventRow } from "@/components/timeline/EventRow";
 import { TimelineSummaryCard } from "@/components/timeline/TimelineSummaryCard";
 import { ArrowLeftIcon } from "@/components/ui/Icons";
-
-function getYearLabel(date: string) {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-
-  return new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "UTC" }).format(parsed);
-}
 
 function getTimelineDateRange(timeline: TimelineDetail) {
   const firstEvent = timeline.events[0];
@@ -27,8 +19,18 @@ function getTimelineDateRange(timeline: TimelineDetail) {
     return "";
   }
 
-  const start = getYearLabel(firstEvent.date);
-  const end = getYearLabel(lastEvent.date);
+  const start = formatHistoricalYearLabel({
+    date: firstEvent.legacyDate || firstEvent.date,
+    datePrecision: firstEvent.datePrecision,
+    displayDate: firstEvent.displayDate,
+    sortYear: firstEvent.sortYear
+  });
+  const end = formatHistoricalYearLabel({
+    date: lastEvent.legacyDate || lastEvent.date,
+    datePrecision: lastEvent.datePrecision,
+    displayDate: lastEvent.displayDate,
+    sortYear: lastEvent.sortYear
+  });
   return start === end ? start : `${start}–${end}`;
 }
 

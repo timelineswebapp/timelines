@@ -19,7 +19,14 @@ export function EventRow({
       onClick={() => onOpen(event.id)}
       style={{ ["--event-row-summary-lines" as string]: String(summaryLines) }}
     >
-      <span className="event-row-date">{formatDisplayDate(event.date, event.datePrecision)}</span>
+      <span className="event-row-date">
+        {formatDisplayDate(event.date, event.datePrecision, {
+          displayDate: event.displayDate,
+          sortYear: event.sortYear,
+          sortMonth: event.sortMonth,
+          sortDay: event.sortDay
+        })}
+      </span>
       <span className="event-row-body">
         <strong className="event-row-title">{event.title}</strong>
         <span className="event-row-summary">{truncate(event.description, summaryMaxLength)}</span>

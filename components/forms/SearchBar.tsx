@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/src/lib/utils";
 import { CloseIcon, SendIcon } from "@/components/ui/Icons";
 
@@ -19,15 +20,33 @@ export function SearchBar({
 }) {
   const [value, setValue] = useState(defaultValue);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     setValue(defaultValue);
   }, [defaultValue]);
 
   const hasValue = value.trim().length > 0;
+  const isSearchMode = pathname === "/search";
+
+  useEffect(() => {
+    if (!isSearchMode) {
+      return;
+    }
+
+    if (value.trim().length === 0) {
+      router.replace("/");
+    }
+  }, [isSearchMode, router, value]);
 
   function handleClear() {
     setValue("");
+    if (isSearchMode) {
+      router.replace("/");
+      return;
+    }
+
     inputRef.current?.focus();
   }
 

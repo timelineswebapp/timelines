@@ -8,9 +8,11 @@ import type {
   TimelineDetail,
   TimelineImportRow
 } from "@/src/lib/types";
+import { compareHistoricalSort, parseHistoricalDateInput } from "@/src/lib/historical-date";
 import { slugify } from "@/src/lib/utils";
 import { ApiError } from "@/src/server/api/responses";
 import { getSql, getWriteSql } from "@/src/server/db/client";
+import { hasHistoricalChronologyColumns } from "@/src/server/db/schema-capabilities";
 import { memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store";
 import { importPreviewSchema, importRowSchema, importTimelineSchema } from "@/src/server/validation/schemas";
 
@@ -151,64 +153,11 @@ function inferPrecisionFromDate(rawDate?: string): TimelineImportRow["datePrecis
     return null;
   }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return "day";
+  try {
+    return parseHistoricalDateInput(value).datePrecision;
+  } catch {
+    return null;
   }
-
-  if (/^\d{4}-\d{2}$/.test(value)) {
-    return "month";
-  }
-
-  if (/^\d{4}$/.test(value)) {
-    return "year";
-  }
-
-  return null;
-}
-
-function isValidSqlDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const parts = value.split("-").map(Number);
-  if (parts.length !== 3) {
-    return false;
-  }
-
-  const [yearPart, monthPart, dayPart] = parts;
-  if (
-    typeof yearPart !== "number" ||
-    typeof monthPart !== "number" ||
-    typeof dayPart !== "number"
-  ) {
-    return false;
-  }
-
-  const date = new Date(Date.UTC(yearPart, monthPart - 1, dayPart));
-
-  return (
-    Number.isInteger(yearPart) &&
-    Number.isInteger(monthPart) &&
-    Number.isInteger(dayPart) &&
-    date.getUTCFullYear() === yearPart &&
-    date.getUTCMonth() === monthPart - 1 &&
-    date.getUTCDate() === dayPart
-  );
-}
-
-function isDateValidationError(error: unknown): error is Error {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return [
-    "Day precision dates must use YYYY-MM-DD.",
-    "Month precision dates must use YYYY-MM-01.",
-    "Year precision dates must use YYYY-01-01.",
-    "Approximate precision dates must use a valid SQL date in YYYY-MM-DD format.",
-    "Date must be in YYYY-MM-DD, YYYY-MM, or YYYY format."
-  ].includes(error.message);
 }
 
 function extractValidationFields(error: unknown) {
@@ -233,7 +182,15 @@ function normalizeStructuredRow(row: unknown, rowNumber: number): ParsedEventRow
       throw error;
     }
 
-    if (isDateValidationError(error)) {
+    const fields = extractValidationFields(error);
+    if (fields) {
+      throw new ApiError(400, "VALIDATION_FAILED", "Import row validation failed.", {
+        row: rowNumber,
+        fields
+      });
+    }
+
+    if (error instanceof Error) {
       const candidate = row as Partial<TimelineImportRow> | null;
       const normalizedPrecision = candidate?.datePrecision || inferPrecisionFromDate(candidate?.date);
       throw new ApiError(
@@ -253,14 +210,6 @@ function normalizeStructuredRow(row: unknown, rowNumber: number): ParsedEventRow
           ]
         }
       );
-    }
-
-    const fields = extractValidationFields(error);
-    if (fields) {
-      throw new ApiError(400, "VALIDATION_FAILED", "Import row validation failed.", {
-        row: rowNumber,
-        fields
-      });
     }
 
     throw new ApiError(
@@ -347,90 +296,53 @@ function throwCsvValidationError(
   );
 }
 
-function normalizeDate(rawDate: string, rawPrecision?: TimelineImportRow["datePrecision"]) {
-  const value = rawDate.trim();
-
-  if (rawPrecision) {
-    if (rawPrecision === "day") {
-      if (!isValidSqlDate(value)) {
-        throw new Error("Day precision dates must use YYYY-MM-DD.");
-      }
-
-      return {
-        date: value,
-        datePrecision: "day" as const
-      };
-    }
-
-    if (rawPrecision === "month") {
-      if (!isValidSqlDate(value) || !/^\d{4}-\d{2}-01$/.test(value)) {
-        throw new Error("Month precision dates must use YYYY-MM-01.");
-      }
-
-      return {
-        date: value,
-        datePrecision: "month" as const
-      };
-    }
-
-    if (rawPrecision === "year") {
-      if (!isValidSqlDate(value) || !/^\d{4}-01-01$/.test(value)) {
-        throw new Error("Year precision dates must use YYYY-01-01.");
-      }
-
-      return {
-        date: value,
-        datePrecision: "year" as const
-      };
-    }
-
-    if (!isValidSqlDate(value)) {
-      throw new Error("Approximate precision dates must use a valid SQL date in YYYY-MM-DD format.");
-    }
-
-    return {
-      date: value,
-      datePrecision: "approximate" as const
-    };
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return {
-      date: value,
-      datePrecision: "day" as const
-    };
-  }
-
-  if (/^\d{4}-\d{2}$/.test(value)) {
-    return {
-      date: `${value}-01`,
-      datePrecision: "month" as const
-    };
-  }
-
-  if (/^\d{4}$/.test(value)) {
-    return {
-      date: `${value}-01-01`,
-      datePrecision: "year" as const
-    };
-  }
-
-  throw new Error("Date must be in YYYY-MM-DD, YYYY-MM, or YYYY format.");
-}
-
 function normalizeRow(row: unknown): TimelineImportRow {
   const parsed = importRowSchema.parse(row);
-  const normalized = normalizeDate(parsed.date, parsed.datePrecision);
+  const normalized = parseHistoricalDateInput(parsed.date, parsed.datePrecision);
 
   return {
-    date: normalized.date,
+    date: normalized.displayDate,
     datePrecision: normalized.datePrecision,
+    legacyDate: normalized.legacyDate,
+    displayDate: normalized.displayDate,
+    sortYear: normalized.sortYear,
+    sortMonth: normalized.sortMonth,
+    sortDay: normalized.sortDay,
     title: parsed.title,
     description: parsed.description,
     importance: parsed.importance,
     location: parsed.location || null,
     imageUrl: parsed.imageUrl || null
   };
+}
+
+function getChronologySignature(input: {
+  title: string;
+  date: string;
+  datePrecision: TimelineImportRow["datePrecision"];
+  legacyDate?: string | null;
+  sortYear?: number | null;
+  sortMonth?: number | null;
+  sortDay?: number | null;
+}) {
+  const titleKey = input.title.trim().toLowerCase();
+  const chronology =
+    typeof input.sortYear === "number" && input.sortYear !== 0
+      ? {
+          sortYear: input.sortYear,
+          sortMonth: input.sortMonth ?? null,
+          sortDay: input.sortDay ?? null,
+          datePrecision: input.datePrecision
+        }
+      : parseHistoricalDateInput(input.legacyDate || input.date, input.datePrecision);
+
+  return [
+    chronology.sortYear,
+    chronology.sortMonth ?? "",
+    chronology.sortDay ?? "",
+    chronology.datePrecision,
+    titleKey
+  ].join("|");
 }
 
 function parseJsonImport(importType: ImportType, content: string): ParsedImportData {
@@ -526,7 +438,18 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
         throw error;
       }
 
-      if (isDateValidationError(error)) {
+      const fields = extractValidationFields(error);
+      if (fields) {
+        throw new ApiError(400, "VALIDATION_FAILED", "CSV row validation failed.", {
+          row: index + 2,
+          parsedDate: normalizedRow.date || null,
+          parsedDatePrecision: normalizedRow.datePrecision || null,
+          normalizedHeaderKeys,
+          fields
+        });
+      }
+
+      if (error instanceof Error) {
         const normalizedPrecision = normalizedRow.datePrecision || inferPrecisionFromDate(normalizedRow.date);
         throw new ApiError(
           400,
@@ -546,19 +469,6 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
             ]
           }
         );
-      }
-
-      if (error instanceof Error && "issues" in error) {
-        throw new ApiError(400, "VALIDATION_FAILED", "CSV row validation failed.", {
-          row: index + 2,
-          parsedDate: normalizedRow.date || null,
-          parsedDatePrecision: normalizedRow.datePrecision || null,
-          normalizedHeaderKeys,
-          fields: (error as { issues?: Array<{ path?: string[]; message?: string }> }).issues?.map((issue) => ({
-            field: issue.path?.join(".") || "unknown",
-            message: issue.message || "Invalid value"
-          }))
-        });
       }
 
       throwCsvValidationError(error instanceof Error ? error.message : "CSV row validation failed.", {
@@ -790,18 +700,75 @@ async function getTimelineEventSignatures(sql: Sql | null, timelineId: number): 
   if (!sql) {
     const timeline = memoryStore.getTimelines().find((candidate) => candidate.id === timelineId);
     return new Set(
-      (timeline?.events || []).map((event) => `${event.date}:${event.title.trim().toLowerCase()}`)
+      (timeline?.events || []).map((event) =>
+        getChronologySignature({
+          title: event.title,
+          date: event.date,
+          datePrecision: event.datePrecision,
+          legacyDate: event.legacyDate || null,
+          sortYear: event.sortYear ?? null,
+          sortMonth: event.sortMonth ?? null,
+          sortDay: event.sortDay ?? null
+        })
+      )
     );
   }
 
-  const rows = await sql<{ date: string; title: string }[]>`
-    SELECT events.date::text AS date, events.title
+  const supportsHistorical = await hasHistoricalChronologyColumns(sql);
+  if (supportsHistorical) {
+    const rows = await sql<{
+      date: string;
+      legacy_date: string;
+      date_precision: TimelineImportRow["datePrecision"];
+      title: string;
+      sort_year: number | null;
+      sort_month: number | null;
+      sort_day: number | null;
+    }[]>`
+      SELECT
+        COALESCE(events.display_date, events.date::text) AS date,
+        events.date::text AS legacy_date,
+        events.date_precision,
+        events.title,
+        events.sort_year,
+        events.sort_month,
+        events.sort_day
+      FROM timeline_events
+      INNER JOIN events ON events.id = timeline_events.event_id
+      WHERE timeline_events.timeline_id = ${timelineId}
+    `;
+
+    return new Set(
+      rows.map((row) =>
+        getChronologySignature({
+          title: row.title,
+          date: row.date,
+          datePrecision: row.date_precision,
+          legacyDate: row.legacy_date,
+          sortYear: row.sort_year,
+          sortMonth: row.sort_month,
+          sortDay: row.sort_day
+        })
+      )
+    );
+  }
+
+  const rows = await sql<{ date: string; date_precision: TimelineImportRow["datePrecision"]; title: string }[]>`
+    SELECT events.date::text AS date, events.date_precision, events.title
     FROM timeline_events
     INNER JOIN events ON events.id = timeline_events.event_id
     WHERE timeline_events.timeline_id = ${timelineId}
   `;
 
-  return new Set(rows.map((row) => `${row.date}:${row.title.trim().toLowerCase()}`));
+  return new Set(
+    rows.map((row) =>
+      getChronologySignature({
+        title: row.title,
+        date: row.date,
+        datePrecision: row.date_precision
+      })
+    )
+  );
 }
 
 function buildPreviewRows(
@@ -811,7 +778,7 @@ function buildPreviewRows(
     date: event.date,
     title: event.title,
     description: event.description,
-    duplicate: duplicateSet.has(`${event.date}:${event.title.trim().toLowerCase()}`),
+    duplicate: duplicateSet.has(getChronologySignature(event)),
     timelineSlug: timeline.slug,
     timelineTitle: timeline.title
   }));
@@ -822,7 +789,7 @@ function buildDuplicateSet(events: ParsedEventRow[], existingSignatures: Set<str
   const duplicates = new Set<string>();
 
   for (const row of events) {
-    const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
+    const signature = getChronologySignature(row);
     if (seen.has(signature) || existingSignatures.has(signature)) {
       duplicates.add(signature);
     }
@@ -897,24 +864,29 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
       const startOrder = targetTimeline.events.length;
 
       for (const row of group.events) {
-        const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
+        const signature = getChronologySignature(row);
         if (duplicateSet.has(signature)) {
           skippedEventsCount += 1;
           reasons.push({
             type: "event_skipped",
             timelineSlug: targetTimeline.slug,
             row: row.sourceRow,
-            date: row.date,
+            date: row.displayDate || row.date,
             title: row.title,
-            message: `Event '${row.title}' on ${row.date} already exists under timeline '${targetTimeline.slug}'.`
+            message: `Event '${row.title}' on ${row.displayDate || row.date} already exists under timeline '${targetTimeline.slug}'.`
           });
           continue;
         }
 
         targetTimeline.events.push({
           id: memoryStore.nextEventId(),
-          date: row.date,
+          date: row.displayDate || row.date,
           datePrecision: row.datePrecision,
+          legacyDate: row.legacyDate || null,
+          displayDate: row.displayDate || row.date,
+          sortYear: row.sortYear ?? null,
+          sortMonth: row.sortMonth ?? null,
+          sortDay: row.sortDay ?? null,
           title: row.title,
           description: row.description,
           importance: row.importance,
@@ -941,7 +913,7 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
       }
 
       importedEventsCount += created;
-      targetTimeline.events.sort((left, right) => left.date.localeCompare(right.date));
+      targetTimeline.events.sort(compareHistoricalSort);
       touchTimelineSummary(targetTimeline);
       affectedTimelineSlugs.push(targetTimeline.slug);
       timelineResults.push({
@@ -987,24 +959,29 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
   const startOrder = targetTimeline.events.length;
 
   for (const row of parsed.events) {
-    const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
+    const signature = getChronologySignature(row);
     if (duplicateSet.has(signature)) {
       duplicateCount += 1;
       reasons.push({
         type: "event_skipped",
         timelineSlug: targetTimeline.slug,
         row: row.sourceRow,
-        date: row.date,
+        date: row.displayDate || row.date,
         title: row.title,
-        message: `Event '${row.title}' on ${row.date} already exists under timeline '${targetTimeline.slug}'.`
+        message: `Event '${row.title}' on ${row.displayDate || row.date} already exists under timeline '${targetTimeline.slug}'.`
       });
       continue;
     }
 
     targetTimeline.events.push({
       id: memoryStore.nextEventId(),
-      date: row.date,
+      date: row.displayDate || row.date,
       datePrecision: row.datePrecision,
+      legacyDate: row.legacyDate || null,
+      displayDate: row.displayDate || row.date,
+      sortYear: row.sortYear ?? null,
+      sortMonth: row.sortMonth ?? null,
+      sortDay: row.sortDay ?? null,
       title: row.title,
       description: row.description,
       importance: row.importance,
@@ -1026,7 +1003,7 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
     created += 1;
   }
 
-  targetTimeline.events.sort((left, right) => left.date.localeCompare(right.date));
+  targetTimeline.events.sort(compareHistoricalSort);
   touchTimelineSummary(targetTimeline);
 
   return {
@@ -1059,6 +1036,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
 
   return sql.begin(async (tx) => {
     const query = tx as unknown as Sql;
+    const supportsHistorical = await hasHistoricalChronologyColumns(query);
     const reasons: ImportReason[] = [];
     const timelineResults: ImportExecutionResult["timelineResults"] = [];
     const affectedTimelineSlugs: string[] = [];
@@ -1108,7 +1086,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
         let groupDuplicateCount = 0;
 
         for (const row of group.events) {
-          const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
+          const signature = getChronologySignature(row);
           if (duplicateSet.has(signature)) {
             groupDuplicateCount += 1;
             skippedEventsCount += 1;
@@ -1116,18 +1094,48 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
               type: "event_skipped",
               timelineSlug,
               row: row.sourceRow,
-              date: row.date,
+              date: row.displayDate || row.date,
               title: row.title,
-              message: `Event '${row.title}' on ${row.date} already exists under timeline '${timelineSlug}'.`
+              message: `Event '${row.title}' on ${row.displayDate || row.date} already exists under timeline '${timelineSlug}'.`
             });
             continue;
           }
 
-          const [eventRow] = await query<{ id: number }[]>`
-            INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-            VALUES (${row.date}, ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
-            RETURNING id
-          `;
+          const [eventRow] = supportsHistorical
+            ? await query<{ id: number }[]>`
+                INSERT INTO events (
+                  date,
+                  date_precision,
+                  sort_year,
+                  sort_month,
+                  sort_day,
+                  display_date,
+                  title,
+                  description,
+                  importance,
+                  location,
+                  image_url
+                )
+                VALUES (
+                  ${row.legacyDate || row.date},
+                  ${row.datePrecision},
+                  ${row.sortYear ?? null},
+                  ${row.sortMonth ?? null},
+                  ${row.sortDay ?? null},
+                  ${row.displayDate || row.date},
+                  ${row.title},
+                  ${row.description},
+                  ${row.importance},
+                  ${row.location || null},
+                  ${row.imageUrl || null}
+                )
+                RETURNING id
+              `
+            : await query<{ id: number }[]>`
+                INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
+                VALUES (${row.legacyDate || row.date}, ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+                RETURNING id
+              `;
 
           if (!eventRow) {
             throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
@@ -1192,7 +1200,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
     let created = 0;
     let duplicateCount = 0;
     for (const row of parsed.events) {
-      const signature = `${row.date}:${row.title.trim().toLowerCase()}`;
+      const signature = getChronologySignature(row);
       if (duplicateSet.has(signature)) {
         duplicateCount += 1;
         skippedEventsCount += 1;
@@ -1200,18 +1208,48 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
           type: "event_skipped",
           timelineSlug: summary.slug,
           row: row.sourceRow,
-          date: row.date,
+          date: row.displayDate || row.date,
           title: row.title,
-          message: `Event '${row.title}' on ${row.date} already exists under timeline '${summary.slug}'.`
+          message: `Event '${row.title}' on ${row.displayDate || row.date} already exists under timeline '${summary.slug}'.`
         });
         continue;
       }
 
-      const [eventRow] = await query<{ id: number }[]>`
-        INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-        VALUES (${row.date}, ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
-        RETURNING id
-      `;
+      const [eventRow] = supportsHistorical
+        ? await query<{ id: number }[]>`
+            INSERT INTO events (
+              date,
+              date_precision,
+              sort_year,
+              sort_month,
+              sort_day,
+              display_date,
+              title,
+              description,
+              importance,
+              location,
+              image_url
+            )
+            VALUES (
+              ${row.legacyDate || row.date},
+              ${row.datePrecision},
+              ${row.sortYear ?? null},
+              ${row.sortMonth ?? null},
+              ${row.sortDay ?? null},
+              ${row.displayDate || row.date},
+              ${row.title},
+              ${row.description},
+              ${row.importance},
+              ${row.location || null},
+              ${row.imageUrl || null}
+            )
+            RETURNING id
+          `
+        : await query<{ id: number }[]>`
+            INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
+            VALUES (${row.legacyDate || row.date}, ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+            RETURNING id
+          `;
 
       if (!eventRow) {
         throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");

@@ -55,7 +55,7 @@ export const tagSchema = z.object({
 });
 
 export const eventSchema = z.object({
-  date: z.string().trim().date(),
+  date: z.string().trim().min(1).max(40),
   datePrecision: datePrecisionSchema,
   title: trimmedString(3, 160),
   description: trimmedString(10, 2000),
@@ -107,7 +107,7 @@ export const searchQuerySchema = z.object({
 });
 
 export const importRowSchema = z.object({
-  date: z.string().trim().min(4).max(10),
+  date: z.string().trim().min(1).max(40),
   datePrecision: datePrecisionSchema.optional(),
   title: trimmedString(3, 160),
   description: trimmedString(10, 2000),

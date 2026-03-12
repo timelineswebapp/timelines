@@ -147,7 +147,7 @@ export function EventManager({
       <div className="admin-manager-header admin-manager-header-tight">
         <div>
           <h2 style={{ marginTop: 0 }}>Event management</h2>
-          <p className="muted">Search by title, timeline, or date, then create, edit, or remove events.</p>
+          <p className="muted">Search by title, timeline, or chronology, then create, edit, or remove events.</p>
         </div>
         <button className="button" type="button" onClick={openCreateModal}>
           Create
@@ -259,7 +259,13 @@ export function EventManager({
                 </option>
               ))}
             </select>
-            <input className="input" type="date" value={draft.date} onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))} required />
+            <input
+              className="input"
+              value={draft.date}
+              onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))}
+              placeholder="1914-07-28, 1453-05, 30 CE, 44 BCE, c. 1200 BCE"
+              required
+            />
             <select className="select" value={draft.datePrecision} onChange={(event) => setDraft((current) => ({ ...current, datePrecision: event.target.value as EventRecord["datePrecision"] }))}>
               <option value="day">Day</option>
               <option value="month">Month</option>

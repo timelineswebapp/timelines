@@ -32,6 +32,11 @@ export interface EventRecord {
   id: number;
   date: string;
   datePrecision: DatePrecision;
+  legacyDate?: string | null;
+  displayDate?: string | null;
+  sortYear?: number | null;
+  sortMonth?: number | null;
+  sortDay?: number | null;
   title: string;
   description: string;
   importance: number;
@@ -313,6 +318,11 @@ export interface ImportExecutionResult {
 export interface TimelineImportRow {
   date: string;
   datePrecision: DatePrecision;
+  legacyDate?: string | null;
+  displayDate?: string | null;
+  sortYear?: number | null;
+  sortMonth?: number | null;
+  sortDay?: number | null;
   title: string;
   description: string;
   importance: number;

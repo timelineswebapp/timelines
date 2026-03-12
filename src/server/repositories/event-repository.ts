@@ -1,6 +1,8 @@
 import type { EmbeddedSourceInput, EventRecord, SourceRecord } from "@/src/lib/types";
 import type { Sql } from "postgres";
+import { compareHistoricalSort, parseHistoricalDateInput } from "@/src/lib/historical-date";
 import { getSql, getWriteSql } from "@/src/server/db/client";
+import { hasHistoricalChronologyColumns } from "@/src/server/db/schema-capabilities";
 import { ApiError } from "@/src/server/api/responses";
 import { attachTaxonomyToEvent, memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store";
 
@@ -19,7 +21,7 @@ type EventInput = {
 };
 
 function reorderEvents(events: EventRecord[]) {
-  return [...events].sort((left, right) => left.date.localeCompare(right.date));
+  return [...events].sort(compareHistoricalSort);
 }
 
 async function assertTimelineExists(sql: Sql, timelineId: number): Promise<void> {
@@ -173,40 +175,91 @@ export const eventRepository = {
       );
     }
 
-    const rows = await sql<{
-      id: number;
-      date: string;
-      date_precision: EventRecord["datePrecision"];
-      title: string;
-      description: string;
-      importance: number;
-      location: string | null;
-      image_url: string | null;
-      created_at: string;
-      updated_at: string;
-      source_ids: number[] | null;
-      tag_ids: number[] | null;
-    }[]>`
-      SELECT
-        events.id,
-        events.date::text AS date,
-        events.date_precision,
-        events.title,
-        events.description,
-        events.importance,
-        events.location,
-        events.image_url,
-        events.created_at::text AS created_at,
-        events.updated_at::text AS updated_at,
-        ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
-        ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
-      FROM events
-      LEFT JOIN event_sources ON event_sources.event_id = events.id
-      LEFT JOIN event_tags ON event_tags.event_id = events.id
-      GROUP BY events.id
-      ORDER BY events.date DESC, events.id DESC
-      LIMIT 200
-    `;
+    const hasHistoricalColumns = await hasHistoricalChronologyColumns(sql);
+
+    const rows = await (hasHistoricalColumns
+      ? sql<{
+          id: number;
+          date: string;
+          legacy_date: string;
+          display_date: string | null;
+          sort_year: number | null;
+          sort_month: number | null;
+          sort_day: number | null;
+          date_precision: EventRecord["datePrecision"];
+          title: string;
+          description: string;
+          importance: number;
+          location: string | null;
+          image_url: string | null;
+          created_at: string;
+          updated_at: string;
+          source_ids: number[] | null;
+          tag_ids: number[] | null;
+        }[]>`
+          SELECT
+            events.id,
+            COALESCE(events.display_date, events.date::text) AS date,
+            events.date::text AS legacy_date,
+            events.display_date,
+            events.sort_year,
+            events.sort_month,
+            events.sort_day,
+            events.date_precision,
+            events.title,
+            events.description,
+            events.importance,
+            events.location,
+            events.image_url,
+            events.created_at::text AS created_at,
+            events.updated_at::text AS updated_at,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
+          FROM events
+          LEFT JOIN event_sources ON event_sources.event_id = events.id
+          LEFT JOIN event_tags ON event_tags.event_id = events.id
+          GROUP BY events.id
+          ORDER BY
+            events.sort_year DESC NULLS LAST,
+            events.sort_month DESC NULLS LAST,
+            events.sort_day DESC NULLS LAST,
+            events.id DESC
+          LIMIT 200
+        `
+      : sql<{
+          id: number;
+          date: string;
+          date_precision: EventRecord["datePrecision"];
+          title: string;
+          description: string;
+          importance: number;
+          location: string | null;
+          image_url: string | null;
+          created_at: string;
+          updated_at: string;
+          source_ids: number[] | null;
+          tag_ids: number[] | null;
+        }[]>`
+          SELECT
+            events.id,
+            events.date::text AS date,
+            events.date_precision,
+            events.title,
+            events.description,
+            events.importance,
+            events.location,
+            events.image_url,
+            events.created_at::text AS created_at,
+            events.updated_at::text AS updated_at,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
+          FROM events
+          LEFT JOIN event_sources ON event_sources.event_id = events.id
+          LEFT JOIN event_tags ON event_tags.event_id = events.id
+          GROUP BY events.id
+          ORDER BY events.date DESC, events.id DESC
+          LIMIT 200
+        `);
 
     const eventIds = rows.map((row) => row.id);
     const sourceIds = Array.from(new Set(rows.flatMap((row) => row.source_ids || [])));
@@ -252,6 +305,11 @@ export const eventRepository = {
       id: row.id,
       date: row.date,
       datePrecision: row.date_precision,
+      legacyDate: "legacy_date" in row ? row.legacy_date : row.date,
+      displayDate: "display_date" in row ? row.display_date : null,
+      sortYear: "sort_year" in row ? row.sort_year : null,
+      sortMonth: "sort_month" in row ? row.sort_month : null,
+      sortDay: "sort_day" in row ? row.sort_day : null,
       title: row.title,
       description: row.description,
       importance: row.importance,
@@ -285,23 +343,74 @@ export const eventRepository = {
     return sql.begin(async (tx) => {
       const query = tx as unknown as Sql;
       await assertTimelineExists(query, input.timelineId);
+      const historical = parseHistoricalDateInput(input.date, input.datePrecision);
+      const hasHistoricalColumns = await hasHistoricalChronologyColumns(query);
 
-      const [event] = await query<{
-        id: number;
-        date: string;
-        date_precision: EventRecord["datePrecision"];
-        title: string;
-        description: string;
-        importance: number;
-        location: string | null;
-        image_url: string | null;
-        created_at: string;
-        updated_at: string;
-      }[]>`
-        INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-        VALUES (${input.date}, ${input.datePrecision}, ${input.title}, ${input.description}, ${input.importance}, ${input.location}, ${input.imageUrl})
-        RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
-      `;
+      const [event] = await (hasHistoricalColumns
+        ? query<{
+            id: number;
+            date: string;
+            legacy_date: string;
+            display_date: string | null;
+            sort_year: number | null;
+            sort_month: number | null;
+            sort_day: number | null;
+            date_precision: EventRecord["datePrecision"];
+            title: string;
+            description: string;
+            importance: number;
+            location: string | null;
+            image_url: string | null;
+            created_at: string;
+            updated_at: string;
+          }[]>`
+            INSERT INTO events (date, date_precision, sort_year, sort_month, sort_day, display_date, title, description, importance, location, image_url)
+            VALUES (
+              ${historical.legacyDate},
+              ${historical.datePrecision},
+              ${historical.sortYear},
+              ${historical.sortMonth},
+              ${historical.sortDay},
+              ${historical.displayDate},
+              ${input.title},
+              ${input.description},
+              ${input.importance},
+              ${input.location},
+              ${input.imageUrl}
+            )
+            RETURNING
+              id,
+              COALESCE(display_date, date::text) AS date,
+              date::text AS legacy_date,
+              display_date,
+              sort_year,
+              sort_month,
+              sort_day,
+              date_precision,
+              title,
+              description,
+              importance,
+              location,
+              image_url,
+              created_at::text AS created_at,
+              updated_at::text AS updated_at
+          `
+        : query<{
+            id: number;
+            date: string;
+            date_precision: EventRecord["datePrecision"];
+            title: string;
+            description: string;
+            importance: number;
+            location: string | null;
+            image_url: string | null;
+            created_at: string;
+            updated_at: string;
+          }[]>`
+            INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
+            VALUES (${historical.legacyDate}, ${historical.datePrecision}, ${input.title}, ${input.description}, ${input.importance}, ${input.location}, ${input.imageUrl})
+            RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
+          `);
 
       if (!event) {
         throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
@@ -323,6 +432,11 @@ export const eventRepository = {
         id: event.id,
         date: event.date,
         datePrecision: event.date_precision,
+        legacyDate: "legacy_date" in event ? event.legacy_date : historical.legacyDate,
+        displayDate: "display_date" in event ? event.display_date : historical.displayDate,
+        sortYear: "sort_year" in event ? event.sort_year : historical.sortYear,
+        sortMonth: "sort_month" in event ? event.sort_month : historical.sortMonth,
+        sortDay: "sort_day" in event ? event.sort_day : historical.sortDay,
         title: event.title,
         description: event.description,
         importance: event.importance,
@@ -342,31 +456,82 @@ export const eventRepository = {
     return sql.begin(async (tx) => {
       const query = tx as unknown as Sql;
       await assertTimelineExists(query, input.timelineId);
+      const historical = parseHistoricalDateInput(input.date, input.datePrecision);
+      const hasHistoricalColumns = await hasHistoricalChronologyColumns(query);
 
-      const [event] = await query<{
-        id: number;
-        date: string;
-        date_precision: EventRecord["datePrecision"];
-        title: string;
-        description: string;
-        importance: number;
-        location: string | null;
-        image_url: string | null;
-        created_at: string;
-        updated_at: string;
-      }[]>`
-        UPDATE events
-        SET
-          date = ${input.date},
-          date_precision = ${input.datePrecision},
-          title = ${input.title},
-          description = ${input.description},
-          importance = ${input.importance},
-          location = ${input.location},
-          image_url = ${input.imageUrl}
-        WHERE id = ${id}
-        RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
-      `;
+      const [event] = await (hasHistoricalColumns
+        ? query<{
+            id: number;
+            date: string;
+            legacy_date: string;
+            display_date: string | null;
+            sort_year: number | null;
+            sort_month: number | null;
+            sort_day: number | null;
+            date_precision: EventRecord["datePrecision"];
+            title: string;
+            description: string;
+            importance: number;
+            location: string | null;
+            image_url: string | null;
+            created_at: string;
+            updated_at: string;
+          }[]>`
+            UPDATE events
+            SET
+              date = ${historical.legacyDate},
+              date_precision = ${historical.datePrecision},
+              sort_year = ${historical.sortYear},
+              sort_month = ${historical.sortMonth},
+              sort_day = ${historical.sortDay},
+              display_date = ${historical.displayDate},
+              title = ${input.title},
+              description = ${input.description},
+              importance = ${input.importance},
+              location = ${input.location},
+              image_url = ${input.imageUrl}
+            WHERE id = ${id}
+            RETURNING
+              id,
+              COALESCE(display_date, date::text) AS date,
+              date::text AS legacy_date,
+              display_date,
+              sort_year,
+              sort_month,
+              sort_day,
+              date_precision,
+              title,
+              description,
+              importance,
+              location,
+              image_url,
+              created_at::text AS created_at,
+              updated_at::text AS updated_at
+          `
+        : query<{
+            id: number;
+            date: string;
+            date_precision: EventRecord["datePrecision"];
+            title: string;
+            description: string;
+            importance: number;
+            location: string | null;
+            image_url: string | null;
+            created_at: string;
+            updated_at: string;
+          }[]>`
+            UPDATE events
+            SET
+              date = ${historical.legacyDate},
+              date_precision = ${historical.datePrecision},
+              title = ${input.title},
+              description = ${input.description},
+              importance = ${input.importance},
+              location = ${input.location},
+              image_url = ${input.imageUrl}
+            WHERE id = ${id}
+            RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
+          `);
 
       if (!event) {
         return null;
@@ -398,6 +563,11 @@ export const eventRepository = {
         id: event.id,
         date: event.date,
         datePrecision: event.date_precision,
+        legacyDate: "legacy_date" in event ? event.legacy_date : historical.legacyDate,
+        displayDate: "display_date" in event ? event.display_date : historical.displayDate,
+        sortYear: "sort_year" in event ? event.sort_year : historical.sortYear,
+        sortMonth: "sort_month" in event ? event.sort_month : historical.sortMonth,
+        sortDay: "sort_day" in event ? event.sort_day : historical.sortDay,
         title: event.title,
         description: event.description,
         importance: event.importance,

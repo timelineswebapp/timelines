@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "data:audit": "tsx scripts/check-and-fix-data.ts",
+    "data:repair": "tsx scripts/check-and-fix-data.ts --write"
   },
   "dependencies": {
     "clsx": "^2.1.1",
