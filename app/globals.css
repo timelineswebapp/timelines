@@ -880,12 +880,13 @@ main {
 }
 
 .admin-record-card-event {
-  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr) auto;
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.95fr);
 }
 
 .admin-record-main,
 .admin-record-meta,
-.admin-record-actions {
+.admin-record-actions,
+.admin-record-side {
   min-width: 0;
 }
 
@@ -910,6 +911,16 @@ main {
   gap: 10px;
 }
 
+.admin-record-side {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.admin-record-meta-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .admin-record-stat {
   display: grid;
   gap: 4px;
@@ -932,6 +943,12 @@ main {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.admin-record-actions-compact {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, max-content));
+  justify-content: start;
 }
 
 .admin-empty-state {
@@ -1296,6 +1313,10 @@ main {
     justify-content: stretch;
   }
 
+  .admin-record-actions-compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .admin-manager-header,
   .admin-modal-header,
   .admin-modal-actions,
@@ -1325,6 +1346,10 @@ main {
 
   .admin-record-stat-wide {
     grid-column: span 1;
+  }
+
+  .admin-record-actions-compact {
+    grid-template-columns: 1fr;
   }
 }
 
