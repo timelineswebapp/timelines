@@ -144,17 +144,17 @@ export function EventManager({
 
   return (
     <section className="glass section-card stack">
-      <div className="admin-manager-header">
+      <div className="admin-manager-header admin-manager-header-tight">
         <div>
           <h2 style={{ marginTop: 0 }}>Event management</h2>
-          <p className="muted">Search by title, timeline, or date, then create, edit, or remove events from a modal workflow.</p>
+          <p className="muted">Search by title, timeline, or date, then create, edit, or remove events.</p>
         </div>
         <button className="button" type="button" onClick={openCreateModal}>
           Create
         </button>
       </div>
 
-      <div className="admin-toolbar admin-toolbar-wide">
+      <div className="admin-toolbar admin-toolbar-wide admin-toolbar-event">
         <input
           className="input"
           value={searchInput}
@@ -186,7 +186,7 @@ export function EventManager({
               </div>
               <div className="admin-record-side">
                 <div className="admin-record-meta admin-record-meta-compact">
-                  <span className="admin-record-stat admin-record-stat-wide">
+                  <span className="admin-record-stat">
                     <span className="admin-record-stat-label">Timeline</span>
                     <span>{parentTimeline?.title || "Unlinked"}</span>
                   </span>

@@ -747,6 +747,11 @@ main {
   justify-content: space-between;
 }
 
+.admin-manager-header-tight {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-auto-flow: initial;
+}
+
 .admin-grid > *,
 .admin-panel-grid > *,
 .admin-manager-header > * {
@@ -759,6 +764,10 @@ main {
 
 .admin-toolbar-wide {
   grid-template-columns: minmax(0, 1fr) 220px;
+}
+
+.admin-toolbar-event {
+  grid-template-columns: minmax(0, 1fr) 180px;
 }
 
 .admin-modal-backdrop {
@@ -880,7 +889,7 @@ main {
 }
 
 .admin-record-card-event {
-  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.95fr);
+  grid-template-columns: minmax(0, 1fr) 220px;
 }
 
 .admin-record-main,
@@ -918,7 +927,8 @@ main {
 }
 
 .admin-record-meta-compact {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 .admin-record-stat {
@@ -947,8 +957,8 @@ main {
 
 .admin-record-actions-compact {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, max-content));
-  justify-content: start;
+  grid-template-columns: 1fr;
+  justify-content: stretch;
 }
 
 .admin-empty-state {
