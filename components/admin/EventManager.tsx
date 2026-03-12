@@ -183,9 +183,7 @@ export function EventManager({
                   {event.description.slice(0, 120)}
                   {event.description.length > 120 ? "..." : ""}
                 </div>
-              </div>
-              <div className="admin-record-side">
-                <div className="admin-record-meta admin-record-meta-compact">
+                <div className="admin-record-meta admin-record-meta-event">
                   <span className="admin-record-stat">
                     <span className="admin-record-stat-label">Timeline</span>
                     <span>{parentTimeline?.title || "Unlinked"}</span>
@@ -199,26 +197,26 @@ export function EventManager({
                     <span>{event.sources.length}</span>
                   </span>
                 </div>
-                <div className="admin-record-actions admin-record-actions-compact">
-                  <button
-                    className="button secondary"
-                    type="button"
-                    onClick={() => {
-                      setDraft(mapEventToDraft(event));
-                      setIsEditorOpen(true);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  {parentTimeline ? (
-                    <Link className="button secondary" href={`/timeline/${parentTimeline.slug}`} target="_blank">
-                      Open
-                    </Link>
-                  ) : null}
-                  <button className="button danger" type="button" onClick={() => setDeleteTarget(event)}>
-                    Delete
-                  </button>
-                </div>
+              </div>
+              <div className="admin-record-actions admin-record-actions-compact">
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={() => {
+                    setDraft(mapEventToDraft(event));
+                    setIsEditorOpen(true);
+                  }}
+                >
+                  Edit
+                </button>
+                {parentTimeline ? (
+                  <Link className="button secondary" href={`/timeline/${parentTimeline.slug}`} target="_blank">
+                    Open
+                  </Link>
+                ) : null}
+                <button className="button danger" type="button" onClick={() => setDeleteTarget(event)}>
+                  Delete
+                </button>
               </div>
             </article>
           );

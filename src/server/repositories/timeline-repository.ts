@@ -448,35 +448,64 @@ export const timelineRepository = {
       category: string;
       created_at: string;
       updated_at: string;
+      rank_score: number;
     }[]>`
       WITH search_query AS (
         SELECT websearch_to_tsquery('english', ${query}) AS q
+      ),
+      ranked_timelines AS (
+        SELECT
+          timelines.id,
+          timelines.title,
+          timelines.slug,
+          timelines.description,
+          timelines.category,
+          timelines.created_at::text AS created_at,
+          timelines.updated_at::text AS updated_at,
+          MAX(
+            GREATEST(
+              ts_rank_cd(timelines.search_vector, search_query.q) * 1.5,
+              COALESCE(ts_rank_cd(events.search_vector, search_query.q), 0),
+              CASE
+                WHEN to_tsvector('english', coalesce(tags.name, '') || ' ' || coalesce(tags.slug, '')) @@ search_query.q
+                  THEN 0.8
+                ELSE 0
+              END
+            )
+          ) AS rank_score
+        FROM timelines
+        CROSS JOIN search_query
+        LEFT JOIN timeline_events ON timeline_events.timeline_id = timelines.id
+        LEFT JOIN events ON events.id = timeline_events.event_id
+        LEFT JOIN event_tags ON event_tags.event_id = events.id
+        LEFT JOIN tags ON tags.id = event_tags.tag_id
+        WHERE
+          timelines.search_vector @@ search_query.q
+          OR events.search_vector @@ search_query.q
+          OR to_tsvector('english', coalesce(tags.name, '') || ' ' || coalesce(tags.slug, '')) @@ search_query.q
+        GROUP BY
+          timelines.id,
+          timelines.title,
+          timelines.slug,
+          timelines.description,
+          timelines.category,
+          timelines.created_at,
+          timelines.updated_at
       )
-      SELECT DISTINCT
-        timelines.id,
-        timelines.title,
-        timelines.slug,
-        timelines.description,
-        timelines.category,
-        timelines.created_at::text AS created_at,
-        timelines.updated_at::text AS updated_at
-      FROM timelines
-      CROSS JOIN search_query
-      LEFT JOIN timeline_events ON timeline_events.timeline_id = timelines.id
-      LEFT JOIN events ON events.id = timeline_events.event_id
-      LEFT JOIN event_tags ON event_tags.event_id = events.id
-      LEFT JOIN tags ON tags.id = event_tags.tag_id
-      WHERE
-        timelines.search_vector @@ search_query.q
-        OR events.search_vector @@ search_query.q
-        OR to_tsvector('english', coalesce(tags.name, '') || ' ' || coalesce(tags.slug, '')) @@ search_query.q
+      SELECT
+        id,
+        title,
+        slug,
+        description,
+        category,
+        created_at,
+        updated_at,
+        rank_score
+      FROM ranked_timelines
       ORDER BY
-        GREATEST(
-          ts_rank_cd(timelines.search_vector, search_query.q) * 1.5,
-          COALESCE(ts_rank_cd(events.search_vector, search_query.q), 0),
-          CASE WHEN to_tsvector('english', coalesce(tags.name, '') || ' ' || coalesce(tags.slug, '')) @@ search_query.q THEN 0.8 ELSE 0 END
-        ) DESC,
-        timelines.updated_at DESC
+        rank_score DESC,
+        updated_at DESC,
+        id DESC
       LIMIT ${limit}
     `;
 
