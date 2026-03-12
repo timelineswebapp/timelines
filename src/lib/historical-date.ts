@@ -327,6 +327,14 @@ function normalizeApproximatePrefix(rawDate: string) {
 }
 
 function normalizeEarlyCeIsoInput(rawDate: string) {
+  const yearMatch = rawDate.match(/^(\d{1,3})$/);
+  if (yearMatch) {
+    const year = Number(yearMatch[1]);
+    if (year > 0) {
+      return year.toString().padStart(4, "0");
+    }
+  }
+
   const dayMatch = rawDate.match(/^(\d{1,3})-(\d{2})-(\d{2})$/);
   if (dayMatch) {
     const year = Number(dayMatch[1]);
