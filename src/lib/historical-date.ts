@@ -326,6 +326,26 @@ function normalizeApproximatePrefix(rawDate: string) {
   };
 }
 
+function normalizeEarlyCeIsoInput(rawDate: string) {
+  const dayMatch = rawDate.match(/^(\d{1,3})-(\d{2})-(\d{2})$/);
+  if (dayMatch) {
+    const year = Number(dayMatch[1]);
+    if (year > 0) {
+      return `${year.toString().padStart(4, "0")}-${dayMatch[2]}-${dayMatch[3]}`;
+    }
+  }
+
+  const monthMatch = rawDate.match(/^(\d{1,3})-(\d{2})$/);
+  if (monthMatch) {
+    const year = Number(monthMatch[1]);
+    if (year > 0) {
+      return `${year.toString().padStart(4, "0")}-${monthMatch[2]}`;
+    }
+  }
+
+  return rawDate;
+}
+
 function resolvePrecisionRank(precision: DatePrecision) {
   switch (precision) {
     case "approximate":
@@ -370,7 +390,8 @@ export function parseHistoricalDateInput(rawDate: string, rawPrecision?: DatePre
     throw new Error("Date is required.");
   }
 
-  const { approximate, value: normalizedValue } = normalizeApproximatePrefix(value);
+  const { approximate, value: normalizedApproximateValue } = normalizeApproximatePrefix(value);
+  const normalizedValue = normalizeEarlyCeIsoInput(normalizedApproximateValue);
   const explicitPrecision = rawPrecision || null;
   const isoDay = parseIsoDay(normalizedValue);
   const isoMonth = parseIsoMonth(normalizedValue);
