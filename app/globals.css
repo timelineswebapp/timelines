@@ -860,6 +860,84 @@ main {
   -webkit-overflow-scrolling: touch;
 }
 
+.admin-record-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-record-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.95fr) auto;
+  gap: 18px;
+  align-items: start;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+
+.admin-record-list > :first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.admin-record-card-event {
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr) auto;
+}
+
+.admin-record-main,
+.admin-record-meta,
+.admin-record-actions {
+  min-width: 0;
+}
+
+.admin-record-main {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-record-title {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.admin-record-subtitle {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.admin-record-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-record-stat {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-record-stat-wide {
+  grid-column: span 2;
+}
+
+.admin-record-stat-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--highlight-strong);
+}
+
+.admin-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-empty-state {
+  padding: 4px 0 0;
+}
+
 .admin-metric-tiles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -943,7 +1021,8 @@ main {
 .admin-toolbar .button,
 .admin-pagination .button,
 .admin-modal-actions .button,
-.pill-row .button {
+.pill-row .button,
+.admin-record-actions .button {
   width: auto;
   min-width: 0;
   flex: 0 0 auto;
@@ -1199,6 +1278,24 @@ main {
     grid-template-columns: 1fr;
   }
 
+  .admin-record-card,
+  .admin-record-card-event {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .admin-record-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-record-stat-wide {
+    grid-column: span 2;
+  }
+
+  .admin-record-actions {
+    justify-content: stretch;
+  }
+
   .admin-manager-header,
   .admin-modal-header,
   .admin-modal-actions,
@@ -1218,6 +1315,16 @@ main {
 @media (max-width: 640px) {
   .admin-metric-tiles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-record-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-record-stat-wide {
+    grid-column: span 1;
   }
 }
 

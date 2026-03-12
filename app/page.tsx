@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const [homeFeedAd, featuredTimelines] = await Promise.all([
     adsService.getPublicAssignments(["home_feed_ad"]).then((assignments) => assignments[0] ?? null),
-    contentService.listFeaturedTimelines(12)
+    contentService.listHomepageTimelines(12)
   ]);
 
   return (

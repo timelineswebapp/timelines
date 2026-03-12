@@ -70,7 +70,7 @@ export function TimelineManager({
             setIsEditorOpen(true);
           }}
         >
-          Create timeline
+          Create
         </button>
       </div>
 
@@ -83,65 +83,57 @@ export function TimelineManager({
         />
       </div>
 
-      <div className="admin-table-scroll">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Timeline</th>
-              <th>Category</th>
-              <th>Status</th>
-              <th>Events</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {visibleTimelines.map((timeline) => (
-              <tr key={timeline.id}>
-                <td>
-                  <strong>{timeline.title}</strong>
-                  <div className="small muted">{timeline.slug}</div>
-                </td>
-                <td>{timeline.category}</td>
-                <td>published</td>
-                <td>{timeline.eventCount}</td>
-                <td>
-                  <div className="pill-row">
-                    <button
-                      className="button secondary"
-                      type="button"
-                      onClick={() => {
-                        setDraft({
-                          id: timeline.id,
-                          title: timeline.title,
-                          slug: timeline.slug,
-                          description: timeline.description,
-                          category: timeline.category,
-                          status: "published"
-                        });
-                        setIsEditorOpen(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <Link className="button secondary" href={`/timeline/${timeline.slug}`} target="_blank">
-                      View timeline
-                    </Link>
-                    <button className="button danger" type="button" onClick={() => setDeleteTarget(timeline)}>
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {visibleTimelines.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="muted">
-                  No timelines match the current search.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+      <div className="admin-record-list" aria-label="Timelines">
+        {visibleTimelines.map((timeline) => (
+          <article key={timeline.id} className="admin-record-card">
+            <div className="admin-record-main">
+              <strong className="admin-record-title">{timeline.title}</strong>
+              <div className="small muted admin-record-subtitle">{timeline.slug}</div>
+            </div>
+            <div className="admin-record-meta">
+              <span className="admin-record-stat">
+                <span className="admin-record-stat-label">Category</span>
+                <span>{timeline.category}</span>
+              </span>
+              <span className="admin-record-stat">
+                <span className="admin-record-stat-label">Status</span>
+                <span>published</span>
+              </span>
+              <span className="admin-record-stat">
+                <span className="admin-record-stat-label">Events</span>
+                <span>{timeline.eventCount}</span>
+              </span>
+            </div>
+            <div className="admin-record-actions">
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() => {
+                  setDraft({
+                    id: timeline.id,
+                    title: timeline.title,
+                    slug: timeline.slug,
+                    description: timeline.description,
+                    category: timeline.category,
+                    status: "published"
+                  });
+                  setIsEditorOpen(true);
+                }}
+              >
+                Edit
+              </button>
+              <Link className="button secondary" href={`/timeline/${timeline.slug}`} target="_blank">
+                Open
+              </Link>
+              <button className="button danger" type="button" onClick={() => setDeleteTarget(timeline)}>
+                Delete
+              </button>
+            </div>
+          </article>
+        ))}
+        {visibleTimelines.length === 0 ? (
+          <div className="admin-empty-state muted">No timelines match the current search.</div>
+        ) : null}
       </div>
 
       <div className="admin-pagination">
