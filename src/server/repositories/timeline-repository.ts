@@ -108,8 +108,8 @@ export const timelineRepository = {
         timelines.slug,
         timelines.description,
         timelines.category,
-        timelines.created_at,
-        timelines.updated_at,
+        timelines.created_at::text AS created_at,
+        timelines.updated_at::text AS updated_at,
         COALESCE(tags.tags, '[]'::jsonb) AS tags,
         COALESCE(counts.event_count, 0) AS event_count,
         COALESCE(highlights.highlighted_event_titles, ARRAY[]::text[]) AS highlighted_event_titles
@@ -242,7 +242,7 @@ export const timelineRepository = {
     }
 
     const [timelineRow] = await sql<TimelineRow[]>`
-      SELECT id, title, slug, description, category, created_at, updated_at
+      SELECT id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
       FROM timelines
       WHERE slug = ${slug}
       LIMIT 1
@@ -290,7 +290,7 @@ export const timelineRepository = {
         ORDER BY timeline_events.event_order ASC
       `,
       sql<TimelineRow[]>`
-        SELECT id, title, slug, description, category, created_at, updated_at
+        SELECT id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
         FROM timelines
         WHERE category = ${timelineRow.category} AND id <> ${timelineRow.id}
         ORDER BY updated_at DESC
@@ -369,7 +369,7 @@ export const timelineRepository = {
     }
 
     const [row] = await sql<TimelineRow[]>`
-      SELECT id, title, slug, description, category, created_at, updated_at
+      SELECT id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
       FROM timelines
       WHERE id = ${id}
       LIMIT 1
@@ -397,7 +397,7 @@ export const timelineRepository = {
     }
 
     const rows = await sql<TimelineRow[]>`
-      SELECT DISTINCT timelines.id, timelines.title, timelines.slug, timelines.description, timelines.category, timelines.created_at, timelines.updated_at
+      SELECT DISTINCT timelines.id, timelines.title, timelines.slug, timelines.description, timelines.category, timelines.created_at::text AS created_at, timelines.updated_at::text AS updated_at
       FROM timelines
       INNER JOIN timeline_events ON timeline_events.timeline_id = timelines.id
       INNER JOIN event_tags ON event_tags.event_id = timeline_events.event_id
@@ -458,8 +458,8 @@ export const timelineRepository = {
         timelines.slug,
         timelines.description,
         timelines.category,
-        timelines.created_at,
-        timelines.updated_at
+        timelines.created_at::text AS created_at,
+        timelines.updated_at::text AS updated_at
       FROM timelines
       CROSS JOIN search_query
       LEFT JOIN timeline_events ON timeline_events.timeline_id = timelines.id
@@ -499,7 +499,7 @@ export const timelineRepository = {
     const [row] = await sql<TimelineRow[]>`
       INSERT INTO timelines (title, slug, description, category)
       VALUES (${input.title}, ${input.slug}, ${input.description}, ${input.category})
-      RETURNING id, title, slug, description, category, created_at, updated_at
+      RETURNING id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
     `;
 
     if (!row) {
@@ -516,7 +516,7 @@ export const timelineRepository = {
       UPDATE timelines
       SET title = ${input.title}, slug = ${input.slug}, description = ${input.description}, category = ${input.category}
       WHERE id = ${id}
-      RETURNING id, title, slug, description, category, created_at, updated_at
+      RETURNING id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
     `;
 
     if (!row) {
