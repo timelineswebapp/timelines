@@ -22,6 +22,12 @@ export interface EmbeddedSourceInput {
   publisher?: string | null;
 }
 
+export interface ImportSourceInput {
+  publisher: string;
+  url: string;
+  credibilityScore?: number | null;
+}
+
 export interface TagRecord {
   id: number;
   slug: string;
@@ -328,4 +334,6 @@ export interface TimelineImportRow {
   importance: number;
   location?: string | null;
   imageUrl?: string | null;
+  sources: ImportSourceInput[];
+  tags: string[];
 }

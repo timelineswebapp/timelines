@@ -1,10 +1,13 @@
 import Papa from "papaparse";
 import type { Sql } from "postgres";
 import type {
+  ImportSourceInput,
   ImportReason,
   ImportExecutionResult,
   ImportPreview,
   ImportType,
+  SourceRecord,
+  TagRecord,
   TimelineDetail,
   TimelineImportRow
 } from "@/src/lib/types";
@@ -157,6 +160,65 @@ function getCsvValueWithAlias(row: CsvRow, aliases: readonly string[]) {
     value: undefined,
     alias: aliases[0] ?? "unknown"
   };
+}
+
+function normalizeImportTags(rawTags: string | undefined): string[] {
+  const value = rawTags?.trim();
+  if (!value) {
+    return [];
+  }
+
+  const separator = value.includes("|") ? "|" : ",";
+  const seen = new Set<string>();
+  const tags: string[] = [];
+
+  for (const part of value.split(separator)) {
+    const tag = part.trim();
+    if (!tag) {
+      continue;
+    }
+
+    const slug = slugify(tag);
+    if (!slug || seen.has(slug)) {
+      continue;
+    }
+
+    seen.add(slug);
+    tags.push(tag);
+  }
+
+  return tags;
+}
+
+function inferPublisherFromUrl(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "");
+  } catch {
+    return url;
+  }
+}
+
+function normalizeImportSources(input: {
+  source_publisher?: string;
+  source_url?: string;
+  source_credibility?: string;
+}): ImportSourceInput[] {
+  const url = input.source_url?.trim();
+  if (!url) {
+    return [];
+  }
+
+  const publisher = input.source_publisher?.trim() || inferPublisherFromUrl(url);
+  const rawCredibility = input.source_credibility?.trim();
+  const credibilityScore = rawCredibility ? Number(rawCredibility) : null;
+
+  return [
+    {
+      publisher,
+      url,
+      credibilityScore: Number.isFinite(credibilityScore) ? credibilityScore : null
+    }
+  ];
 }
 
 function normalizeCsvRow(row: CsvRow) {
@@ -357,7 +419,9 @@ function normalizeRow(row: unknown): TimelineImportRow {
     description: parsed.description,
     importance: parsed.importance,
     location: parsed.location || null,
-    imageUrl: parsed.imageUrl || null
+    imageUrl: parsed.imageUrl || null,
+    sources: parsed.sources,
+    tags: parsed.tags
   };
 }
 
@@ -392,6 +456,230 @@ function getChronologySignature(input: {
 
 function legacyDateValue(row: TimelineImportRow) {
   return row.legacyDate || row.date;
+}
+
+async function insertImportEventSources(sql: Sql, eventId: number, sourceIds: number[]) {
+  if (sourceIds.length === 0) {
+    return;
+  }
+
+  const rows = sourceIds.map((sourceId) => ({
+    event_id: eventId,
+    source_id: sourceId
+  }));
+
+  await sql`
+    INSERT INTO event_sources ${sql(rows, "event_id", "source_id")}
+    ON CONFLICT DO NOTHING
+  `;
+}
+
+async function insertImportEventTags(sql: Sql, eventId: number, tagIds: number[]) {
+  if (tagIds.length === 0) {
+    return;
+  }
+
+  const rows = tagIds.map((tagId) => ({
+    event_id: eventId,
+    tag_id: tagId
+  }));
+
+  await sql`
+    INSERT INTO event_tags ${sql(rows, "event_id", "tag_id")}
+    ON CONFLICT DO NOTHING
+  `;
+}
+
+async function resolveImportSourceIds(sql: Sql, sources: ImportSourceInput[]): Promise<number[]> {
+  if (sources.length === 0) {
+    return [];
+  }
+
+  const normalized = Array.from(
+    new Map(
+      sources.map((source) => [
+        source.url.trim().toLowerCase(),
+        {
+          publisher: source.publisher.trim() || inferPublisherFromUrl(source.url),
+          url: source.url.trim(),
+          credibilityScore: source.credibilityScore ?? 0.8
+        }
+      ])
+    ).values()
+  );
+
+  const urls = normalized.map((source) => source.url);
+  const existing = await sql<{ id: number; url: string }[]>`
+    SELECT id, url
+    FROM sources
+    WHERE url IN ${sql(urls)}
+  `;
+  const existingByUrl = new Map(existing.map((row) => [row.url.toLowerCase(), row.id]));
+  const missing = normalized.filter((source) => !existingByUrl.has(source.url.toLowerCase()));
+
+  if (missing.length > 0) {
+    const inserted = await Promise.all(
+      missing.map(async (source) => {
+        const [row] = await sql<{ id: number; url: string }[]>`
+          INSERT INTO sources (publisher, url, credibility_score)
+          VALUES (${source.publisher}, ${source.url}, ${source.credibilityScore})
+          ON CONFLICT (url) DO UPDATE
+          SET
+            publisher = COALESCE(NULLIF(EXCLUDED.publisher, ''), sources.publisher),
+            credibility_score = COALESCE(EXCLUDED.credibility_score, sources.credibility_score)
+          RETURNING id, url
+        `;
+
+        if (!row) {
+          throw new ApiError(500, "SOURCE_INSERT_FAILED", "Source insert failed during import.");
+        }
+
+        return row;
+      })
+    );
+
+    for (const row of inserted) {
+      existingByUrl.set(row.url.toLowerCase(), row.id);
+    }
+  }
+
+  return normalized
+    .map((source) => existingByUrl.get(source.url.toLowerCase()))
+    .filter((value): value is number => typeof value === "number");
+}
+
+async function resolveImportTagIds(sql: Sql, tags: string[]): Promise<number[]> {
+  if (tags.length === 0) {
+    return [];
+  }
+
+  const normalized = Array.from(
+    new Map(
+      tags
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .map((name) => {
+          const slug = slugify(name);
+          if (!slug) {
+            throw new ApiError(400, "VALIDATION_FAILED", `Tag '${name}' could not be normalized into a slug.`);
+          }
+
+          return [slug, { slug, name }];
+        })
+    ).values()
+  );
+
+  const slugs = normalized.map((tag) => tag.slug);
+  const existing = await sql<{ id: number; slug: string }[]>`
+    SELECT id, slug
+    FROM tags
+    WHERE slug IN ${sql(slugs)}
+  `;
+  const existingBySlug = new Map(existing.map((row) => [row.slug, row.id]));
+  const missing = normalized.filter((tag) => !existingBySlug.has(tag.slug));
+
+  if (missing.length > 0) {
+    const inserted = await Promise.all(
+      missing.map(async (tag) => {
+        const [row] = await sql<{ id: number; slug: string }[]>`
+          INSERT INTO tags (slug, name)
+          VALUES (${tag.slug}, ${tag.name})
+          ON CONFLICT (slug) DO UPDATE
+          SET name = COALESCE(NULLIF(EXCLUDED.name, ''), tags.name)
+          RETURNING id, slug
+        `;
+
+        if (!row) {
+          throw new ApiError(500, "TAG_INSERT_FAILED", "Tag insert failed during import.");
+        }
+
+        return row;
+      })
+    );
+
+    for (const row of inserted) {
+      existingBySlug.set(row.slug, row.id);
+    }
+  }
+
+  return normalized
+    .map((tag) => existingBySlug.get(tag.slug))
+    .filter((value): value is number => typeof value === "number");
+}
+
+function resolveMemoryImportSources(input: ImportSourceInput[]): SourceRecord[] {
+  if (input.length === 0) {
+    return [];
+  }
+
+  const sources = memoryStore.getSources();
+  const attached: SourceRecord[] = [];
+
+  for (const source of input) {
+    const url = source.url.trim();
+    let record = sources.find((candidate) => candidate.url.toLowerCase() === url.toLowerCase());
+    if (!record) {
+      record = {
+        id: memoryStore.nextSourceId(),
+        publisher: source.publisher.trim() || inferPublisherFromUrl(url),
+        url,
+        credibilityScore: source.credibilityScore ?? 0.8
+      };
+      sources.push(record);
+    }
+    attached.push(record);
+  }
+
+  memoryStore.setSources([...sources]);
+  return attached;
+}
+
+function resolveMemoryImportTags(input: string[]): TagRecord[] {
+  if (input.length === 0) {
+    return [];
+  }
+
+  const tags = memoryStore.getTags();
+  const attached: TagRecord[] = [];
+
+  for (const rawTag of input) {
+    const name = rawTag.trim();
+    if (!name) {
+      continue;
+    }
+
+    const slug = slugify(name);
+    if (!slug) {
+      throw new ApiError(400, "VALIDATION_FAILED", `Tag '${name}' could not be normalized into a slug.`);
+    }
+
+    let record = tags.find((candidate) => candidate.slug === slug);
+    if (!record) {
+      record = {
+        id: memoryStore.nextTagId(),
+        slug,
+        name
+      };
+      tags.push(record);
+    }
+    attached.push(record);
+  }
+
+  memoryStore.setTags([...tags]);
+  return attached;
+}
+
+function refreshMemoryTimelineTags(timeline: TimelineDetail) {
+  const seen = new Set<number>();
+  timeline.tags = timeline.events.flatMap((event) =>
+    event.tags.filter((tag) => {
+      if (seen.has(tag.id)) {
+        return false;
+      }
+      seen.add(tag.id);
+      return true;
+    })
+  );
 }
 
 function parseJsonImport(importType: ImportType, content: string): ParsedImportData {
@@ -474,7 +762,13 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
       description: normalizedCsvRow.description,
       importance: normalizedCsvRow.importance,
       location: normalizedCsvRow.location || null,
-      imageUrl: normalizedCsvRow.image_url || null
+      imageUrl: normalizedCsvRow.image_url || null,
+      sources: normalizeImportSources({
+        source_publisher: normalizedCsvRow.source_publisher,
+        source_url: normalizedCsvRow.source_url,
+        source_credibility: normalizedCsvRow.source_credibility
+      }),
+      tags: normalizeImportTags(normalizedCsvRow.tags)
     };
 
     try {
@@ -943,8 +1237,8 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
           imageUrl: row.imageUrl || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          sources: [],
-          tags: [],
+          sources: resolveMemoryImportSources(row.sources),
+          tags: resolveMemoryImportTags(row.tags),
           timelineLinks: [
             {
               timelineId: targetTimeline.id,
@@ -963,6 +1257,7 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
 
       importedEventsCount += created;
       targetTimeline.events.sort(compareHistoricalSort);
+      refreshMemoryTimelineTags(targetTimeline);
       touchTimelineSummary(targetTimeline);
       affectedTimelineSlugs.push(targetTimeline.slug);
       timelineResults.push({
@@ -1035,15 +1330,15 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
       description: row.description,
       importance: row.importance,
       location: row.location || null,
-      imageUrl: row.imageUrl || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      sources: [],
-      tags: [],
-      timelineLinks: [
-        {
-          timelineId: targetTimeline.id,
-          slug: targetTimeline.slug,
+        imageUrl: row.imageUrl || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        sources: resolveMemoryImportSources(row.sources),
+        tags: resolveMemoryImportTags(row.tags),
+        timelineLinks: [
+          {
+            timelineId: targetTimeline.id,
+            slug: targetTimeline.slug,
           title: targetTimeline.title,
           eventOrder: startOrder + created + 1
         }
@@ -1053,6 +1348,7 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
   }
 
   targetTimeline.events.sort(compareHistoricalSort);
+  refreshMemoryTimelineTags(targetTimeline);
   touchTimelineSummary(targetTimeline);
 
   return {
@@ -1211,11 +1507,20 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
             throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
           }
 
+          const [sourceIds, tagIds] = await Promise.all([
+            resolveImportSourceIds(query, row.sources),
+            resolveImportTagIds(query, row.tags)
+          ]);
+
           try {
             await query`
               INSERT INTO timeline_events (timeline_id, event_id, event_order)
               VALUES (${timelineId}, ${eventRow.id}, ${existingTimelineEventCount + created + 1})
             `;
+            await Promise.all([
+              insertImportEventSources(query, eventRow.id, sourceIds),
+              insertImportEventTags(query, eventRow.id, tagIds)
+            ]);
           } catch (error) {
             if (isBceImportRow(row)) {
               logImportExecutionError("timeline_with_events.insert_timeline_event", {
@@ -1361,11 +1666,20 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
         throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
       }
 
+      const [sourceIds, tagIds] = await Promise.all([
+        resolveImportSourceIds(query, row.sources),
+        resolveImportTagIds(query, row.tags)
+      ]);
+
       try {
         await query`
           INSERT INTO timeline_events (timeline_id, event_id, event_order)
           VALUES (${summary.id}, ${eventRow.id}, ${summary.eventCount + created + 1})
         `;
+        await Promise.all([
+          insertImportEventSources(query, eventRow.id, sourceIds),
+          insertImportEventTags(query, eventRow.id, tagIds)
+        ]);
       } catch (error) {
         if (isBceImportRow(row)) {
           logImportExecutionError("events_into_existing_timeline.insert_timeline_event", {

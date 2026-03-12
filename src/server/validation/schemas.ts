@@ -113,7 +113,15 @@ export const importRowSchema = z.object({
   description: trimmedString(10, 2000),
   importance: z.coerce.number().int().min(1).max(5),
   location: z.string().trim().max(120).nullish(),
-  imageUrl: z.string().trim().url().nullish()
+  imageUrl: z.string().trim().url().nullish(),
+  sources: z.array(
+    z.object({
+      publisher: trimmedString(1, 120),
+      url: z.string().trim().url(),
+      credibilityScore: z.coerce.number().min(0).max(1).nullish().transform((value) => value ?? null)
+    })
+  ).max(20).default([]),
+  tags: z.array(trimmedString(1, 60)).max(20).default([])
 });
 
 export const importTimelineSchema = z.object({
