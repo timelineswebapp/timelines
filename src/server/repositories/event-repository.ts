@@ -21,7 +21,7 @@ type EventInput = {
 };
 
 function castLegacyDateExpression(sql: Sql, value: string) {
-  return sql`CAST(${value} AS DATE)`;
+  return sql`CAST(CAST(${value} AS TEXT) AS DATE)`;
 }
 
 function reorderEvents(events: EventRecord[]) {

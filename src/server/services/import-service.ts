@@ -1170,7 +1170,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
                     image_url
                   )
                   VALUES (
-                    CAST(${legacyDate} AS DATE),
+                    CAST(CAST(${legacyDate} AS TEXT) AS DATE),
                     ${row.datePrecision},
                     ${row.sortYear ?? null},
                     ${row.sortMonth ?? null},
@@ -1186,7 +1186,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
                 `
               : await query<{ id: number }[]>`
                   INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-                  VALUES (CAST(${legacyDate} AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+                  VALUES (CAST(CAST(${legacyDate} AS TEXT) AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
                   RETURNING id
                 `;
           } catch (error) {
@@ -1320,7 +1320,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
                 image_url
               )
               VALUES (
-                CAST(${legacyDate} AS DATE),
+                CAST(CAST(${legacyDate} AS TEXT) AS DATE),
                 ${row.datePrecision},
                 ${row.sortYear ?? null},
                 ${row.sortMonth ?? null},
@@ -1336,7 +1336,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
             `
           : await query<{ id: number }[]>`
               INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-              VALUES (CAST(${legacyDate} AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+              VALUES (CAST(CAST(${legacyDate} AS TEXT) AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
               RETURNING id
             `;
       } catch (error) {
