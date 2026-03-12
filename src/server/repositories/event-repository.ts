@@ -322,7 +322,7 @@ export const eventRepository = {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       sources: sources
-        .filter((source) => (row.source_ids || []).includes(source.id))
+        .filter((source) => (row.source_ids || []).map(Number).includes(Number(source.id)))
         .map((source) => ({
           id: source.id,
           publisher: source.publisher,
