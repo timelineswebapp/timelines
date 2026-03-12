@@ -86,6 +86,51 @@ type TimelineSummaryForImport = {
   eventCount: number;
 };
 
+function isBceImportRow(row: TimelineImportRow) {
+  return typeof row.sortYear === "number" && row.sortYear < 0;
+}
+
+function logImportExecutionError(
+  stage: string,
+  context: Record<string, unknown>,
+  error: unknown
+) {
+  const sqlError = error as Partial<{
+    message: string;
+    code: string;
+    detail: string;
+    hint: string;
+    where: string;
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    dataType: string;
+    constraint_name: string;
+  }>;
+
+  console.error(
+    JSON.stringify({
+      level: "error",
+      component: "import_service",
+      message: "Historical import execution failed.",
+      stage,
+      context,
+      error: {
+        message: error instanceof Error ? error.message : "Unknown error",
+        code: sqlError.code,
+        detail: sqlError.detail,
+        hint: sqlError.hint,
+        where: sqlError.where,
+        schema: sqlError.schema_name,
+        table: sqlError.table_name,
+        column: sqlError.column_name,
+        dataType: sqlError.dataType,
+        constraint: sqlError.constraint_name
+      }
+    })
+  );
+}
+
 function getCsvValue(row: CsvRow, aliases: readonly string[]): string | undefined {
   for (const alias of aliases) {
     const value = row[alias];
@@ -1038,18 +1083,19 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
 async function executeDatabaseImport(parsed: ParsedImportData, importType: ImportType, skipDuplicates: boolean, existingTimelineId?: number | null): Promise<ImportExecutionResult> {
   const sql = getWriteSql("import");
 
-  return sql.begin(async (tx) => {
-    const query = tx as unknown as Sql;
-    const supportsHistorical = await hasHistoricalChronologyColumns(query);
-    const reasons: ImportReason[] = [];
-    const timelineResults: ImportExecutionResult["timelineResults"] = [];
-    const affectedTimelineSlugs: string[] = [];
-    let primaryTimelineId = 0;
-    let primaryTimelineCreated = false;
-    let importedTimelinesCount = 0;
-    let importedEventsCount = 0;
-    let skippedTimelinesCount = 0;
-    let skippedEventsCount = 0;
+  try {
+    return await sql.begin(async (tx) => {
+      const query = tx as unknown as Sql;
+      const supportsHistorical = await hasHistoricalChronologyColumns(query);
+      const reasons: ImportReason[] = [];
+      const timelineResults: ImportExecutionResult["timelineResults"] = [];
+      const affectedTimelineSlugs: string[] = [];
+      let primaryTimelineId = 0;
+      let primaryTimelineCreated = false;
+      let importedTimelinesCount = 0;
+      let importedEventsCount = 0;
+      let skippedTimelinesCount = 0;
+      let skippedEventsCount = 0;
 
     if (importType === "timeline_with_events") {
       for (const group of parsed.timelineGroups) {
@@ -1105,50 +1151,86 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
             continue;
           }
 
-          const [eventRow] = supportsHistorical
-            ? await query<{ id: number }[]>`
-                INSERT INTO events (
-                  date,
-                  date_precision,
-                  sort_year,
-                  sort_month,
-                  sort_day,
-                  display_date,
-                  title,
-                  description,
-                  importance,
-                  location,
-                  image_url
-                )
-                VALUES (
-                  CAST(${legacyDateValue(row)} AS DATE),
-                  ${row.datePrecision},
-                  ${row.sortYear ?? null},
-                  ${row.sortMonth ?? null},
-                  ${row.sortDay ?? null},
-                  ${row.displayDate || row.date},
-                  ${row.title},
-                  ${row.description},
-                  ${row.importance},
-                  ${row.location || null},
-                  ${row.imageUrl || null}
-                )
-                RETURNING id
-              `
-            : await query<{ id: number }[]>`
-                INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-                VALUES (CAST(${legacyDateValue(row)} AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
-                RETURNING id
-              `;
+          const legacyDate = legacyDateValue(row);
+          let eventRow: { id: number } | undefined;
+          try {
+            [eventRow] = supportsHistorical
+              ? await query<{ id: number }[]>`
+                  INSERT INTO events (
+                    date,
+                    date_precision,
+                    sort_year,
+                    sort_month,
+                    sort_day,
+                    display_date,
+                    title,
+                    description,
+                    importance,
+                    location,
+                    image_url
+                  )
+                  VALUES (
+                    CAST(${legacyDate} AS DATE),
+                    ${row.datePrecision},
+                    ${row.sortYear ?? null},
+                    ${row.sortMonth ?? null},
+                    ${row.sortDay ?? null},
+                    ${row.displayDate || row.date},
+                    ${row.title},
+                    ${row.description},
+                    ${row.importance},
+                    ${row.location || null},
+                    ${row.imageUrl || null}
+                  )
+                  RETURNING id
+                `
+              : await query<{ id: number }[]>`
+                  INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
+                  VALUES (CAST(${legacyDate} AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+                  RETURNING id
+                `;
+          } catch (error) {
+            if (isBceImportRow(row)) {
+              logImportExecutionError("timeline_with_events.insert_event", {
+                timelineId,
+                timelineSlug,
+                sourceRow: row.sourceRow,
+                legacyDate,
+                displayDate: row.displayDate || row.date,
+                datePrecision: row.datePrecision,
+                sortYear: row.sortYear ?? null,
+                sortMonth: row.sortMonth ?? null,
+                sortDay: row.sortDay ?? null,
+                supportsHistorical
+              }, error);
+            }
+            throw error;
+          }
 
           if (!eventRow) {
             throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
           }
 
-          await query`
-            INSERT INTO timeline_events (timeline_id, event_id, event_order)
-            VALUES (${timelineId}, ${eventRow.id}, ${existingTimelineEventCount + created + 1})
-          `;
+          try {
+            await query`
+              INSERT INTO timeline_events (timeline_id, event_id, event_order)
+              VALUES (${timelineId}, ${eventRow.id}, ${existingTimelineEventCount + created + 1})
+            `;
+          } catch (error) {
+            if (isBceImportRow(row)) {
+              logImportExecutionError("timeline_with_events.insert_timeline_event", {
+                timelineId,
+                timelineSlug,
+                eventId: eventRow.id,
+                eventOrder: existingTimelineEventCount + created + 1,
+                sourceRow: row.sourceRow,
+                legacyDate,
+                displayDate: row.displayDate || row.date,
+                datePrecision: row.datePrecision
+              }, error);
+            }
+            throw error;
+          }
           created += 1;
         }
 
@@ -1219,50 +1301,86 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
         continue;
       }
 
-      const [eventRow] = supportsHistorical
-        ? await query<{ id: number }[]>`
-            INSERT INTO events (
-              date,
-              date_precision,
-              sort_year,
-              sort_month,
-              sort_day,
-              display_date,
-              title,
-              description,
-              importance,
-              location,
-              image_url
-            )
-            VALUES (
-              CAST(${legacyDateValue(row)} AS DATE),
-              ${row.datePrecision},
-              ${row.sortYear ?? null},
-              ${row.sortMonth ?? null},
-              ${row.sortDay ?? null},
-              ${row.displayDate || row.date},
-              ${row.title},
-              ${row.description},
-              ${row.importance},
-              ${row.location || null},
-              ${row.imageUrl || null}
-            )
-            RETURNING id
-          `
-        : await query<{ id: number }[]>`
-            INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-            VALUES (CAST(${legacyDateValue(row)} AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
-            RETURNING id
-          `;
+      const legacyDate = legacyDateValue(row);
+      let eventRow: { id: number } | undefined;
+      try {
+        [eventRow] = supportsHistorical
+          ? await query<{ id: number }[]>`
+              INSERT INTO events (
+                date,
+                date_precision,
+                sort_year,
+                sort_month,
+                sort_day,
+                display_date,
+                title,
+                description,
+                importance,
+                location,
+                image_url
+              )
+              VALUES (
+                CAST(${legacyDate} AS DATE),
+                ${row.datePrecision},
+                ${row.sortYear ?? null},
+                ${row.sortMonth ?? null},
+                ${row.sortDay ?? null},
+                ${row.displayDate || row.date},
+                ${row.title},
+                ${row.description},
+                ${row.importance},
+                ${row.location || null},
+                ${row.imageUrl || null}
+              )
+              RETURNING id
+            `
+          : await query<{ id: number }[]>`
+              INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
+              VALUES (CAST(${legacyDate} AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+              RETURNING id
+            `;
+      } catch (error) {
+        if (isBceImportRow(row)) {
+          logImportExecutionError("events_into_existing_timeline.insert_event", {
+            timelineId: summary.id,
+            timelineSlug: summary.slug,
+            sourceRow: row.sourceRow,
+            legacyDate,
+            displayDate: row.displayDate || row.date,
+            datePrecision: row.datePrecision,
+            sortYear: row.sortYear ?? null,
+            sortMonth: row.sortMonth ?? null,
+            sortDay: row.sortDay ?? null,
+            supportsHistorical
+          }, error);
+        }
+        throw error;
+      }
 
       if (!eventRow) {
         throw new ApiError(500, "EVENT_INSERT_FAILED", "Event insert failed.");
       }
 
-      await query`
-        INSERT INTO timeline_events (timeline_id, event_id, event_order)
-        VALUES (${summary.id}, ${eventRow.id}, ${summary.eventCount + created + 1})
-      `;
+      try {
+        await query`
+          INSERT INTO timeline_events (timeline_id, event_id, event_order)
+          VALUES (${summary.id}, ${eventRow.id}, ${summary.eventCount + created + 1})
+        `;
+      } catch (error) {
+        if (isBceImportRow(row)) {
+          logImportExecutionError("events_into_existing_timeline.insert_timeline_event", {
+            timelineId: summary.id,
+            timelineSlug: summary.slug,
+            eventId: eventRow.id,
+            eventOrder: summary.eventCount + created + 1,
+            sourceRow: row.sourceRow,
+            legacyDate,
+            displayDate: row.displayDate || row.date,
+            datePrecision: row.datePrecision
+          }, error);
+        }
+        throw error;
+      }
       created += 1;
     }
 
@@ -1295,7 +1413,21 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
       ],
       reasons
     };
-  });
+    });
+  } catch (error) {
+    if (
+      parsed.timelineGroups.some((group) => group.events.some(isBceImportRow)) ||
+      parsed.events.some(isBceImportRow)
+    ) {
+      logImportExecutionError("execute_database_import.transaction", {
+        importType,
+        existingTimelineId: existingTimelineId ?? null,
+        timelineGroups: parsed.timelineGroups.length,
+        directEvents: parsed.events.length
+      }, error);
+    }
+    throw error;
+  }
 }
 
 export const importService = {
