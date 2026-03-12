@@ -345,6 +345,10 @@ function getChronologySignature(input: {
   ].join("|");
 }
 
+function legacyDateValue(row: TimelineImportRow) {
+  return row.legacyDate || row.date;
+}
+
 function parseJsonImport(importType: ImportType, content: string): ParsedImportData {
   let parsed: unknown;
   try {
@@ -1117,7 +1121,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
                   image_url
                 )
                 VALUES (
-                  ${row.legacyDate || row.date},
+                  CAST(${legacyDateValue(row)} AS DATE),
                   ${row.datePrecision},
                   ${row.sortYear ?? null},
                   ${row.sortMonth ?? null},
@@ -1133,7 +1137,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
               `
             : await query<{ id: number }[]>`
                 INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-                VALUES (${row.legacyDate || row.date}, ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+                VALUES (CAST(${legacyDateValue(row)} AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
                 RETURNING id
               `;
 
@@ -1231,7 +1235,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
               image_url
             )
             VALUES (
-              ${row.legacyDate || row.date},
+              CAST(${legacyDateValue(row)} AS DATE),
               ${row.datePrecision},
               ${row.sortYear ?? null},
               ${row.sortMonth ?? null},
@@ -1247,7 +1251,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
           `
         : await query<{ id: number }[]>`
             INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-            VALUES (${row.legacyDate || row.date}, ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
+            VALUES (CAST(${legacyDateValue(row)} AS DATE), ${row.datePrecision}, ${row.title}, ${row.description}, ${row.importance}, ${row.location || null}, ${row.imageUrl || null})
             RETURNING id
           `;
 

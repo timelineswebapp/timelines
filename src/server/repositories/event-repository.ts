@@ -20,6 +20,10 @@ type EventInput = {
   tagIds: number[];
 };
 
+function castLegacyDateExpression(sql: Sql, value: string) {
+  return sql`CAST(${value} AS DATE)`;
+}
+
 function reorderEvents(events: EventRecord[]) {
   return [...events].sort(compareHistoricalSort);
 }
@@ -366,7 +370,7 @@ export const eventRepository = {
           }[]>`
             INSERT INTO events (date, date_precision, sort_year, sort_month, sort_day, display_date, title, description, importance, location, image_url)
             VALUES (
-              ${historical.legacyDate},
+              ${castLegacyDateExpression(query, historical.legacyDate)},
               ${historical.datePrecision},
               ${historical.sortYear},
               ${historical.sortMonth},
@@ -408,7 +412,7 @@ export const eventRepository = {
             updated_at: string;
           }[]>`
             INSERT INTO events (date, date_precision, title, description, importance, location, image_url)
-            VALUES (${historical.legacyDate}, ${historical.datePrecision}, ${input.title}, ${input.description}, ${input.importance}, ${input.location}, ${input.imageUrl})
+            VALUES (${castLegacyDateExpression(query, historical.legacyDate)}, ${historical.datePrecision}, ${input.title}, ${input.description}, ${input.importance}, ${input.location}, ${input.imageUrl})
             RETURNING id, date::text AS date, date_precision, title, description, importance, location, image_url, created_at::text AS created_at, updated_at::text AS updated_at
           `);
 
@@ -479,7 +483,7 @@ export const eventRepository = {
           }[]>`
             UPDATE events
             SET
-              date = ${historical.legacyDate},
+              date = ${castLegacyDateExpression(query, historical.legacyDate)},
               date_precision = ${historical.datePrecision},
               sort_year = ${historical.sortYear},
               sort_month = ${historical.sortMonth},
@@ -522,7 +526,7 @@ export const eventRepository = {
           }[]>`
             UPDATE events
             SET
-              date = ${historical.legacyDate},
+              date = ${castLegacyDateExpression(query, historical.legacyDate)},
               date_precision = ${historical.datePrecision},
               title = ${input.title},
               description = ${input.description},
