@@ -1,11 +1,13 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AdSlotAssignment, TimelineDetail } from "@/src/lib/types";
 import { AdSlot } from "@/components/timeline/AdSlot";
 import { EventDetailSheet } from "@/components/timeline/EventDetailSheet";
 import { EventRow } from "@/components/timeline/EventRow";
+import { TimelineSummaryCard } from "@/components/timeline/TimelineSummaryCard";
 import { ArrowLeftIcon } from "@/components/ui/Icons";
 
 function getYearLabel(date: string) {
@@ -118,18 +120,46 @@ export function TimelineDetailView({
           <h1 className="timeline-title">{timeline.title}</h1>
           <p className="timeline-header-meta">{headerMeta}</p>
           <p className="timeline-description">{timeline.description}</p>
+          {timeline.tags.length > 0 ? (
+            <div className="timeline-tag-list" aria-label={`${timeline.title} tags`}>
+              {timeline.tags.map((tag) => (
+                <Link key={tag.id} href={`/tag/${tag.slug}`} className="pill timeline-tag-link">
+                  {tag.name}
+                </Link>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="event-stream" aria-label={`${timeline.title} events`}>
           {timeline.events.map((event, index) => (
             <Fragment key={event.id}>
-              <EventRow event={event} onOpen={openEvent} />
+              <EventRow
+                event={event}
+                onOpen={openEvent}
+                summaryLines={index < 10 ? 3 : 1}
+                summaryMaxLength={index < 10 ? 240 : 120}
+              />
               {index === 2 && timelineInlineOne ? <AdSlot assignment={timelineInlineOne} className="timeline-inline-ad" /> : null}
               {index === 7 && timelineInlineTwo ? <AdSlot assignment={timelineInlineTwo} className="timeline-inline-ad" /> : null}
             </Fragment>
           ))}
           {timelineBottom ? <AdSlot assignment={timelineBottom} className="timeline-bottom-ad" /> : null}
         </section>
+
+        {timeline.relatedTimelines.length > 0 ? (
+          <section className="timeline-related stack" aria-label="Related timelines">
+            <div className="stack" style={{ gap: 6 }}>
+              <span className="eyebrow">Related timelines</span>
+              <h2 className="timeline-related-title">Continue through connected chronologies</h2>
+            </div>
+            <div className="timeline-summary-list">
+              {timeline.relatedTimelines.map((relatedTimeline) => (
+                <TimelineSummaryCard key={relatedTimeline.id} timeline={relatedTimeline} />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <EventDetailSheet event={selectedEvent} open={selectedEvent !== null} onClose={closeEvent} />

@@ -542,6 +542,16 @@ main {
   line-height: 1.6;
 }
 
+.timeline-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.timeline-tag-link {
+  text-decoration: none;
+}
+
 .event-stream {
   position: relative;
   display: grid;
@@ -562,6 +572,7 @@ main {
 }
 
 .event-row {
+  --event-row-summary-lines: 1;
   position: relative;
   display: grid;
   grid-template-columns: minmax(78px, 92px) minmax(0, 1fr);
@@ -576,6 +587,11 @@ main {
     inset 0 1px 0 rgba(255, 255, 255, 0.44),
     0 12px 28px rgba(77, 145, 210, 0.08);
   text-align: left;
+}
+
+.event-row-expanded {
+  min-height: 110px;
+  align-items: start;
 }
 
 .event-row::before {
@@ -615,7 +631,18 @@ main {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: var(--event-row-summary-lines);
+}
+
+.timeline-related {
+  gap: 14px;
+}
+
+.timeline-related-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1;
 }
 
 .pill {
