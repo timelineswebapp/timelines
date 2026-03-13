@@ -183,14 +183,23 @@ export function HomeTimelineFeed({
           border: "1px solid rgba(255, 255, 255, 0.58)",
           background: "linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.82))",
           boxShadow: "0 12px 24px rgba(74, 103, 136, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.72)",
-          color: "rgba(33, 53, 79, 0.9)",
+          color: "var(--highlight-strong)",
           opacity: showBackToTop ? 1 : 0,
           pointerEvents: showBackToTop ? "auto" : "none",
           transform: `translateY(${showBackToTop ? "0" : "8px"})`,
           zIndex: 20
         }}
       >
-        <span style={{ display: "grid", placeItems: "center", transform: "rotate(90deg) translateX(-1px)" }}>
+        <span
+          style={{
+            display: "grid",
+            placeItems: "center",
+            transform: "rotate(90deg) translateX(-1px)",
+            width: "20px",
+            height: "20px",
+            lineHeight: 0
+          }}
+        >
           <ArrowLeftIcon className="home-back-to-top-icon" />
         </span>
       </button>
