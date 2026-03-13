@@ -6,12 +6,14 @@ export function AdminModal({
   open,
   title,
   children,
-  onClose
+  onClose,
+  variant = "default"
 }: {
   open: boolean;
   title: string;
   children: ReactNode;
   onClose: () => void;
+  variant?: "default" | "confirm";
 }) {
   if (!open) {
     return null;
@@ -20,7 +22,7 @@ export function AdminModal({
   return (
     <div className="admin-modal-backdrop" role="presentation" onClick={onClose}>
       <div
-        className="glass admin-modal"
+        className={`glass admin-modal${variant === "confirm" ? " admin-modal-confirm" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}

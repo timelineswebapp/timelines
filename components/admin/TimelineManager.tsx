@@ -180,7 +180,7 @@ export function TimelineManager({
         </form>
       </AdminModal>
 
-      <AdminModal open={Boolean(deleteTarget)} title="Delete timeline" onClose={() => setDeleteTarget(null)}>
+      <AdminModal open={Boolean(deleteTarget)} title="Delete timeline" onClose={() => setDeleteTarget(null)} variant="confirm">
         <div className="stack">
           <p className="muted" style={{ margin: 0 }}>
             Deleting a timeline will remove timeline-event ordering but will not delete the underlying events unless configured.

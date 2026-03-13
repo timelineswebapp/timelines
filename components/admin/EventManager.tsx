@@ -337,7 +337,7 @@ export function EventManager({
         </form>
       </AdminModal>
 
-      <AdminModal open={Boolean(deleteTarget)} title="Delete event" onClose={() => setDeleteTarget(null)}>
+      <AdminModal open={Boolean(deleteTarget)} title="Delete event" onClose={() => setDeleteTarget(null)} variant="confirm">
         <div className="stack">
           <p className="muted" style={{ margin: 0 }}>
             This will delete the event and its current timeline link.
