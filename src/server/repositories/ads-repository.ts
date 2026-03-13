@@ -196,11 +196,11 @@ export const adsRepository = {
   },
 
   async getDashboardData(): Promise<AdsDashboardData> {
-    return dashboardFromCampaigns(await this.listCampaigns());
+    return dashboardFromCampaigns(await adsRepository.listCampaigns());
   },
 
   async getPublicAssignments(slots: AdSlotKey[]): Promise<AdSlotAssignment[]> {
-    return buildSlotAssignments(await this.listCampaigns(), slots);
+    return buildSlotAssignments(await adsRepository.listCampaigns(), slots);
   },
 
   async createCampaign(input: CampaignInput): Promise<AdCampaignRecord> {
