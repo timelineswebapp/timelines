@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { Fragment } from "react";
 import { SearchBar } from "@/components/forms/SearchBar";
-import { AdSlot } from "@/components/timeline/AdSlot";
+import { HomeTimelineFeed } from "@/components/timeline/HomeTimelineFeed";
 import { RequestTimelineForm } from "@/components/ui/RequestTimelineForm";
-import { TimelineSummaryCard } from "@/components/timeline/TimelineSummaryCard";
 import { adsService } from "@/src/server/services/ads-service";
 import { contentService } from "@/src/server/services/content-service";
 
@@ -16,9 +14,9 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [homeFeedAd, featuredTimelines] = await Promise.all([
+  const [homeFeedAd, homepageSnapshot] = await Promise.all([
     adsService.getPublicAssignments(["home_feed_ad"]).then((assignments) => assignments[0] ?? null),
-    contentService.listHomepageTimelines(12)
+    contentService.getHomepageSnapshotSlice(0, 12)
   ]);
   const activeHomeFeedAd = homeFeedAd?.activeCampaign ? homeFeedAd : null;
 
@@ -38,14 +36,13 @@ export default async function HomePage() {
 
       <h2 className="featured-title">FEATURED TIMELINES</h2>
 
-      <section className="timeline-summary-list" aria-label="Featured timelines">
-        {featuredTimelines.map((timeline, index) => (
-          <Fragment key={timeline.id}>
-            <TimelineSummaryCard timeline={timeline} />
-            {index === 1 && activeHomeFeedAd ? <AdSlot assignment={activeHomeFeedAd} className="home-feed-ad" /> : null}
-          </Fragment>
-        ))}
-      </section>
+      <HomeTimelineFeed
+        initialItems={homepageSnapshot.items}
+        initialNextOffset={homepageSnapshot.nextOffset}
+        initialHasMore={homepageSnapshot.hasMore}
+        snapshotDate={homepageSnapshot.snapshotDate}
+        homeFeedAd={activeHomeFeedAd}
+      />
     </div>
   );
 }

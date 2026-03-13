@@ -13,6 +13,13 @@ type WeightedCandidate = {
   discoveryScore: number;
 };
 
+type HomepageSnapshotSlice = {
+  items: TimelineSummary[];
+  nextOffset: number | null;
+  hasMore: boolean;
+  snapshotDate: string;
+};
+
 const HOMEPAGE_ROTATION_WEIGHTS: Array<{ bucket: WeightedBucket; weight: number }> = [
   { bucket: "recent", weight: 0.4 },
   { bucket: "evergreen", weight: 0.3 },
@@ -48,9 +55,8 @@ function getDateSeed(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function buildWeightedCandidates(timelines: TimelineSummary[]): WeightedCandidate[] {
+function buildWeightedCandidates(timelines: TimelineSummary[], seed: string): WeightedCandidate[] {
   const now = Date.now();
-  const seed = getDateSeed();
 
   return timelines.map((timeline) => {
     const ageDays = getAgeDays(timeline.updatedAt, now);
@@ -203,10 +209,7 @@ function applyDailyMicroRotation(timelines: TimelineSummary[], seed: string) {
   return stabilizeCategorySpacing([...anchoredTop, ...rotatedTop, ...rotatedMiddle, ...rotatedTail]);
 }
 
-async function listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
-  const candidateLimit = clamp(Math.max(limit * 6, 48), limit, 120);
-  const seed = getDateSeed();
-  const candidates = buildWeightedCandidates(await timelineRepository.listSummaries(candidateLimit));
+function selectHomepageTimelinesFromCandidates(candidates: WeightedCandidate[], limit: number, seed: string): TimelineSummary[] {
   if (candidates.length <= limit) {
     return candidates.map((candidate) => candidate.timeline);
   }
@@ -294,6 +297,55 @@ async function listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
   return applyDailyMicroRotation(ordered, seed);
 }
 
+async function getHomepageSnapshotSlice(
+  offset = 0,
+  limit = 12,
+  snapshotDate = getDateSeed()
+): Promise<HomepageSnapshotSlice> {
+  const baseBatchSize = 12;
+  const candidateLimit = clamp(Math.max(baseBatchSize * 6, 48), baseBatchSize, 120);
+  const candidates = buildWeightedCandidates(await timelineRepository.listSummaries(candidateLimit), snapshotDate);
+  const ordered: TimelineSummary[] = [];
+  const remaining = [...candidates];
+
+  while (remaining.length > 0) {
+    const nextChunk = selectHomepageTimelinesFromCandidates(remaining, Math.min(baseBatchSize, remaining.length), snapshotDate);
+    if (nextChunk.length === 0) {
+      break;
+    }
+
+    const nextSlugs = new Set(nextChunk.map((timeline) => timeline.slug));
+    ordered.push(...nextChunk);
+
+    const beforeTrim = remaining.length;
+    const filtered = remaining.filter((candidate) => !nextSlugs.has(candidate.timeline.slug));
+    remaining.splice(0, remaining.length, ...filtered);
+
+    if (filtered.length === beforeTrim) {
+      break;
+    }
+  }
+
+  const normalizedOffset = Math.max(0, offset);
+  const normalizedLimit = clamp(limit, 1, 24);
+  const items = ordered.slice(normalizedOffset, normalizedOffset + normalizedLimit);
+  const nextOffset = normalizedOffset + items.length;
+
+  return {
+    items,
+    nextOffset: nextOffset < ordered.length ? nextOffset : null,
+    hasMore: nextOffset < ordered.length,
+    snapshotDate
+  };
+}
+
+async function listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
+  const candidateLimit = clamp(Math.max(limit * 6, 48), limit, 120);
+  const seed = getDateSeed();
+  const candidates = buildWeightedCandidates(await timelineRepository.listSummaries(candidateLimit), seed);
+  return selectHomepageTimelinesFromCandidates(candidates, limit, seed);
+}
+
 export const contentService = {
   listFeaturedTimelines(limit = 12): Promise<TimelineSummary[]> {
     return timelineRepository.listSummaries(limit);
@@ -301,6 +353,10 @@ export const contentService = {
 
   listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
     return listHomepageTimelines(limit);
+  },
+
+  getHomepageSnapshotSlice(offset = 0, limit = 12, snapshotDate?: string): Promise<HomepageSnapshotSlice> {
+    return getHomepageSnapshotSlice(offset, limit, snapshotDate);
   },
 
   listStaticSlugs(limit = 50): Promise<string[]> {
