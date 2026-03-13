@@ -49,6 +49,7 @@ export function HomeTimelineFeed({
 
   const visibleItems = useMemo(() => items, [items]);
   const sentinelIndex = visibleItems.length >= 3 ? visibleItems.length - 3 : visibleItems.length - 1;
+  const appendedStartIndex = visibleItems.length > initialItems.length ? initialItems.length : null;
 
   useEffect(() => {
     if (!hasMore || nextOffset === null || !sentinelNode) {
@@ -144,6 +145,22 @@ export function HomeTimelineFeed({
       <section className="timeline-summary-list" aria-label="Featured timelines">
         {visibleItems.map((timeline, index) => (
           <Fragment key={timeline.id}>
+            {appendedStartIndex === index ? (
+              <div
+                aria-label="Continue exploring timelines"
+                style={{
+                  display: "grid",
+                  placeItems: "center",
+                  padding: "14px 0 10px",
+                  color: "rgba(19, 34, 54, 0.54)",
+                  fontSize: "0.78rem",
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase"
+                }}
+              >
+                <span>Continue exploring timelines</span>
+              </div>
+            ) : null}
             {index === sentinelIndex ? <div ref={setSentinelNode} aria-hidden="true" style={{ height: 1 }} /> : null}
             <TimelineSummaryCard timeline={timeline} />
             {index === 1 && homeFeedAd?.activeCampaign ? <AdSlot assignment={homeFeedAd} className="home-feed-ad" /> : null}
