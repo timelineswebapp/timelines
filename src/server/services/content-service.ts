@@ -144,8 +144,68 @@ function interleaveByCategory(candidates: WeightedCandidate[]): TimelineSummary[
   return ordered;
 }
 
+function rotateArray<T>(items: T[], offset: number) {
+  if (items.length < 2) {
+    return items;
+  }
+
+  const normalizedOffset = ((offset % items.length) + items.length) % items.length;
+  if (normalizedOffset === 0) {
+    return items;
+  }
+
+  return [...items.slice(normalizedOffset), ...items.slice(0, normalizedOffset)];
+}
+
+function stabilizeCategorySpacing(timelines: TimelineSummary[]) {
+  const result = [...timelines];
+
+  for (let index = 1; index < result.length; index += 1) {
+    if (result[index]?.category !== result[index - 1]?.category) {
+      continue;
+    }
+
+    const swapIndex = result.findIndex(
+      (timeline, candidateIndex) =>
+        candidateIndex > index &&
+        timeline.category !== result[index - 1]?.category &&
+        timeline.category !== result[index + 1]?.category
+    );
+
+    if (swapIndex < 0) {
+      continue;
+    }
+
+    const current = result[index];
+    result[index] = result[swapIndex] as TimelineSummary;
+    result[swapIndex] = current as TimelineSummary;
+  }
+
+  return result;
+}
+
+function applyDailyMicroRotation(timelines: TimelineSummary[], seed: string) {
+  if (timelines.length <= 1) {
+    return timelines;
+  }
+
+  const anchoredTop = timelines[0] ? [timelines[0]] : [];
+  const topBand = timelines.slice(1, 4);
+  const middleBand = timelines.slice(4, 8);
+  const tailBand = timelines.slice(8);
+
+  const rotatedTop = rotateArray(topBand, hashString(`${seed}:top`) % Math.max(1, topBand.length));
+  const rotatedMiddle = rotateArray(middleBand, hashString(`${seed}:middle`) % Math.max(1, middleBand.length));
+  const rotatedTail = [...tailBand].sort(
+    (left, right) => hashString(`${seed}:tail:${left.slug}`) - hashString(`${seed}:tail:${right.slug}`)
+  );
+
+  return stabilizeCategorySpacing([...anchoredTop, ...rotatedTop, ...rotatedMiddle, ...rotatedTail]);
+}
+
 async function listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
   const candidateLimit = clamp(Math.max(limit * 6, 48), limit, 120);
+  const seed = getDateSeed();
   const candidates = buildWeightedCandidates(await timelineRepository.listSummaries(candidateLimit));
   if (candidates.length <= limit) {
     return candidates.map((candidate) => candidate.timeline);
@@ -230,7 +290,8 @@ async function listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
     }
   }
 
-  return interleaveByCategory(selected.slice(0, limit));
+  const ordered = interleaveByCategory(selected.slice(0, limit));
+  return applyDailyMicroRotation(ordered, seed);
 }
 
 export const contentService = {
