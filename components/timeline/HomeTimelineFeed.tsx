@@ -170,27 +170,28 @@ export function HomeTimelineFeed({
       <button
         type="button"
         aria-label="Back to top"
-        className="glass"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         style={{
           position: "fixed",
-          right: "max(16px, calc((100vw - min(1120px, calc(100vw - 24px))) / 2 + 16px))",
+          right: "max(20px, calc((100vw - min(1120px, calc(100vw - 24px))) / 2 + 20px))",
           bottom: "24px",
-          width: "48px",
-          height: "48px",
+          width: "50px",
+          height: "50px",
           display: "grid",
           placeItems: "center",
           borderRadius: "999px",
-          border: "1px solid rgba(255, 255, 255, 0.26)",
-          color: "var(--text)",
+          border: "1px solid rgba(255, 255, 255, 0.58)",
+          background: "linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 250, 255, 0.82))",
+          boxShadow: "0 12px 24px rgba(74, 103, 136, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.72)",
+          color: "rgba(33, 53, 79, 0.9)",
           opacity: showBackToTop ? 1 : 0,
           pointerEvents: showBackToTop ? "auto" : "none",
           transform: `translateY(${showBackToTop ? "0" : "8px"})`,
           zIndex: 20
         }}
       >
-        <span style={{ display: "grid", placeItems: "center", transform: "rotate(90deg)" }}>
-          <ArrowLeftIcon />
+        <span style={{ display: "grid", placeItems: "center", transform: "rotate(90deg) translateX(-1px)" }}>
+          <ArrowLeftIcon className="home-back-to-top-icon" />
         </span>
       </button>
     </>
