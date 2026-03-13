@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AdSlot } from "@/components/timeline/AdSlot";
 import { TimelineSummaryCard } from "@/components/timeline/TimelineSummaryCard";
+import { ArrowLeftIcon } from "@/components/ui/Icons";
 import type { AdSlotAssignment, TimelineSummary } from "@/src/lib/types";
 
 type HomepageSnapshotResponse = {
@@ -43,6 +44,7 @@ export function HomeTimelineFeed({
   const [nextOffset, setNextOffset] = useState<number | null>(initialNextOffset);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [sentinelNode, setSentinelNode] = useState<Element | null>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const fetchInFlightRef = useRef(false);
 
   const visibleItems = useMemo(() => items, [items]);
@@ -109,15 +111,71 @@ export function HomeTimelineFeed({
     };
   }, [hasMore, nextOffset, sentinelNode, snapshotDate]);
 
+  useEffect(() => {
+    let frame = 0;
+
+    const updateVisibility = () => {
+      frame = 0;
+      const threshold = Math.max(window.innerHeight * 1.5, 960);
+      setShowBackToTop(window.scrollY >= threshold);
+    };
+
+    const onScroll = () => {
+      if (frame !== 0) {
+        return;
+      }
+
+      frame = window.requestAnimationFrame(updateVisibility);
+    };
+
+    updateVisibility();
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame !== 0) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, []);
+
   return (
-    <section className="timeline-summary-list" aria-label="Featured timelines">
-      {visibleItems.map((timeline, index) => (
-        <Fragment key={timeline.id}>
-          {index === sentinelIndex ? <div ref={setSentinelNode} aria-hidden="true" style={{ height: 1 }} /> : null}
-          <TimelineSummaryCard timeline={timeline} />
-          {index === 1 && homeFeedAd?.activeCampaign ? <AdSlot assignment={homeFeedAd} className="home-feed-ad" /> : null}
-        </Fragment>
-      ))}
-    </section>
+    <>
+      <section className="timeline-summary-list" aria-label="Featured timelines">
+        {visibleItems.map((timeline, index) => (
+          <Fragment key={timeline.id}>
+            {index === sentinelIndex ? <div ref={setSentinelNode} aria-hidden="true" style={{ height: 1 }} /> : null}
+            <TimelineSummaryCard timeline={timeline} />
+            {index === 1 && homeFeedAd?.activeCampaign ? <AdSlot assignment={homeFeedAd} className="home-feed-ad" /> : null}
+          </Fragment>
+        ))}
+      </section>
+      <button
+        type="button"
+        aria-label="Back to top"
+        className="glass"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        style={{
+          position: "fixed",
+          right: "max(16px, calc((100vw - min(1120px, calc(100vw - 24px))) / 2 + 16px))",
+          bottom: "24px",
+          width: "48px",
+          height: "48px",
+          display: "grid",
+          placeItems: "center",
+          borderRadius: "999px",
+          border: "1px solid rgba(255, 255, 255, 0.26)",
+          color: "var(--text)",
+          opacity: showBackToTop ? 1 : 0,
+          pointerEvents: showBackToTop ? "auto" : "none",
+          transform: `translateY(${showBackToTop ? "0" : "8px"})`,
+          zIndex: 20
+        }}
+      >
+        <span style={{ display: "grid", placeItems: "center", transform: "rotate(90deg)" }}>
+          <ArrowLeftIcon />
+        </span>
+      </button>
+    </>
   );
 }
