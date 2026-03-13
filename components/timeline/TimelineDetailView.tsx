@@ -69,9 +69,12 @@ export function TimelineDetailView({
   const selectedEvent = timeline.events.find((event) => event.id === selectedEventId) || null;
   const dateRange = getTimelineDateRange(timeline);
   const headerMeta = [dateRange, `${timeline.eventCount} events`].filter(Boolean).join(" · ");
-  const timelineInlineOne = assignmentForSlot(adAssignments, "timeline_inline_1");
-  const timelineInlineTwo = assignmentForSlot(adAssignments, "timeline_inline_2");
-  const timelineBottom = assignmentForSlot(adAssignments, "timeline_bottom");
+  const inlineOneAssignment = assignmentForSlot(adAssignments, "timeline_inline_1");
+  const inlineTwoAssignment = assignmentForSlot(adAssignments, "timeline_inline_2");
+  const bottomAssignment = assignmentForSlot(adAssignments, "timeline_bottom");
+  const timelineInlineOne = inlineOneAssignment?.activeCampaign ? inlineOneAssignment : null;
+  const timelineInlineTwo = inlineTwoAssignment?.activeCampaign ? inlineTwoAssignment : null;
+  const timelineBottom = bottomAssignment?.activeCampaign ? bottomAssignment : null;
 
   const openEvent = (eventId: number) => {
     const url = new URL(window.location.href);

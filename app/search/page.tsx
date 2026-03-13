@@ -37,6 +37,7 @@ export default async function SearchPage({
     q ? contentService.searchTimelines(q, 20) : Promise.resolve({ query: "", total: 0, items: [] }),
     adsService.getPublicAssignments(["search_bottom"])
   ]);
+  const activeSearchBottomAd = searchBottomAd?.activeCampaign ? searchBottomAd : null;
 
   return (
     <div className="content-grid">
@@ -62,7 +63,7 @@ export default async function SearchPage({
         {result.items.map((timeline) => (
           <TimelineSummaryCard key={timeline.id} timeline={timeline} />
         ))}
-        {searchBottomAd ? <AdSlot assignment={searchBottomAd} className="search-bottom-ad" /> : null}
+        {activeSearchBottomAd ? <AdSlot assignment={activeSearchBottomAd} className="search-bottom-ad" /> : null}
       </section>
     </div>
   );

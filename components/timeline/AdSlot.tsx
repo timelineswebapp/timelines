@@ -1,7 +1,5 @@
 import type { AdSlotAssignment } from "@/src/lib/types";
 
-const hasAdsense = Boolean(process.env.NEXT_PUBLIC_ADSENSE_ID);
-
 export function AdSlot({
   assignment,
   className = ""
@@ -10,23 +8,11 @@ export function AdSlot({
   className?: string;
 }) {
   const campaign = assignment.activeCampaign;
-  const shellClassName = ["glass", "section-card", "ad-slot", className].filter(Boolean).join(" ");
-
   if (!campaign) {
-    return (
-      <section className={shellClassName} aria-label={`${assignment.label} placeholder`}>
-        <div className="stack ad-slot-content">
-          <span className="eyebrow">Sponsored</span>
-          <strong>{assignment.label}</strong>
-          <p className="muted" style={{ margin: 0 }}>
-            {hasAdsense
-              ? "Ad inventory is reserved for the next active campaign."
-              : "No active campaign is running for this placement yet."}
-          </p>
-        </div>
-      </section>
-    );
+    return null;
   }
+
+  const shellClassName = ["glass", "section-card", "ad-slot", className].filter(Boolean).join(" ");
 
   return (
     <section className={shellClassName} aria-label={`${assignment.label} sponsored placement`}>

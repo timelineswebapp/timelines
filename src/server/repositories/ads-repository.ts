@@ -44,11 +44,20 @@ function selectActiveCampaign(campaigns: AdCampaignRecord[], slot: AdSlotKey, no
 }
 
 function buildSlotAssignments(campaigns: AdCampaignRecord[], slots: AdSlotKey[], now = new Date()): AdSlotAssignment[] {
-  return slots.map((slot) => ({
-    slot,
-    label: SLOT_LABELS[slot],
-    activeCampaign: selectActiveCampaign(campaigns, slot, now)
-  }));
+  return slots.flatMap((slot) => {
+    const activeCampaign = selectActiveCampaign(campaigns, slot, now);
+    if (!activeCampaign) {
+      return [];
+    }
+
+    return [
+      {
+        slot,
+        label: SLOT_LABELS[slot],
+        activeCampaign
+      }
+    ];
+  });
 }
 
 function buildSnapshot(campaigns: AdCampaignRecord[], now = new Date()): AdsSnapshot {

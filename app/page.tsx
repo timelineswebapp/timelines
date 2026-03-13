@@ -20,6 +20,7 @@ export default async function HomePage() {
     adsService.getPublicAssignments(["home_feed_ad"]).then((assignments) => assignments[0] ?? null),
     contentService.listHomepageTimelines(12)
   ]);
+  const activeHomeFeedAd = homeFeedAd?.activeCampaign ? homeFeedAd : null;
 
   return (
     <div className="home-shell">
@@ -41,7 +42,7 @@ export default async function HomePage() {
         {featuredTimelines.map((timeline, index) => (
           <Fragment key={timeline.id}>
             <TimelineSummaryCard timeline={timeline} />
-            {index === 1 && homeFeedAd ? <AdSlot assignment={homeFeedAd} className="home-feed-ad" /> : null}
+            {index === 1 && activeHomeFeedAd ? <AdSlot assignment={activeHomeFeedAd} className="home-feed-ad" /> : null}
           </Fragment>
         ))}
       </section>
