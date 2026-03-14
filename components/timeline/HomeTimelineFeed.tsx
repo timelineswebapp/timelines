@@ -162,7 +162,7 @@ export function HomeTimelineFeed({
               </div>
             ) : null}
             {index === sentinelIndex ? <div ref={setSentinelNode} aria-hidden="true" style={{ height: 1 }} /> : null}
-            <TimelineSummaryCard timeline={timeline} showShareAction />
+            <TimelineSummaryCard timeline={timeline} showShareAction showCategoryTheme />
             {index === 1 && homeFeedAd?.activeCampaign ? <AdSlot assignment={homeFeedAd} className="home-feed-ad" /> : null}
           </Fragment>
         ))}
