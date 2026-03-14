@@ -5,7 +5,10 @@ import { contentService } from "@/src/server/services/content-service";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const timelineEntries = await contentService.listSitemapEntries();
+  const [timelineEntries, categoryEntries] = await Promise.all([
+    contentService.listSitemapEntries(),
+    contentService.listCategoryEntries()
+  ]);
   const latestTimelineUpdate = timelineEntries[0]?.updatedAt ? new Date(timelineEntries[0].updatedAt) : undefined;
   const staticEntries: MetadataRoute.Sitemap = [
     "",
@@ -24,5 +27,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9
   }));
 
-  return [...staticEntries, ...timelinePageEntries];
+  const categoryPageEntries = categoryEntries.map((category) => ({
+    url: `${config.siteUrl}/category/${category.slug}`,
+    lastModified: new Date(category.updatedAt),
+    changeFrequency: "weekly" as const,
+    priority: 0.8
+  }));
+
+  return [...staticEntries, ...categoryPageEntries, ...timelinePageEntries];
 }

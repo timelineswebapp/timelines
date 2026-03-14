@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { TimelineDetailView } from "@/components/timeline/TimelineDetailView";
 import { config } from "@/src/lib/config";
 import { adsService } from "@/src/server/services/ads-service";
@@ -76,8 +76,8 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const timeline = await contentService.getTimeline(slug);
-  if (!timeline) {
+  const resolution = await contentService.resolveTimelineRoute(slug);
+  if (!resolution.timeline) {
     return {
       title: "Timeline not found",
       alternates: {
@@ -87,23 +87,29 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   return {
-    title: `${timeline.title} | TiMELiNES`,
-    description: timeline.description,
+    title: `${resolution.timeline.title} | TiMELiNES`,
+    description: resolution.timeline.description,
     alternates: {
-      canonical: `/timeline/${timeline.slug}`
+      canonical: `/timeline/${resolution.timeline.slug}`
     }
   };
 }
 
 export default async function TimelinePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [timeline, adAssignments] = await Promise.all([
-    contentService.getTimeline(slug),
+  const [resolution, adAssignments] = await Promise.all([
+    contentService.resolveTimelineRoute(slug),
     adsService.getPublicAssignments(["timeline_inline_1", "timeline_inline_2", "timeline_bottom"])
   ]);
-  if (!timeline) {
+  if (!resolution.timeline) {
     notFound();
   }
+
+  if (resolution.redirectSlug && resolution.redirectSlug !== slug) {
+    permanentRedirect(`/timeline/${resolution.redirectSlug}`);
+  }
+
+  const timeline = resolution.timeline;
 
   const timelineJsonLd = buildTimelineJsonLd(timeline);
 

@@ -1,4 +1,4 @@
-import type { SearchResult, TagDetail, TimelineDetail, TimelineSummary } from "@/src/lib/types";
+import type { CategoryDetail, CategoryEntry, SearchResult, TagDetail, TimelineDetail, TimelineSummary } from "@/src/lib/types";
 import { normalizeQuery } from "@/src/lib/utils";
 import { timelineRepository } from "@/src/server/repositories/timeline-repository";
 import { tagRepository } from "@/src/server/repositories/tag-repository";
@@ -367,8 +367,16 @@ export const contentService = {
     return timelineRepository.listSitemapEntries();
   },
 
+  listCategoryEntries(): Promise<CategoryEntry[]> {
+    return timelineRepository.listCategoryEntries();
+  },
+
   getTimeline(slug: string): Promise<TimelineDetail | null> {
     return timelineRepository.getBySlug(slug);
+  },
+
+  resolveTimelineRoute(slug: string): Promise<{ timeline: TimelineDetail | null; redirectSlug: string | null }> {
+    return timelineRepository.resolveBySlug(slug);
   },
 
   async getTagDetail(slug: string): Promise<TagDetail | null> {
@@ -378,6 +386,10 @@ export const contentService = {
     }
 
     return { tag, timelines };
+  },
+
+  getCategoryDetail(slug: string): Promise<CategoryDetail | null> {
+    return timelineRepository.getByCategorySlug(slug);
   },
 
   async searchTimelines(query: string, limit = 12): Promise<SearchResult> {

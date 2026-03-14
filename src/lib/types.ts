@@ -84,6 +84,18 @@ export interface TagDetail {
   timelines: TimelineSummary[];
 }
 
+export interface CategoryEntry {
+  slug: string;
+  name: string;
+  count: number;
+  updatedAt: string;
+}
+
+export interface CategoryDetail {
+  category: CategoryEntry;
+  timelines: TimelineSummary[];
+}
+
 export interface SearchResult {
   query: string;
   total: number;

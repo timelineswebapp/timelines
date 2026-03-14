@@ -1,4 +1,5 @@
 import type {
+  CategoryEntry,
   EventRecord,
   SourceRecord,
   TagRecord,
@@ -6,13 +7,15 @@ import type {
   TimelineRequestRecord,
   TimelineSummary
 } from "@/src/lib/types";
-import { sampleRequests, sampleSources, sampleTags, sampleTimelines } from "@/src/server/dev/sample-data";
+import { slugify } from "@/src/lib/utils";
+import { sampleRequests, sampleSlugHistory, sampleSources, sampleTags, sampleTimelines } from "@/src/server/dev/sample-data";
 
 interface MemoryState {
   timelines: TimelineDetail[];
   sources: SourceRecord[];
   tags: TagRecord[];
   requests: TimelineRequestRecord[];
+  slugHistory: Array<{ timelineId: number; slug: string }>;
   nextTimelineId: number;
   nextEventId: number;
   nextSourceId: number;
@@ -33,6 +36,7 @@ const state: MemoryState = {
   sources: structuredClone(sampleSources),
   tags: structuredClone(sampleTags),
   requests: structuredClone(sampleRequests),
+  slugHistory: structuredClone(sampleSlugHistory),
   nextTimelineId: sampleTimelines.length + 1,
   nextEventId: maxEventId(sampleTimelines) + 1,
   nextSourceId: sampleSources.length + 1,
@@ -68,6 +72,12 @@ export const memoryStore = {
   setRequests(requests: TimelineRequestRecord[]): void {
     state.requests = requests;
   },
+  getSlugHistory(): Array<{ timelineId: number; slug: string }> {
+    return state.slugHistory;
+  },
+  setSlugHistory(slugHistory: Array<{ timelineId: number; slug: string }>): void {
+    state.slugHistory = slugHistory;
+  },
   nextTimelineId(): number {
     return state.nextTimelineId++;
   },
@@ -100,6 +110,34 @@ export function withRelatedTimelines(timeline: TimelineDetail, timelines: Timeli
       .slice(0, 3)
       .map(({ events: _events, relatedTimelines: _relatedTimelines, ...summary }) => summary)
   };
+}
+
+export function getMemoryCategoryEntries(): CategoryEntry[] {
+  const buckets = new Map<string, CategoryEntry>();
+
+  for (const timeline of state.timelines) {
+    const slug = slugify(timeline.category);
+    if (!slug) {
+      continue;
+    }
+    const existing = buckets.get(slug);
+    if (!existing) {
+      buckets.set(slug, {
+        slug,
+        name: timeline.category,
+        count: 1,
+        updatedAt: timeline.updatedAt
+      });
+      continue;
+    }
+
+    existing.count += 1;
+    if (timeline.updatedAt > existing.updatedAt) {
+      existing.updatedAt = timeline.updatedAt;
+    }
+  }
+
+  return Array.from(buckets.values()).sort((left, right) => left.name.localeCompare(right.name));
 }
 
 export function attachTaxonomyToEvent(

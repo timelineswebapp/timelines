@@ -78,6 +78,13 @@ CREATE TABLE IF NOT EXISTS timeline_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS timeline_slug_history (
+  id BIGSERIAL PRIMARY KEY,
+  timeline_id BIGINT NOT NULL REFERENCES timelines(id) ON DELETE CASCADE,
+  slug TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS analytics_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type TEXT NOT NULL,
@@ -121,6 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_events_search_vector ON events USING GIN(search_v
 CREATE INDEX IF NOT EXISTS idx_timeline_events_order ON timeline_events(timeline_id, event_order);
 CREATE INDEX IF NOT EXISTS idx_tags_slug ON tags(slug);
 CREATE INDEX IF NOT EXISTS idx_timeline_requests_hash_date ON timeline_requests(ip_hash, created_at);
+CREATE INDEX IF NOT EXISTS idx_timeline_slug_history_timeline_id ON timeline_slug_history(timeline_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_type_date ON analytics_events(event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_timeline_type_date ON analytics_events(timeline_id, event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_slug_type_date ON analytics_events(slug, event_type, created_at DESC);

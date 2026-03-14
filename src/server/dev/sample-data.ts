@@ -1,4 +1,5 @@
 import type {
+  CategoryDetail,
   DashboardOverview,
   EventRecord,
   SourceRecord,
@@ -247,6 +248,13 @@ export const sampleRequests: TimelineRequestRecord[] = [
   }
 ];
 
+export const sampleSlugHistory = [
+  {
+    timelineId: 1,
+    slug: "ai-history"
+  }
+];
+
 export function getSampleDashboardOverview(): DashboardOverview {
   return {
     totals: {
@@ -278,5 +286,30 @@ export function getSampleTagDetail(slug: string): TagDetail | null {
     timelines: sampleTimelines
       .filter((timeline) => timeline.tags.some((timelineTag) => timelineTag.slug === slug))
       .map(({ events: _events, relatedTimelines: _relatedTimelines, ...summary }) => summary)
+  };
+}
+
+export function getSampleCategoryDetail(slug: string): CategoryDetail | null {
+  const matchedTimelines = sampleTimelines
+    .filter((timeline) => slugify(timeline.category) === slug)
+    .map(({ events: _events, relatedTimelines: _relatedTimelines, ...summary }) => summary);
+
+  if (matchedTimelines.length === 0) {
+    return null;
+  }
+
+  const categoryName = matchedTimelines[0]?.category || slug;
+  const updatedAt = matchedTimelines
+    .map((timeline) => timeline.updatedAt)
+    .sort((left, right) => right.localeCompare(left))[0] || new Date().toISOString();
+
+  return {
+    category: {
+      slug,
+      name: categoryName,
+      count: matchedTimelines.length,
+      updatedAt
+    },
+    timelines: matchedTimelines
   };
 }
