@@ -32,7 +32,7 @@ export const analyticsEventsRepository = {
         referrer,
         metadata
       )
-      VALUES (
+      SELECT
         ${TIMELINE_VIEW_EVENT},
         ${input.timelineId},
         ${input.slug},
@@ -42,13 +42,20 @@ export const analyticsEventsRepository = {
         ${input.device || null},
         ${input.referrer || null},
         CAST(${JSON.stringify(input.metadata || {})} AS jsonb)
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM analytics_events
+        WHERE event_type = ${TIMELINE_VIEW_EVENT}
+          AND slug = ${input.slug}
+          AND session_id = ${input.sessionId || null}
+          AND created_at >= NOW() - INTERVAL '30 minutes'
       )
       RETURNING id::text AS id
     `;
 
     const insertedId = rows[0]?.id;
     if (!insertedId) {
-      throw new ApiError(500, "ANALYTICS_WRITE_FAILED", "Timeline view telemetry insert returned no id.");
+      return "deduped";
     }
 
     return insertedId;
