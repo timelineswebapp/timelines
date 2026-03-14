@@ -13,22 +13,25 @@ export function ContentPerformance({ dataset }: { dataset: AnalyticsDataset }) {
           <span className="admin-metric-subtext">ranked items</span>
         </article>
         <article className="glass-card admin-metric-tile">
-          <span className="admin-metric-label">Top events</span>
-          <strong className="admin-metric-value">{report?.contentPerformance.topEvents.length || 0}</strong>
-          <span className="admin-metric-subtext">ranked items</span>
+          <span className="admin-metric-label">Timeline views today</span>
+          <strong className="admin-metric-value">{report?.contentPerformance.timelineViewsToday || 0}</strong>
+        </article>
+        <article className="glass-card admin-metric-tile">
+          <span className="admin-metric-label">Timeline views 30d</span>
+          <strong className="admin-metric-value">{report?.contentPerformance.timelineViews30d || 0}</strong>
         </article>
         <article className="glass-card admin-metric-tile">
           <span className="admin-metric-label">Best timeline views</span>
           <strong className="admin-metric-value">{report?.contentPerformance.topTimelines[0]?.views || 0}</strong>
         </article>
         <article className="glass-card admin-metric-tile">
-          <span className="admin-metric-label">Best event views</span>
-          <strong className="admin-metric-value">{report?.contentPerformance.topEvents[0]?.views || 0}</strong>
+          <span className="admin-metric-label">Timeline views 7d</span>
+          <strong className="admin-metric-value">{report?.contentPerformance.timelineViews7d || 0}</strong>
         </article>
       </div>
       <div className="admin-panel-grid admin-panel-grid-compact">
         <div className="glass-card stack admin-list-card">
-          <strong>Top timelines</strong>
+          <strong>Top timelines by real views</strong>
           {(report?.contentPerformance.topTimelines || []).map((item) => (
             <div key={item.timelineId} className="admin-metric-row">
               <span>{item.title}</span>
@@ -38,6 +41,12 @@ export function ContentPerformance({ dataset }: { dataset: AnalyticsDataset }) {
         </div>
         <div className="glass-card stack admin-list-card">
           <strong>Top events</strong>
+          {(report?.contentPerformance.topEvents || []).length === 0 ? (
+            <div className="admin-metric-row">
+              <span>Event telemetry not live yet</span>
+              <strong>0 tracked</strong>
+            </div>
+          ) : null}
           {(report?.contentPerformance.topEvents || []).map((item) => (
             <div key={item.eventId} className="admin-metric-row">
               <span>{item.title}</span>

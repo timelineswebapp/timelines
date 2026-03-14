@@ -49,6 +49,7 @@ export function TimelineDetailView({
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const selectedEventIdRef = useRef<number | null>(null);
   const hasSheetHistoryEntry = useRef(false);
+  const trackedTimelineViewKey = useRef<string | null>(null);
 
   useEffect(() => {
     selectedEventIdRef.current = selectedEventId;
@@ -65,6 +66,55 @@ export function TimelineDetailView({
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  useEffect(() => {
+    const trackingKey = `${timeline.id}:${timeline.slug}`;
+    if (trackedTimelineViewKey.current === trackingKey) {
+      return;
+    }
+
+    trackedTimelineViewKey.current = trackingKey;
+
+    void fetch("/api/telemetry/timeline-view", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+      keepalive: true,
+      body: JSON.stringify({
+        timelineId: timeline.id,
+        slug: timeline.slug
+      })
+    })
+      .then(async (response) => {
+        if (response.ok) {
+          return;
+        }
+
+        console.error(
+          JSON.stringify({
+            level: "error",
+            component: "timeline_view_tracking",
+            message: "Timeline view tracking request failed",
+            slug: timeline.slug,
+            status: response.status,
+            body: await response.text()
+          })
+        );
+      })
+      .catch((error) => {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            component: "timeline_view_tracking",
+            message: error instanceof Error ? error.message : "Unexpected timeline view tracking failure",
+            slug: timeline.slug
+          })
+        );
+      });
+  }, [timeline.id, timeline.slug]);
 
   const selectedEvent = timeline.events.find((event) => event.id === selectedEventId) || null;
   const dateRange = getTimelineDateRange(timeline);

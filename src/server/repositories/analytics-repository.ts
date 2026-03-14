@@ -3,8 +3,7 @@ import { config } from "@/src/lib/config";
 import { getSql } from "@/src/server/db/client";
 import { getSampleDashboardOverview } from "@/src/server/dev/sample-data";
 import { memoryStore } from "@/src/server/dev/memory-store";
-import { eventRepository } from "@/src/server/repositories/event-repository";
-import { timelineRepository } from "@/src/server/repositories/timeline-repository";
+import { analyticsEventsRepository } from "@/src/server/repositories/analytics-events-repository";
 
 const HOUR_LABELS = Array.from({ length: 24 }, (_, index) => `${index.toString().padStart(2, "0")}:00`);
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -138,30 +137,24 @@ export const analyticsRepository = {
   },
 
   async getAnalyticsReport(): Promise<AdminAnalyticsReport> {
-    const [timelineSummaries, events] = await Promise.all([
-      timelineRepository.listSummaries(10),
-      eventRepository.list()
-    ]);
-
-    const topTimelines = timelineSummaries.slice(0, 10).map((timeline) => ({
-      timelineId: timeline.id,
-      title: timeline.title,
-      slug: timeline.slug,
-      views: 0,
-      eventOpenRate: 0,
-      avgReadTime: 0
-    }));
-
-    const topEvents = events.slice(0, 10).map((event) => ({
-      eventId: event.id,
-      title: event.title,
-      views: 0,
-      eventOpenRate: 0,
-      avgReadTime: 0
-    }));
-
     const sql = getSql();
     const trackingConfigured = Boolean(config.gaId);
+    const [timelineViewCounts, trackedTopTimelines, timelineViewsOverTime] = await Promise.all([
+      analyticsEventsRepository.getTimelineViewCounts(),
+      analyticsEventsRepository.listTopTimelinesByViews(10),
+      analyticsEventsRepository.getTimelineViewsOverTime()
+    ]);
+
+    const topTimelines = trackedTopTimelines.map((timeline) => ({
+      timelineId: timeline.timelineId,
+      title: timeline.title,
+      slug: timeline.slug,
+      views: timeline.views,
+      eventOpenRate: 0,
+      avgReadTime: 0
+    }));
+
+    const topEvents: AdminAnalyticsReport["contentPerformance"]["topEvents"] = [];
 
     if (!sql) {
       const now = Date.now();
@@ -190,6 +183,9 @@ export const analyticsRepository = {
           visitsByDay: zeroSeries(DAY_LABELS)
         },
         contentPerformance: {
+          timelineViewsToday: timelineViewCounts.timelineViewsToday,
+          timelineViews7d: timelineViewCounts.timelineViews7d,
+          timelineViews30d: timelineViewCounts.timelineViews30d,
           topTimelines,
           topEvents
         },
@@ -203,13 +199,13 @@ export const analyticsRepository = {
           searchesOverTime: [
             { label: "Requests (30d)", value: requestsLast30Days }
           ],
-          timelineViewsOverTime: zeroSeries(["Week 1", "Week 2", "Week 3", "Week 4"])
+          timelineViewsOverTime
         },
         trackingConfigured
       };
     }
 
-    const [requestRows, timelineRows, eventRows] = await Promise.all([
+    const [requestRows, timelineRows] = await Promise.all([
       sql<{ label: string; value: number }[]>`
         SELECT TO_CHAR(created_at, 'Dy') AS label, COUNT(*)::int AS value
         FROM timeline_requests
@@ -219,13 +215,6 @@ export const analyticsRepository = {
       sql<{ label: string; value: number }[]>`
         SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS label, COUNT(*)::int AS value
         FROM timelines
-        WHERE created_at >= NOW() - INTERVAL '30 days'
-        GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
-        ORDER BY label ASC
-      `,
-      sql<{ label: string; value: number }[]>`
-        SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS label, COUNT(*)::int AS value
-        FROM events
         WHERE created_at >= NOW() - INTERVAL '30 days'
         GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
         ORDER BY label ASC
@@ -255,6 +244,9 @@ export const analyticsRepository = {
         }))
       },
       contentPerformance: {
+        timelineViewsToday: timelineViewCounts.timelineViewsToday,
+        timelineViews7d: timelineViewCounts.timelineViews7d,
+        timelineViews30d: timelineViewCounts.timelineViews30d,
         topTimelines,
         topEvents
       },
@@ -266,7 +258,7 @@ export const analyticsRepository = {
       growth: {
         trafficOverTime: timelineRows,
         searchesOverTime: requestRows,
-        timelineViewsOverTime: eventRows
+        timelineViewsOverTime
       },
       trackingConfigured
     };

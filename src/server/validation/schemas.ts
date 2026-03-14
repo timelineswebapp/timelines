@@ -132,6 +132,11 @@ export const searchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).default(12)
 });
 
+export const timelineViewTelemetrySchema = z.object({
+  timelineId: z.coerce.number().int().positive(),
+  slug: z.string().trim().min(1).max(160)
+});
+
 export const importRowSchema = z.object({
   date: z.string().trim().min(1).max(40),
   datePrecision: datePrecisionSchema.optional(),

@@ -78,6 +78,20 @@ CREATE TABLE IF NOT EXISTS timeline_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type TEXT NOT NULL,
+  timeline_id BIGINT REFERENCES timelines(id) ON DELETE SET NULL,
+  slug TEXT,
+  session_id TEXT,
+  user_id TEXT,
+  country TEXT,
+  device TEXT,
+  referrer TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS ad_campaigns (
   id BIGSERIAL PRIMARY KEY,
   slot TEXT NOT NULL CHECK (slot IN ('home_feed_ad', 'timeline_inline_1', 'timeline_inline_2', 'timeline_bottom', 'search_bottom')),
@@ -107,6 +121,9 @@ CREATE INDEX IF NOT EXISTS idx_events_search_vector ON events USING GIN(search_v
 CREATE INDEX IF NOT EXISTS idx_timeline_events_order ON timeline_events(timeline_id, event_order);
 CREATE INDEX IF NOT EXISTS idx_tags_slug ON tags(slug);
 CREATE INDEX IF NOT EXISTS idx_timeline_requests_hash_date ON timeline_requests(ip_hash, created_at);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type_date ON analytics_events(event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_timeline_type_date ON analytics_events(timeline_id, event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_slug_type_date ON analytics_events(slug, event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ad_campaigns_slot_status_dates ON ad_campaigns(slot, status, start_date, end_date);
 
 CREATE OR REPLACE FUNCTION set_updated_at()

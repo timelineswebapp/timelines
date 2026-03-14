@@ -1,6 +1,7 @@
 export type DatePrecision = "year" | "month" | "day" | "approximate";
 export type ImportFormat = "csv" | "json" | "text";
 export type ImportType = "timeline_with_events" | "events_into_existing_timeline";
+export type AnalyticsEventType = "timeline_view";
 
 export type TimelineRequestStatus =
   | "pending"
@@ -163,6 +164,17 @@ export interface SearchQueryMetric {
   total: number;
 }
 
+export interface TimelineViewEventInput {
+  timelineId: number;
+  slug: string;
+  sessionId?: string | null;
+  userId?: string | null;
+  country?: string | null;
+  device?: string | null;
+  referrer?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
 export interface AdminAnalyticsReport {
   audience: {
     usersToday: number;
@@ -183,6 +195,9 @@ export interface AdminAnalyticsReport {
     visitsByDay: TimeSeriesPoint[];
   };
   contentPerformance: {
+    timelineViewsToday: number;
+    timelineViews7d: number;
+    timelineViews30d: number;
     topTimelines: RankedTimelineMetric[];
     topEvents: RankedEventMetric[];
   };
