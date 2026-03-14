@@ -64,27 +64,27 @@ export function ShareIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" className={className}>
       <path
-        d="M11.2 4.5h3.4v3.4"
+        d="M11.6 4.4H15.6V8.4"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.6"
+        strokeWidth="1.75"
       />
       <path
-        d="M8.4 11.6 14.6 5.4"
+        d="M8 12 15.4 4.6"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
-        strokeWidth="1.6"
+        strokeWidth="1.75"
       />
       <path
-        d="M14 11.2v2.4a1.4 1.4 0 0 1-1.4 1.4H6.4A1.4 1.4 0 0 1 5 13.6V7.4A1.4 1.4 0 0 1 6.4 6H8.8"
+        d="M14.3 10.6V13.4A1.8 1.8 0 0 1 12.5 15.2H6.6A1.8 1.8 0 0 1 4.8 13.4V7.5A1.8 1.8 0 0 1 6.6 5.7H9.4"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.6"
+        strokeWidth="1.75"
       />
     </svg>
   );
