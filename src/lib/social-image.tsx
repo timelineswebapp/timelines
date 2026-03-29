@@ -1,19 +1,88 @@
+/* eslint-disable @next/next/no-img-element */
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import type { ReactElement } from "react";
+import { TIMELINES_ICON_PUBLIC_PATH } from "@/src/lib/brand";
 
 export const SOCIAL_IMAGE_SIZE = {
   width: 1200,
   height: 630
 } as const;
 
-export function renderSocialImage({
-  eyebrow,
-  title,
-  subtitle
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-}): ReactElement {
+const TIMELINE_PREFIX_PATTERN = /^timeline of\s+/i;
+const MAX_SOCIAL_IMAGE_TITLE_LENGTH = 104;
+const BADGE_BOX_SIZE = 112;
+
+let iconDataUrlPromise: Promise<string> | null = null;
+
+function normalizeSpacing(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function stripTimelinePrefix(title: string): string {
+  const normalizedTitle = normalizeSpacing(title);
+  if (!TIMELINE_PREFIX_PATTERN.test(normalizedTitle)) {
+    return normalizedTitle;
+  }
+
+  const strippedTitle = normalizedTitle.replace(TIMELINE_PREFIX_PATTERN, "").trim();
+  return strippedTitle.length >= 20 ? strippedTitle : normalizedTitle;
+}
+
+function truncateSocialImageTitle(title: string): string {
+  if (title.length <= MAX_SOCIAL_IMAGE_TITLE_LENGTH) {
+    return title;
+  }
+
+  const candidate = title.slice(0, MAX_SOCIAL_IMAGE_TITLE_LENGTH - 1).trimEnd();
+  const lastWordBoundary = candidate.lastIndexOf(" ");
+  if (lastWordBoundary <= 28) {
+    return `${candidate}…`;
+  }
+
+  return `${candidate.slice(0, lastWordBoundary).trimEnd()}…`;
+}
+
+function resolveSocialImageTitle(title: string): string {
+  return truncateSocialImageTitle(stripTimelinePrefix(title));
+}
+
+function resolveTitleMetrics(title: string): { fontSize: number; maxWidth: string; lineHeight: number } {
+  if (title.length <= 26) {
+    return { fontSize: 88, maxWidth: "820px", lineHeight: 0.92 };
+  }
+
+  if (title.length <= 48) {
+    return { fontSize: 78, maxWidth: "860px", lineHeight: 0.93 };
+  }
+
+  if (title.length <= 72) {
+    return { fontSize: 68, maxWidth: "900px", lineHeight: 0.94 };
+  }
+
+  return { fontSize: 60, maxWidth: "920px", lineHeight: 0.95 };
+}
+
+async function loadPublicSvgDataUrl(publicPath: string): Promise<string> {
+  const assetPath = path.join(process.cwd(), "public", publicPath.replace(/^\//, ""));
+  const svgMarkup = await readFile(assetPath, "utf8");
+  const encodedMarkup = Buffer.from(svgMarkup).toString("base64");
+  return `data:image/svg+xml;base64,${encodedMarkup}`;
+}
+
+async function getTimelineIconDataUrl(): Promise<string> {
+  if (!iconDataUrlPromise) {
+    iconDataUrlPromise = loadPublicSvgDataUrl(TIMELINES_ICON_PUBLIC_PATH);
+  }
+
+  return iconDataUrlPromise;
+}
+
+export async function renderSocialImage({ title }: { title: string }): Promise<ReactElement> {
+  const resolvedTitle = resolveSocialImageTitle(title);
+  const { fontSize, maxWidth, lineHeight } = resolveTitleMetrics(resolvedTitle);
+  const iconDataUrl = await getTimelineIconDataUrl();
+
   return (
     <div
       style={{
@@ -31,11 +100,10 @@ export function renderSocialImage({
         style={{
           position: "relative",
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
+          alignItems: "stretch",
           width: "100%",
           borderRadius: "42px",
-          padding: "46px 48px",
+          padding: "58px 60px",
           background: "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(246,250,255,0.76))",
           border: "1px solid rgba(255,255,255,0.72)",
           boxShadow: "0 28px 72px rgba(61, 103, 149, 0.12), inset 0 1px 0 rgba(255,255,255,0.9)"
@@ -51,96 +119,53 @@ export function renderSocialImage({
           }}
         />
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "22px", zIndex: 1 }}>
-          <div
-            style={{
-              display: "flex",
-              alignSelf: "flex-start",
-              padding: "10px 16px",
-              borderRadius: "999px",
-              background: "rgba(255,255,255,0.74)",
-              border: "1px solid rgba(193, 215, 236, 0.82)",
-              color: "rgba(68, 102, 145, 0.92)",
-              fontSize: "24px",
-              letterSpacing: "0.22em",
-              textTransform: "uppercase"
-            }}
-          >
-            {eyebrow}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "16px",
-              maxWidth: "940px"
-            }}
-          >
-            <h1
-              style={{
-                margin: 0,
-                fontFamily: "Cormorant Garamond, Georgia, serif",
-                fontSize: "72px",
-                lineHeight: 0.95,
-                letterSpacing: "-0.03em"
-              }}
-            >
-              {title}
-            </h1>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "30px",
-                lineHeight: 1.3,
-                color: "rgba(64, 82, 109, 0.84)"
-              }}
-            >
-              {subtitle}
-            </p>
-          </div>
-        </div>
-
         <div
           style={{
+            position: "relative",
+            zIndex: 1,
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            zIndex: 1
+            width: "100%",
+            paddingRight: "168px"
           }}
         >
           <div
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: "6px"
+              justifyContent: "center",
+              maxWidth
             }}
           >
-            <span
+            <h1
               style={{
-                fontSize: "16px",
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "rgba(84, 108, 137, 0.66)"
-              }}
-            >
-              Shared from
-            </span>
-            <span
-              style={{
+                margin: 0,
                 fontFamily: "Cormorant Garamond, Georgia, serif",
-                fontSize: "34px",
-                letterSpacing: "0.02em"
+                fontSize: `${fontSize}px`,
+                lineHeight,
+                letterSpacing: "-0.04em",
+                maxHeight: `${Math.round(fontSize * lineHeight * 2)}px`,
+                overflow: "hidden"
               }}
             >
-              TiMELiNES
-            </span>
+              {resolvedTitle}
+            </h1>
           </div>
+        </div>
 
+        <div
+          style={{
+            position: "absolute",
+            right: "48px",
+            bottom: "48px",
+            display: "flex",
+            zIndex: 1
+          }}
+        >
           <div
             style={{
-              width: "112px",
-              height: "112px",
+              width: `${BADGE_BOX_SIZE}px`,
+              height: `${BADGE_BOX_SIZE}px`,
               borderRadius: "28px",
               display: "flex",
               alignItems: "center",
@@ -151,16 +176,16 @@ export function renderSocialImage({
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9)"
             }}
           >
-            <span
+            <img
+              src={iconDataUrl}
+              alt=""
               style={{
-                fontSize: "26px",
-                letterSpacing: "0.28em",
-                textTransform: "uppercase",
-                color: "rgba(71, 108, 154, 0.86)"
+                width: "34px",
+                height: "88px",
+                objectFit: "contain",
+                opacity: 0.9
               }}
-            >
-              TL
-            </span>
+            />
           </div>
         </div>
       </div>

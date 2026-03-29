@@ -137,20 +137,15 @@ main {
   display: inline-flex;
   align-items: flex-end;
   justify-content: center;
-  font-family: var(--font-serif);
-  font-size: clamp(2.4rem, 6vw, 3.2rem);
-  line-height: 0.92;
-  letter-spacing: 0.02em;
+  line-height: 0;
 }
 
-.site-logo-mark {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 0.02em;
-  color: #233a57;
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.18),
-    0 10px 20px rgba(77, 145, 210, 0.06);
+.site-logo-image {
+  display: block;
+  width: auto;
+  height: clamp(35px, 5.2vw, 47px);
+  transform: translateY(1px);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.18)) drop-shadow(0 10px 20px rgba(77, 145, 210, 0.06));
 }
 
 .site-logo::after {
@@ -164,18 +159,6 @@ main {
   background: radial-gradient(circle, rgba(136, 201, 255, 0.18), transparent 70%);
   filter: blur(10px);
   z-index: -1;
-}
-
-.site-logo-strong {
-  font-weight: 700;
-  color: #1d314a;
-}
-
-.site-logo-lower {
-  font-size: 0.8em;
-  font-weight: 650;
-  color: #1d314a;
-  transform: translateY(-0.04em);
 }
 
 .site-tagline {

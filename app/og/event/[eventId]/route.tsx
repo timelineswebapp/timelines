@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 import { renderSocialImage, SOCIAL_IMAGE_SIZE } from "@/src/lib/social-image";
-import { summarizeShareText } from "@/src/lib/share";
 import { contentService } from "@/src/server/services/content-service";
 
 export const runtime = "nodejs";
@@ -19,10 +18,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ eve
   }
 
   return new ImageResponse(
-    renderSocialImage({
-      eyebrow: context.timeline.title,
-      title: context.event.title,
-      subtitle: summarizeShareText(context.event.description, 140)
+    await renderSocialImage({
+      title: context.event.title
     }),
     SOCIAL_IMAGE_SIZE
   );
