@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { config } from "@/src/lib/config";
 import { getAdminRoutePath } from "@/src/lib/admin-route";
+import { buildSitemapUrl } from "@/src/lib/sitemap";
 
 export default function robots(): MetadataRoute.Robots {
   const adminRoutePath = getAdminRoutePath();
@@ -11,6 +11,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/", "/admin", "/editor", "/dashboard", "/backend", "/control", ...(adminRoutePath ? [adminRoutePath] : [])]
     },
-    sitemap: `${config.siteUrl}/sitemap.xml`
+    sitemap: buildSitemapUrl("/sitemap.xml")
   };
 }

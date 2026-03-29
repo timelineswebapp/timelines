@@ -1,38 +1,52 @@
 import type { MetadataRoute } from "next";
-import { config } from "@/src/lib/config";
+import { buildSitemapUrl } from "@/src/lib/sitemap";
 import { contentService } from "@/src/server/services/content-service";
 
-export const dynamic = "force-dynamic";
+const DEFAULT_LAST_MODIFIED = "2026-01-01T00:00:00.000Z";
+
+function normalizeLastModified(value?: string): string {
+  if (!value) {
+    return DEFAULT_LAST_MODIFIED;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? DEFAULT_LAST_MODIFIED : parsed.toISOString();
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [timelineEntries, categoryEntries] = await Promise.all([
-    contentService.listSitemapEntries(),
-    contentService.listCategoryEntries()
+  const [categories, timelines] = await Promise.all([
+    contentService.listCategoryEntries(),
+    contentService.listSitemapEntries()
   ]);
-  const latestTimelineUpdate = timelineEntries[0]?.updatedAt ? new Date(timelineEntries[0].updatedAt) : undefined;
+
   const staticEntries: MetadataRoute.Sitemap = [
-    "",
-    "/search"
-  ].map((pathname) => ({
-    url: `${config.siteUrl}${pathname}`,
-    lastModified: latestTimelineUpdate,
-    changeFrequency: "daily",
-    priority: pathname === "" ? 1 : 0.7
-  }));
+    {
+      url: buildSitemapUrl("/"),
+      lastModified: DEFAULT_LAST_MODIFIED,
+      changeFrequency: "daily",
+      priority: 1
+    },
+    {
+      url: buildSitemapUrl("/search"),
+      lastModified: DEFAULT_LAST_MODIFIED,
+      changeFrequency: "weekly",
+      priority: 0.8
+    }
+  ];
 
-  const timelinePageEntries = timelineEntries.map((timeline) => ({
-    url: `${config.siteUrl}/timeline/${timeline.slug}`,
-    lastModified: new Date(timeline.updatedAt),
-    changeFrequency: "weekly" as const,
-    priority: 0.9
-  }));
-
-  const categoryPageEntries = categoryEntries.map((category) => ({
-    url: `${config.siteUrl}/category/${category.slug}`,
-    lastModified: new Date(category.updatedAt),
-    changeFrequency: "weekly" as const,
+  const categoryEntries: MetadataRoute.Sitemap = categories.map((category) => ({
+    url: buildSitemapUrl(`/category/${category.slug}`),
+    lastModified: normalizeLastModified(category.updatedAt),
+    changeFrequency: "weekly",
     priority: 0.8
   }));
 
-  return [...staticEntries, ...categoryPageEntries, ...timelinePageEntries];
+  const timelineEntries: MetadataRoute.Sitemap = timelines.map((timeline) => ({
+    url: buildSitemapUrl(`/timeline/${timeline.slug}`),
+    lastModified: normalizeLastModified(timeline.updatedAt),
+    changeFrequency: "weekly",
+    priority: 0.9
+  }));
+
+  return [...staticEntries, ...categoryEntries, ...timelineEntries];
 }
