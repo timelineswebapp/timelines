@@ -1,5 +1,6 @@
-import type { CategoryDetail, CategoryEntry, SearchResult, TagDetail, TimelineDetail, TimelineSummary } from "@/src/lib/types";
+import type { CategoryDetail, CategoryEntry, EventShareContext, SearchResult, TagDetail, TimelineDetail, TimelineSummary } from "@/src/lib/types";
 import { normalizeQuery } from "@/src/lib/utils";
+import { eventRepository } from "@/src/server/repositories/event-repository";
 import { timelineRepository } from "@/src/server/repositories/timeline-repository";
 import { tagRepository } from "@/src/server/repositories/tag-repository";
 
@@ -377,6 +378,10 @@ export const contentService = {
 
   resolveTimelineRoute(slug: string): Promise<{ timeline: TimelineDetail | null; redirectSlug: string | null }> {
     return timelineRepository.resolveBySlug(slug);
+  },
+
+  getEventShareContext(eventId: number): Promise<EventShareContext | null> {
+    return eventRepository.getShareContextById(eventId);
   },
 
   async getTagDetail(slug: string): Promise<TagDetail | null> {

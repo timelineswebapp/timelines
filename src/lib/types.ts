@@ -79,6 +79,11 @@ export interface TimelineDetail extends TimelineSummary {
   relatedTimelines: TimelineSummary[];
 }
 
+export interface EventShareContext {
+  event: EventRecord;
+  timeline: Pick<TimelineSummary, "id" | "slug" | "title" | "category">;
+}
+
 export interface TagDetail {
   tag: TagRecord;
   timelines: TimelineSummary[];
