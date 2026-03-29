@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { parseEventIdParam } from "@/src/lib/share";
-import type { AdSlotAssignment, TimelineDetail } from "@/src/lib/types";
+import type { AdSlotAssignment, TimelineDetail, TimelineSummary } from "@/src/lib/types";
 import { formatHistoricalYearLabel } from "@/src/lib/historical-date";
 import { AdSlot } from "@/components/timeline/AdSlot";
 import { EventDetailSheet } from "@/components/timeline/EventDetailSheet";
@@ -98,10 +98,14 @@ function scrollToEventTarget(eventId: number, behavior: ScrollBehavior): void {
 
 export function TimelineDetailView({
   timeline,
+  sameCategoryTimelines = [],
+  categoryHref,
   initialSelectedEventId = null,
   adAssignments = []
 }: {
   timeline: TimelineDetail;
+  sameCategoryTimelines?: TimelineSummary[];
+  categoryHref: string;
   initialSelectedEventId?: number | null;
   adAssignments?: AdSlotAssignment[];
 }) {
@@ -393,6 +397,27 @@ export function TimelineDetailView({
             <div className="timeline-summary-list">
               {timeline.relatedTimelines.map((relatedTimeline) => (
                 <TimelineSummaryCard key={relatedTimeline.id} timeline={relatedTimeline} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {sameCategoryTimelines.length > 0 ? (
+          <section className="timeline-related stack" aria-label={`More ${timeline.category} timelines`}>
+            <div className="stack" style={{ gap: 6 }}>
+              <span className="eyebrow">{timeline.category}</span>
+              <h2 className="timeline-related-title">More {timeline.category.toLowerCase()} timelines</h2>
+              <p className="timeline-related-copy">
+                Continue through the{" "}
+                <Link href={categoryHref} className="timeline-related-link">
+                  {timeline.category} archive
+                </Link>{" "}
+                for adjacent subjects and connected milestones.
+              </p>
+            </div>
+            <div className="timeline-summary-list">
+              {sameCategoryTimelines.map((categoryTimeline) => (
+                <TimelineSummaryCard key={categoryTimeline.id} timeline={categoryTimeline} />
               ))}
             </div>
           </section>

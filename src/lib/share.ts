@@ -1,4 +1,4 @@
-const TIMELINE_SHARE_ORIGIN = "https://timelines.sbs";
+import { buildPublicUrl } from "@/src/lib/public-site";
 
 export function buildTimelinePath(slug: string): string {
   return `/timeline/${encodeURIComponent(slug)}`;
@@ -9,11 +9,11 @@ export function buildEventPath(timelineSlug: string, eventId: number): string {
 }
 
 export function buildCanonicalTimelineUrl(slug: string): string {
-  return `${TIMELINE_SHARE_ORIGIN}${buildTimelinePath(slug)}`;
+  return buildPublicUrl(buildTimelinePath(slug));
 }
 
 export function buildCanonicalEventUrl(timelineSlug: string, eventId: number): string {
-  return `${TIMELINE_SHARE_ORIGIN}${buildEventPath(timelineSlug, eventId)}`;
+  return buildPublicUrl(buildEventPath(timelineSlug, eventId));
 }
 
 export function buildTimelineOgImagePath(slug: string): string {

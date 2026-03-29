@@ -450,6 +450,27 @@ main {
   color: rgba(19, 34, 54, 0.88);
 }
 
+.home-seo-intro {
+  display: grid;
+  gap: 16px;
+}
+
+.home-seo-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.home-category-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.home-category-link {
+  text-decoration: none;
+}
+
 .timeline-summary-list {
   grid-template-columns: 1fr;
 }
@@ -839,6 +860,18 @@ main {
 
 .timeline-related {
   gap: 14px;
+}
+
+.timeline-related-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.timeline-related-link {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
 }
 
 .timeline-scroll-top {

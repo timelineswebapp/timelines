@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { TimelineSummaryCard } from "@/components/timeline/TimelineSummaryCard";
 import { GlassPanel } from "@/components/ui/GlassPanel";
+import { buildPublicUrl } from "@/src/lib/public-site";
+import { buildCategoryJsonLd, sanitizeJsonLd } from "@/src/lib/timeline-jsonld";
 import { contentService } from "@/src/server/services/content-service";
 
 export const revalidate = 3600;
@@ -42,6 +44,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     description: getCategoryIntro(detail.category.slug, detail.category.name),
     alternates: {
       canonical: `/category/${detail.category.slug}`
+    },
+    openGraph: {
+      title: `${detail.category.name} timelines | TiMELiNES`,
+      description: getCategoryIntro(detail.category.slug, detail.category.name),
+      url: buildPublicUrl(`/category/${detail.category.slug}`),
+      type: "website"
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${detail.category.name} timelines | TiMELiNES`,
+      description: getCategoryIntro(detail.category.slug, detail.category.name)
     }
   };
 }
@@ -53,8 +66,14 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
     notFound();
   }
 
+  const categoryJsonLd = buildCategoryJsonLd(detail);
+
   return (
     <div className="content-grid">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: sanitizeJsonLd(categoryJsonLd) }}
+      />
       <GlassPanel>
         <span className="eyebrow">Category archive</span>
         <h1 className="page-title" style={{ fontFamily: "var(--font-serif)" }}>{detail.category.name}</h1>

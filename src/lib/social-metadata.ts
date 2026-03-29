@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { config } from "@/src/lib/config";
+import { buildPublicUrl } from "@/src/lib/public-site";
 import {
   buildEventOgImagePath,
   buildEventPath,
@@ -9,8 +9,8 @@ import {
 } from "@/src/lib/share";
 import type { EventRecord, TimelineDetail } from "@/src/lib/types";
 
-function absoluteUrl(path: string): string {
-  return `${config.siteUrl}${path}`;
+function buildTimelineMetadataDescription(title: string): string {
+  return `Chronological timeline of ${title}, major events, dates, and historical milestones.`;
 }
 
 export function resolveTimelineShareEvent(
@@ -27,8 +27,8 @@ export function resolveTimelineShareEvent(
 export function buildTimelinePageMetadata(timeline: TimelineDetail, shareEvent: EventRecord | null): Metadata {
   if (shareEvent) {
     const canonicalPath = buildEventPath(timeline.slug, shareEvent.id);
-    const canonicalUrl = absoluteUrl(canonicalPath);
-    const imageUrl = absoluteUrl(buildEventOgImagePath(shareEvent.id));
+    const canonicalUrl = buildPublicUrl(canonicalPath);
+    const imageUrl = buildPublicUrl(buildEventOgImagePath(shareEvent.id));
     const description = summarizeShareText(shareEvent.description, 200);
 
     return {
@@ -61,18 +61,20 @@ export function buildTimelinePageMetadata(timeline: TimelineDetail, shareEvent: 
   }
 
   const canonicalPath = buildTimelinePath(timeline.slug);
-  const canonicalUrl = absoluteUrl(canonicalPath);
-  const imageUrl = absoluteUrl(buildTimelineOgImagePath(timeline.slug));
+  const canonicalUrl = buildPublicUrl(canonicalPath);
+  const imageUrl = buildPublicUrl(buildTimelineOgImagePath(timeline.slug));
+  const title = `Timeline of ${timeline.title} | TiMELiNES`;
+  const description = buildTimelineMetadataDescription(timeline.title);
 
   return {
-    title: `${timeline.title} | TiMELiNES`,
-    description: timeline.description,
+    title,
+    description,
     alternates: {
       canonical: canonicalPath
     },
     openGraph: {
-      title: timeline.title,
-      description: timeline.description,
+      title,
+      description,
       url: canonicalUrl,
       type: "article",
       images: [
@@ -86,8 +88,8 @@ export function buildTimelinePageMetadata(timeline: TimelineDetail, shareEvent: 
     },
     twitter: {
       card: "summary_large_image",
-      title: timeline.title,
-      description: timeline.description,
+      title,
+      description,
       images: [imageUrl]
     }
   };

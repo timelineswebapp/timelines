@@ -1,9 +1,9 @@
-const VERIFIED_SITEMAP_ORIGIN = "https://www.timelines.sbs";
+import { buildPublicUrl, getVerifiedPublicSiteUrl } from "@/src/lib/public-site";
 
 export function buildSitemapUrl(path: string): string {
-  return new URL(path, VERIFIED_SITEMAP_ORIGIN).toString();
+  return buildPublicUrl(path);
 }
 
 export function getVerifiedSitemapOrigin(): string {
-  return VERIFIED_SITEMAP_ORIGIN;
+  return getVerifiedPublicSiteUrl();
 }
