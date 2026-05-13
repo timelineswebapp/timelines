@@ -9,6 +9,8 @@ import { contentService } from "@/src/server/services/content-service";
 
 export const revalidate = 3600;
 
+const SHOW_HOME_TAXONOMY_SECTION = false;
+
 export const metadata: Metadata = {
   title: "TiMELiNES | Structured timelines of history, science, technology, and culture",
   description: "TiMELiNES publishes structured timelines of major events, dates, and milestones across history, science, technology, culture, and society.",
@@ -32,7 +34,7 @@ export default async function HomePage() {
   const [homeFeedAd, homepageSnapshot, categoryEntries] = await Promise.all([
     adsService.getPublicAssignments(["home_feed_ad"]).then((assignments) => assignments[0] ?? null),
     contentService.getHomepageSnapshotSlice(0, 12),
-    contentService.listCategoryEntries()
+    SHOW_HOME_TAXONOMY_SECTION ? contentService.listCategoryEntries() : Promise.resolve([])
   ]);
   const activeHomeFeedAd = homeFeedAd?.activeCampaign ? homeFeedAd : null;
   const homepageJsonLd = buildHomePageJsonLd();
@@ -55,18 +57,20 @@ export default async function HomePage() {
         <RequestTimelineForm triggerLabel="MISSING A TOPIC?" variant="modal" />
       </section>
 
-      <section className="glass section-card home-seo-intro" aria-label="About TiMELiNES">
-        <p className="home-seo-copy">
-          TiMELiNES is a structured timeline library for major historical subjects, scientific breakthroughs, infrastructure shifts, and cultural change. Each page organizes pivotal dates, events, and milestones into a readable chronological record.
-        </p>
-        <div className="home-category-links" aria-label="Browse timeline categories">
-          {categoryEntries.map((category) => (
-            <Link key={category.slug} href={`/category/${category.slug}`} className="pill home-category-link">
-              {category.name} timelines
-            </Link>
-          ))}
-        </div>
-      </section>
+      {SHOW_HOME_TAXONOMY_SECTION ? (
+        <section className="glass section-card home-seo-intro" aria-label="About TiMELiNES">
+          <p className="home-seo-copy">
+            TiMELiNES is a structured timeline library for major historical subjects, scientific breakthroughs, infrastructure shifts, and cultural change. Each page organizes pivotal dates, events, and milestones into a readable chronological record.
+          </p>
+          <div className="home-category-links" aria-label="Browse timeline categories">
+            {categoryEntries.map((category) => (
+              <Link key={category.slug} href={`/category/${category.slug}`} className="pill home-category-link">
+                {category.name} timelines
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <h2 className="featured-title">FEATURED TIMELINES</h2>
 
