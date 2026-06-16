@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { formatDisplayDate } from "@/src/lib/utils";
 import { renderSocialImage, SOCIAL_IMAGE_SIZE } from "@/src/lib/social-image";
 import { contentService } from "@/src/server/services/content-service";
 
@@ -19,7 +20,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ eve
 
   return new ImageResponse(
     await renderSocialImage({
-      title: context.event.title
+      title: context.event.title,
+      category: context.timeline.category,
+      meta: formatDisplayDate(context.event.date, context.event.datePrecision, {
+        displayDate: context.event.displayDate,
+        sortYear: context.event.sortYear,
+        sortMonth: context.event.sortMonth,
+        sortDay: context.event.sortDay
+      })
     }),
     SOCIAL_IMAGE_SIZE
   );

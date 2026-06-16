@@ -35,6 +35,7 @@ const nullableCredibilityScore = z
   });
 
 export const datePrecisionSchema = z.enum(["year", "month", "day", "approximate"]);
+export const timelineOrderingModeSchema = z.enum(["chronology", "editorial"]);
 export const importFormatSchema = z.enum(["csv", "json", "text"]);
 export const importTypeSchema = z.enum(["timeline_with_events", "events_into_existing_timeline"]);
 export const requestStatusSchema = z.enum(["pending", "reviewed", "planned", "rejected", "completed"]);
@@ -112,9 +113,10 @@ export const timelineSchema = z.object({
       }
 
       return computed;
-    }),
+  }),
   description: trimmedString(20, 800),
-  category: trimmedString(2, 80)
+  category: trimmedString(2, 80),
+  orderingMode: timelineOrderingModeSchema.default("chronology")
 });
 
 export const timelineRequestSchema = z.object({
@@ -140,6 +142,7 @@ export const timelineViewTelemetrySchema = z.object({
 export const importRowSchema = z.object({
   date: z.string().trim().min(1).max(40),
   datePrecision: datePrecisionSchema.optional(),
+  eventOrder: z.coerce.number().int().min(1).optional(),
   title: trimmedString(3, 160),
   description: trimmedString(10, 2000),
   importance: z.coerce.number().int().min(1).max(5),

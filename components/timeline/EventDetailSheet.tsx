@@ -107,14 +107,14 @@ export function EventDetailSheet({
                 event.sources.map((source) => (
                   <a
                     key={source.id}
-                    href={source.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="sheet-link"
-                  >
-                    <span>{source.publisher}</span>
-                    <span>{Math.round(source.credibilityScore * 100)}%</span>
-                  </a>
+	                    href={source.url}
+	                    target="_blank"
+	                    rel="noreferrer noopener"
+	                    className="sheet-link"
+	                  >
+	                    <span>{source.publisher}</span>
+	                    <span>Confidence {Math.round(source.credibilityScore * 100)}%</span>
+	                  </a>
                 ))
               ) : (
                 <p className="muted" style={{ margin: 0 }}>

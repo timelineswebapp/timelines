@@ -7,12 +7,13 @@ import type {
   EmbeddedSourceInput,
   EventRecord,
   TagRecord,
+  TaxonomyGovernanceSnapshot,
   TimelineRequestRecord,
   TimelineSummary
 } from "@/src/lib/types";
 
 export type TopTab = "content" | "analytics" | "ads";
-export type ContentSection = "snapshot" | "timelines" | "events" | "import_data" | "requests";
+export type ContentSection = "snapshot" | "timelines" | "events" | "taxonomy" | "import_data" | "requests";
 export type AdminFetcher = <T>(url: string, init?: RequestInit) => Promise<T>;
 
 export type ContentDataset = {
@@ -21,6 +22,7 @@ export type ContentDataset = {
   timelines: TimelineSummary[];
   events: EventRecord[];
   tags: TagRecord[];
+  taxonomy: TaxonomyGovernanceSnapshot | null;
   requests: TimelineRequestRecord[];
 };
 
@@ -35,6 +37,7 @@ export type TimelineDraft = {
   slug: string;
   description: string;
   category: string;
+  orderingMode: "chronology" | "editorial";
   status: "published";
 };
 
@@ -80,6 +83,7 @@ export const initialContentDataset: ContentDataset = {
   timelines: [],
   events: [],
   tags: [],
+  taxonomy: null,
   requests: []
 };
 
@@ -94,6 +98,7 @@ export const initialTimelineDraft: TimelineDraft = {
   slug: "",
   description: "",
   category: "",
+  orderingMode: "chronology",
   status: "published"
 };
 

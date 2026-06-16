@@ -60,7 +60,7 @@ export function TimelineManager({
       <div className="admin-manager-header">
         <div>
           <h2 style={{ marginTop: 0 }}>Timeline management</h2>
-          <p className="muted">Search, create, edit, delete, or open a timeline while keeping event ordering intact.</p>
+          <p className="muted">Search, create, edit, delete, or open a timeline while keeping chronology authority explicit.</p>
         </div>
         <button
           className="button"
@@ -103,6 +103,10 @@ export function TimelineManager({
                 <span className="admin-record-stat-label">Events</span>
                 <span>{timeline.eventCount}</span>
               </span>
+              <span className="admin-record-stat">
+                <span className="admin-record-stat-label">Ordering</span>
+                <span>{timeline.orderingMode === "editorial" ? "Editorial sequence" : "Chronology"}</span>
+              </span>
             </div>
             <div className="admin-record-actions">
               <button
@@ -115,6 +119,7 @@ export function TimelineManager({
                     slug: timeline.slug,
                     description: timeline.description,
                     category: timeline.category,
+                    orderingMode: timeline.orderingMode,
                     status: "published"
                   });
                   setIsEditorOpen(true);
@@ -166,6 +171,10 @@ export function TimelineManager({
             <input className="input" value={draft.category} onChange={(event) => setDraft((current) => ({ ...current, category: event.target.value }))} placeholder="Category" required />
             <select className="select" value={draft.status} disabled>
               <option value="published">Published</option>
+            </select>
+            <select className="select" value={draft.orderingMode} onChange={(event) => setDraft((current) => ({ ...current, orderingMode: event.target.value as TimelineDraft["orderingMode"] }))}>
+              <option value="chronology">Chronology order</option>
+              <option value="editorial">Editorial sequence override</option>
             </select>
           </div>
           <textarea className="textarea" value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} placeholder="Description" required />

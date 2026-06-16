@@ -53,7 +53,7 @@ export function AdminLayout({
 
         {activeTab === "content" && contentSection && onContentSectionChange ? (
           <div className="admin-subnav">
-            {(["snapshot", "timelines", "events", "import_data", "requests"] as const).map((section) => (
+            {(["snapshot", "timelines", "events", "taxonomy", "import_data", "requests"] as const).map((section) => (
               <button
                 key={section}
                 type="button"

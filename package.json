@@ -6,11 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "tsx --test src/server/services/import-service.test.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
     "data:audit": "tsx scripts/check-and-fix-data.ts",
-    "data:repair": "tsx scripts/check-and-fix-data.ts --write"
+    "data:repair": "tsx scripts/check-and-fix-data.ts --write",
+    "relationships:backfill": "tsx scripts/backfill-event-relationships.ts",
+    "relationships:backfill:apply": "tsx scripts/backfill-event-relationships.ts --apply"
   },
   "dependencies": {
     "clsx": "^2.1.1",

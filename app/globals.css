@@ -858,6 +858,21 @@ main {
   pointer-events: none;
 }
 
+.event-row-milestone-link {
+  display: inline-flex;
+  margin: 8px 0 0 20px;
+  color: rgba(40, 78, 116, 0.78);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.event-row-milestone-link:focus-visible {
+  border-radius: 999px;
+  outline: 2px solid rgba(117, 170, 255, 0.9);
+  outline-offset: 3px;
+}
+
 .timeline-related {
   gap: 14px;
 }

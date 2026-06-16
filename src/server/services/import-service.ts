@@ -9,13 +9,14 @@ import type {
   SourceRecord,
   TagRecord,
   TimelineDetail,
+  TimelineOrderingMode,
   TimelineImportRow
 } from "@/src/lib/types";
 import { compareHistoricalSort, parseHistoricalDateInput } from "@/src/lib/historical-date";
 import { slugify } from "@/src/lib/utils";
 import { ApiError } from "@/src/server/api/responses";
 import { getSql, getWriteSql } from "@/src/server/db/client";
-import { hasHistoricalChronologyColumns } from "@/src/server/db/schema-capabilities";
+import { hasHistoricalChronologyColumns, hasTimelineOrderingModeColumn } from "@/src/server/db/schema-capabilities";
 import { memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store";
 import { importPreviewSchema, importRowSchema, importTimelineSchema } from "@/src/server/validation/schemas";
 
@@ -86,11 +87,47 @@ type TimelineSummaryForImport = {
   slug: string;
   description: string;
   category: string;
+  orderingMode: TimelineOrderingMode;
   eventCount: number;
 };
 
 function isBceImportRow(row: TimelineImportRow) {
   return typeof row.sortYear === "number" && row.sortYear < 0;
+}
+
+function countUniqueSources(events: TimelineImportRow[]) {
+  return new Set(
+    events.flatMap((event) => event.sources.map((source) => source.url.trim().toLowerCase()).filter(Boolean))
+  ).size;
+}
+
+function countUniqueTags(events: TimelineImportRow[]) {
+  return new Set(
+    events.flatMap((event) => event.tags.map((tag) => slugify(tag)).filter(Boolean))
+  ).size;
+}
+
+function buildImportWarnings(events: TimelineImportRow[], orderingMode: TimelineOrderingMode) {
+  const warnings: string[] = [];
+  const eventOrderRows = events.filter((event) => typeof event.eventOrder === "number");
+
+  if (eventOrderRows.length > 0 && orderingMode === "chronology") {
+    warnings.push("event_order values were accepted as deterministic tie-breakers; chronology remains the ordering authority.");
+  }
+
+  if (eventOrderRows.length > 0 && eventOrderRows.length < events.length && orderingMode === "editorial") {
+    warnings.push("Editorial import contains partial event_order values; missing values will be appended after existing events.");
+  }
+
+  return warnings;
+}
+
+function resolveTimelineEventOrder(row: TimelineImportRow, orderingMode: TimelineOrderingMode, fallbackOrder: number) {
+  if (orderingMode === "editorial" && typeof row.eventOrder === "number") {
+    return row.eventOrder;
+  }
+
+  return fallbackOrder;
 }
 
 function logImportExecutionError(
@@ -162,17 +199,16 @@ function getCsvValueWithAlias(row: CsvRow, aliases: readonly string[]) {
   };
 }
 
-function normalizeImportTags(rawTags: string | undefined): string[] {
+export function normalizeImportTags(rawTags: string | undefined): string[] {
   const value = rawTags?.trim();
   if (!value) {
     return [];
   }
 
-  const separator = value.includes("|") ? "|" : ",";
   const seen = new Set<string>();
   const tags: string[] = [];
 
-  for (const part of value.split(separator)) {
+  for (const part of value.split(/[;,|]/)) {
     const tag = part.trim();
     if (!tag) {
       continue;
@@ -424,15 +460,16 @@ function normalizeRow(row: unknown): TimelineImportRow {
   const parsed = importRowSchema.parse(row);
   const normalized = parseHistoricalDateInput(parsed.date, parsed.datePrecision);
 
-  return {
-    date: normalized.displayDate,
-    datePrecision: normalized.datePrecision,
-    legacyDate: normalized.legacyDate,
-    displayDate: normalized.displayDate,
-    sortYear: normalized.sortYear,
-    sortMonth: normalized.sortMonth,
-    sortDay: normalized.sortDay,
-    title: parsed.title,
+	  return {
+	    date: normalized.displayDate,
+	    datePrecision: normalized.datePrecision,
+	    legacyDate: normalized.legacyDate,
+	    displayDate: normalized.displayDate,
+	    sortYear: normalized.sortYear,
+	    sortMonth: normalized.sortMonth,
+	    sortDay: normalized.sortDay,
+	    eventOrder: parsed.eventOrder ?? null,
+	    title: parsed.title,
     description: parsed.description,
     importance: parsed.importance,
     location: parsed.location || null,
@@ -560,9 +597,18 @@ async function resolveImportSourceIds(sql: Sql, sources: ImportSourceInput[]): P
     }
   }
 
-  return normalized
+  const resolved = normalized
     .map((source) => existingByUrl.get(source.url.toLowerCase()))
     .filter((value): value is number => typeof value === "number");
+
+  if (resolved.length !== normalized.length) {
+    throw new ApiError(500, "IMPORT_SOURCE_RESOLUTION_FAILED", "One or more imported sources could not be resolved after persistence.", {
+      expectedSources: normalized.length,
+      resolvedSources: resolved.length
+    });
+  }
+
+  return resolved;
 }
 
 async function resolveImportTagIds(sql: Sql, tags: string[]): Promise<number[]> {
@@ -619,9 +665,18 @@ async function resolveImportTagIds(sql: Sql, tags: string[]): Promise<number[]> 
     }
   }
 
-  return normalized
+  const resolved = normalized
     .map((tag) => existingBySlug.get(tag.slug))
     .filter((value): value is number => typeof value === "number");
+
+  if (resolved.length !== normalized.length) {
+    throw new ApiError(500, "IMPORT_TAG_RESOLUTION_FAILED", "One or more imported tags could not be resolved after persistence.", {
+      expectedTags: normalized.length,
+      resolvedTags: resolved.length
+    });
+  }
+
+  return resolved;
 }
 
 function resolveMemoryImportSources(input: ImportSourceInput[]): SourceRecord[] {
@@ -773,9 +828,10 @@ function parseCsvImport(importType: ImportType, content: string): ParsedImportDa
   const events: ParsedEventRow[] = result.data.map((row, index) => {
     const { row: normalizedCsvRow, normalizedHeaderKeys } = normalizeCsvRow(row);
     const normalizedRow = {
-      date: normalizedCsvRow.date,
-      datePrecision: normalizedCsvRow.date_precision,
-      title: normalizedCsvRow.title,
+	      date: normalizedCsvRow.date,
+	      datePrecision: normalizedCsvRow.date_precision,
+	      eventOrder: normalizedCsvRow.event_order || undefined,
+	      title: normalizedCsvRow.title,
       description: normalizedCsvRow.description,
       importance: normalizedCsvRow.importance,
       location: normalizedCsvRow.location || null,
@@ -967,16 +1023,19 @@ async function getTimelineSummaryById(sql: Sql | null, timelineId: number): Prom
       slug: timeline.slug,
       description: timeline.description,
       category: timeline.category,
+      orderingMode: timeline.orderingMode,
       eventCount: timeline.events.length
     };
   }
 
+  const supportsOrderingMode = await hasTimelineOrderingModeColumn(sql);
   const [row] = await sql<{
     id: number;
     title: string;
     slug: string;
     description: string;
     category: string;
+    ordering_mode?: TimelineOrderingMode | null;
     event_count: number;
   }[]>`
     SELECT
@@ -985,6 +1044,7 @@ async function getTimelineSummaryById(sql: Sql | null, timelineId: number): Prom
       timelines.slug,
       timelines.description,
       timelines.category,
+      ${supportsOrderingMode ? sql`timelines.ordering_mode,` : sql``}
       COUNT(timeline_events.event_id)::int AS event_count
     FROM timelines
     LEFT JOIN timeline_events ON timeline_events.timeline_id = timelines.id
@@ -1000,6 +1060,7 @@ async function getTimelineSummaryById(sql: Sql | null, timelineId: number): Prom
         slug: row.slug,
         description: row.description,
         category: row.category,
+        orderingMode: row.ordering_mode || "chronology",
         eventCount: row.event_count
       }
     : null;
@@ -1018,16 +1079,19 @@ async function getTimelineSummaryBySlug(sql: Sql | null, slug: string): Promise<
       slug: timeline.slug,
       description: timeline.description,
       category: timeline.category,
+      orderingMode: timeline.orderingMode,
       eventCount: timeline.events.length
     };
   }
 
+  const supportsOrderingMode = await hasTimelineOrderingModeColumn(sql);
   const [row] = await sql<{
     id: number;
     title: string;
     slug: string;
     description: string;
     category: string;
+    ordering_mode?: TimelineOrderingMode | null;
     event_count: number;
   }[]>`
     SELECT
@@ -1036,6 +1100,7 @@ async function getTimelineSummaryBySlug(sql: Sql | null, slug: string): Promise<
       timelines.slug,
       timelines.description,
       timelines.category,
+      ${supportsOrderingMode ? sql`timelines.ordering_mode,` : sql``}
       COUNT(timeline_events.event_id)::int AS event_count
     FROM timelines
     LEFT JOIN timeline_events ON timeline_events.timeline_id = timelines.id
@@ -1051,6 +1116,7 @@ async function getTimelineSummaryBySlug(sql: Sql | null, slug: string): Promise<
         slug: row.slug,
         description: row.description,
         category: row.category,
+        orderingMode: row.ordering_mode || "chronology",
         eventCount: row.event_count
       }
     : null;
@@ -1136,9 +1202,19 @@ function buildPreviewRows(
 ) {
   return rows.slice(0, 8).map(({ event, duplicateSet, timeline }) => ({
     date: event.date,
+    legacyDate: event.legacyDate || null,
+    displayDate: event.displayDate || event.date,
+    datePrecision: event.datePrecision,
+    sortYear: event.sortYear ?? null,
+    sortMonth: event.sortMonth ?? null,
+    sortDay: event.sortDay ?? null,
     title: event.title,
     description: event.description,
     duplicate: duplicateSet.has(getChronologySignature(event)),
+    sources: countUniqueSources([event]),
+    tags: countUniqueTags([event]),
+    tagNames: event.tags,
+    eventOrder: event.eventOrder ?? null,
     timelineSlug: timeline.slug,
     timelineTitle: timeline.title
   }));
@@ -1157,6 +1233,10 @@ function buildDuplicateSet(events: ParsedEventRow[], existingSignatures: Set<str
   }
 
   return duplicates;
+}
+
+function countDuplicateRows(events: ParsedEventRow[], duplicateSet: Set<string>) {
+  return events.filter((event) => duplicateSet.has(getChronologySignature(event))).length;
 }
 
 function ensureExistingTimelineId(input: { timelineId?: number | null }, importType: ImportType): number {
@@ -1181,6 +1261,9 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
   let importedEventsCount = 0;
   let skippedTimelinesCount = 0;
   let skippedEventsCount = 0;
+  let importedSourcesCount = 0;
+  let importedTagsCount = 0;
+  const warnings: string[] = [];
 
   if (importType === "timeline_with_events") {
     for (const group of parsed.timelineGroups) {
@@ -1206,6 +1289,7 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
           slug: group.timeline.slug,
           description: group.timeline.description,
           category: group.timeline.category,
+          orderingMode: "chronology",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           tags: [],
@@ -1222,10 +1306,12 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
       const duplicateSet = buildDuplicateSet(group.events, await getTimelineEventSignatures(null, targetTimeline.id));
       let created = 0;
       const startOrder = targetTimeline.events.length;
+      const timelineWarnings = buildImportWarnings(group.events, targetTimeline.orderingMode);
+      warnings.push(...timelineWarnings);
 
       for (const row of group.events) {
         const signature = getChronologySignature(row);
-        if (duplicateSet.has(signature)) {
+        if (duplicateSet.has(signature) && skipDuplicates) {
           skippedEventsCount += 1;
           reasons.push({
             type: "event_skipped",
@@ -1237,6 +1323,11 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
           });
           continue;
         }
+
+        const resolvedSources = resolveMemoryImportSources(row.sources);
+        const resolvedTags = resolveMemoryImportTags(row.tags);
+        importedSourcesCount += resolvedSources.length;
+        importedTagsCount += resolvedTags.length;
 
         targetTimeline.events.push({
           id: memoryStore.nextEventId(),
@@ -1254,14 +1345,14 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
           imageUrl: row.imageUrl || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          sources: resolveMemoryImportSources(row.sources),
-          tags: resolveMemoryImportTags(row.tags),
+          sources: resolvedSources,
+          tags: resolvedTags,
           timelineLinks: [
             {
               timelineId: targetTimeline.id,
               slug: targetTimeline.slug,
               title: targetTimeline.title,
-              eventOrder: startOrder + created + 1
+              eventOrder: resolveTimelineEventOrder(row, targetTimeline.orderingMode, startOrder + created + 1)
             }
           ]
         });
@@ -1273,7 +1364,9 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
       }
 
       importedEventsCount += created;
-      targetTimeline.events.sort(compareHistoricalSort);
+      if (targetTimeline.orderingMode === "chronology") {
+        targetTimeline.events.sort(compareHistoricalSort);
+      }
       refreshMemoryTimelineTags(targetTimeline);
       touchTimelineSummary(targetTimeline);
       affectedTimelineSlugs.push(targetTimeline.slug);
@@ -1282,8 +1375,12 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
         title: targetTimeline.title,
         slug: targetTimeline.slug,
         importedEventsCount: created,
-        skippedEventsCount: duplicateSet.size,
-        timelineCreated
+        skippedEventsCount: skipDuplicates ? countDuplicateRows(group.events, duplicateSet) : 0,
+        timelineCreated,
+        orderingMode: targetTimeline.orderingMode,
+        importedSourcesCount: countUniqueSources(group.events),
+        importedTagsCount: countUniqueTags(group.events),
+        warnings: timelineWarnings
       });
 
       if (!primaryTimelineId) {
@@ -1303,6 +1400,9 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
       skippedTimelinesCount,
       skippedEventsCount,
       affectedTimelineSlugs,
+      importedSourcesCount,
+      importedTagsCount,
+      warnings,
       timelineResults,
       reasons
     };
@@ -1317,11 +1417,14 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
   const duplicateSet = buildDuplicateSet(parsed.events, await getTimelineEventSignatures(null, targetTimeline.id));
   let created = 0;
   let duplicateCount = 0;
+  let existingImportedSourcesCount = 0;
+  let existingImportedTagsCount = 0;
   const startOrder = targetTimeline.events.length;
+  const existingWarnings = buildImportWarnings(parsed.events, targetTimeline.orderingMode);
 
   for (const row of parsed.events) {
     const signature = getChronologySignature(row);
-    if (duplicateSet.has(signature)) {
+    if (duplicateSet.has(signature) && skipDuplicates) {
       duplicateCount += 1;
       reasons.push({
         type: "event_skipped",
@@ -1333,6 +1436,11 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
       });
       continue;
     }
+
+    const resolvedSources = resolveMemoryImportSources(row.sources);
+    const resolvedTags = resolveMemoryImportTags(row.tags);
+    existingImportedSourcesCount += resolvedSources.length;
+    existingImportedTagsCount += resolvedTags.length;
 
     targetTimeline.events.push({
       id: memoryStore.nextEventId(),
@@ -1350,21 +1458,23 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
         imageUrl: row.imageUrl || null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        sources: resolveMemoryImportSources(row.sources),
-        tags: resolveMemoryImportTags(row.tags),
+        sources: resolvedSources,
+        tags: resolvedTags,
         timelineLinks: [
           {
             timelineId: targetTimeline.id,
             slug: targetTimeline.slug,
           title: targetTimeline.title,
-          eventOrder: startOrder + created + 1
+          eventOrder: resolveTimelineEventOrder(row, targetTimeline.orderingMode, startOrder + created + 1)
         }
       ]
     });
     created += 1;
   }
 
-  targetTimeline.events.sort(compareHistoricalSort);
+  if (targetTimeline.orderingMode === "chronology") {
+    targetTimeline.events.sort(compareHistoricalSort);
+  }
   refreshMemoryTimelineTags(targetTimeline);
   touchTimelineSummary(targetTimeline);
 
@@ -1379,6 +1489,9 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
     skippedTimelinesCount: 0,
     skippedEventsCount: duplicateCount,
     affectedTimelineSlugs: [targetTimeline.slug],
+    importedSourcesCount: existingImportedSourcesCount,
+    importedTagsCount: existingImportedTagsCount,
+    warnings: existingWarnings,
     timelineResults: [
       {
         timelineId: targetTimeline.id,
@@ -1386,7 +1499,11 @@ async function executeMemoryImport(parsed: ParsedImportData, importType: ImportT
         slug: targetTimeline.slug,
         importedEventsCount: created,
         skippedEventsCount: duplicateCount,
-        timelineCreated: false
+        timelineCreated: false,
+        orderingMode: targetTimeline.orderingMode,
+        importedSourcesCount: existingImportedSourcesCount,
+        importedTagsCount: existingImportedTagsCount,
+        warnings: existingWarnings
       }
     ],
     reasons
@@ -1400,6 +1517,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
     return await sql.begin(async (tx) => {
       const query = tx as unknown as Sql;
       const supportsHistorical = await hasHistoricalChronologyColumns(query);
+      const supportsOrderingMode = await hasTimelineOrderingModeColumn(query);
       const reasons: ImportReason[] = [];
       const timelineResults: ImportExecutionResult["timelineResults"] = [];
       const affectedTimelineSlugs: string[] = [];
@@ -1409,6 +1527,9 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
       let importedEventsCount = 0;
       let skippedTimelinesCount = 0;
       let skippedEventsCount = 0;
+      let importedSourcesCount = 0;
+      let importedTagsCount = 0;
+      const warnings: string[] = [];
 
     if (importType === "timeline_with_events") {
       for (const group of parsed.timelineGroups) {
@@ -1417,11 +1538,13 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
         let timelineCreated = false;
         let timelineSlug = group.timeline.slug;
         const existingTimeline = await getTimelineSummaryBySlug(query, group.timeline.slug);
+        let orderingMode: TimelineOrderingMode = "chronology";
 
         if (existingTimeline) {
           timelineId = existingTimeline.id;
           existingTimelineEventCount = existingTimeline.eventCount;
           timelineSlug = existingTimeline.slug;
+          orderingMode = existingTimeline.orderingMode;
           skippedTimelinesCount += 1;
           reasons.push({
             type: "timeline_skipped",
@@ -1430,8 +1553,8 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
           });
         } else {
           const [timelineRow] = await query<{ id: number }[]>`
-            INSERT INTO timelines (title, slug, description, category)
-            VALUES (${group.timeline.title}, ${group.timeline.slug}, ${group.timeline.description}, ${group.timeline.category})
+            INSERT INTO timelines (title, slug, description, category${supportsOrderingMode ? query`, ordering_mode` : query``})
+            VALUES (${group.timeline.title}, ${group.timeline.slug}, ${group.timeline.description}, ${group.timeline.category}${supportsOrderingMode ? query`, ${"chronology"}` : query``})
             RETURNING id
           `;
 
@@ -1447,10 +1570,14 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
         const duplicateSet = buildDuplicateSet(group.events, await getTimelineEventSignatures(query, timelineId));
         let created = 0;
         let groupDuplicateCount = 0;
+        let groupSourcesCount = 0;
+        let groupTagsCount = 0;
+        const timelineWarnings = buildImportWarnings(group.events, orderingMode);
+        warnings.push(...timelineWarnings);
 
         for (const row of group.events) {
           const signature = getChronologySignature(row);
-          if (duplicateSet.has(signature)) {
+          if (duplicateSet.has(signature) && skipDuplicates) {
             groupDuplicateCount += 1;
             skippedEventsCount += 1;
             reasons.push({
@@ -1528,11 +1655,16 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
             resolveImportSourceIds(query, row.sources),
             resolveImportTagIds(query, row.tags)
           ]);
+          groupSourcesCount += sourceIds.length;
+          groupTagsCount += tagIds.length;
+          importedSourcesCount += sourceIds.length;
+          importedTagsCount += tagIds.length;
 
           try {
+            const eventOrder = resolveTimelineEventOrder(row, orderingMode, existingTimelineEventCount + created + 1);
             await query`
               INSERT INTO timeline_events (timeline_id, event_id, event_order)
-              VALUES (${timelineId}, ${eventRow.id}, ${existingTimelineEventCount + created + 1})
+              VALUES (${timelineId}, ${eventRow.id}, ${eventOrder})
             `;
             await Promise.all([
               insertImportEventSources(query, eventRow.id, sourceIds),
@@ -1544,7 +1676,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
                 timelineId,
                 timelineSlug,
                 eventId: eventRow.id,
-                eventOrder: existingTimelineEventCount + created + 1,
+                eventOrder: resolveTimelineEventOrder(row, orderingMode, existingTimelineEventCount + created + 1),
                 sourceRow: row.sourceRow,
                 legacyDate,
                 displayDate: row.displayDate || row.date,
@@ -1568,7 +1700,11 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
           slug: timelineSlug,
           importedEventsCount: created,
           skippedEventsCount: groupDuplicateCount,
-          timelineCreated
+          timelineCreated,
+          orderingMode,
+          importedSourcesCount: groupSourcesCount,
+          importedTagsCount: groupTagsCount,
+          warnings: timelineWarnings
         });
 
         await query`
@@ -1594,6 +1730,9 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
         skippedTimelinesCount,
         skippedEventsCount,
         affectedTimelineSlugs,
+        importedSourcesCount,
+        importedTagsCount,
+        warnings,
         timelineResults,
         reasons
       };
@@ -1607,9 +1746,12 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
     const duplicateSet = buildDuplicateSet(parsed.events, await getTimelineEventSignatures(query, summary.id));
     let created = 0;
     let duplicateCount = 0;
+    let existingImportedSourcesCount = 0;
+    let existingImportedTagsCount = 0;
+    const existingWarnings = buildImportWarnings(parsed.events, summary.orderingMode);
     for (const row of parsed.events) {
       const signature = getChronologySignature(row);
-      if (duplicateSet.has(signature)) {
+      if (duplicateSet.has(signature) && skipDuplicates) {
         duplicateCount += 1;
         skippedEventsCount += 1;
         reasons.push({
@@ -1687,11 +1829,14 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
         resolveImportSourceIds(query, row.sources),
         resolveImportTagIds(query, row.tags)
       ]);
+      existingImportedSourcesCount += sourceIds.length;
+      existingImportedTagsCount += tagIds.length;
 
       try {
+        const eventOrder = resolveTimelineEventOrder(row, summary.orderingMode, summary.eventCount + created + 1);
         await query`
           INSERT INTO timeline_events (timeline_id, event_id, event_order)
-          VALUES (${summary.id}, ${eventRow.id}, ${summary.eventCount + created + 1})
+          VALUES (${summary.id}, ${eventRow.id}, ${eventOrder})
         `;
         await Promise.all([
           insertImportEventSources(query, eventRow.id, sourceIds),
@@ -1703,7 +1848,7 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
             timelineId: summary.id,
             timelineSlug: summary.slug,
             eventId: eventRow.id,
-            eventOrder: summary.eventCount + created + 1,
+            eventOrder: resolveTimelineEventOrder(row, summary.orderingMode, summary.eventCount + created + 1),
             sourceRow: row.sourceRow,
             legacyDate,
             displayDate: row.displayDate || row.date,
@@ -1732,6 +1877,9 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
       skippedTimelinesCount: 0,
       skippedEventsCount: duplicateCount,
       affectedTimelineSlugs: [summary.slug],
+      importedSourcesCount: existingImportedSourcesCount,
+      importedTagsCount: existingImportedTagsCount,
+      warnings: existingWarnings,
       timelineResults: [
         {
           timelineId: summary.id,
@@ -1739,7 +1887,11 @@ async function executeDatabaseImport(parsed: ParsedImportData, importType: Impor
           slug: summary.slug,
           importedEventsCount: created,
           skippedEventsCount: duplicateCount,
-          timelineCreated: false
+          timelineCreated: false,
+          orderingMode: summary.orderingMode,
+          importedSourcesCount: existingImportedSourcesCount,
+          importedTagsCount: existingImportedTagsCount,
+          warnings: existingWarnings
         }
       ],
       reasons
@@ -1771,37 +1923,49 @@ export const importService = {
         throw new ApiError(400, "TIMELINE_METADATA_REQUIRED", "Timeline metadata is required.");
       }
       const timelineContexts = await Promise.all(
-        parsed.timelineGroups.map(async (group) => {
-          const existingTimeline = await getTimelineSummaryBySlug(getSql(), group.timeline.slug);
-          const duplicateSet = buildDuplicateSet(
-            group.events,
-            existingTimeline ? await getTimelineEventSignatures(getSql(), existingTimeline.id) : new Set()
-          );
-
-          return {
-            timeline: existingTimeline
-              ? {
-                  mode: "existing" as const,
+	        parsed.timelineGroups.map(async (group) => {
+	          const existingTimeline = await getTimelineSummaryBySlug(getSql(), group.timeline.slug);
+	          const duplicateSet = buildDuplicateSet(
+	            group.events,
+	            existingTimeline ? await getTimelineEventSignatures(getSql(), existingTimeline.id) : new Set()
+	          );
+	          const orderingMode = existingTimeline?.orderingMode || "chronology";
+	          const duplicates = countDuplicateRows(group.events, duplicateSet);
+	          const accepted = input.skipDuplicates ? group.events.length - duplicates : group.events.length;
+	          const warnings = buildImportWarnings(group.events, orderingMode);
+	
+	          return {
+	            timeline: existingTimeline
+	              ? {
+	                  mode: "existing" as const,
                   timelineId: existingTimeline.id,
                   title: existingTimeline.title,
-                  slug: existingTimeline.slug,
-                  description: existingTimeline.description,
-                  category: existingTimeline.category,
-                  rows: group.events.length,
-                  duplicates: duplicateSet.size,
-                  accepted: group.events.length - duplicateSet.size
-                }
-              : {
-                  mode: "create" as const,
-                  timelineId: null,
+	                  slug: existingTimeline.slug,
+	                  description: existingTimeline.description,
+	                  category: existingTimeline.category,
+	                  orderingMode,
+	                  rows: group.events.length,
+	                  duplicates,
+	                  accepted,
+	                  sources: countUniqueSources(group.events),
+	                  tags: countUniqueTags(group.events),
+	                  warnings
+	                }
+	              : {
+	                  mode: "create" as const,
+	                  timelineId: null,
                   title: group.timeline.title,
-                  slug: group.timeline.slug,
-                  description: group.timeline.description,
-                  category: group.timeline.category,
-                  rows: group.events.length,
-                  duplicates: duplicateSet.size,
-                  accepted: group.events.length - duplicateSet.size
-                },
+	                  slug: group.timeline.slug,
+	                  description: group.timeline.description,
+	                  category: group.timeline.category,
+	                  orderingMode,
+	                  rows: group.events.length,
+	                  duplicates,
+	                  accepted,
+	                  sources: countUniqueSources(group.events),
+	                  tags: countUniqueTags(group.events),
+	                  warnings
+	                },
             previewRows: buildPreviewRows(group.events.map((event) => ({
               event,
               duplicateSet,
@@ -1823,12 +1987,15 @@ export const importService = {
         valid: true,
         timeline: primaryTimeline,
         timelines: timelineContexts.map((item) => item.timeline),
-        totals: {
-          rows: parsed.timelineGroups.reduce((sum, group) => sum + group.events.length, 0),
-          duplicates: timelineContexts.reduce((sum, item) => sum + item.timeline.duplicates, 0),
-          accepted: timelineContexts.reduce((sum, item) => sum + item.timeline.accepted, 0),
-          timelines: timelineContexts.length
-        },
+	        totals: {
+	          rows: parsed.timelineGroups.reduce((sum, group) => sum + group.events.length, 0),
+	          duplicates: timelineContexts.reduce((sum, item) => sum + item.timeline.duplicates, 0),
+	          accepted: timelineContexts.reduce((sum, item) => sum + item.timeline.accepted, 0),
+	          timelines: timelineContexts.length,
+	          sources: timelineContexts.reduce((sum, item) => sum + item.timeline.sources, 0),
+	          tags: timelineContexts.reduce((sum, item) => sum + item.timeline.tags, 0),
+	          warnings: timelineContexts.reduce((sum, item) => sum + item.timeline.warnings.length, 0)
+	        },
         errors: [],
         preview: allPreviewRows,
         skipDuplicates: input.skipDuplicates
@@ -1841,24 +2008,28 @@ export const importService = {
       throw new ApiError(404, "TIMELINE_NOT_FOUND", "Timeline not found.");
     }
 
-    const timelineContext = {
-      mode: "existing" as const,
-      timelineId: summary.id,
+	    const timelineContext = {
+	      mode: "existing" as const,
+	      timelineId: summary.id,
       title: summary.title,
-      slug: summary.slug,
-      description: summary.description,
-      category: summary.category,
-      rows: parsed.events.length,
-      duplicates: 0,
-      accepted: 0
-    };
+	      slug: summary.slug,
+	      description: summary.description,
+	      category: summary.category,
+	      orderingMode: summary.orderingMode,
+	      rows: parsed.events.length,
+	      duplicates: 0,
+	      accepted: 0,
+	      sources: countUniqueSources(parsed.events),
+	      tags: countUniqueTags(parsed.events),
+	      warnings: buildImportWarnings(parsed.events, summary.orderingMode)
+	    };
 
     const duplicateSet = buildDuplicateSet(
       parsed.events,
       await getTimelineEventSignatures(getSql(), timelineContext.timelineId)
     );
-    timelineContext.duplicates = duplicateSet.size;
-    timelineContext.accepted = parsed.events.length - duplicateSet.size;
+	    timelineContext.duplicates = countDuplicateRows(parsed.events, duplicateSet);
+	    timelineContext.accepted = input.skipDuplicates ? parsed.events.length - timelineContext.duplicates : parsed.events.length;
 
     return {
       format: input.format,
@@ -1867,11 +2038,14 @@ export const importService = {
       timeline: timelineContext,
       timelines: [timelineContext],
       totals: {
-        rows: parsed.events.length,
-        duplicates: duplicateSet.size,
-        accepted: parsed.events.length - duplicateSet.size,
-        timelines: 1
-      },
+	        rows: parsed.events.length,
+	        duplicates: timelineContext.duplicates,
+	        accepted: timelineContext.accepted,
+	        timelines: 1,
+	        sources: timelineContext.sources,
+	        tags: timelineContext.tags,
+	        warnings: timelineContext.warnings.length
+	      },
       errors: [],
       preview: buildPreviewRows(
         parsed.events.map((event) => ({

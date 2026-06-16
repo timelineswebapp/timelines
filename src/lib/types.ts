@@ -1,4 +1,5 @@
 export type DatePrecision = "year" | "month" | "day" | "approximate";
+export type TimelineOrderingMode = "chronology" | "editorial";
 export type ImportFormat = "csv" | "json" | "text";
 export type ImportType = "timeline_with_events" | "events_into_existing_timeline";
 export type AnalyticsEventType = "timeline_view";
@@ -67,6 +68,7 @@ export interface TimelineSummary {
   slug: string;
   description: string;
   category: string;
+  orderingMode: TimelineOrderingMode;
   createdAt: string;
   updatedAt: string;
   tags: TagRecord[];
@@ -101,11 +103,100 @@ export interface CategoryDetail {
   timelines: TimelineSummary[];
 }
 
+export type CategoryGovernanceStatus = "active" | "hidden" | "merged" | "deprecated";
+export type TagModerationStatus = "unreviewed" | "approved" | "needs_review" | "deprecated" | "promote_to_concept";
+
+export interface CategoryGovernanceRecord {
+  id: number | null;
+  canonicalName: string;
+  canonicalSlug: string;
+  description: string;
+  displayOrder: number;
+  status: CategoryGovernanceStatus;
+  timelineCount: number;
+  aliasCount: number;
+  redirectCount: number;
+  mergeCount: number;
+  isGoverned: boolean;
+  rawNames: string[];
+  updatedAt: string | null;
+}
+
+export interface TagGovernanceRecord {
+  id: number;
+  name: string;
+  slug: string;
+  moderationStatus: TagModerationStatus;
+  usageCount: number;
+  aliasCount: number;
+  redirectCount: number;
+  mergeCount: number;
+  duplicateCandidateOf: number | null;
+  promotionCandidate: boolean;
+  governanceNotes: string | null;
+  isGoverned: boolean;
+  updatedAt: string | null;
+}
+
+export interface TaxonomyDuplicateCandidate {
+  kind: "category" | "tag";
+  slug: string;
+  names: string[];
+  count: number;
+}
+
+export interface TaxonomyGovernanceSnapshot {
+  categories: CategoryGovernanceRecord[];
+  tags: TagGovernanceRecord[];
+  duplicateCandidates: TaxonomyDuplicateCandidate[];
+  orphanedCategories: CategoryGovernanceRecord[];
+  orphanedTags: TagGovernanceRecord[];
+  summary: {
+    governedCategories: number;
+    ungovernedCategories: number;
+    governedTags: number;
+    unreviewedTags: number;
+    orphanedTags: number;
+    duplicateCandidates: number;
+  };
+}
+
 export interface SearchResult {
   query: string;
   total: number;
-  items: TimelineSummary[];
+  items: SearchResultItem[];
 }
+
+export interface MilestoneSearchSummary {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+  datePrecision: DatePrecision;
+  legacyDate?: string | null;
+  displayDate?: string | null;
+  sortYear?: number | null;
+  sortMonth?: number | null;
+  sortDay?: number | null;
+  location: string | null;
+  sources: SourceRecord[];
+  tags: TagRecord[];
+  timelineLinks: NonNullable<EventRecord["timelineLinks"]>;
+}
+
+export type SearchResultItem =
+  | {
+      type: "timeline";
+      id: number;
+      rank: number;
+      timeline: TimelineSummary;
+    }
+  | {
+      type: "milestone";
+      id: number;
+      rank: number;
+      milestone: MilestoneSearchSummary;
+    };
 
 export interface TimelineRequestRecord {
   id: number;
@@ -293,32 +384,49 @@ export interface ImportPreview {
     description: string;
     category: string;
   };
-  timelines: Array<{
-    mode: "create" | "existing";
-    timelineId: number | null;
-    title: string;
-    slug: string;
-    description: string;
-    category: string;
-    rows: number;
-    duplicates: number;
-    accepted: number;
-  }>;
-  totals: {
-    rows: number;
-    duplicates: number;
-    accepted: number;
-    timelines: number;
-  };
-  errors: string[];
-  preview: Array<{
-    date: string;
-    title: string;
-    description: string;
-    duplicate: boolean;
-    timelineSlug?: string;
-    timelineTitle?: string;
-  }>;
+	  timelines: Array<{
+	    mode: "create" | "existing";
+	    timelineId: number | null;
+	    title: string;
+	    slug: string;
+	    description: string;
+	    category: string;
+	    orderingMode: TimelineOrderingMode;
+	    rows: number;
+	    duplicates: number;
+	    accepted: number;
+	    sources: number;
+	    tags: number;
+	    warnings: string[];
+	  }>;
+	  totals: {
+	    rows: number;
+	    duplicates: number;
+	    accepted: number;
+	    timelines: number;
+	    sources: number;
+	    tags: number;
+	    warnings: number;
+	  };
+	  errors: string[];
+	  preview: Array<{
+	    date: string;
+	    legacyDate?: string | null;
+	    displayDate?: string | null;
+	    datePrecision: DatePrecision;
+	    sortYear?: number | null;
+	    sortMonth?: number | null;
+	    sortDay?: number | null;
+	    title: string;
+	    description: string;
+	    duplicate: boolean;
+	    sources: number;
+	    tags: number;
+	    tagNames: string[];
+	    eventOrder?: number | null;
+	    timelineSlug?: string;
+	    timelineTitle?: string;
+	  }>;
   skipDuplicates: boolean;
 }
 
@@ -341,15 +449,22 @@ export interface ImportExecutionResult {
   importedEventsCount: number;
   skippedTimelinesCount: number;
   skippedEventsCount: number;
-  affectedTimelineSlugs: string[];
-  timelineResults: Array<{
-    timelineId: number;
-    title: string;
-    slug: string;
-    importedEventsCount: number;
-    skippedEventsCount: number;
-    timelineCreated: boolean;
-  }>;
+	  affectedTimelineSlugs: string[];
+	  importedSourcesCount: number;
+	  importedTagsCount: number;
+	  warnings: string[];
+	  timelineResults: Array<{
+	    timelineId: number;
+	    title: string;
+	    slug: string;
+	    importedEventsCount: number;
+	    skippedEventsCount: number;
+	    timelineCreated: boolean;
+	    orderingMode: TimelineOrderingMode;
+	    importedSourcesCount: number;
+	    importedTagsCount: number;
+	    warnings: string[];
+	  }>;
   reasons: ImportReason[];
 }
 
@@ -359,9 +474,10 @@ export interface TimelineImportRow {
   legacyDate?: string | null;
   displayDate?: string | null;
   sortYear?: number | null;
-  sortMonth?: number | null;
-  sortDay?: number | null;
-  title: string;
+	  sortMonth?: number | null;
+	  sortDay?: number | null;
+	  eventOrder?: number | null;
+	  title: string;
   description: string;
   importance: number;
   location?: string | null;

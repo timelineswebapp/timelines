@@ -395,6 +395,7 @@ function toSummary(seed: MockSeed, index: number): TimelineSummary {
     slug: seed.slug,
     description: seed.description,
     category: seed.category,
+    orderingMode: "chronology",
     createdAt: baseTimestamp,
     updatedAt: baseTimestamp,
     tags: seed.tags,

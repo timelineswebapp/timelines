@@ -469,10 +469,6 @@ async function main() {
 
   for (const [timelineId, rows] of rowsByTimeline.entries()) {
     const sortedRows = [...rows].sort((left, right) => {
-      if (left.event_order !== right.event_order) {
-        return left.event_order - right.event_order;
-      }
-
       const chronologyDelta = compareHistoricalSort(
         {
           id: left.id,
@@ -498,6 +494,10 @@ async function main() {
 
       if (chronologyDelta !== 0) {
         return chronologyDelta;
+      }
+
+      if (left.event_order !== right.event_order) {
+        return left.event_order - right.event_order;
       }
 
       return left.id - right.id;

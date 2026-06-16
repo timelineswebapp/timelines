@@ -1,8 +1,9 @@
-import type { CategoryDetail, CategoryEntry, TimelineDetail, TimelineSummary } from "@/src/lib/types";
+import type { CategoryDetail, CategoryEntry, TimelineDetail, TimelineOrderingMode, TimelineSummary } from "@/src/lib/types";
+import { compareHistoricalSort } from "@/src/lib/historical-date";
 import { slugify } from "@/src/lib/utils";
 import { ApiError } from "@/src/server/api/responses";
 import { getSql, getWriteSql } from "@/src/server/db/client";
-import { hasHistoricalChronologyColumns } from "@/src/server/db/schema-capabilities";
+import { hasHistoricalChronologyColumns, hasTimelineOrderingModeColumn } from "@/src/server/db/schema-capabilities";
 import { getMemoryCategoryEntries, memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store";
 
 interface TimelineRow {
@@ -11,6 +12,7 @@ interface TimelineRow {
   slug: string;
   description: string;
   category: string;
+  ordering_mode?: TimelineOrderingMode | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,12 +56,66 @@ function summaryFromRow(row: TimelineRow, tags: TimelineSummary["tags"], eventCo
     slug: row.slug,
     description: row.description,
     category: row.category,
+    orderingMode: row.ordering_mode || "chronology",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     tags,
     eventCount,
     highlightedEventTitles
   };
+}
+
+function orderEventsForTimeline(timeline: TimelineDetail): TimelineDetail["events"] {
+  if (timeline.orderingMode === "editorial") {
+    return timeline.events;
+  }
+
+  return [...timeline.events].sort(compareHistoricalSort);
+}
+
+function eventOrderingSql(sql: ReturnType<typeof getWriteSql>, orderingMode: TimelineOrderingMode, supportsHistorical: boolean) {
+  if (orderingMode === "editorial" || !supportsHistorical) {
+    return sql`timeline_events.event_order ASC, events.id ASC`;
+  }
+
+  return sql`
+    COALESCE(events.sort_year, CAST(SUBSTRING(events.date::text FROM 1 FOR 4) AS INTEGER)) ASC,
+    events.sort_month ASC NULLS FIRST,
+    events.sort_day ASC NULLS FIRST,
+    CASE events.date_precision
+      WHEN 'approximate' THEN 0
+      WHEN 'year' THEN 1
+      WHEN 'month' THEN 2
+      WHEN 'day' THEN 3
+      ELSE 4
+    END ASC,
+    timeline_events.event_order ASC,
+    events.id ASC
+  `;
+}
+
+function timelineHighlightOrderingSql(sql: ReturnType<typeof getWriteSql>, supportsHistorical: boolean, supportsOrderingMode: boolean) {
+  if (!supportsHistorical || !supportsOrderingMode) {
+    return sql`timeline_events.event_order ASC, events.id ASC`;
+  }
+
+  return sql`
+    CASE WHEN timelines.ordering_mode = 'editorial' THEN timeline_events.event_order END ASC NULLS LAST,
+    CASE WHEN timelines.ordering_mode = 'chronology' THEN COALESCE(events.sort_year, CAST(SUBSTRING(events.date::text FROM 1 FOR 4) AS INTEGER)) END ASC NULLS LAST,
+    CASE WHEN timelines.ordering_mode = 'chronology' THEN events.sort_month END ASC NULLS FIRST,
+    CASE WHEN timelines.ordering_mode = 'chronology' THEN events.sort_day END ASC NULLS FIRST,
+    CASE WHEN timelines.ordering_mode = 'chronology' THEN
+      CASE events.date_precision
+        WHEN 'approximate' THEN 0
+        WHEN 'year' THEN 1
+        WHEN 'month' THEN 2
+        WHEN 'day' THEN 3
+        ELSE 4
+      END
+    END ASC NULLS LAST,
+    timeline_events.event_order ASC,
+    events.id ASC
+  `;
 }
 
 function normalizeTimelineSummary(summary: TimelineDetail | TimelineSummary): TimelineSummary {
@@ -242,15 +298,27 @@ async function getTimelineEventHighlights(timelineId: number) {
   const sql = getSql();
   if (!sql) {
     const timeline = memoryStore.getTimelines().find((item) => item.id === timelineId);
-    return timeline?.events.slice(0, 3).map((event) => event.title) || [];
+    return timeline ? orderEventsForTimeline(timeline).slice(0, 3).map((event) => event.title) : [];
   }
+
+  const [supportsHistorical, supportsOrderingMode] = await Promise.all([
+    hasHistoricalChronologyColumns(sql),
+    hasTimelineOrderingModeColumn(sql)
+  ]);
+  const [timelineRow] = await sql<{ ordering_mode?: TimelineOrderingMode | null }[]>`
+    SELECT ${supportsOrderingMode ? sql`ordering_mode` : sql`NULL::text AS ordering_mode`}
+    FROM timelines
+    WHERE id = ${timelineId}
+    LIMIT 1
+  `;
+  const orderingMode = timelineRow?.ordering_mode || "chronology";
 
   const rows = await sql<{ title: string }[]>`
     SELECT events.title
     FROM timeline_events
     INNER JOIN events ON events.id = timeline_events.event_id
     WHERE timeline_events.timeline_id = ${timelineId}
-    ORDER BY timeline_events.event_order ASC
+    ORDER BY ${eventOrderingSql(sql, orderingMode, supportsHistorical)}
     LIMIT 3
   `;
 
@@ -363,6 +431,11 @@ export const timelineRepository = {
       return memoryStore.getTimelineSummaries().slice(0, limit);
     }
 
+    const [supportsHistorical, supportsOrderingMode] = await Promise.all([
+      hasHistoricalChronologyColumns(sql),
+      hasTimelineOrderingModeColumn(sql)
+    ]);
+
     const rows = await sql<
       (TimelineRow & {
         tags: TimelineSummary["tags"] | null;
@@ -376,6 +449,7 @@ export const timelineRepository = {
         timelines.slug,
         timelines.description,
         timelines.category,
+        ${supportsOrderingMode ? sql`timelines.ordering_mode,` : sql``}
         timelines.created_at::text AS created_at,
         timelines.updated_at::text AS updated_at,
         COALESCE(tags.tags, '[]'::jsonb) AS tags,
@@ -393,7 +467,7 @@ export const timelineRepository = {
           FROM timeline_events
           INNER JOIN events ON events.id = timeline_events.event_id
           WHERE timeline_events.timeline_id = timelines.id
-          ORDER BY timeline_events.event_order ASC
+          ORDER BY ${timelineHighlightOrderingSql(sql, supportsHistorical, supportsOrderingMode)}
           LIMIT 3
         ) AS highlighted_event_titles
       ) highlights ON TRUE
@@ -446,6 +520,11 @@ export const timelineRepository = {
         .slice(0, limit);
     }
 
+    const [supportsHistorical, supportsOrderingMode] = await Promise.all([
+      hasHistoricalChronologyColumns(sql),
+      hasTimelineOrderingModeColumn(sql)
+    ]);
+
     const rows = await sql<
       (TimelineRow & {
         tags: TimelineSummary["tags"] | null;
@@ -459,6 +538,7 @@ export const timelineRepository = {
         timelines.slug,
         timelines.description,
         timelines.category,
+        ${supportsOrderingMode ? sql`timelines.ordering_mode,` : sql``}
         timelines.created_at::text AS created_at,
         timelines.updated_at::text AS updated_at,
         COALESCE(tags.tags, '[]'::jsonb) AS tags,
@@ -476,7 +556,7 @@ export const timelineRepository = {
           FROM timeline_events
           INNER JOIN events ON events.id = timeline_events.event_id
           WHERE timeline_events.timeline_id = timelines.id
-          ORDER BY timeline_events.event_order ASC
+          ORDER BY ${timelineHighlightOrderingSql(sql, supportsHistorical, supportsOrderingMode)}
           LIMIT 3
         ) AS highlighted_event_titles
       ) highlights ON TRUE
@@ -688,6 +768,11 @@ export const timelineRepository = {
         return null;
       }
 
+      const orderedTimeline = {
+        ...timeline,
+        events: orderEventsForTimeline(timeline),
+        highlightedEventTitles: orderEventsForTimeline(timeline).slice(0, 3).map((event) => event.title)
+      };
       const summaries = memoryStore.getTimelineSummaries();
       const boundsMap = new Map<number, TimelineYearBounds>();
       for (const candidate of memoryStore.getTimelines()) {
@@ -695,13 +780,26 @@ export const timelineRepository = {
       }
 
       return {
-        ...timeline,
-        relatedTimelines: selectSemanticRelatedSummaries(timeline, summaries, boundsMap, 4)
+        ...orderedTimeline,
+        relatedTimelines: selectSemanticRelatedSummaries(orderedTimeline, summaries, boundsMap, 4)
       };
     }
 
+    const [supportsHistorical, supportsOrderingMode] = await Promise.all([
+      hasHistoricalChronologyColumns(sql),
+      hasTimelineOrderingModeColumn(sql)
+    ]);
+
     const [timelineRow] = await sql<TimelineRow[]>`
-      SELECT id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
+      SELECT
+        id,
+        title,
+        slug,
+        description,
+        category,
+        ${supportsOrderingMode ? sql`ordering_mode,` : sql``}
+        created_at::text AS created_at,
+        updated_at::text AS updated_at
       FROM timelines
       WHERE slug = ${slug}
       LIMIT 1
@@ -711,11 +809,11 @@ export const timelineRepository = {
       return null;
     }
 
-    const hasHistoricalColumns = await hasHistoricalChronologyColumns(sql);
+    const orderingMode = timelineRow.ordering_mode || "chronology";
 
     const [tags, eventRows] = await Promise.all([
       getTimelineTags(timelineRow.id),
-      hasHistoricalColumns
+      supportsHistorical
         ? sql<{
             id: number;
             date: string;
@@ -759,7 +857,7 @@ export const timelineRepository = {
             LEFT JOIN event_tags ON event_tags.event_id = events.id
             WHERE timeline_events.timeline_id = ${timelineRow.id}
             GROUP BY events.id, timeline_events.event_order
-            ORDER BY timeline_events.event_order ASC
+            ORDER BY ${eventOrderingSql(sql, orderingMode, supportsHistorical)}
           `
         : sql<{
             id: number;
@@ -794,7 +892,7 @@ export const timelineRepository = {
             LEFT JOIN event_tags ON event_tags.event_id = events.id
             WHERE timeline_events.timeline_id = ${timelineRow.id}
             GROUP BY events.id, timeline_events.event_order
-            ORDER BY timeline_events.event_order ASC
+            ORDER BY ${eventOrderingSql(sql, orderingMode, supportsHistorical)}
           `
     ]);
 
@@ -887,8 +985,17 @@ export const timelineRepository = {
       return memoryStore.getTimelineSummaries().find((item) => item.id === id) || null;
     }
 
+    const supportsOrderingMode = await hasTimelineOrderingModeColumn(sql);
     const [row] = await sql<TimelineRow[]>`
-      SELECT id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
+      SELECT
+        id,
+        title,
+        slug,
+        description,
+        category,
+        ${supportsOrderingMode ? sql`ordering_mode,` : sql``}
+        created_at::text AS created_at,
+        updated_at::text AS updated_at
       FROM timelines
       WHERE id = ${id}
       LIMIT 1
@@ -1041,14 +1148,23 @@ export const timelineRepository = {
     );
   },
 
-  async create(input: { title: string; slug: string; description: string; category: string }): Promise<TimelineSummary> {
+  async create(input: { title: string; slug: string; description: string; category: string; orderingMode: TimelineOrderingMode }): Promise<TimelineSummary> {
     const sql = getWriteSql("timeline create");
     await assertSlugAvailable(sql, input.slug);
+    const supportsOrderingMode = await hasTimelineOrderingModeColumn(sql);
 
     const [row] = await sql<TimelineRow[]>`
-      INSERT INTO timelines (title, slug, description, category)
-      VALUES (${input.title}, ${input.slug}, ${input.description}, ${input.category})
-      RETURNING id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
+      INSERT INTO timelines (title, slug, description, category${supportsOrderingMode ? sql`, ordering_mode` : sql``})
+      VALUES (${input.title}, ${input.slug}, ${input.description}, ${input.category}${supportsOrderingMode ? sql`, ${input.orderingMode}` : sql``})
+      RETURNING
+        id,
+        title,
+        slug,
+        description,
+        category,
+        ${supportsOrderingMode ? sql`ordering_mode,` : sql``}
+        created_at::text AS created_at,
+        updated_at::text AS updated_at
     `;
 
     if (!row) {
@@ -1058,10 +1174,19 @@ export const timelineRepository = {
     return summaryFromRow(row, [], 0, []);
   },
 
-  async update(id: number, input: { title: string; slug: string; description: string; category: string }): Promise<TimelineSummary | null> {
+  async update(id: number, input: { title: string; slug: string; description: string; category: string; orderingMode: TimelineOrderingMode }): Promise<TimelineSummary | null> {
     const sql = getWriteSql("timeline update");
+    const supportsOrderingMode = await hasTimelineOrderingModeColumn(sql);
     const [currentRow] = await sql<TimelineRow[]>`
-      SELECT id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
+      SELECT
+        id,
+        title,
+        slug,
+        description,
+        category,
+        ${supportsOrderingMode ? sql`ordering_mode,` : sql``}
+        created_at::text AS created_at,
+        updated_at::text AS updated_at
       FROM timelines
       WHERE id = ${id}
       LIMIT 1
@@ -1082,9 +1207,22 @@ export const timelineRepository = {
 
     const [row] = await sql<TimelineRow[]>`
       UPDATE timelines
-      SET title = ${input.title}, slug = ${input.slug}, description = ${input.description}, category = ${input.category}
+      SET
+        title = ${input.title},
+        slug = ${input.slug},
+        description = ${input.description},
+        category = ${input.category}
+        ${supportsOrderingMode ? sql`, ordering_mode = ${input.orderingMode}` : sql``}
       WHERE id = ${id}
-      RETURNING id, title, slug, description, category, created_at::text AS created_at, updated_at::text AS updated_at
+      RETURNING
+        id,
+        title,
+        slug,
+        description,
+        category,
+        ${supportsOrderingMode ? sql`ordering_mode,` : sql``}
+        created_at::text AS created_at,
+        updated_at::text AS updated_at
     `;
 
     if (!row) {

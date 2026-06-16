@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { buildMilestonePath } from "@/src/lib/share";
 import { buildSitemapUrl } from "@/src/lib/sitemap";
 import { contentService } from "@/src/server/services/content-service";
 
@@ -14,9 +15,11 @@ function normalizeLastModified(value?: string): string {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [categories, timelines] = await Promise.all([
+  const [categories, tags, timelines, milestones] = await Promise.all([
     contentService.listCategoryEntries(),
-    contentService.listSitemapEntries()
+    contentService.listTags(),
+    contentService.listSitemapEntries(),
+    contentService.listMilestoneSitemapEntries()
   ]);
 
   const staticEntries: MetadataRoute.Sitemap = [
@@ -48,5 +51,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9
   }));
 
-  return [...staticEntries, ...categoryEntries, ...timelineEntries];
+  const tagEntries: MetadataRoute.Sitemap = tags.map((tag) => ({
+    url: buildSitemapUrl(`/tag/${tag.slug}`),
+    lastModified: DEFAULT_LAST_MODIFIED,
+    changeFrequency: "weekly",
+    priority: 0.65
+  }));
+
+  const milestoneEntries: MetadataRoute.Sitemap = milestones.map((milestone) => ({
+    url: buildSitemapUrl(buildMilestonePath(milestone.id, milestone.title)),
+    lastModified: normalizeLastModified(milestone.updatedAt),
+    changeFrequency: "monthly",
+    priority: 0.75
+  }));
+
+  return [...staticEntries, ...categoryEntries, ...tagEntries, ...timelineEntries, ...milestoneEntries];
 }

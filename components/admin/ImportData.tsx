@@ -208,15 +208,21 @@ export function ImportData({
           <p className="muted" style={{ margin: 0 }}>
             {preview.totals.timelines} timelines • {preview.totals.accepted} events will be inserted • {preview.totals.duplicates} duplicates detected
           </p>
+          <p className="muted" style={{ margin: 0 }}>
+            Sources: {preview.totals.sources} • Tags: {preview.totals.tags} • Warnings: {preview.totals.warnings}
+          </p>
           {preview.timelines.length > 1 ? (
             <div className="admin-lists">
               {preview.timelines.slice(0, 8).map((timeline) => (
                 <article key={timeline.slug} className="glass-card stack">
                   <strong>{timeline.title}</strong>
-                  <p className="small muted" style={{ margin: 0 }}>
-                    {timeline.mode === "create" ? "New timeline" : "Existing timeline"} • {timeline.accepted} accepted • {timeline.duplicates} duplicates
-                  </p>
-                </article>
+	                  <p className="small muted" style={{ margin: 0 }}>
+	                    {timeline.mode === "create" ? "New timeline" : "Existing timeline"} • {timeline.orderingMode} order • {timeline.accepted} accepted • {timeline.duplicates} duplicates
+	                  </p>
+	                  {timeline.warnings.length > 0 ? (
+	                    <p className="small muted" style={{ margin: 0 }}>{timeline.warnings.join(" ")}</p>
+	                  ) : null}
+	                </article>
               ))}
             </div>
           ) : (
@@ -228,10 +234,19 @@ export function ImportData({
             {preview.preview.map((item) => (
               <article key={`${item.timelineSlug || "timeline"}-${item.date}-${item.title}`} className="glass-card stack">
                 <strong>{item.title}</strong>
-                <p className="small muted" style={{ margin: 0 }}>
-                  {item.timelineTitle ? `${item.timelineTitle} • ` : ""}{item.date} {item.duplicate ? "• duplicate" : "• new"}
-                </p>
-                <p className="small muted" style={{ margin: 0 }}>{item.description}</p>
+	                <p className="small muted" style={{ margin: 0 }}>
+	                  {item.timelineTitle ? `${item.timelineTitle} • ` : ""}{item.displayDate || item.date} {item.duplicate ? "• duplicate" : "• new"}
+	                </p>
+	                <p className="small muted" style={{ margin: 0 }}>
+	                  Sort: {item.sortYear ?? "?"}-{item.sortMonth ?? "?"}-{item.sortDay ?? "?"} • Precision: {item.datePrecision} • Sources: {item.sources} • Tags: {item.tags}
+	                  {item.eventOrder ? ` • Editorial sequence: ${item.eventOrder}` : ""}
+	                </p>
+	                {item.tagNames.length > 0 ? (
+	                  <p className="small muted" style={{ margin: 0 }}>
+	                    Parsed tags: {item.tagNames.join(", ")}
+	                  </p>
+	                ) : null}
+	                <p className="small muted" style={{ margin: 0 }}>{item.description}</p>
               </article>
             ))}
           </div>
@@ -250,15 +265,24 @@ export function ImportData({
           <p className="muted" style={{ margin: 0 }}>
             Events created: {result.eventsCreatedCount} • Duplicates skipped: {result.duplicatesSkipped}
           </p>
+          <p className="muted" style={{ margin: 0 }}>
+            Sources linked: {result.importedSourcesCount} • Tags linked: {result.importedTagsCount} • Warnings: {result.warnings.length}
+          </p>
           {result.timelineResults.length > 1 ? (
             <div className="admin-lists">
               {result.timelineResults.slice(0, 8).map((timeline) => (
                 <article key={timeline.slug} className="glass-card stack">
                   <strong>{timeline.title}</strong>
-                  <p className="small muted" style={{ margin: 0 }}>
-                    {timeline.timelineCreated ? "Created" : "Reused"} • {timeline.importedEventsCount} imported • {timeline.skippedEventsCount} skipped
-                  </p>
-                </article>
+	                  <p className="small muted" style={{ margin: 0 }}>
+	                    {timeline.timelineCreated ? "Created" : "Reused"} • {timeline.orderingMode} order • {timeline.importedEventsCount} imported • {timeline.skippedEventsCount} skipped
+	                  </p>
+	                  <p className="small muted" style={{ margin: 0 }}>
+	                    Sources linked: {timeline.importedSourcesCount} • Tags linked: {timeline.importedTagsCount}
+	                  </p>
+	                  {timeline.warnings.length > 0 ? (
+	                    <p className="small muted" style={{ margin: 0 }}>{timeline.warnings.join(" ")}</p>
+	                  ) : null}
+	                </article>
               ))}
             </div>
           ) : null}

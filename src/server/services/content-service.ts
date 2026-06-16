@@ -368,8 +368,16 @@ export const contentService = {
     return timelineRepository.listSitemapEntries();
   },
 
+  listMilestoneSitemapEntries(): Promise<Array<{ id: number; title: string; updatedAt: string }>> {
+    return eventRepository.listSitemapEntries();
+  },
+
   listCategoryEntries(): Promise<CategoryEntry[]> {
     return timelineRepository.listCategoryEntries();
+  },
+
+  listTags() {
+    return tagRepository.list();
   },
 
   getTimeline(slug: string): Promise<TimelineDetail | null> {
@@ -382,6 +390,10 @@ export const contentService = {
 
   getEventShareContext(eventId: number): Promise<EventShareContext | null> {
     return eventRepository.getShareContextById(eventId);
+  },
+
+  getMilestone(eventId: number) {
+    return eventRepository.getById(eventId);
   },
 
   async getTagDetail(slug: string): Promise<TagDetail | null> {
@@ -399,7 +411,46 @@ export const contentService = {
 
   async searchTimelines(query: string, limit = 12): Promise<SearchResult> {
     const normalized = normalizeQuery(query);
-    const items = normalized ? await timelineRepository.search(normalized, limit) : [];
+    const timelines = normalized ? await timelineRepository.search(normalized, limit) : [];
+    return {
+      query: normalized,
+      total: timelines.length,
+      items: timelines.map((timeline, index) => ({
+        type: "timeline" as const,
+        id: timeline.id,
+        rank: limit - index,
+        timeline
+      }))
+    };
+  },
+
+  async searchKnowledge(query: string, limit = 12): Promise<SearchResult> {
+    const normalized = normalizeQuery(query);
+    if (!normalized) {
+      return { query: "", total: 0, items: [] };
+    }
+
+    const [timelines, milestones] = await Promise.all([
+      timelineRepository.search(normalized, limit),
+      eventRepository.searchMilestones(normalized, limit)
+    ]);
+    const items = [
+      ...timelines.map((timeline, index) => ({
+        type: "timeline" as const,
+        id: timeline.id,
+        rank: limit - index,
+        timeline
+      })),
+      ...milestones.map(({ milestone, rank }) => ({
+        type: "milestone" as const,
+        id: milestone.id,
+        rank,
+        milestone
+      }))
+    ]
+      .sort((a, b) => b.rank - a.rank || a.type.localeCompare(b.type) || a.id - b.id)
+      .slice(0, limit);
+
     return {
       query: normalized,
       total: items.length,

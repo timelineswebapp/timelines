@@ -10,8 +10,7 @@ export const SOCIAL_IMAGE_SIZE = {
 } as const;
 
 const TIMELINE_PREFIX_PATTERN = /^timeline of\s+/i;
-const MAX_SOCIAL_IMAGE_TITLE_LENGTH = 104;
-const BADGE_BOX_SIZE = 112;
+const BADGE_BOX_SIZE = 96;
 
 let iconDataUrlPromise: Promise<string> | null = null;
 
@@ -29,38 +28,24 @@ function stripTimelinePrefix(title: string): string {
   return strippedTitle.length >= 20 ? strippedTitle : normalizedTitle;
 }
 
-function truncateSocialImageTitle(title: string): string {
-  if (title.length <= MAX_SOCIAL_IMAGE_TITLE_LENGTH) {
-    return title;
-  }
-
-  const candidate = title.slice(0, MAX_SOCIAL_IMAGE_TITLE_LENGTH - 1).trimEnd();
-  const lastWordBoundary = candidate.lastIndexOf(" ");
-  if (lastWordBoundary <= 28) {
-    return `${candidate}…`;
-  }
-
-  return `${candidate.slice(0, lastWordBoundary).trimEnd()}…`;
-}
-
 function resolveSocialImageTitle(title: string): string {
-  return truncateSocialImageTitle(stripTimelinePrefix(title));
+  return stripTimelinePrefix(title);
 }
 
-function resolveTitleMetrics(title: string): { fontSize: number; maxWidth: string; lineHeight: number } {
+function resolveTitleMetrics(title: string): { fontSize: number; maxWidth: string; lineHeight: number; maxHeight: string } {
   if (title.length <= 26) {
-    return { fontSize: 88, maxWidth: "820px", lineHeight: 0.92 };
+    return { fontSize: 82, maxWidth: "860px", lineHeight: 0.94, maxHeight: "166px" };
   }
 
   if (title.length <= 48) {
-    return { fontSize: 78, maxWidth: "860px", lineHeight: 0.93 };
+    return { fontSize: 72, maxWidth: "900px", lineHeight: 0.96, maxHeight: "210px" };
   }
 
   if (title.length <= 72) {
-    return { fontSize: 68, maxWidth: "900px", lineHeight: 0.94 };
+    return { fontSize: 62, maxWidth: "920px", lineHeight: 0.98, maxHeight: "244px" };
   }
 
-  return { fontSize: 60, maxWidth: "920px", lineHeight: 0.95 };
+  return { fontSize: 52, maxWidth: "940px", lineHeight: 1, maxHeight: "260px" };
 }
 
 async function loadPublicSvgDataUrl(publicPath: string): Promise<string> {
@@ -78,9 +63,19 @@ async function getTimelineIconDataUrl(): Promise<string> {
   return iconDataUrlPromise;
 }
 
-export async function renderSocialImage({ title }: { title: string }): Promise<ReactElement> {
+export async function renderSocialImage({
+  title,
+  category,
+  meta,
+  label = "TiMELiNES"
+}: {
+  title: string;
+  category?: string | null;
+  meta?: string | null;
+  label?: string;
+}): Promise<ReactElement> {
   const resolvedTitle = resolveSocialImageTitle(title);
-  const { fontSize, maxWidth, lineHeight } = resolveTitleMetrics(resolvedTitle);
+  const { fontSize, maxWidth, lineHeight, maxHeight } = resolveTitleMetrics(resolvedTitle);
   const iconDataUrl = await getTimelineIconDataUrl();
 
   return (
@@ -89,9 +84,8 @@ export async function renderSocialImage({ title }: { title: string }): Promise<R
         width: "100%",
         height: "100%",
         display: "flex",
-        padding: "56px",
-        background:
-          "radial-gradient(circle at top left, rgba(214, 235, 255, 0.9), rgba(247, 249, 252, 0) 42%), linear-gradient(180deg, #f8fbff 0%, #eef5fb 100%)",
+        padding: "72px 84px",
+        background: "linear-gradient(180deg, #f8fafc 0%, #edf3f8 100%)",
         color: "#1f2f46",
         fontFamily: "Plus Jakarta Sans, system-ui, sans-serif"
       }}
@@ -102,39 +96,55 @@ export async function renderSocialImage({ title }: { title: string }): Promise<R
           display: "flex",
           alignItems: "stretch",
           width: "100%",
-          borderRadius: "42px",
-          padding: "58px 60px",
-          background: "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(246,250,255,0.76))",
-          border: "1px solid rgba(255,255,255,0.72)",
-          boxShadow: "0 28px 72px rgba(61, 103, 149, 0.12), inset 0 1px 0 rgba(255,255,255,0.9)"
+          borderRadius: "24px",
+          padding: "56px 64px",
+          background: "rgba(255,255,255,0.86)",
+          border: "1px solid rgba(140, 158, 179, 0.28)",
+          boxShadow: "0 22px 56px rgba(44, 67, 94, 0.10), inset 0 1px 0 rgba(255,255,255,0.9)"
         }}
       >
         <div
           style={{
             position: "absolute",
             inset: "0",
-            borderRadius: "42px",
-            background:
-              "radial-gradient(circle at top right, rgba(182, 214, 245, 0.22), rgba(182, 214, 245, 0) 34%)"
-          }}
-        />
+              borderRadius: "24px",
+              background: "linear-gradient(90deg, rgba(55, 81, 110, 0.035), rgba(55, 81, 110, 0))"
+            }}
+          />
 
         <div
           style={{
             position: "relative",
-            zIndex: 1,
+            zIndex: "1",
             display: "flex",
-            alignItems: "center",
+            flexDirection: "column",
+            justifyContent: "space-between",
             width: "100%",
-            paddingRight: "168px"
+            paddingRight: "142px"
           }}
         >
           <div
             style={{
               display: "flex",
+              alignItems: "center",
+              gap: "16px",
+              fontSize: "24px",
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "#5b718c"
+            }}
+          >
+            <span>{category || "Historical timeline"}</span>
+            {meta ? <span style={{ color: "#9aa8b8" }}>•</span> : null}
+            {meta ? <span>{meta}</span> : null}
+          </div>
+          <div
+            style={{
+              display: "flex",
               flexDirection: "column",
               justifyContent: "center",
-              maxWidth
+              maxWidth,
+              minHeight: "292px"
             }}
           >
             <h1
@@ -143,30 +153,42 @@ export async function renderSocialImage({ title }: { title: string }): Promise<R
                 fontFamily: "Cormorant Garamond, Georgia, serif",
                 fontSize: `${fontSize}px`,
                 lineHeight,
-                letterSpacing: "-0.04em",
-                maxHeight: `${Math.round(fontSize * lineHeight * 2)}px`,
+                letterSpacing: "0",
+                maxHeight,
                 overflow: "hidden"
               }}
             >
               {resolvedTitle}
             </h1>
           </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              color: "#5b718c",
+              fontSize: "24px"
+            }}
+          >
+            <span>{label}</span>
+            <span style={{ color: "#9aa8b8" }}>Everything has a timeline.</span>
+          </div>
         </div>
 
         <div
           style={{
             position: "absolute",
-            right: "48px",
-            bottom: "48px",
+            right: "58px",
+            bottom: "58px",
             display: "flex",
-            zIndex: 1
+            zIndex: "1"
           }}
         >
           <div
             style={{
               width: `${BADGE_BOX_SIZE}px`,
               height: `${BADGE_BOX_SIZE}px`,
-              borderRadius: "28px",
+              borderRadius: "22px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -180,8 +202,8 @@ export async function renderSocialImage({ title }: { title: string }): Promise<R
               src={iconDataUrl}
               alt=""
               style={{
-                width: "34px",
-                height: "88px",
+                width: "30px",
+                height: "74px",
                 objectFit: "contain",
                 opacity: 0.9
               }}

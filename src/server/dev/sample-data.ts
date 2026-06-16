@@ -174,6 +174,7 @@ function buildTimelineSummary(seed: SampleTimelineSeed, index: number): Timeline
     slug: slugify(seed.title),
     description: seed.description,
     category: seed.category,
+    orderingMode: "chronology",
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     tags: timelineTags,

@@ -1,6 +1,19 @@
 import type { TagRecord } from "@/src/lib/types";
+import type { Sql } from "postgres";
 import { getSql, getWriteSql } from "@/src/server/db/client";
 import { memoryStore } from "@/src/server/dev/memory-store";
+
+async function hasTagGovernanceTable(): Promise<boolean> {
+  const sql = getSql();
+  if (!sql) {
+    return false;
+  }
+
+  const [row] = await sql<{ exists: boolean }[]>`
+    SELECT to_regclass('tag_governance') IS NOT NULL AS exists
+  `;
+  return Boolean(row?.exists);
+}
 
 export const tagRepository = {
   async list(): Promise<TagRecord[]> {
@@ -35,11 +48,24 @@ export const tagRepository = {
   async create(input: Omit<TagRecord, "id">): Promise<TagRecord> {
     const sql = getWriteSql("tag create");
 
-    const [row] = await sql<TagRecord[]>`
-      INSERT INTO tags (slug, name)
-      VALUES (${input.slug}, ${input.name})
-      RETURNING id, slug, name
-    `;
+    const [row] = await sql.begin(async (tx) => {
+      const query = tx as unknown as Sql;
+      const [tag] = await query<TagRecord[]>`
+        INSERT INTO tags (slug, name)
+        VALUES (${input.slug}, ${input.name})
+        RETURNING id, slug, name
+      `;
+
+      if (tag && await hasTagGovernanceTable()) {
+        await query`
+          INSERT INTO tag_governance (tag_id)
+          VALUES (${tag.id})
+          ON CONFLICT (tag_id) DO NOTHING
+        `;
+      }
+
+      return [tag];
+    });
 
     if (!row) {
       throw new Error("Tag insert failed.");

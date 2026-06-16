@@ -14,7 +14,7 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
   const [error, setError] = useState("");
   const [databaseConnected, setDatabaseConnected] = useState(initialDatabaseConnected);
   const [activeTab, setActiveTab] = useState<TopTab>("analytics");
-  const [contentSection, setContentSection] = useState<"snapshot" | "timelines" | "events" | "import_data" | "requests">("snapshot");
+  const [contentSection, setContentSection] = useState<"snapshot" | "timelines" | "events" | "taxonomy" | "import_data" | "requests">("snapshot");
   const [isLoaded, setIsLoaded] = useState(false);
 
   const adminHeaders = useMemo(

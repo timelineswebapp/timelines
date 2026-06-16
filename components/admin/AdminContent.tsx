@@ -8,6 +8,7 @@ import type {
   ImportExecutionResult,
   ImportPreview,
   TagRecord,
+  TaxonomyGovernanceSnapshot,
   TimelineRequestRecord,
   TimelineSummary
 } from "@/src/lib/types";
@@ -15,6 +16,7 @@ import { ContentSnapshot } from "@/components/admin/ContentSnapshot";
 import { EventManager } from "@/components/admin/EventManager";
 import { ImportData } from "@/components/admin/ImportData";
 import { RequestsManager } from "@/components/admin/RequestsManager";
+import { TaxonomyGovernance } from "@/components/admin/TaxonomyGovernance";
 import { TimelineManager } from "@/components/admin/TimelineManager";
 import {
   initialContentDataset,
@@ -49,16 +51,17 @@ export function AdminContent({
     setStatus("Loading content datasets...");
 
     try {
-      const [overview, analyticsSnapshot, timelines, events, tags, requests] = await Promise.all([
+      const [overview, analyticsSnapshot, timelines, events, tags, taxonomy, requests] = await Promise.all([
         fetchAdmin<DashboardOverview>("/api/admin/analytics"),
         fetchAdmin<AnalyticsSnapshot>("/api/admin/analytics?mode=snapshot"),
         fetchAdmin<TimelineSummary[]>("/api/admin/timelines"),
         fetchAdmin<EventRecord[]>("/api/admin/events"),
         fetchAdmin<TagRecord[]>("/api/admin/tags"),
+        fetchAdmin<TaxonomyGovernanceSnapshot>("/api/admin/taxonomy"),
         fetchAdmin<TimelineRequestRecord[]>("/api/admin/requests")
       ]);
 
-      setDataset({ overview, analyticsSnapshot, timelines, events, tags, requests });
+      setDataset({ overview, analyticsSnapshot, timelines, events, tags, taxonomy, requests });
       setStatus("Content module synchronized.");
       onLoaded();
     } catch (loadError) {
@@ -198,7 +201,8 @@ export function AdminContent({
               title: draft.title,
               slug: draft.slug,
               description: draft.description,
-              category: draft.category
+              category: draft.category,
+              orderingMode: draft.orderingMode
             }
           )
         }
@@ -253,6 +257,10 @@ export function AdminContent({
         onApprove={approveImport}
       />
     );
+  }
+
+  if (section === "taxonomy") {
+    return <TaxonomyGovernance snapshot={dataset.taxonomy} />;
   }
 
   return (

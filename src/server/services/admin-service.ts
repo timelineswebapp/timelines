@@ -3,6 +3,7 @@ import { adsRepository } from "@/src/server/repositories/ads-repository";
 import { eventRepository } from "@/src/server/repositories/event-repository";
 import { requestRepository } from "@/src/server/repositories/request-repository";
 import { tagRepository } from "@/src/server/repositories/tag-repository";
+import { taxonomyRepository } from "@/src/server/repositories/taxonomy-repository";
 import { timelineRepository } from "@/src/server/repositories/timeline-repository";
 
 export const adminService = {
@@ -20,6 +21,7 @@ export const adminService = {
   updateEvent: eventRepository.update,
   deleteEvent: eventRepository.delete,
   listTags: tagRepository.list,
+  getTaxonomyGovernanceSnapshot: taxonomyRepository.getGovernanceSnapshot,
   createTag: tagRepository.create,
   updateTag: tagRepository.update,
   deleteTag: tagRepository.delete,

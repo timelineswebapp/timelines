@@ -1,4 +1,7 @@
 import { buildPublicUrl } from "@/src/lib/public-site";
+import { slugify } from "@/src/lib/utils";
+
+const FALLBACK_MILESTONE_SLUG = "milestone";
 
 export function buildTimelinePath(slug: string): string {
   return `/timeline/${encodeURIComponent(slug)}`;
@@ -8,12 +11,25 @@ export function buildEventPath(timelineSlug: string, eventId: number): string {
   return `${buildTimelinePath(timelineSlug)}?event=${encodeURIComponent(String(eventId))}`;
 }
 
+export function buildMilestoneSlug(title: string): string {
+  return slugify(title) || FALLBACK_MILESTONE_SLUG;
+}
+
+export function buildMilestonePath(eventId: number, titleOrSlug: string): string {
+  const slug = buildMilestoneSlug(titleOrSlug);
+  return `/milestone/${encodeURIComponent(String(eventId))}/${encodeURIComponent(slug)}`;
+}
+
 export function buildCanonicalTimelineUrl(slug: string): string {
   return buildPublicUrl(buildTimelinePath(slug));
 }
 
 export function buildCanonicalEventUrl(timelineSlug: string, eventId: number): string {
   return buildPublicUrl(buildEventPath(timelineSlug, eventId));
+}
+
+export function buildCanonicalMilestoneUrl(eventId: number, titleOrSlug: string): string {
+  return buildPublicUrl(buildMilestonePath(eventId, titleOrSlug));
 }
 
 export function buildTimelineOgImagePath(slug: string): string {
@@ -41,6 +57,10 @@ export function parseEventIdParam(value: string | null | undefined): number | nu
 
   const parsed = Number(normalized);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+export function parseMilestoneIdParam(value: string | null | undefined): number | null {
+  return parseEventIdParam(value);
 }
 
 export async function copyTextToClipboard(value: string): Promise<void> {

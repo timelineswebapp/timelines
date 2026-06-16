@@ -12,7 +12,7 @@ export async function GET(request: Request) {
       limit: searchParams.get("limit") || 12
     });
 
-    const result = await contentService.searchTimelines(input.q, input.limit);
+    const result = await contentService.searchKnowledge(input.q, input.limit);
     return ok(result);
   } catch (error) {
     return fromError(error);

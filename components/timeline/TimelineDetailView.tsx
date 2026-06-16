@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { parseEventIdParam } from "@/src/lib/share";
 import type { AdSlotAssignment, TimelineDetail, TimelineSummary } from "@/src/lib/types";
-import { formatHistoricalYearLabel } from "@/src/lib/historical-date";
+import { compareHistoricalSort, formatHistoricalYearLabel } from "@/src/lib/historical-date";
 import { AdSlot } from "@/components/timeline/AdSlot";
 import { EventDetailSheet } from "@/components/timeline/EventDetailSheet";
 import { EventRow } from "@/components/timeline/EventRow";
@@ -19,8 +19,9 @@ const EVENT_SCROLL_TOP_OFFSET = 96;
 const TIMELINE_SCROLL_STORAGE_KEY_PREFIX = "timeline-scroll:";
 
 function getTimelineDateRange(timeline: TimelineDetail) {
-  const firstEvent = timeline.events[0];
-  const lastEvent = timeline.events[timeline.events.length - 1];
+  const chronologicalEvents = [...timeline.events].sort(compareHistoricalSort);
+  const firstEvent = chronologicalEvents[0];
+  const lastEvent = chronologicalEvents[chronologicalEvents.length - 1];
 
   if (!firstEvent || !lastEvent) {
     return "";
@@ -289,7 +290,8 @@ export function TimelineDetailView({
 
   const selectedEvent = timeline.events.find((event) => event.id === selectedEventId) || null;
   const dateRange = getTimelineDateRange(timeline);
-  const headerMeta = [dateRange, `${timeline.eventCount} events`].filter(Boolean).join(" · ");
+  const sourceCount = new Set(timeline.events.flatMap((event) => event.sources.map((source) => source.id))).size;
+  const headerMeta = [dateRange, `${timeline.eventCount} events`, sourceCount > 0 ? `${sourceCount} sources` : null].filter(Boolean).join(" · ");
   const inlineOneAssignment = assignmentForSlot(adAssignments, "timeline_inline_1");
   const inlineTwoAssignment = assignmentForSlot(adAssignments, "timeline_inline_2");
   const bottomAssignment = assignmentForSlot(adAssignments, "timeline_bottom");

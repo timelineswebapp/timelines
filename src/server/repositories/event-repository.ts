@@ -1,4 +1,4 @@
-import type { EmbeddedSourceInput, EventRecord, EventShareContext, SourceRecord } from "@/src/lib/types";
+import type { EmbeddedSourceInput, EventRecord, EventShareContext, MilestoneSearchSummary, SourceRecord } from "@/src/lib/types";
 import type { Sql } from "postgres";
 import { compareHistoricalSort, parseHistoricalDateInput } from "@/src/lib/historical-date";
 import { getSql, getWriteSql } from "@/src/server/db/client";
@@ -161,6 +161,428 @@ async function insertEventTags(sql: Sql, eventId: number, tagIds: number[]): Pro
 }
 
 export const eventRepository = {
+  async listSitemapEntries(limit = 50000): Promise<Array<{ id: number; title: string; updatedAt: string }>> {
+    const sql = getSql();
+    if (!sql) {
+      return memoryStore
+        .getTimelines()
+        .flatMap((timeline) => timeline.events)
+        .map((event) => ({
+          id: event.id,
+          title: event.title,
+          updatedAt: event.updatedAt
+        }))
+        .slice(0, limit);
+    }
+
+    return sql<{ id: number; title: string; updatedAt: string }[]>`
+      SELECT id, title, updated_at::text AS "updatedAt"
+      FROM events
+      ORDER BY updated_at DESC, id DESC
+      LIMIT ${limit}
+    `;
+  },
+
+  async searchMilestones(query: string, limit: number): Promise<Array<{ milestone: MilestoneSearchSummary; rank: number }>> {
+    const sql = getSql();
+    if (!sql) {
+      const normalized = query.toLowerCase();
+      return memoryStore
+        .getTimelines()
+        .flatMap((timeline) =>
+          timeline.events
+            .filter((event) => {
+              const haystack = [
+                event.title,
+                event.description,
+                event.location || "",
+                event.tags.map((tag) => tag.name).join(" "),
+                event.sources.map((source) => source.publisher).join(" ")
+              ]
+                .join(" ")
+                .toLowerCase();
+              return haystack.includes(normalized);
+            })
+            .map((event) => ({
+              milestone: {
+                id: event.id,
+                title: event.title,
+                description: event.description,
+                date: event.date,
+                datePrecision: event.datePrecision,
+                legacyDate: event.legacyDate,
+                displayDate: event.displayDate,
+                sortYear: event.sortYear,
+                sortMonth: event.sortMonth,
+                sortDay: event.sortDay,
+                location: event.location,
+                sources: event.sources,
+                tags: event.tags,
+                timelineLinks: [
+                  {
+                    timelineId: timeline.id,
+                    slug: timeline.slug,
+                    title: timeline.title,
+                    eventOrder: timeline.events.findIndex((candidate) => candidate.id === event.id) + 1
+                  }
+                ]
+              },
+              rank: event.title.toLowerCase() === normalized ? 4 : 1
+            }))
+        )
+        .sort((a, b) => b.rank - a.rank || b.milestone.id - a.milestone.id)
+        .slice(0, limit);
+    }
+
+    const hasHistoricalColumns = await hasHistoricalChronologyColumns(sql);
+    const rows = await (hasHistoricalColumns
+      ? sql<{
+          id: number;
+          date: string;
+          legacy_date: string;
+          display_date: string | null;
+          sort_year: number | null;
+          sort_month: number | null;
+          sort_day: number | null;
+          date_precision: EventRecord["datePrecision"];
+          title: string;
+          description: string;
+          location: string | null;
+          source_ids: number[] | null;
+          tag_ids: number[] | null;
+          rank_score: number;
+        }[]>`
+          WITH search_query AS (
+            SELECT websearch_to_tsquery('english', ${query}) AS q, lower(${query}) AS raw
+          )
+          SELECT
+            events.id,
+            COALESCE(events.display_date, events.date::text) AS date,
+            events.date::text AS legacy_date,
+            events.display_date,
+            events.sort_year,
+            events.sort_month,
+            events.sort_day,
+            events.date_precision,
+            events.title,
+            events.description,
+            events.location,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids,
+            MAX(
+              GREATEST(
+                CASE WHEN lower(events.title) = search_query.raw THEN 4 ELSE 0 END,
+                ts_rank_cd(events.search_vector, search_query.q) * 2,
+                CASE
+                  WHEN to_tsvector('english', coalesce(tags.name, '') || ' ' || coalesce(tags.slug, '')) @@ search_query.q
+                    THEN 0.9
+                  ELSE 0
+                END
+              )
+            ) AS rank_score
+          FROM events
+          CROSS JOIN search_query
+          LEFT JOIN event_sources ON event_sources.event_id = events.id
+          LEFT JOIN event_tags ON event_tags.event_id = events.id
+          LEFT JOIN tags ON tags.id = event_tags.tag_id
+          WHERE
+            events.search_vector @@ search_query.q
+            OR to_tsvector('english', coalesce(tags.name, '') || ' ' || coalesce(tags.slug, '')) @@ search_query.q
+            OR lower(events.title) = search_query.raw
+          GROUP BY events.id
+          ORDER BY rank_score DESC, events.updated_at DESC, events.id DESC
+          LIMIT ${limit}
+        `
+      : sql<{
+          id: number;
+          date: string;
+          date_precision: EventRecord["datePrecision"];
+          title: string;
+          description: string;
+          location: string | null;
+          source_ids: number[] | null;
+          tag_ids: number[] | null;
+          rank_score: number;
+        }[]>`
+          WITH search_query AS (
+            SELECT websearch_to_tsquery('english', ${query}) AS q, lower(${query}) AS raw
+          )
+          SELECT
+            events.id,
+            events.date::text AS date,
+            events.date_precision,
+            events.title,
+            events.description,
+            events.location,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids,
+            MAX(
+              GREATEST(
+                CASE WHEN lower(events.title) = search_query.raw THEN 4 ELSE 0 END,
+                ts_rank_cd(events.search_vector, search_query.q) * 2,
+                CASE
+                  WHEN to_tsvector('english', coalesce(tags.name, '') || ' ' || coalesce(tags.slug, '')) @@ search_query.q
+                    THEN 0.9
+                  ELSE 0
+                END
+              )
+            ) AS rank_score
+          FROM events
+          CROSS JOIN search_query
+          LEFT JOIN event_sources ON event_sources.event_id = events.id
+          LEFT JOIN event_tags ON event_tags.event_id = events.id
+          LEFT JOIN tags ON tags.id = event_tags.tag_id
+          WHERE
+            events.search_vector @@ search_query.q
+            OR to_tsvector('english', coalesce(tags.name, '') || ' ' || coalesce(tags.slug, '')) @@ search_query.q
+            OR lower(events.title) = search_query.raw
+          GROUP BY events.id
+          ORDER BY rank_score DESC, events.updated_at DESC, events.id DESC
+          LIMIT ${limit}
+        `);
+
+    const eventIds = rows.map((row) => row.id);
+    const sourceIds = Array.from(new Set(rows.flatMap((row) => row.source_ids || [])));
+    const tagIds = Array.from(new Set(rows.flatMap((row) => row.tag_ids || [])));
+    const [sources, tags, timelineLinks] = await Promise.all([
+      sourceIds.length
+        ? sql<{ id: number; publisher: string; url: string; credibility_score: string }[]>`
+            SELECT id, publisher, url, credibility_score::text
+            FROM sources
+            WHERE id IN ${sql(sourceIds)}
+          `
+        : Promise.resolve([]),
+      tagIds.length
+        ? sql<{ id: number; slug: string; name: string }[]>`
+            SELECT id, slug, name
+            FROM tags
+            WHERE id IN ${sql(tagIds)}
+          `
+        : Promise.resolve([]),
+      eventIds.length
+        ? sql<{ event_id: number; timeline_id: number; slug: string; title: string; event_order: number }[]>`
+            SELECT
+              timeline_events.event_id,
+              timeline_events.timeline_id,
+              timelines.slug,
+              timelines.title,
+              timeline_events.event_order
+            FROM timeline_events
+            INNER JOIN timelines ON timelines.id = timeline_events.timeline_id
+            WHERE timeline_events.event_id IN ${sql(eventIds)}
+            ORDER BY timeline_events.event_order ASC, timelines.id ASC
+          `
+        : Promise.resolve([])
+    ]);
+
+    return rows.map((row) => ({
+      rank: Number(row.rank_score),
+      milestone: {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        date: row.date,
+        datePrecision: row.date_precision,
+        legacyDate: "legacy_date" in row ? row.legacy_date : row.date,
+        displayDate: "display_date" in row ? row.display_date : null,
+        sortYear: "sort_year" in row ? row.sort_year : null,
+        sortMonth: "sort_month" in row ? row.sort_month : null,
+        sortDay: "sort_day" in row ? row.sort_day : null,
+        location: row.location,
+        sources: sources
+          .filter((source) => (row.source_ids || []).map(Number).includes(Number(source.id)))
+          .map((source) => ({
+            id: source.id,
+            publisher: source.publisher,
+            url: source.url,
+            credibilityScore: Number(source.credibility_score)
+          })),
+        tags: tags.filter((tag) => (row.tag_ids || []).includes(tag.id)),
+        timelineLinks: timelineLinks
+          .filter((link) => link.event_id === row.id)
+          .map((link) => ({
+            timelineId: link.timeline_id,
+            slug: link.slug,
+            title: link.title,
+            eventOrder: link.event_order
+          }))
+      }
+    }));
+  },
+
+  async getById(id: number): Promise<EventRecord | null> {
+    const sql = getSql();
+    if (!sql) {
+      for (const timeline of memoryStore.getTimelines()) {
+        const event = timeline.events.find((candidate) => candidate.id === id);
+        if (!event) {
+          continue;
+        }
+
+        return {
+          ...event,
+          timelineLinks: [
+            {
+              timelineId: timeline.id,
+              slug: timeline.slug,
+              title: timeline.title,
+              eventOrder: timeline.events.findIndex((candidate) => candidate.id === id) + 1
+            }
+          ]
+        };
+      }
+
+      return null;
+    }
+
+    const hasHistoricalColumns = await hasHistoricalChronologyColumns(sql);
+    const rows = await (hasHistoricalColumns
+      ? sql<{
+          id: number;
+          date: string;
+          legacy_date: string;
+          display_date: string | null;
+          sort_year: number | null;
+          sort_month: number | null;
+          sort_day: number | null;
+          date_precision: EventRecord["datePrecision"];
+          title: string;
+          description: string;
+          importance: number;
+          location: string | null;
+          image_url: string | null;
+          created_at: string;
+          updated_at: string;
+          source_ids: number[] | null;
+          tag_ids: number[] | null;
+        }[]>`
+          SELECT
+            events.id,
+            COALESCE(events.display_date, events.date::text) AS date,
+            events.date::text AS legacy_date,
+            events.display_date,
+            events.sort_year,
+            events.sort_month,
+            events.sort_day,
+            events.date_precision,
+            events.title,
+            events.description,
+            events.importance,
+            events.location,
+            events.image_url,
+            events.created_at::text AS created_at,
+            events.updated_at::text AS updated_at,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
+          FROM events
+          LEFT JOIN event_sources ON event_sources.event_id = events.id
+          LEFT JOIN event_tags ON event_tags.event_id = events.id
+          WHERE events.id = ${id}
+          GROUP BY events.id
+          LIMIT 1
+        `
+      : sql<{
+          id: number;
+          date: string;
+          date_precision: EventRecord["datePrecision"];
+          title: string;
+          description: string;
+          importance: number;
+          location: string | null;
+          image_url: string | null;
+          created_at: string;
+          updated_at: string;
+          source_ids: number[] | null;
+          tag_ids: number[] | null;
+        }[]>`
+          SELECT
+            events.id,
+            events.date::text AS date,
+            events.date_precision,
+            events.title,
+            events.description,
+            events.importance,
+            events.location,
+            events.image_url,
+            events.created_at::text AS created_at,
+            events.updated_at::text AS updated_at,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_sources.source_id), NULL) AS source_ids,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT event_tags.tag_id), NULL) AS tag_ids
+          FROM events
+          LEFT JOIN event_sources ON event_sources.event_id = events.id
+          LEFT JOIN event_tags ON event_tags.event_id = events.id
+          WHERE events.id = ${id}
+          GROUP BY events.id
+          LIMIT 1
+        `);
+
+    const row = rows[0];
+    if (!row) {
+      return null;
+    }
+
+    const sourceIds = Array.from(new Set(row.source_ids || []));
+    const tagIds = Array.from(new Set(row.tag_ids || []));
+    const [sources, tags, timelineLinks] = await Promise.all([
+      sourceIds.length
+        ? sql<{ id: number; publisher: string; url: string; credibility_score: string }[]>`
+            SELECT id, publisher, url, credibility_score::text
+            FROM sources
+            WHERE id IN ${sql(sourceIds)}
+          `
+        : Promise.resolve([]),
+      tagIds.length
+        ? sql<{ id: number; slug: string; name: string }[]>`
+            SELECT id, slug, name
+            FROM tags
+            WHERE id IN ${sql(tagIds)}
+          `
+        : Promise.resolve([]),
+      sql<{ timeline_id: number; slug: string; title: string; event_order: number }[]>`
+        SELECT
+          timeline_events.timeline_id,
+          timelines.slug,
+          timelines.title,
+          timeline_events.event_order
+        FROM timeline_events
+        INNER JOIN timelines ON timelines.id = timeline_events.timeline_id
+        WHERE timeline_events.event_id = ${id}
+        ORDER BY timeline_events.event_order ASC, timelines.id ASC
+      `
+    ]);
+
+    return {
+      id: row.id,
+      date: row.date,
+      datePrecision: row.date_precision,
+      legacyDate: "legacy_date" in row ? row.legacy_date : row.date,
+      displayDate: "display_date" in row ? row.display_date : null,
+      sortYear: "sort_year" in row ? row.sort_year : null,
+      sortMonth: "sort_month" in row ? row.sort_month : null,
+      sortDay: "sort_day" in row ? row.sort_day : null,
+      title: row.title,
+      description: row.description,
+      importance: row.importance,
+      location: row.location,
+      imageUrl: row.image_url,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      sources: sources.map((source) => ({
+        id: source.id,
+        publisher: source.publisher,
+        url: source.url,
+        credibilityScore: Number(source.credibility_score)
+      })),
+      tags,
+      timelineLinks: timelineLinks.map((link) => ({
+        timelineId: link.timeline_id,
+        slug: link.slug,
+        title: link.title,
+        eventOrder: link.event_order
+      }))
+    };
+  },
+
   async list(): Promise<EventRecord[]> {
     const sql = getSql();
     if (!sql) {

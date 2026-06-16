@@ -272,7 +272,7 @@ export function EventManager({
               <option value="year">Year</option>
               <option value="approximate">Approximate</option>
             </select>
-            <input className="input" type="number" min={1} value={draft.eventOrder} onChange={(event) => setDraft((current) => ({ ...current, eventOrder: event.target.value }))} placeholder="Order" required />
+            <input className="input" type="number" min={1} value={draft.eventOrder} onChange={(event) => setDraft((current) => ({ ...current, eventOrder: event.target.value }))} placeholder="Editorial sequence" required />
             <input className="input" type="number" min={1} max={5} value={draft.importance} onChange={(event) => setDraft((current) => ({ ...current, importance: event.target.value }))} placeholder="Importance" required />
             <input className="input" value={draft.location} onChange={(event) => setDraft((current) => ({ ...current, location: event.target.value }))} placeholder="Location" />
           </div>
