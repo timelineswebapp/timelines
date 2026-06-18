@@ -5,6 +5,7 @@ import type { Sql } from "postgres";
 import { parseHistoricalDateInput } from "@/src/lib/historical-date";
 import type {
   DatePrecision,
+  RelationshipRecoveryHistoryItem,
   RelationshipRecoveryReport,
   RelationshipRecoveryReportRow
 } from "@/src/lib/types";
@@ -63,6 +64,19 @@ type ExistingSourceRow = {
   publisher: string;
 };
 
+type RecoveryReportRow = {
+  id: number;
+  mode: RecoveryMode;
+  generated_at: string;
+  matched_rows: number;
+  unmatched_rows: number;
+  ambiguous_rows: number;
+  tag_links_pending: number;
+  source_links_pending: number;
+  inserted_tag_links: number;
+  inserted_source_links: number;
+};
+
 const REPORT_ROW_LIMIT = 500;
 const DATA_DIRECTORY = path.join(process.cwd(), "data");
 const CANONICAL_CSV_HEADERS = [
@@ -107,6 +121,21 @@ function addReportRow(report: RelationshipRecoveryReport, row: RelationshipRecov
   if (report.rows.length < REPORT_ROW_LIMIT) {
     report.rows.push(row);
   }
+}
+
+function toHistoryItem(row: RecoveryReportRow): RelationshipRecoveryHistoryItem {
+  return {
+    id: row.id,
+    mode: row.mode,
+    generatedAt: row.generated_at,
+    matchedRows: row.matched_rows,
+    unmatchedRows: row.unmatched_rows,
+    ambiguousRows: row.ambiguous_rows,
+    tagLinksPending: row.tag_links_pending,
+    sourceLinksPending: row.source_links_pending,
+    insertedTagLinks: row.inserted_tag_links,
+    insertedSourceLinks: row.inserted_source_links
+  };
 }
 
 function normalizeTitle(value: string) {
@@ -341,6 +370,46 @@ async function loadRelationshipHealth(sql: Sql): Promise<RelationshipRecoveryRep
   };
 }
 
+async function saveRecoveryReport(sql: Sql, report: RelationshipRecoveryReport): Promise<RelationshipRecoveryReport> {
+  const [row] = await sql<{ id: number; generated_at: string }[]>`
+    INSERT INTO relationship_recovery_reports (
+      mode,
+      generated_at,
+      matched_rows,
+      unmatched_rows,
+      ambiguous_rows,
+      tag_links_pending,
+      source_links_pending,
+      inserted_tag_links,
+      inserted_source_links,
+      report
+    )
+    VALUES (
+      ${report.mode},
+      ${report.generatedAt},
+      ${report.totals.matchedRows},
+      ${report.totals.unmatchedRows},
+      ${report.totals.ambiguousRows},
+      ${report.totals.tagLinksToInsert},
+      ${report.totals.sourceLinksToInsert},
+      ${report.totals.tagLinksInserted},
+      ${report.totals.sourceLinksInserted},
+      CAST(${JSON.stringify(report)} AS jsonb)
+    )
+    RETURNING id, generated_at::text
+  `;
+
+  if (!row) {
+    throw new ApiError(500, "RECOVERY_REPORT_SAVE_FAILED", "Relationship recovery report could not be saved.");
+  }
+
+  return {
+    ...report,
+    id: row.id,
+    generatedAt: row.generated_at
+  };
+}
+
 async function loadExistingEvents(sql: Sql): Promise<Map<string, EventMatch[]>> {
   const rows = await sql<ExistingEventRow[]>`
     SELECT
@@ -529,6 +598,7 @@ async function buildRecoveryReport(mode: RecoveryMode): Promise<RelationshipReco
   const sql = getWriteSql("relationship recovery");
   const inputPath = DATA_DIRECTORY;
   const report: RelationshipRecoveryReport = {
+    id: null,
     mode,
     inputPath: path.relative(process.cwd(), inputPath) || inputPath,
     generatedAt: new Date().toISOString(),
@@ -684,18 +754,92 @@ async function buildRecoveryReport(mode: RecoveryMode): Promise<RelationshipReco
   };
 
   if (mode === "apply") {
-    await sql.begin(async (tx) => {
+    return await sql.begin(async (tx) => {
       await execute(tx as unknown as Sql);
+      report.totals.database = await loadRelationshipHealth(tx as unknown as Sql);
+      return saveRecoveryReport(tx as unknown as Sql, report);
     });
-    report.totals.database = await loadRelationshipHealth(sql);
-  } else {
-    await execute(sql);
   }
 
-  return report;
+  await execute(sql);
+  return saveRecoveryReport(sql, report);
+}
+
+async function listRecoveryReports(): Promise<RelationshipRecoveryHistoryItem[]> {
+  const sql = getWriteSql("relationship recovery history");
+  const rows = await sql<RecoveryReportRow[]>`
+    SELECT
+      id,
+      mode,
+      generated_at::text,
+      matched_rows,
+      unmatched_rows,
+      ambiguous_rows,
+      tag_links_pending,
+      source_links_pending,
+      inserted_tag_links,
+      inserted_source_links
+    FROM relationship_recovery_reports
+    ORDER BY generated_at DESC, id DESC
+    LIMIT 100
+  `;
+
+  return rows.map(toHistoryItem);
+}
+
+async function getRecoveryReport(id: number): Promise<RelationshipRecoveryReport> {
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new ApiError(400, "INVALID_REPORT_ID", "Relationship recovery report id must be a positive integer.");
+  }
+
+  const sql = getWriteSql("relationship recovery report read");
+  const [row] = await sql<{ id: number; generated_at: string; report: RelationshipRecoveryReport }[]>`
+    SELECT id, generated_at::text, report
+    FROM relationship_recovery_reports
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+
+  if (!row) {
+    throw new ApiError(404, "REPORT_NOT_FOUND", "Relationship recovery report not found.");
+  }
+
+  return {
+    ...row.report,
+    id: row.id,
+    generatedAt: row.generated_at
+  };
+}
+
+function csvCell(value: unknown): string {
+  const text = Array.isArray(value) ? value.join("|") : String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function recoveryReportToCsv(report: RelationshipRecoveryReport): string {
+  const header = ["file", "rowNumber", "timelineSlug", "title", "status", "eventId", "tags", "sources", "message"];
+  return [
+    header.map(csvCell).join(","),
+    ...report.rows.map((row) =>
+      [
+        row.file,
+        row.rowNumber,
+        row.timelineSlug,
+        row.title,
+        row.status,
+        row.eventId ?? "",
+        row.tags,
+        row.sources,
+        row.message || ""
+      ].map(csvCell).join(",")
+    )
+  ].join("\n");
 }
 
 export const relationshipRecoveryService = {
   preview: () => buildRecoveryReport("preview"),
-  apply: () => buildRecoveryReport("apply")
+  apply: () => buildRecoveryReport("apply"),
+  listReports: listRecoveryReports,
+  getReport: getRecoveryReport,
+  reportToCsv: recoveryReportToCsv
 };

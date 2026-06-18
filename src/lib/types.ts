@@ -176,6 +176,7 @@ export interface RelationshipRecoveryReportRow {
 }
 
 export interface RelationshipRecoveryReport {
+  id: number | null;
   mode: "preview" | "apply";
   generatedAt: string;
   inputPath: string;
@@ -207,6 +208,19 @@ export interface RelationshipRecoveryReport {
     sourceLinksInserted: number;
   };
   rows: RelationshipRecoveryReportRow[];
+}
+
+export interface RelationshipRecoveryHistoryItem {
+  id: number;
+  mode: "preview" | "apply";
+  generatedAt: string;
+  matchedRows: number;
+  unmatchedRows: number;
+  ambiguousRows: number;
+  tagLinksPending: number;
+  sourceLinksPending: number;
+  insertedTagLinks: number;
+  insertedSourceLinks: number;
 }
 
 export interface SearchResult {

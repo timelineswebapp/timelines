@@ -171,6 +171,20 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS relationship_recovery_reports (
+  id BIGSERIAL PRIMARY KEY,
+  mode TEXT NOT NULL CHECK (mode IN ('preview', 'apply')),
+  generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  matched_rows INTEGER NOT NULL DEFAULT 0,
+  unmatched_rows INTEGER NOT NULL DEFAULT 0,
+  ambiguous_rows INTEGER NOT NULL DEFAULT 0,
+  tag_links_pending INTEGER NOT NULL DEFAULT 0,
+  source_links_pending INTEGER NOT NULL DEFAULT 0,
+  inserted_tag_links INTEGER NOT NULL DEFAULT 0,
+  inserted_source_links INTEGER NOT NULL DEFAULT 0,
+  report JSONB NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS ad_campaigns (
   id BIGSERIAL PRIMARY KEY,
   slot TEXT NOT NULL CHECK (slot IN ('home_feed_ad', 'timeline_inline_1', 'timeline_inline_2', 'timeline_bottom', 'search_bottom')),
@@ -204,6 +218,7 @@ CREATE INDEX IF NOT EXISTS idx_timeline_slug_history_timeline_id ON timeline_slu
 CREATE INDEX IF NOT EXISTS idx_analytics_events_type_date ON analytics_events(event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_timeline_type_date ON analytics_events(timeline_id, event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_slug_type_date ON analytics_events(slug, event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_relationship_recovery_reports_generated_at ON relationship_recovery_reports(generated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ad_campaigns_slot_status_dates ON ad_campaigns(slot, status, start_date, end_date);
 
 CREATE OR REPLACE FUNCTION set_updated_at()

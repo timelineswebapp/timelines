@@ -6,6 +6,7 @@ import type {
   DashboardOverview,
   EmbeddedSourceInput,
   EventRecord,
+  RelationshipRecoveryHistoryItem,
   RelationshipRecoveryReport,
   TagRecord,
   TaxonomyGovernanceSnapshot,
@@ -26,6 +27,7 @@ export type ContentDataset = {
   taxonomy: TaxonomyGovernanceSnapshot | null;
   requests: TimelineRequestRecord[];
   relationshipRecovery: RelationshipRecoveryReport | null;
+  relationshipRecoveryHistory: RelationshipRecoveryHistoryItem[];
 };
 
 export type AnalyticsDataset = {
@@ -87,7 +89,8 @@ export const initialContentDataset: ContentDataset = {
   tags: [],
   taxonomy: null,
   requests: [],
-  relationshipRecovery: null
+  relationshipRecovery: null,
+  relationshipRecoveryHistory: []
 };
 
 export const initialAnalyticsDataset: AnalyticsDataset = {

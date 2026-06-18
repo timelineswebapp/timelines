@@ -1,6 +1,6 @@
 "use client";
 
-import type { RelationshipRecoveryReport } from "@/src/lib/types";
+import type { RelationshipRecoveryHistoryItem, RelationshipRecoveryReport } from "@/src/lib/types";
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
@@ -25,15 +25,26 @@ function Metric({ label, value }: { label: string; value: number | string }) {
 
 export function DataHealth({
   report,
+  history,
   onPreview,
-  onApply
+  onApply,
+  onRefreshHistory,
+  onSelectReport,
+  onDownloadJson,
+  onDownloadCsv
 }: {
   report: RelationshipRecoveryReport | null;
+  history: RelationshipRecoveryHistoryItem[];
   onPreview: () => Promise<void>;
   onApply: () => Promise<void>;
+  onRefreshHistory: () => Promise<void>;
+  onSelectReport: (id: number) => Promise<void>;
+  onDownloadJson: (id: number) => Promise<void>;
+  onDownloadCsv: (id: number) => Promise<void>;
 }) {
   const database = report?.totals.database;
   const canApply = Boolean(report && report.totals.tagLinksToInsert + report.totals.sourceLinksToInsert > 0);
+  const selectedReportId = report?.id ?? null;
 
   return (
     <section className="glass section-card stack">
@@ -48,6 +59,15 @@ export function DataHealth({
         </button>
         <button className="button secondary" type="button" onClick={() => void onApply()} disabled={!canApply}>
           Apply recovery
+        </button>
+        <button className="button secondary" type="button" onClick={() => void onRefreshHistory()}>
+          Refresh history
+        </button>
+        <button className="button secondary" type="button" onClick={() => selectedReportId ? void onDownloadJson(selectedReportId) : undefined} disabled={!selectedReportId}>
+          Download JSON
+        </button>
+        <button className="button secondary" type="button" onClick={() => selectedReportId ? void onDownloadCsv(selectedReportId) : undefined} disabled={!selectedReportId}>
+          Download CSV
         </button>
       </div>
 
@@ -103,6 +123,56 @@ export function DataHealth({
           </div>
         </>
       ) : null}
+
+      <div className="stack" style={{ gap: 8 }}>
+        <span className="eyebrow">Recovery History</span>
+        <div className="table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Mode</th>
+                <th>Matched</th>
+                <th>Unmatched</th>
+                <th>Ambiguous</th>
+                <th>Tag pending</th>
+                <th>Source pending</th>
+                <th>Inserted tags</th>
+                <th>Inserted sources</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((item) => (
+                <tr key={item.id}>
+                  <td>{new Date(item.generatedAt).toLocaleString()}</td>
+                  <td>{item.mode}</td>
+                  <td>{formatNumber(item.matchedRows)}</td>
+                  <td>{formatNumber(item.unmatchedRows)}</td>
+                  <td>{formatNumber(item.ambiguousRows)}</td>
+                  <td>{formatNumber(item.tagLinksPending)}</td>
+                  <td>{formatNumber(item.sourceLinksPending)}</td>
+                  <td>{formatNumber(item.insertedTagLinks)}</td>
+                  <td>{formatNumber(item.insertedSourceLinks)}</td>
+                  <td>
+                    <div className="admin-actions">
+                      <button className="button secondary" type="button" onClick={() => void onSelectReport(item.id)}>
+                        Open
+                      </button>
+                      <button className="button secondary" type="button" onClick={() => void onDownloadJson(item.id)}>
+                        JSON
+                      </button>
+                      <button className="button secondary" type="button" onClick={() => void onDownloadCsv(item.id)}>
+                        CSV
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
   );
 }

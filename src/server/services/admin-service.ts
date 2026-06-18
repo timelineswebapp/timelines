@@ -33,5 +33,8 @@ export const adminService = {
   updateAdCampaign: adsRepository.updateCampaign,
   deleteAdCampaign: adsRepository.deleteCampaign,
   previewRelationshipRecovery: relationshipRecoveryService.preview,
-  applyRelationshipRecovery: relationshipRecoveryService.apply
+  applyRelationshipRecovery: relationshipRecoveryService.apply,
+  listRelationshipRecoveryReports: relationshipRecoveryService.listReports,
+  getRelationshipRecoveryReport: relationshipRecoveryService.getReport,
+  exportRelationshipRecoveryReportCsv: relationshipRecoveryService.reportToCsv
 };

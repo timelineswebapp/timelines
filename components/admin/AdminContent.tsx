@@ -7,6 +7,7 @@ import type {
   EventRecord,
   ImportExecutionResult,
   ImportPreview,
+  RelationshipRecoveryHistoryItem,
   RelationshipRecoveryReport,
   TagRecord,
   TaxonomyGovernanceSnapshot,
@@ -187,6 +188,81 @@ export function AdminContent({
     }
   }, [setError, setStatus, token]);
 
+  const loadRelationshipRecoveryHistory = useCallback(async () => {
+    if (!token) {
+      return;
+    }
+
+    try {
+      const history = await fetchAdmin<RelationshipRecoveryHistoryItem[]>("/api/admin/relationship-recovery/reports");
+      setDataset((current) => ({ ...current, relationshipRecoveryHistory: history }));
+    } catch (historyError) {
+      setError(historyError instanceof Error ? historyError.message : "Relationship recovery history failed.");
+      setStatus("Relationship recovery history failed.");
+    }
+  }, [fetchAdmin, setError, setStatus, token]);
+
+  useEffect(() => {
+    if (section === "data_health") {
+      void loadRelationshipRecoveryHistory();
+    }
+  }, [loadRelationshipRecoveryHistory, section]);
+
+  const selectRelationshipRecoveryReport = useCallback(
+    async (id: number) => {
+      setError("");
+      setStatus("Loading relationship recovery report...");
+
+      try {
+        const report = await fetchAdmin<RelationshipRecoveryReport>(`/api/admin/relationship-recovery/reports/${id}`);
+        setDataset((current) => ({ ...current, relationshipRecovery: report }));
+        setStatus(`Recovery report ${id} loaded.`);
+      } catch (reportError) {
+        setError(reportError instanceof Error ? reportError.message : "Relationship recovery report failed.");
+        setStatus("Relationship recovery report failed.");
+      }
+    },
+    [fetchAdmin, setError, setStatus]
+  );
+
+  const downloadRelationshipRecoveryReport = useCallback(
+    async (id: number, format: "json" | "csv") => {
+      setError("");
+      setStatus(`Preparing relationship recovery ${format.toUpperCase()} export...`);
+
+      try {
+        const response = await fetch(`/api/admin/relationship-recovery/reports/${id}?format=${format}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "x-admin-token": token
+          }
+        });
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as
+            | { ok?: boolean; error?: { message?: string } }
+            | null;
+          throw new Error(payload?.error?.message || "Unable to export relationship recovery report.");
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `relationship-recovery-report-${id}.${format}`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        setStatus(`Relationship recovery ${format.toUpperCase()} downloaded.`);
+      } catch (downloadError) {
+        setError(downloadError instanceof Error ? downloadError.message : "Relationship recovery export failed.");
+        setStatus("Relationship recovery export failed.");
+      }
+    },
+    [setError, setStatus, token]
+  );
+
   const previewRelationshipRecovery = useCallback(async () => {
     setError("");
     setStatus("Preparing relationship recovery preview...");
@@ -194,13 +270,14 @@ export function AdminContent({
     try {
       const report = await fetchAdmin<RelationshipRecoveryReport>("/api/admin/relationship-recovery");
       setDataset((current) => ({ ...current, relationshipRecovery: report }));
+      void loadRelationshipRecoveryHistory();
       setStatus(`Recovery preview ready: ${report.totals.matchedRows} matched rows.`);
     } catch (previewError) {
       setError(previewError instanceof Error ? previewError.message : "Relationship recovery preview failed.");
       setStatus("Relationship recovery preview failed.");
       throw previewError;
     }
-  }, [fetchAdmin, setError, setStatus]);
+  }, [fetchAdmin, loadRelationshipRecoveryHistory, setError, setStatus]);
 
   const applyRelationshipRecovery = useCallback(async () => {
     setError("");
@@ -211,13 +288,14 @@ export function AdminContent({
         method: "POST"
       });
       setDataset((current) => ({ ...current, relationshipRecovery: report }));
+      void loadRelationshipRecoveryHistory();
       setStatus(`Recovery applied: ${report.totals.tagLinksInserted} tag links and ${report.totals.sourceLinksInserted} source links inserted.`);
     } catch (applyError) {
       setError(applyError instanceof Error ? applyError.message : "Relationship recovery apply failed.");
       setStatus("Relationship recovery apply failed.");
       throw applyError;
     }
-  }, [fetchAdmin, setError, setStatus]);
+  }, [fetchAdmin, loadRelationshipRecoveryHistory, setError, setStatus]);
 
   if (section === "snapshot") {
     return <ContentSnapshot dataset={dataset} />;
@@ -297,8 +375,13 @@ export function AdminContent({
     return (
       <DataHealth
         report={dataset.relationshipRecovery}
+        history={dataset.relationshipRecoveryHistory}
         onPreview={previewRelationshipRecovery}
         onApply={applyRelationshipRecovery}
+        onRefreshHistory={loadRelationshipRecoveryHistory}
+        onSelectReport={selectRelationshipRecoveryReport}
+        onDownloadJson={(id) => downloadRelationshipRecoveryReport(id, "json")}
+        onDownloadCsv={(id) => downloadRelationshipRecoveryReport(id, "csv")}
       />
     );
   }
