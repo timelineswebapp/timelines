@@ -5,6 +5,7 @@ import { requestRepository } from "@/src/server/repositories/request-repository"
 import { tagRepository } from "@/src/server/repositories/tag-repository";
 import { taxonomyRepository } from "@/src/server/repositories/taxonomy-repository";
 import { timelineRepository } from "@/src/server/repositories/timeline-repository";
+import { relationshipRecoveryService } from "@/src/server/services/relationship-recovery-service";
 
 export const adminService = {
   getDashboardOverview: analyticsRepository.getDashboardOverview,
@@ -30,5 +31,7 @@ export const adminService = {
   getAdsDashboardData: adsRepository.getDashboardData,
   createAdCampaign: adsRepository.createCampaign,
   updateAdCampaign: adsRepository.updateCampaign,
-  deleteAdCampaign: adsRepository.deleteCampaign
+  deleteAdCampaign: adsRepository.deleteCampaign,
+  previewRelationshipRecovery: relationshipRecoveryService.preview,
+  applyRelationshipRecovery: relationshipRecoveryService.apply
 };

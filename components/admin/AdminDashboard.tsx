@@ -6,7 +6,7 @@ import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import { AdminContent } from "@/components/admin/AdminContent";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import type { AnalyticsSnapshot } from "@/src/lib/types";
-import type { TopTab } from "@/components/admin/admin-shared";
+import type { ContentSection, TopTab } from "@/components/admin/admin-shared";
 
 export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseConnected: boolean }) {
   const [token, setToken] = useState("");
@@ -14,7 +14,7 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
   const [error, setError] = useState("");
   const [databaseConnected, setDatabaseConnected] = useState(initialDatabaseConnected);
   const [activeTab, setActiveTab] = useState<TopTab>("analytics");
-  const [contentSection, setContentSection] = useState<"snapshot" | "timelines" | "events" | "taxonomy" | "import_data" | "requests">("snapshot");
+  const [contentSection, setContentSection] = useState<ContentSection>("snapshot");
   const [isLoaded, setIsLoaded] = useState(false);
 
   const adminHeaders = useMemo(

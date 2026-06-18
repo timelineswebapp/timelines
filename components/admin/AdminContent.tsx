@@ -7,12 +7,14 @@ import type {
   EventRecord,
   ImportExecutionResult,
   ImportPreview,
+  RelationshipRecoveryReport,
   TagRecord,
   TaxonomyGovernanceSnapshot,
   TimelineRequestRecord,
   TimelineSummary
 } from "@/src/lib/types";
 import { ContentSnapshot } from "@/components/admin/ContentSnapshot";
+import { DataHealth } from "@/components/admin/DataHealth";
 import { EventManager } from "@/components/admin/EventManager";
 import { ImportData } from "@/components/admin/ImportData";
 import { RequestsManager } from "@/components/admin/RequestsManager";
@@ -61,7 +63,7 @@ export function AdminContent({
         fetchAdmin<TimelineRequestRecord[]>("/api/admin/requests")
       ]);
 
-      setDataset({ overview, analyticsSnapshot, timelines, events, tags, taxonomy, requests });
+      setDataset((current) => ({ ...current, overview, analyticsSnapshot, timelines, events, tags, taxonomy, requests }));
       setStatus("Content module synchronized.");
       onLoaded();
     } catch (loadError) {
@@ -185,6 +187,38 @@ export function AdminContent({
     }
   }, [setError, setStatus, token]);
 
+  const previewRelationshipRecovery = useCallback(async () => {
+    setError("");
+    setStatus("Preparing relationship recovery preview...");
+
+    try {
+      const report = await fetchAdmin<RelationshipRecoveryReport>("/api/admin/relationship-recovery");
+      setDataset((current) => ({ ...current, relationshipRecovery: report }));
+      setStatus(`Recovery preview ready: ${report.totals.matchedRows} matched rows.`);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : "Relationship recovery preview failed.");
+      setStatus("Relationship recovery preview failed.");
+      throw previewError;
+    }
+  }, [fetchAdmin, setError, setStatus]);
+
+  const applyRelationshipRecovery = useCallback(async () => {
+    setError("");
+    setStatus("Applying relationship recovery...");
+
+    try {
+      const report = await fetchAdmin<RelationshipRecoveryReport>("/api/admin/relationship-recovery", {
+        method: "POST"
+      });
+      setDataset((current) => ({ ...current, relationshipRecovery: report }));
+      setStatus(`Recovery applied: ${report.totals.tagLinksInserted} tag links and ${report.totals.sourceLinksInserted} source links inserted.`);
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : "Relationship recovery apply failed.");
+      setStatus("Relationship recovery apply failed.");
+      throw applyError;
+    }
+  }, [fetchAdmin, setError, setStatus]);
+
   if (section === "snapshot") {
     return <ContentSnapshot dataset={dataset} />;
   }
@@ -255,6 +289,16 @@ export function AdminContent({
         onDownloadRegistry={downloadRegistry}
         onPreview={previewImport}
         onApprove={approveImport}
+      />
+    );
+  }
+
+  if (section === "data_health") {
+    return (
+      <DataHealth
+        report={dataset.relationshipRecovery}
+        onPreview={previewRelationshipRecovery}
+        onApply={applyRelationshipRecovery}
       />
     );
   }

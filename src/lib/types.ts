@@ -161,6 +161,54 @@ export interface TaxonomyGovernanceSnapshot {
   };
 }
 
+export type RelationshipRecoveryRowStatus = "matched" | "unmatched" | "ambiguous" | "invalid";
+
+export interface RelationshipRecoveryReportRow {
+  file: string;
+  rowNumber: number;
+  timelineSlug: string;
+  title: string;
+  status: RelationshipRecoveryRowStatus;
+  eventId: number | null;
+  tags: string[];
+  sources: string[];
+  message: string | null;
+}
+
+export interface RelationshipRecoveryReport {
+  mode: "preview" | "apply";
+  generatedAt: string;
+  inputPath: string;
+  totals: {
+    database: {
+      events: number;
+      timelineEvents: number;
+      tags: number;
+      sources: number;
+      eventTags: number;
+      eventSources: number;
+    };
+    files: number;
+    csvRows: number;
+    validRows: number;
+    invalidRows: number;
+    matchedRows: number;
+    unmatchedRows: number;
+    ambiguousRows: number;
+    uniqueTagsSeen: number;
+    uniqueSourcesSeen: number;
+    tagsToCreate: number;
+    sourcesToCreate: number;
+    tagLinksPreExisting: number;
+    tagLinksToInsert: number;
+    tagLinksInserted: number;
+    sourceLinksPreExisting: number;
+    sourceLinksToInsert: number;
+    sourceLinksInserted: number;
+  };
+  rows: RelationshipRecoveryReportRow[];
+}
+
 export interface SearchResult {
   query: string;
   total: number;

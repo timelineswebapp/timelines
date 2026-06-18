@@ -6,6 +6,7 @@ import type {
   DashboardOverview,
   EmbeddedSourceInput,
   EventRecord,
+  RelationshipRecoveryReport,
   TagRecord,
   TaxonomyGovernanceSnapshot,
   TimelineRequestRecord,
@@ -13,7 +14,7 @@ import type {
 } from "@/src/lib/types";
 
 export type TopTab = "content" | "analytics" | "ads";
-export type ContentSection = "snapshot" | "timelines" | "events" | "taxonomy" | "import_data" | "requests";
+export type ContentSection = "snapshot" | "timelines" | "events" | "taxonomy" | "import_data" | "data_health" | "requests";
 export type AdminFetcher = <T>(url: string, init?: RequestInit) => Promise<T>;
 
 export type ContentDataset = {
@@ -24,6 +25,7 @@ export type ContentDataset = {
   tags: TagRecord[];
   taxonomy: TaxonomyGovernanceSnapshot | null;
   requests: TimelineRequestRecord[];
+  relationshipRecovery: RelationshipRecoveryReport | null;
 };
 
 export type AnalyticsDataset = {
@@ -84,7 +86,8 @@ export const initialContentDataset: ContentDataset = {
   events: [],
   tags: [],
   taxonomy: null,
-  requests: []
+  requests: [],
+  relationshipRecovery: null
 };
 
 export const initialAnalyticsDataset: AnalyticsDataset = {
