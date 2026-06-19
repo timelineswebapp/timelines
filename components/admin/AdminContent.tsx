@@ -31,6 +31,29 @@ import {
   type TimelineDraft
 } from "@/components/admin/admin-shared";
 
+type RelationshipRecoveryHistoryPayload =
+  | RelationshipRecoveryHistoryItem[]
+  | {
+      data?: RelationshipRecoveryHistoryItem[];
+      reports?: RelationshipRecoveryHistoryItem[];
+    };
+
+function normalizeRelationshipRecoveryHistory(payload: RelationshipRecoveryHistoryPayload): RelationshipRecoveryHistoryItem[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+
+  if (Array.isArray(payload.reports)) {
+    return payload.reports;
+  }
+
+  return [];
+}
+
 export function AdminContent({
   token,
   fetchAdmin,
@@ -194,8 +217,10 @@ export function AdminContent({
     }
 
     try {
-      const history = await fetchAdmin<RelationshipRecoveryHistoryItem[]>("/api/admin/relationship-recovery/reports");
+      const payload = await fetchAdmin<RelationshipRecoveryHistoryPayload>("/api/admin/relationship-recovery/reports");
+      const history = normalizeRelationshipRecoveryHistory(payload);
       setDataset((current) => ({ ...current, relationshipRecoveryHistory: history }));
+      setStatus(`Relationship recovery history refreshed: ${history.length} reports.`);
     } catch (historyError) {
       setError(historyError instanceof Error ? historyError.message : "Relationship recovery history failed.");
       setStatus("Relationship recovery history failed.");
@@ -270,7 +295,7 @@ export function AdminContent({
     try {
       const report = await fetchAdmin<RelationshipRecoveryReport>("/api/admin/relationship-recovery");
       setDataset((current) => ({ ...current, relationshipRecovery: report }));
-      void loadRelationshipRecoveryHistory();
+      await loadRelationshipRecoveryHistory();
       setStatus(`Recovery preview ready: ${report.totals.matchedRows} matched rows.`);
     } catch (previewError) {
       setError(previewError instanceof Error ? previewError.message : "Relationship recovery preview failed.");
@@ -288,7 +313,7 @@ export function AdminContent({
         method: "POST"
       });
       setDataset((current) => ({ ...current, relationshipRecovery: report }));
-      void loadRelationshipRecoveryHistory();
+      await loadRelationshipRecoveryHistory();
       setStatus(`Recovery applied: ${report.totals.tagLinksInserted} tag links and ${report.totals.sourceLinksInserted} source links inserted.`);
     } catch (applyError) {
       setError(applyError instanceof Error ? applyError.message : "Relationship recovery apply failed.");
