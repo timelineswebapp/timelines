@@ -77,6 +77,43 @@ type RecoveryReportRow = {
   inserted_source_links: number;
 };
 
+async function ensureRecoveryReportTable(sql: Sql): Promise<void> {
+  await sql`
+    CREATE TABLE IF NOT EXISTS relationship_recovery_reports (
+      id BIGSERIAL PRIMARY KEY,
+      mode TEXT NOT NULL DEFAULT 'preview',
+      generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      matched_rows INTEGER NOT NULL DEFAULT 0,
+      unmatched_rows INTEGER NOT NULL DEFAULT 0,
+      ambiguous_rows INTEGER NOT NULL DEFAULT 0,
+      tag_links_pending INTEGER NOT NULL DEFAULT 0,
+      source_links_pending INTEGER NOT NULL DEFAULT 0,
+      inserted_tag_links INTEGER NOT NULL DEFAULT 0,
+      inserted_source_links INTEGER NOT NULL DEFAULT 0,
+      report JSONB NOT NULL DEFAULT '{}'::jsonb
+    )
+  `;
+
+  await sql`
+    ALTER TABLE relationship_recovery_reports
+      ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'preview',
+      ADD COLUMN IF NOT EXISTS generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS matched_rows INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS unmatched_rows INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS ambiguous_rows INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS tag_links_pending INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS source_links_pending INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS inserted_tag_links INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS inserted_source_links INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS report JSONB NOT NULL DEFAULT '{}'::jsonb
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_relationship_recovery_reports_generated_at
+      ON relationship_recovery_reports(generated_at DESC)
+  `;
+}
+
 const REPORT_ROW_LIMIT = 500;
 const DATA_DIRECTORY = path.join(process.cwd(), "data");
 const CANONICAL_CSV_HEADERS = [
@@ -371,6 +408,8 @@ async function loadRelationshipHealth(sql: Sql): Promise<RelationshipRecoveryRep
 }
 
 async function saveRecoveryReport(sql: Sql, report: RelationshipRecoveryReport): Promise<RelationshipRecoveryReport> {
+  await ensureRecoveryReportTable(sql);
+
   const [row] = await sql<{ id: number; generated_at: string }[]>`
     INSERT INTO relationship_recovery_reports (
       mode,
@@ -767,6 +806,8 @@ async function buildRecoveryReport(mode: RecoveryMode): Promise<RelationshipReco
 
 async function listRecoveryReports(): Promise<RelationshipRecoveryHistoryItem[]> {
   const sql = getWriteSql("relationship recovery history");
+  await ensureRecoveryReportTable(sql);
+
   const rows = await sql<RecoveryReportRow[]>`
     SELECT
       id,
@@ -793,6 +834,8 @@ async function getRecoveryReport(id: number): Promise<RelationshipRecoveryReport
   }
 
   const sql = getWriteSql("relationship recovery report read");
+  await ensureRecoveryReportTable(sql);
+
   const [row] = await sql<{ id: number; generated_at: string; report: RelationshipRecoveryReport }[]>`
     SELECT id, generated_at::text, report
     FROM relationship_recovery_reports
