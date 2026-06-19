@@ -859,24 +859,64 @@ function csvCell(value: unknown): string {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function valueType(value: unknown): string {
+  if (Array.isArray(value)) {
+    return "array";
+  }
+
+  return value === null ? "null" : typeof value;
+}
+
 function recoveryReportToCsv(report: RelationshipRecoveryReport): string {
-  const header = ["file", "rowNumber", "timelineSlug", "title", "status", "eventId", "tags", "sources", "message"];
-  return [
-    header.map(csvCell).join(","),
-    ...report.rows.map((row) =>
-      [
-        row.file,
-        row.rowNumber,
-        row.timelineSlug,
-        row.title,
-        row.status,
-        row.eventId ?? "",
-        row.tags,
-        row.sources,
-        row.message || ""
-      ].map(csvCell).join(",")
-    )
-  ].join("\n");
+  const rows = Array.isArray(report.rows) ? report.rows : [];
+
+  console.error(
+    JSON.stringify({
+      level: "info",
+      component: "relationship_recovery_csv_export",
+      reportId: report.id,
+      rowsType: valueType(report.rows),
+      rowsLength: rows.length
+    })
+  );
+
+  try {
+    const header = ["file", "rowNumber", "timelineSlug", "title", "status", "eventId", "tags", "sources", "message"];
+    return [
+      header.map(csvCell).join(","),
+      ...rows.map((row) =>
+        [
+          row.file,
+          row.rowNumber,
+          row.timelineSlug,
+          row.title,
+          row.status,
+          row.eventId ?? "",
+          Array.isArray(row.tags) ? row.tags : [],
+          Array.isArray(row.sources) ? row.sources : [],
+          row.message || ""
+        ].map(csvCell).join(",")
+      )
+    ].join("\n");
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        component: "relationship_recovery_csv_export",
+        reportId: report.id,
+        rowsType: valueType(report.rows),
+        rowsLength: rows.length,
+        message: error instanceof Error ? error.message : "Unexpected relationship recovery CSV serializer failure.",
+        stack: error instanceof Error ? error.stack : undefined
+      })
+    );
+
+    throw new ApiError(
+      500,
+      "RECOVERY_REPORT_CSV_EXPORT_FAILED",
+      `Relationship recovery report ${report.id ?? "unknown"} could not be exported as CSV.`
+    );
+  }
 }
 
 export const relationshipRecoveryService = {
