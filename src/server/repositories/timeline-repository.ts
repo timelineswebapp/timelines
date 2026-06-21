@@ -5,6 +5,7 @@ import { ApiError } from "@/src/server/api/responses";
 import { getSql, getWriteSql } from "@/src/server/db/client";
 import { hasHistoricalChronologyColumns, hasTimelineOrderingModeColumn } from "@/src/server/db/schema-capabilities";
 import { getMemoryCategoryEntries, memoryStore, touchTimelineSummary } from "@/src/server/dev/memory-store";
+import { historicalAuthorityRepository } from "@/src/server/repositories/historical-authority-repository";
 
 interface TimelineRow {
   id: number;
@@ -915,6 +916,7 @@ export const timelineRepository = {
           `
         : Promise.resolve([])
     ]);
+    const contextByMilestone = await historicalAuthorityRepository.getMilestoneContexts(eventRows.map((row) => row.id));
 
     const detail: TimelineDetail = {
       ...summaryFromRow(
@@ -947,7 +949,8 @@ export const timelineRepository = {
             url: source.url,
             credibilityScore: Number(source.credibility_score)
           })),
-        tags: eventTags.filter((tag) => (row.tag_ids || []).includes(tag.id))
+        tags: eventTags.filter((tag) => (row.tag_ids || []).includes(tag.id)),
+        historicalContext: contextByMilestone.get(row.id)
         })),
       relatedTimelines: []
     };

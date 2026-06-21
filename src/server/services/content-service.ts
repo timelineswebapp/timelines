@@ -1,8 +1,10 @@
 import type { CategoryDetail, CategoryEntry, EventShareContext, SearchResult, TagDetail, TimelineDetail, TimelineSummary } from "@/src/lib/types";
 import { normalizeQuery } from "@/src/lib/utils";
 import { eventRepository } from "@/src/server/repositories/event-repository";
+import { historicalAuthorityRepository } from "@/src/server/repositories/historical-authority-repository";
 import { timelineRepository } from "@/src/server/repositories/timeline-repository";
 import { tagRepository } from "@/src/server/repositories/tag-repository";
+import { platformReadModelService } from "@/src/server/services/platform-read-model-service";
 
 type WeightedBucket = "recent" | "evergreen" | "diversity" | "discovery";
 
@@ -340,6 +342,10 @@ async function getHomepageSnapshotSlice(
   };
 }
 
+async function hasPublishedReadModels() {
+  return platformReadModelService.hasPublishedReadModels();
+}
+
 async function listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
   const candidateLimit = clamp(Math.max(limit * 6, 48), limit, 120);
   const seed = getDateSeed();
@@ -348,55 +354,122 @@ async function listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
 }
 
 export const contentService = {
-  listFeaturedTimelines(limit = 12): Promise<TimelineSummary[]> {
+  async listFeaturedTimelines(limit = 12): Promise<TimelineSummary[]> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.listFeaturedTimelines(limit);
+    }
     return timelineRepository.listSummaries(limit);
   },
 
-  listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
+  async listHomepageTimelines(limit = 12): Promise<TimelineSummary[]> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.listFeaturedTimelines(limit);
+    }
     return listHomepageTimelines(limit);
   },
 
-  getHomepageSnapshotSlice(offset = 0, limit = 12, snapshotDate?: string): Promise<HomepageSnapshotSlice> {
+  async getHomepageSnapshotSlice(offset = 0, limit = 12, snapshotDate?: string): Promise<HomepageSnapshotSlice> {
+    if (await hasPublishedReadModels()) {
+      const normalizedOffset = Math.max(0, offset);
+      const normalizedLimit = clamp(limit, 1, 24);
+      const items = (await platformReadModelService.listFeaturedTimelines(normalizedOffset + normalizedLimit)).slice(
+        normalizedOffset,
+        normalizedOffset + normalizedLimit
+      );
+      return {
+        items,
+        nextOffset: items.length === normalizedLimit ? normalizedOffset + items.length : null,
+        hasMore: items.length === normalizedLimit,
+        snapshotDate: snapshotDate || getDateSeed()
+      };
+    }
     return getHomepageSnapshotSlice(offset, limit, snapshotDate);
   },
 
-  listStaticSlugs(limit = 50): Promise<string[]> {
+  async listStaticSlugs(limit = 50): Promise<string[]> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.listStaticSlugs(limit);
+    }
     return timelineRepository.listStaticSlugs(limit);
   },
 
-  listSitemapEntries(): Promise<Array<{ slug: string; updatedAt: string }>> {
+  async listSitemapEntries(): Promise<Array<{ slug: string; updatedAt: string }>> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.listSitemapEntries();
+    }
     return timelineRepository.listSitemapEntries();
   },
 
-  listMilestoneSitemapEntries(): Promise<Array<{ id: number; title: string; updatedAt: string }>> {
+  async listMilestoneSitemapEntries(): Promise<Array<{ id: number; title: string; updatedAt: string }>> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.listMilestoneSitemapEntries();
+    }
     return eventRepository.listSitemapEntries();
   },
 
-  listCategoryEntries(): Promise<CategoryEntry[]> {
+  async listCategoryEntries(): Promise<CategoryEntry[]> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.listCategoryEntries();
+    }
     return timelineRepository.listCategoryEntries();
   },
 
-  listTags() {
+  async listTags() {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.listTags();
+    }
     return tagRepository.list();
   },
 
-  getTimeline(slug: string): Promise<TimelineDetail | null> {
+  async getTimeline(slug: string): Promise<TimelineDetail | null> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.getTimelineBySlug(slug);
+    }
     return timelineRepository.getBySlug(slug);
   },
 
-  resolveTimelineRoute(slug: string): Promise<{ timeline: TimelineDetail | null; redirectSlug: string | null }> {
+  async resolveTimelineRoute(slug: string): Promise<{ timeline: TimelineDetail | null; redirectSlug: string | null }> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.resolveTimelineRoute(slug);
+    }
     return timelineRepository.resolveBySlug(slug);
   },
 
-  getEventShareContext(eventId: number): Promise<EventShareContext | null> {
+  async getEventShareContext(eventId: number): Promise<EventShareContext | null> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.getEventShareContext(eventId);
+    }
     return eventRepository.getShareContextById(eventId);
   },
 
-  getMilestone(eventId: number) {
+  async getMilestone(eventId: number): Promise<import("@/src/lib/types").EventRecord | null> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.getMilestone(eventId);
+    }
     return eventRepository.getById(eventId);
   },
 
+  getMilestoneContext(eventId: number): Promise<import("@/src/lib/types").MilestoneContext | null> {
+    return hasPublishedReadModels().then((hasPublished) =>
+      hasPublished ? platformReadModelService.getMilestoneContext(eventId) : historicalAuthorityRepository.getMilestoneContext(eventId)
+    );
+  },
+
+  getLegacyMilestoneContext(eventId: number) {
+    return historicalAuthorityRepository.getMilestoneContext(eventId);
+  },
+
+  async getHistoricalObjectBySlug(slug: string) {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.getHistoricalObjectBySlug(slug);
+    }
+    return historicalAuthorityRepository.getHistoricalObjectBySlug(slug);
+  },
+
   async getTagDetail(slug: string): Promise<TagDetail | null> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.getTagDetail(slug);
+    }
     const [tag, timelines] = await Promise.all([tagRepository.getBySlug(slug), timelineRepository.getByTag(slug)]);
     if (!tag) {
       return null;
@@ -405,11 +478,17 @@ export const contentService = {
     return { tag, timelines };
   },
 
-  getCategoryDetail(slug: string): Promise<CategoryDetail | null> {
+  async getCategoryDetail(slug: string): Promise<CategoryDetail | null> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.getCategoryDetail(slug);
+    }
     return timelineRepository.getByCategorySlug(slug);
   },
 
   async searchTimelines(query: string, limit = 12): Promise<SearchResult> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.searchKnowledge(query, limit);
+    }
     const normalized = normalizeQuery(query);
     const timelines = normalized ? await timelineRepository.search(normalized, limit) : [];
     return {
@@ -425,6 +504,9 @@ export const contentService = {
   },
 
   async searchKnowledge(query: string, limit = 12): Promise<SearchResult> {
+    if (await hasPublishedReadModels()) {
+      return platformReadModelService.searchKnowledge(query, limit);
+    }
     const normalized = normalizeQuery(query);
     if (!normalized) {
       return { query: "", total: 0, items: [] };

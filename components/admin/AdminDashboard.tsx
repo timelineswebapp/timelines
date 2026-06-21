@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminAds } from "@/components/admin/AdminAds";
 import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import { AdminContent } from "@/components/admin/AdminContent";
+import { AdminGovernance } from "@/components/admin/AdminGovernance";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import type { AnalyticsSnapshot } from "@/src/lib/types";
 import type { ContentSection, TopTab } from "@/components/admin/admin-shared";
@@ -130,6 +131,10 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
 
       {activeTab === "analytics" ? (
         <AdminAnalytics token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
+      ) : null}
+
+      {activeTab === "governance" ? (
+        <AdminGovernance token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
       ) : null}
 
       {activeTab === "ads" ? (

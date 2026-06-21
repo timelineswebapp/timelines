@@ -20,6 +20,10 @@ export function buildMilestonePath(eventId: number, titleOrSlug: string): string
   return `/milestone/${encodeURIComponent(String(eventId))}/${encodeURIComponent(slug)}`;
 }
 
+export function buildHistoricalObjectPath(slug: string): string {
+  return `/object/${encodeURIComponent(slug)}`;
+}
+
 export function buildCanonicalTimelineUrl(slug: string): string {
   return buildPublicUrl(buildTimelinePath(slug));
 }

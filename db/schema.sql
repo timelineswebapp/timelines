@@ -205,6 +205,529 @@ CREATE TABLE IF NOT EXISTS ad_campaigns (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS historical_objects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  canonical_name TEXT NOT NULL,
+  canonical_slug TEXT NOT NULL UNIQUE,
+  primary_type TEXT NOT NULL CHECK (
+    primary_type IN ('person', 'institution', 'place', 'technology', 'publication', 'conflict', 'movement', 'period')
+  ),
+  lifecycle_status TEXT NOT NULL DEFAULT 'established' CHECK (
+    lifecycle_status IN ('established', 'revised', 'merged', 'retired', 'preserved')
+  ),
+  authority_state TEXT NOT NULL DEFAULT 'active' CHECK (authority_state IN ('active', 'inactive')),
+  description TEXT NOT NULL DEFAULT '',
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+  merged_into_id UUID REFERENCES historical_objects(id) ON DELETE RESTRICT,
+  retirement_reason TEXT,
+  preservation_reason TEXT,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (id IS DISTINCT FROM merged_into_id),
+  CHECK (
+    (lifecycle_status = 'merged' AND merged_into_id IS NOT NULL AND authority_state = 'inactive')
+    OR lifecycle_status <> 'merged'
+  ),
+  CHECK (
+    (lifecycle_status = 'retired' AND authority_state = 'inactive')
+    OR lifecycle_status <> 'retired'
+  )
+);
+
+CREATE TABLE IF NOT EXISTS historical_object_aliases (
+  id BIGSERIAL PRIMARY KEY,
+  object_id UUID NOT NULL REFERENCES historical_objects(id) ON DELETE RESTRICT,
+  alias TEXT NOT NULL,
+  alias_slug TEXT NOT NULL UNIQUE,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS historical_object_revisions (
+  id BIGSERIAL PRIMARY KEY,
+  object_id UUID NOT NULL REFERENCES historical_objects(id) ON DELETE RESTRICT,
+  revision INTEGER NOT NULL CHECK (revision > 0),
+  action TEXT NOT NULL CHECK (action IN ('create', 'revise', 'merge', 'retire', 'preserve')),
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  reason TEXT NOT NULL,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (object_id, revision)
+);
+
+CREATE TABLE IF NOT EXISTS historical_object_merges (
+  id BIGSERIAL PRIMARY KEY,
+  source_object_id UUID NOT NULL REFERENCES historical_objects(id) ON DELETE RESTRICT,
+  target_object_id UUID NOT NULL REFERENCES historical_objects(id) ON DELETE RESTRICT,
+  reason TEXT NOT NULL,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (source_object_id IS DISTINCT FROM target_object_id)
+);
+
+CREATE TABLE IF NOT EXISTS historical_object_retirements (
+  id BIGSERIAL PRIMARY KEY,
+  object_id UUID NOT NULL REFERENCES historical_objects(id) ON DELETE RESTRICT,
+  reason TEXT NOT NULL,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS milestone_participations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  historical_object_id UUID NOT NULL REFERENCES historical_objects(id) ON DELETE RESTRICT,
+  milestone_id BIGINT NOT NULL REFERENCES events(id) ON DELETE RESTRICT,
+  role TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  participation_priority TEXT NOT NULL DEFAULT 'SUPPORTING' CHECK (
+    participation_priority IN ('PRIMARY', 'SUPPORTING', 'CONTEXT', 'BACKGROUND')
+  ),
+  lifecycle_status TEXT NOT NULL DEFAULT 'established' CHECK (
+    lifecycle_status IN ('established', 'revised', 'disputed', 'retired', 'preserved')
+  ),
+  authority_state TEXT NOT NULL DEFAULT 'active' CHECK (authority_state IN ('active', 'inactive')),
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+  dispute_reason TEXT,
+  retirement_reason TEXT,
+  preservation_reason TEXT,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (historical_object_id, milestone_id, role),
+  CHECK (
+    (lifecycle_status = 'retired' AND authority_state = 'inactive')
+    OR lifecycle_status <> 'retired'
+  )
+);
+
+CREATE TABLE IF NOT EXISTS milestone_participation_revisions (
+  id BIGSERIAL PRIMARY KEY,
+  participation_id UUID NOT NULL REFERENCES milestone_participations(id) ON DELETE RESTRICT,
+  revision INTEGER NOT NULL CHECK (revision > 0),
+  action TEXT NOT NULL CHECK (action IN ('create', 'revise', 'dispute', 'retire', 'preserve', 'object_merge')),
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  reason TEXT NOT NULL,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (participation_id, revision)
+);
+
+CREATE TABLE IF NOT EXISTS milestone_participation_disputes (
+  id BIGSERIAL PRIMARY KEY,
+  participation_id UUID NOT NULL REFERENCES milestone_participations(id) ON DELETE RESTRICT,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'rejected')),
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  resolved_by TEXT,
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS governance_decisions (
+  id UUID PRIMARY KEY,
+  decision_type TEXT NOT NULL CHECK (
+    decision_type IN (
+      'ADMIT_HISTORICAL_OBJECT',
+      'REVISE_HISTORICAL_OBJECT',
+      'MERGE_HISTORICAL_OBJECT',
+      'RETIRE_HISTORICAL_OBJECT',
+      'PRESERVE_HISTORICAL_OBJECT',
+      'ADMIT_PARTICIPATION',
+      'REVISE_PARTICIPATION',
+      'CHANGE_PARTICIPATION_PRIORITY',
+      'RETIRE_PARTICIPATION',
+      'CERTIFY_PUBLICATION_READINESS',
+      'ACCEPT_PUBLICATION_PACKAGE',
+      'REJECT_PUBLICATION_PACKAGE',
+      'RETURN_PUBLICATION_PACKAGE',
+      'CREATE_FEEDBACK_PACKAGE',
+      'CLOSE_FEEDBACK_PACKAGE',
+      'OPEN_DISPUTE',
+      'RESOLVE_DISPUTE',
+      'ESCALATE_AUTHORITY_REVIEW'
+    )
+  ),
+  target_authority JSONB NOT NULL,
+  actor JSONB NOT NULL,
+  evidence_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  rationale JSONB NOT NULL,
+  approval_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  escalation_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  outcome TEXT NOT NULL CHECK (outcome IN ('approved', 'rejected', 'returned_for_revision', 'escalated', 'superseded', 'no_action')),
+  lifecycle TEXT NOT NULL CHECK (
+    lifecycle IN ('draft', 'submitted', 'under_review', 'approval_pending', 'approved', 'rejected', 'returned_for_revision', 'escalated', 'superseded', 'preserved')
+  ),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  decided_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS governance_approvals (
+  id UUID PRIMARY KEY,
+  decision_id UUID NOT NULL REFERENCES governance_decisions(id) ON DELETE RESTRICT,
+  request JSONB NOT NULL,
+  steps JSONB NOT NULL,
+  lifecycle TEXT NOT NULL CHECK (
+    lifecycle IN ('requested', 'pending', 'partially_approved', 'approved', 'rejected', 'returned_for_revision', 'escalated', 'expired', 'preserved')
+  ),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS governance_queues (
+  id UUID PRIMARY KEY,
+  queue_type TEXT NOT NULL CHECK (
+    queue_type IN (
+      'object_intake',
+      'object_validation',
+      'participation_intake',
+      'participation_priority_review',
+      'publication_readiness',
+      'library_review',
+      'feedback_return',
+      'dispute_triage',
+      'escalation_review',
+      'audit_review'
+    )
+  ),
+  owner_service TEXT NOT NULL CHECK (owner_service IN ('factory', 'governance', 'historical_library', 'registry', 'platform')),
+  owner_role TEXT NOT NULL CHECK (
+    owner_role IN ('factory_editor', 'governance_reviewer', 'senior_governance_reviewer', 'library_editor', 'registry_operator', 'auditor')
+  ),
+  target_authority JSONB NOT NULL,
+  allowed_actions JSONB NOT NULL,
+  decision_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  audit_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  lifecycle TEXT NOT NULL CHECK (lifecycle IN ('entered', 'in_review', 'blocked', 'exited', 'preserved')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS governance_publication_packages (
+  id UUID PRIMARY KEY,
+  scope JSONB NOT NULL,
+  included_authority JSONB NOT NULL,
+  validation_artifacts JSONB NOT NULL DEFAULT '[]'::jsonb,
+  decision_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  risk_summary JSONB NOT NULL,
+  readiness_certification JSONB,
+  acceptance_outcome TEXT CHECK (acceptance_outcome IN ('accepted', 'rejected', 'returned_for_revision', 'accepted_with_notes')),
+  lifecycle TEXT NOT NULL CHECK (
+    lifecycle IN (
+      'factory_draft',
+      'factory_validating',
+      'factory_ready',
+      'governance_review',
+      'readiness_certified',
+      'library_review',
+      'accepted',
+      'rejected',
+      'returned_for_revision',
+      'published',
+      'preserved'
+    )
+  ),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  factory_package_version_id UUID UNIQUE,
+  factory_package_draft_id UUID,
+  factory_lineage_root_id UUID,
+  submitted_by JSONB,
+  submitted_at TIMESTAMPTZ,
+  submission_audit_record_id UUID
+);
+
+CREATE TABLE IF NOT EXISTS governance_feedback_packages (
+  id UUID PRIMARY KEY,
+  origin JSONB NOT NULL,
+  affected_authority JSONB NOT NULL,
+  correction_class TEXT NOT NULL CHECK (
+    correction_class IN ('authority_error', 'missing_context', 'participation_error', 'priority_error', 'source_gap', 'publication_quality_issue', 'audit_gap')
+  ),
+  evidence JSONB NOT NULL DEFAULT '[]'::jsonb,
+  required_response TEXT NOT NULL CHECK (
+    required_response IN ('factory_acknowledgement', 'factory_revision', 'governance_review', 'new_publication_package', 'no_action_required')
+  ),
+  severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'blocking')),
+  closure_requirements JSONB NOT NULL DEFAULT '[]'::jsonb,
+  lifecycle TEXT NOT NULL CHECK (
+    lifecycle IN ('created', 'delivered_to_factory', 'acknowledged', 'factory_reviewing', 'action_required', 'informational', 'resolved', 'closed', 'preserved')
+  ),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  closed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS governance_disputes (
+  id UUID PRIMARY KEY,
+  target_authority JSONB NOT NULL,
+  dispute_class TEXT NOT NULL CHECK (
+    dispute_class IN (
+      'identity_conflict',
+      'chronology_conflict',
+      'participation_conflict',
+      'priority_conflict',
+      'source_conflict',
+      'publication_conflict',
+      'governance_process_conflict'
+    )
+  ),
+  evidence_bundle JSONB NOT NULL DEFAULT '[]'::jsonb,
+  severity TEXT NOT NULL CHECK (severity IN ('minor', 'material', 'high', 'blocking')),
+  resolution_path TEXT NOT NULL CHECK (resolution_path IN ('standard_review', 'senior_review', 'library_review', 'factory_revision', 'audit_review')),
+  outcome TEXT CHECK (outcome IN ('upheld', 'rejected', 'amended', 'merged', 'retired', 'returned_for_revision')),
+  lifecycle TEXT NOT NULL CHECK (
+    lifecycle IN ('raised', 'triaged', 'evidence_gathering', 'review_pending', 'escalated', 'resolved_upheld', 'resolved_rejected', 'resolved_amended', 'closed', 'preserved')
+  ),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS governance_audit_records (
+  id UUID PRIMARY KEY,
+  authority_ref JSONB NOT NULL,
+  decision_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  approval_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  evidence_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  package_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  dispute_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  final_state TEXT NOT NULL,
+  reconstruction JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS historical_library_admissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  publication_package_id UUID NOT NULL UNIQUE REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  governance_decision_id UUID NOT NULL REFERENCES governance_decisions(id) ON DELETE RESTRICT,
+  admitted_by JSONB NOT NULL,
+  admission_reason TEXT NOT NULL,
+  source_package_snapshot JSONB NOT NULL,
+  included_authority JSONB NOT NULL,
+  validation_artifacts JSONB NOT NULL DEFAULT '[]'::jsonb,
+  audit_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  lifecycle TEXT NOT NULL DEFAULT 'admitted' CHECK (lifecycle IN ('admitted', 'preserved')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS historical_library_published_snapshots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admission_id UUID NOT NULL REFERENCES historical_library_admissions(id) ON DELETE RESTRICT,
+  authority_ref JSONB NOT NULL,
+  snapshot JSONB NOT NULL,
+  snapshot_hash TEXT NOT NULL,
+  lifecycle TEXT NOT NULL DEFAULT 'active' CHECK (lifecycle IN ('active', 'preserved')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_objects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  object_type TEXT NOT NULL CHECK (
+    object_type IN (
+      'candidate_historical_object',
+      'candidate_milestone',
+      'candidate_participation',
+      'candidate_relationship',
+      'candidate_source',
+      'candidate_context_record'
+    )
+  ),
+  title TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  lifecycle TEXT NOT NULL DEFAULT 'draft' CHECK (
+    lifecycle IN (
+      'draft',
+      'researching',
+      'validated',
+      'validation_failed',
+      'package_candidate',
+      'packaged',
+      'submitted_to_governance',
+      'returned_for_revision',
+      'superseded',
+      'preserved'
+    )
+  ),
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_artifacts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  factory_object_id UUID REFERENCES factory_objects(id) ON DELETE RESTRICT,
+  artifact_type TEXT NOT NULL CHECK (
+    artifact_type IN ('validation', 'evidence', 'enrichment', 'generation', 'audit')
+  ),
+  title TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  authority_safe BOOLEAN NOT NULL DEFAULT FALSE,
+  model_provider TEXT,
+  model_name TEXT,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_package_drafts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  package_type TEXT NOT NULL CHECK (
+    package_type IN (
+      'historical_object_publication',
+      'participation_publication',
+      'timeline_context_publication',
+      'mixed_authority_publication'
+    )
+  ),
+  factory_object_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  artifact_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  risk_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+  lifecycle TEXT NOT NULL DEFAULT 'draft' CHECK (
+    lifecycle IN (
+      'draft',
+      'validating',
+      'ready_for_governance',
+      'submitted_to_governance',
+      'returned_for_revision',
+      'revised',
+      'superseded',
+      'preserved'
+    )
+  ),
+  lineage_root_id UUID REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  supersedes_package_id UUID REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (id IS DISTINCT FROM lineage_root_id),
+  CHECK (id IS DISTINCT FROM supersedes_package_id)
+);
+
+CREATE TABLE IF NOT EXISTS factory_package_versions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  draft_id UUID NOT NULL REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  lineage_root_id UUID NOT NULL REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  version INTEGER NOT NULL CHECK (version > 0),
+  supersedes_version_id UUID REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
+  package_snapshot JSONB NOT NULL,
+  snapshot_hash TEXT NOT NULL,
+  lifecycle TEXT NOT NULL DEFAULT 'draft' CHECK (
+    lifecycle IN ('draft', 'submitted_to_governance', 'returned_for_revision', 'superseded', 'preserved')
+  ),
+  governance_publication_package_id UUID REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  feedback_package_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  submitted_at TIMESTAMPTZ,
+  UNIQUE (lineage_root_id, version),
+  CHECK (id IS DISTINCT FROM supersedes_version_id)
+);
+
+CREATE TABLE IF NOT EXISTS factory_audit_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  target_ref JSONB NOT NULL,
+  action TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_governance_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  factory_package_version_id UUID NOT NULL UNIQUE REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
+  factory_package_draft_id UUID NOT NULL REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  factory_lineage_root_id UUID NOT NULL REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  governance_publication_package_id UUID NOT NULL UNIQUE REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  submission_actor JSONB NOT NULL,
+  submission_reason TEXT NOT NULL,
+  submission_audit_record_id UUID NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_feedback_consumptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  feedback_package_id UUID NOT NULL UNIQUE REFERENCES governance_feedback_packages(id) ON DELETE RESTRICT,
+  governance_publication_package_id UUID REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  factory_package_version_id UUID REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
+  factory_package_draft_id UUID REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  factory_lineage_root_id UUID REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  affected_factory_object_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  classification TEXT NOT NULL CHECK (
+    classification IN ('authority_error', 'missing_context', 'participation_error', 'priority_error', 'source_gap', 'publication_quality_issue', 'audit_gap')
+  ),
+  required_response TEXT NOT NULL CHECK (
+    required_response IN ('factory_acknowledgement', 'factory_revision', 'governance_review', 'new_publication_package', 'no_action_required')
+  ),
+  lifecycle TEXT NOT NULL DEFAULT 'received' CHECK (
+    lifecycle IN (
+      'received',
+      'acknowledged',
+      'triaged',
+      'revision_required',
+      'revision_in_progress',
+      'resubmission_prepared',
+      'resolved',
+      'closed',
+      'preserved'
+    )
+  ),
+  revision_plan_id UUID,
+  resolution_record_id UUID,
+  audit_record_id UUID NOT NULL REFERENCES factory_audit_records(id) ON DELETE RESTRICT,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_revision_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  feedback_consumption_id UUID NOT NULL REFERENCES factory_feedback_consumptions(id) ON DELETE RESTRICT,
+  feedback_package_id UUID NOT NULL REFERENCES governance_feedback_packages(id) ON DELETE RESTRICT,
+  factory_package_version_id UUID REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
+  factory_package_draft_id UUID REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  factory_lineage_root_id UUID REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  affected_factory_object_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  plan_summary TEXT NOT NULL,
+  planned_actions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  lifecycle TEXT NOT NULL DEFAULT 'draft' CHECK (
+    lifecycle IN ('draft', 'approved', 'in_progress', 'resubmission_prepared', 'resolved', 'closed', 'preserved')
+  ),
+  resubmission_package_draft_id UUID REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  superseded_package_version_id UUID REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
+  new_package_version_id UUID UNIQUE REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
+  governance_publication_package_id UUID REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  submission_audit_record_id UUID REFERENCES factory_audit_records(id) ON DELETE RESTRICT,
+  revision_completion_record_id UUID REFERENCES factory_audit_records(id) ON DELETE RESTRICT,
+  audit_record_id UUID NOT NULL REFERENCES factory_audit_records(id) ON DELETE RESTRICT,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE factory_package_versions
+  ADD COLUMN IF NOT EXISTS revision_plan_id UUID REFERENCES factory_revision_plans(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS source_feedback_package_id UUID REFERENCES governance_feedback_packages(id) ON DELETE RESTRICT,
+  ADD COLUMN IF NOT EXISTS resubmission_audit_record_id UUID REFERENCES factory_audit_records(id) ON DELETE RESTRICT;
+
 CREATE INDEX IF NOT EXISTS idx_timelines_slug ON timelines(slug);
 CREATE INDEX IF NOT EXISTS idx_timelines_category ON timelines(category);
 CREATE INDEX IF NOT EXISTS idx_timelines_search_vector ON timelines USING GIN(search_vector);
@@ -220,6 +743,45 @@ CREATE INDEX IF NOT EXISTS idx_analytics_events_timeline_type_date ON analytics_
 CREATE INDEX IF NOT EXISTS idx_analytics_events_slug_type_date ON analytics_events(slug, event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_relationship_recovery_reports_generated_at ON relationship_recovery_reports(generated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ad_campaigns_slot_status_dates ON ad_campaigns(slot, status, start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_historical_objects_type_status ON historical_objects(primary_type, lifecycle_status);
+CREATE INDEX IF NOT EXISTS idx_historical_object_aliases_object_id ON historical_object_aliases(object_id);
+CREATE INDEX IF NOT EXISTS idx_historical_object_revisions_object_id ON historical_object_revisions(object_id, revision DESC);
+CREATE INDEX IF NOT EXISTS idx_historical_object_merges_source ON historical_object_merges(source_object_id);
+CREATE INDEX IF NOT EXISTS idx_historical_object_merges_target ON historical_object_merges(target_object_id);
+CREATE INDEX IF NOT EXISTS idx_historical_object_retirements_object ON historical_object_retirements(object_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_milestone_participations_object ON milestone_participations(historical_object_id, lifecycle_status);
+CREATE INDEX IF NOT EXISTS idx_milestone_participations_milestone ON milestone_participations(milestone_id, lifecycle_status);
+CREATE INDEX IF NOT EXISTS idx_milestone_participations_public_context ON milestone_participations(milestone_id, authority_state, lifecycle_status, participation_priority);
+CREATE INDEX IF NOT EXISTS idx_milestone_participation_revisions_participation ON milestone_participation_revisions(participation_id, revision DESC);
+CREATE INDEX IF NOT EXISTS idx_milestone_participation_disputes_participation ON milestone_participation_disputes(participation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_governance_decisions_target ON governance_decisions USING GIN(target_authority);
+CREATE INDEX IF NOT EXISTS idx_governance_decisions_lifecycle ON governance_decisions(lifecycle, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_governance_approvals_decision ON governance_approvals(decision_id, lifecycle);
+CREATE INDEX IF NOT EXISTS idx_governance_queues_owner ON governance_queues(owner_service, queue_type, lifecycle);
+CREATE INDEX IF NOT EXISTS idx_governance_publication_packages_lifecycle ON governance_publication_packages(lifecycle, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_governance_feedback_packages_lifecycle ON governance_feedback_packages(lifecycle, severity, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_governance_disputes_lifecycle ON governance_disputes(lifecycle, severity, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_governance_audit_records_authority ON governance_audit_records USING GIN(authority_ref);
+CREATE INDEX IF NOT EXISTS idx_historical_library_admissions_package ON historical_library_admissions(publication_package_id);
+CREATE INDEX IF NOT EXISTS idx_historical_library_admissions_decision ON historical_library_admissions(governance_decision_id);
+CREATE INDEX IF NOT EXISTS idx_historical_library_published_snapshots_admission ON historical_library_published_snapshots(admission_id);
+CREATE INDEX IF NOT EXISTS idx_historical_library_published_snapshots_authority ON historical_library_published_snapshots USING GIN(authority_ref);
+CREATE INDEX IF NOT EXISTS idx_factory_objects_type_lifecycle ON factory_objects(object_type, lifecycle, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_artifacts_object_type ON factory_artifacts(factory_object_id, artifact_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_package_drafts_lifecycle ON factory_package_drafts(lifecycle, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_package_drafts_lineage ON factory_package_drafts(lineage_root_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_package_versions_draft ON factory_package_versions(draft_id, version DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_package_versions_lineage ON factory_package_versions(lineage_root_id, version DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_factory_package_versions_revision_plan ON factory_package_versions(revision_plan_id);
+CREATE INDEX IF NOT EXISTS idx_factory_package_versions_feedback ON factory_package_versions(source_feedback_package_id);
+CREATE INDEX IF NOT EXISTS idx_factory_audit_records_target ON factory_audit_records USING GIN(target_ref);
+CREATE INDEX IF NOT EXISTS idx_governance_publication_packages_factory_version ON governance_publication_packages(factory_package_version_id);
+CREATE INDEX IF NOT EXISTS idx_factory_governance_submissions_lineage ON factory_governance_submissions(factory_lineage_root_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_feedback_consumptions_feedback ON factory_feedback_consumptions(feedback_package_id);
+CREATE INDEX IF NOT EXISTS idx_factory_feedback_consumptions_lineage ON factory_feedback_consumptions(factory_lineage_root_id, lifecycle, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_revision_plans_consumption ON factory_revision_plans(feedback_consumption_id);
+CREATE INDEX IF NOT EXISTS idx_factory_revision_plans_lineage ON factory_revision_plans(factory_lineage_root_id, lifecycle, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_revision_plans_new_version ON factory_revision_plans(new_package_version_id);
 
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
@@ -246,3 +808,434 @@ CREATE TRIGGER trigger_ad_campaigns_updated_at
 BEFORE UPDATE ON ad_campaigns
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_historical_objects_updated_at ON historical_objects;
+CREATE TRIGGER trigger_historical_objects_updated_at
+BEFORE UPDATE ON historical_objects
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_milestone_participations_updated_at ON milestone_participations;
+CREATE TRIGGER trigger_milestone_participations_updated_at
+BEFORE UPDATE ON milestone_participations
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_governance_queues_updated_at ON governance_queues;
+CREATE TRIGGER trigger_governance_queues_updated_at
+BEFORE UPDATE ON governance_queues
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_governance_publication_packages_updated_at ON governance_publication_packages;
+CREATE TRIGGER trigger_governance_publication_packages_updated_at
+BEFORE UPDATE ON governance_publication_packages
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_objects_updated_at ON factory_objects;
+CREATE TRIGGER trigger_factory_objects_updated_at
+BEFORE UPDATE ON factory_objects
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_package_drafts_updated_at ON factory_package_drafts;
+CREATE TRIGGER trigger_factory_package_drafts_updated_at
+BEFORE UPDATE ON factory_package_drafts
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_feedback_consumptions_updated_at ON factory_feedback_consumptions;
+CREATE TRIGGER trigger_factory_feedback_consumptions_updated_at
+BEFORE UPDATE ON factory_feedback_consumptions
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_revision_plans_updated_at ON factory_revision_plans;
+CREATE TRIGGER trigger_factory_revision_plans_updated_at
+BEFORE UPDATE ON factory_revision_plans
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE FUNCTION prevent_historical_authority_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Historical authority records are preserved and cannot be deleted from %. Use retirement or merge workflows.', TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS prevent_historical_objects_delete ON historical_objects;
+CREATE TRIGGER prevent_historical_objects_delete
+BEFORE DELETE ON historical_objects
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_object_aliases_delete ON historical_object_aliases;
+CREATE TRIGGER prevent_historical_object_aliases_delete
+BEFORE DELETE ON historical_object_aliases
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_object_revisions_delete ON historical_object_revisions;
+CREATE TRIGGER prevent_historical_object_revisions_delete
+BEFORE DELETE ON historical_object_revisions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_object_merges_delete ON historical_object_merges;
+CREATE TRIGGER prevent_historical_object_merges_delete
+BEFORE DELETE ON historical_object_merges
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_object_retirements_delete ON historical_object_retirements;
+CREATE TRIGGER prevent_historical_object_retirements_delete
+BEFORE DELETE ON historical_object_retirements
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_milestone_participations_delete ON milestone_participations;
+CREATE TRIGGER prevent_milestone_participations_delete
+BEFORE DELETE ON milestone_participations
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_milestone_participation_revisions_delete ON milestone_participation_revisions;
+CREATE TRIGGER prevent_milestone_participation_revisions_delete
+BEFORE DELETE ON milestone_participation_revisions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_milestone_participation_disputes_delete ON milestone_participation_disputes;
+CREATE TRIGGER prevent_milestone_participation_disputes_delete
+BEFORE DELETE ON milestone_participation_disputes
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_governance_decisions_delete ON governance_decisions;
+CREATE TRIGGER prevent_governance_decisions_delete
+BEFORE DELETE ON governance_decisions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_governance_approvals_delete ON governance_approvals;
+CREATE TRIGGER prevent_governance_approvals_delete
+BEFORE DELETE ON governance_approvals
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_governance_queues_delete ON governance_queues;
+CREATE TRIGGER prevent_governance_queues_delete
+BEFORE DELETE ON governance_queues
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_governance_publication_packages_delete ON governance_publication_packages;
+CREATE TRIGGER prevent_governance_publication_packages_delete
+BEFORE DELETE ON governance_publication_packages
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_governance_feedback_packages_delete ON governance_feedback_packages;
+CREATE TRIGGER prevent_governance_feedback_packages_delete
+BEFORE DELETE ON governance_feedback_packages
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_governance_disputes_delete ON governance_disputes;
+CREATE TRIGGER prevent_governance_disputes_delete
+BEFORE DELETE ON governance_disputes
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_governance_audit_records_delete ON governance_audit_records;
+CREATE TRIGGER prevent_governance_audit_records_delete
+BEFORE DELETE ON governance_audit_records
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+CREATE OR REPLACE FUNCTION prevent_historical_library_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Historical Library Published Memory records are preserved and cannot be % from %. Use a governed revision workflow.', TG_OP, TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS prevent_historical_library_admissions_delete ON historical_library_admissions;
+CREATE TRIGGER prevent_historical_library_admissions_delete
+BEFORE DELETE ON historical_library_admissions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_historical_library_published_snapshots_update ON historical_library_published_snapshots;
+CREATE TRIGGER prevent_historical_library_published_snapshots_update
+BEFORE UPDATE ON historical_library_published_snapshots
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_historical_library_published_snapshots_delete ON historical_library_published_snapshots;
+CREATE TRIGGER prevent_historical_library_published_snapshots_delete
+BEFORE DELETE ON historical_library_published_snapshots
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+CREATE OR REPLACE FUNCTION prevent_factory_history_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Factory Production Memory records are preserved and cannot be deleted from %. Use lifecycle transitions.', TG_TABLE_NAME;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION prevent_submitted_factory_package_version_update()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.lifecycle = 'submitted_to_governance' THEN
+    RAISE EXCEPTION 'Submitted Factory package versions are immutable. Create a new version for revisions.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS prevent_factory_objects_delete ON factory_objects;
+CREATE TRIGGER prevent_factory_objects_delete
+BEFORE DELETE ON factory_objects
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_artifacts_delete ON factory_artifacts;
+CREATE TRIGGER prevent_factory_artifacts_delete
+BEFORE DELETE ON factory_artifacts
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_package_drafts_delete ON factory_package_drafts;
+CREATE TRIGGER prevent_factory_package_drafts_delete
+BEFORE DELETE ON factory_package_drafts
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_package_versions_delete ON factory_package_versions;
+CREATE TRIGGER prevent_factory_package_versions_delete
+BEFORE DELETE ON factory_package_versions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_package_versions_submitted_update ON factory_package_versions;
+CREATE TRIGGER prevent_factory_package_versions_submitted_update
+BEFORE UPDATE ON factory_package_versions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_submitted_factory_package_version_update();
+
+DROP TRIGGER IF EXISTS prevent_factory_audit_records_delete ON factory_audit_records;
+CREATE TRIGGER prevent_factory_audit_records_delete
+BEFORE DELETE ON factory_audit_records
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_governance_submissions_delete ON factory_governance_submissions;
+CREATE TRIGGER prevent_factory_governance_submissions_delete
+BEFORE DELETE ON factory_governance_submissions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_feedback_consumptions_delete ON factory_feedback_consumptions;
+CREATE TRIGGER prevent_factory_feedback_consumptions_delete
+BEFORE DELETE ON factory_feedback_consumptions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_revision_plans_delete ON factory_revision_plans;
+CREATE TRIGGER prevent_factory_revision_plans_delete
+BEFORE DELETE ON factory_revision_plans
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+CREATE TABLE IF NOT EXISTS historical_library_published_revisions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  published_snapshot_id UUID NOT NULL REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  publication_package_id UUID NOT NULL REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  governance_decision_id UUID NOT NULL REFERENCES governance_decisions(id) ON DELETE RESTRICT,
+  previous_snapshot JSONB NOT NULL,
+  revised_snapshot JSONB NOT NULL,
+  revised_snapshot_hash TEXT NOT NULL,
+  amendment_summary TEXT NOT NULL,
+  audit_record_id UUID,
+  created_by JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS historical_library_retirements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  published_snapshot_id UUID NOT NULL REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  publication_package_id UUID NOT NULL REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  governance_decision_id UUID NOT NULL REFERENCES governance_decisions(id) ON DELETE RESTRICT,
+  retirement_reason TEXT NOT NULL,
+  continuity_path JSONB NOT NULL DEFAULT '{}'::jsonb,
+  audit_record_id UUID,
+  created_by JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (published_snapshot_id)
+);
+
+CREATE TABLE IF NOT EXISTS historical_library_merges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_published_record_id UUID NOT NULL REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  target_published_record_id UUID NOT NULL REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  publication_package_id UUID NOT NULL REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  governance_decision_id UUID NOT NULL REFERENCES governance_decisions(id) ON DELETE RESTRICT,
+  merge_reason TEXT NOT NULL,
+  continuity_path JSONB NOT NULL DEFAULT '{}'::jsonb,
+  audit_record_id UUID,
+  created_by JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (source_published_record_id IS DISTINCT FROM target_published_record_id),
+  UNIQUE (source_published_record_id)
+);
+
+CREATE TABLE IF NOT EXISTS historical_library_preservations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  published_snapshot_id UUID NOT NULL REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  publication_package_id UUID NOT NULL REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  governance_decision_id UUID NOT NULL REFERENCES governance_decisions(id) ON DELETE RESTRICT,
+  preservation_reason TEXT NOT NULL,
+  preservation_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  audit_record_id UUID,
+  created_by JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS historical_library_feedback_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lifecycle_action_type TEXT NOT NULL CHECK (
+    lifecycle_action_type IN ('revision', 'retirement', 'merge', 'preservation')
+  ),
+  lifecycle_action_id UUID NOT NULL,
+  feedback_package_id UUID NOT NULL UNIQUE REFERENCES governance_feedback_packages(id) ON DELETE RESTRICT,
+  publication_package_id UUID NOT NULL REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  source_published_record_id UUID REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  target_published_record_id UUID REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  created_by JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_historical_library_revisions_snapshot
+  ON historical_library_published_revisions(published_snapshot_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_historical_library_retirements_snapshot
+  ON historical_library_retirements(published_snapshot_id);
+
+CREATE INDEX IF NOT EXISTS idx_historical_library_merges_source
+  ON historical_library_merges(source_published_record_id);
+
+CREATE INDEX IF NOT EXISTS idx_historical_library_merges_target
+  ON historical_library_merges(target_published_record_id);
+
+CREATE INDEX IF NOT EXISTS idx_historical_library_preservations_snapshot
+  ON historical_library_preservations(published_snapshot_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_historical_library_feedback_links_action
+  ON historical_library_feedback_links(lifecycle_action_type, lifecycle_action_id);
+
+DROP TRIGGER IF EXISTS prevent_historical_library_revisions_delete ON historical_library_published_revisions;
+CREATE TRIGGER prevent_historical_library_revisions_delete
+BEFORE DELETE ON historical_library_published_revisions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_historical_library_retirements_delete ON historical_library_retirements;
+CREATE TRIGGER prevent_historical_library_retirements_delete
+BEFORE DELETE ON historical_library_retirements
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_historical_library_merges_delete ON historical_library_merges;
+CREATE TRIGGER prevent_historical_library_merges_delete
+BEFORE DELETE ON historical_library_merges
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_historical_library_preservations_delete ON historical_library_preservations;
+CREATE TRIGGER prevent_historical_library_preservations_delete
+BEFORE DELETE ON historical_library_preservations
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_historical_library_feedback_links_delete ON historical_library_feedback_links;
+CREATE TRIGGER prevent_historical_library_feedback_links_delete
+BEFORE DELETE ON historical_library_feedback_links
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+CREATE TABLE IF NOT EXISTS published_memory_projections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  published_snapshot_id UUID NOT NULL REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  projection_type TEXT NOT NULL CHECK (
+    projection_type IN ('timeline', 'milestone', 'historical_object', 'relationship', 'search', 'sitemap')
+  ),
+  slug TEXT,
+  payload JSONB NOT NULL,
+  projection_version INTEGER NOT NULL CHECK (projection_version > 0),
+  projection_hash TEXT NOT NULL,
+  lifecycle TEXT NOT NULL DEFAULT 'active' CHECK (
+    lifecycle IN ('active', 'superseded', 'retired', 'merged', 'preserved')
+  ),
+  source_event_type TEXT NOT NULL CHECK (
+    source_event_type IN ('admission', 'revision', 'retirement', 'merge', 'preservation', 'rebuild')
+  ),
+  source_event_id UUID NOT NULL,
+  audit_record_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (published_snapshot_id, projection_type, projection_hash)
+);
+
+CREATE TABLE IF NOT EXISTS published_memory_projection_lineage (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  projection_id UUID NOT NULL REFERENCES published_memory_projections(id) ON DELETE RESTRICT,
+  published_snapshot_id UUID NOT NULL REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  revision_id UUID REFERENCES historical_library_published_revisions(id) ON DELETE RESTRICT,
+  retirement_id UUID REFERENCES historical_library_retirements(id) ON DELETE RESTRICT,
+  merge_id UUID REFERENCES historical_library_merges(id) ON DELETE RESTRICT,
+  preservation_id UUID REFERENCES historical_library_preservations(id) ON DELETE RESTRICT,
+  projection_version INTEGER NOT NULL CHECK (projection_version > 0),
+  projection_hash TEXT NOT NULL,
+  audit_record_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS published_memory_continuity_projections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_published_snapshot_id UUID NOT NULL REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  target_published_snapshot_id UUID REFERENCES historical_library_published_snapshots(id) ON DELETE RESTRICT,
+  continuity_type TEXT NOT NULL CHECK (continuity_type IN ('retired', 'merged')),
+  continuity_path JSONB NOT NULL DEFAULT '{}'::jsonb,
+  source_event_id UUID NOT NULL,
+  projection_hash TEXT NOT NULL,
+  audit_record_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (source_published_snapshot_id, continuity_type, projection_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_published_memory_projections_lookup
+  ON published_memory_projections(projection_type, lifecycle, slug, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_published_memory_projection_lineage_snapshot
+  ON published_memory_projection_lineage(published_snapshot_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_published_memory_continuity_source
+  ON published_memory_continuity_projections(source_published_snapshot_id, continuity_type);
+
+DROP TRIGGER IF EXISTS prevent_published_memory_projections_delete ON published_memory_projections;
+CREATE TRIGGER prevent_published_memory_projections_delete
+BEFORE DELETE ON published_memory_projections
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_published_memory_projection_lineage_delete ON published_memory_projection_lineage;
+CREATE TRIGGER prevent_published_memory_projection_lineage_delete
+BEFORE DELETE ON published_memory_projection_lineage
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_published_memory_continuity_projections_delete ON published_memory_continuity_projections;
+CREATE TRIGGER prevent_published_memory_continuity_projections_delete
+BEFORE DELETE ON published_memory_continuity_projections
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();

@@ -3,6 +3,19 @@ export type TimelineOrderingMode = "chronology" | "editorial";
 export type ImportFormat = "csv" | "json" | "text";
 export type ImportType = "timeline_with_events" | "events_into_existing_timeline";
 export type AnalyticsEventType = "timeline_view";
+export type HistoricalObjectType =
+  | "person"
+  | "institution"
+  | "place"
+  | "technology"
+  | "publication"
+  | "conflict"
+  | "movement"
+  | "period";
+export type HistoricalObjectLifecycleStatus = "established" | "revised" | "merged" | "retired" | "preserved";
+export type ParticipationLifecycleStatus = "established" | "revised" | "disputed" | "retired" | "preserved";
+export type ParticipationPriority = "PRIMARY" | "SUPPORTING" | "CONTEXT" | "BACKGROUND";
+export type AuthorityState = "active" | "inactive";
 
 export type TimelineRequestStatus =
   | "pending"
@@ -54,12 +67,37 @@ export interface EventRecord {
   updatedAt: string;
   sources: SourceRecord[];
   tags: TagRecord[];
+  historicalContext?: MilestoneContext;
   timelineLinks?: Array<{
     timelineId: number;
     slug: string;
     title: string;
     eventOrder: number;
   }>;
+}
+
+export interface MilestoneContextItem {
+  participationId: string;
+  historicalObjectId: string;
+  historicalObjectSlug: string;
+  historicalObjectName: string;
+  historicalObjectType: HistoricalObjectType;
+  role: string;
+  meaning: string;
+  priority: ParticipationPriority;
+}
+
+export interface MilestoneContextGroup {
+  type: HistoricalObjectType;
+  label: string;
+  items: MilestoneContextItem[];
+}
+
+export interface MilestoneContext {
+  milestoneId: number;
+  groups: MilestoneContextGroup[];
+  totalCount: number;
+  visibleTarget: number;
 }
 
 export interface TimelineSummary {
@@ -158,6 +196,106 @@ export interface TaxonomyGovernanceSnapshot {
     unreviewedTags: number;
     orphanedTags: number;
     duplicateCandidates: number;
+  };
+}
+
+export interface HistoricalObjectRecord {
+  id: string;
+  canonicalName: string;
+  canonicalSlug: string;
+  primaryType: HistoricalObjectType;
+  lifecycleStatus: HistoricalObjectLifecycleStatus;
+  authorityState: AuthorityState;
+  description: string;
+  provenance: Record<string, unknown>;
+  revision: number;
+  mergedIntoId: string | null;
+  retirementReason: string | null;
+  preservationReason: string | null;
+  aliasCount: number;
+  participationCount: number;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MilestoneParticipationRecord {
+  id: string;
+  historicalObjectId: string;
+  historicalObjectName: string;
+  milestoneId: number;
+  milestoneTitle: string;
+  role: string;
+  summary: string;
+  priority: ParticipationPriority;
+  lifecycleStatus: ParticipationLifecycleStatus;
+  authorityState: AuthorityState;
+  provenance: Record<string, unknown>;
+  revision: number;
+  disputeReason: string | null;
+  retirementReason: string | null;
+  preservationReason: string | null;
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HistoricalObjectParticipationHistoryItem {
+  participationId: string;
+  milestoneId: number;
+  milestoneTitle: string;
+  milestoneDate: string;
+  milestoneDatePrecision: DatePrecision;
+  milestoneDisplayDate: string | null;
+  milestoneSortYear: number | null;
+  milestoneSortMonth: number | null;
+  milestoneSortDay: number | null;
+  role: string;
+  meaning: string;
+  priority: ParticipationPriority;
+  timelineLinks: NonNullable<EventRecord["timelineLinks"]>;
+}
+
+export interface HistoricalObjectRelatedMilestone {
+  milestoneId: number;
+  title: string;
+  description: string;
+  date: string;
+  datePrecision: DatePrecision;
+  displayDate: string | null;
+  sortYear: number | null;
+  sortMonth: number | null;
+  sortDay: number | null;
+}
+
+export interface HistoricalObjectRelatedTimeline {
+  timelineId: number;
+  slug: string;
+  title: string;
+  participationCount: number;
+}
+
+export interface HistoricalObjectDetail {
+  object: Pick<HistoricalObjectRecord, "id" | "canonicalName" | "canonicalSlug" | "primaryType" | "description">;
+  participationHistory: HistoricalObjectParticipationHistoryItem[];
+  relatedMilestones: HistoricalObjectRelatedMilestone[];
+  relatedTimelines: HistoricalObjectRelatedTimeline[];
+}
+
+export interface HistoricalAuthoritySnapshot {
+  objects: HistoricalObjectRecord[];
+  participations: MilestoneParticipationRecord[];
+  summary: {
+    totalObjects: number;
+    activeObjects: number;
+    mergedObjects: number;
+    retiredObjects: number;
+    totalParticipations: number;
+    activeParticipations: number;
+    disputedParticipations: number;
+    retiredParticipations: number;
   };
 }
 

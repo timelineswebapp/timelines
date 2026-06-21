@@ -47,6 +47,22 @@ export const adSlotSchema = z.enum([
   "search_bottom"
 ]);
 export const adCampaignStatusSchema = z.enum(["draft", "active", "paused", "completed"]);
+export const historicalObjectTypeSchema = z.enum([
+  "person",
+  "institution",
+  "place",
+  "technology",
+  "publication",
+  "conflict",
+  "movement",
+  "period"
+]);
+export const participationPrioritySchema = z.enum(["PRIMARY", "SUPPORTING", "CONTEXT", "BACKGROUND"]);
+export const uuidParamSchema = z.string().trim().uuid();
+
+const actorSchema = z.string().trim().min(2).max(120).default("admin");
+const provenanceSchema = z.record(z.unknown()).default({});
+const governanceDecisionIdSchema = z.string().trim().uuid();
 
 export const sourceSchema = z.object({
   publisher: trimmedString(2, 120),
@@ -205,4 +221,453 @@ export const adCampaignSchema = z.object({
   startDate: z.string().trim().date(),
   endDate: z.string().trim().date(),
   status: adCampaignStatusSchema
+});
+
+export const historicalObjectSchema = z.object({
+  canonicalName: trimmedString(2, 180),
+  canonicalSlug: z.string().trim().max(200).optional(),
+  primaryType: historicalObjectTypeSchema,
+  description: z.string().trim().max(2000).default(""),
+  aliases: z.array(trimmedString(2, 180)).max(25).default([]),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  reason: trimmedString(3, 1000),
+  governanceDecisionId: governanceDecisionIdSchema
+});
+
+export const historicalObjectRevisionSchema = historicalObjectSchema
+  .omit({ aliases: true })
+  .extend({
+    reason: trimmedString(3, 1000)
+  });
+
+export const historicalObjectMergeSchema = z.object({
+  targetObjectId: z.string().trim().uuid(),
+  reason: trimmedString(3, 1000),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  governanceDecisionId: governanceDecisionIdSchema
+});
+
+export const historicalObjectRetirementSchema = z.object({
+  reason: trimmedString(3, 1000),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  governanceDecisionId: governanceDecisionIdSchema
+});
+
+export const milestoneParticipationSchema = z.object({
+  historicalObjectId: z.string().trim().uuid(),
+  milestoneId: z.coerce.number().int().positive(),
+  role: trimmedString(2, 120),
+  summary: trimmedString(10, 2000),
+  participationPriority: participationPrioritySchema.default("SUPPORTING"),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  reason: trimmedString(3, 1000),
+  governanceDecisionId: governanceDecisionIdSchema
+});
+
+export const milestoneParticipationRevisionSchema = milestoneParticipationSchema.omit({
+  historicalObjectId: true,
+  milestoneId: true
+});
+
+export const milestoneParticipationDisputeSchema = z.object({
+  reason: trimmedString(3, 1000),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  governanceDecisionId: governanceDecisionIdSchema
+});
+
+const governanceRoleSchema = z.enum([
+  "factory_editor",
+  "governance_reviewer",
+  "senior_governance_reviewer",
+  "library_editor",
+  "registry_operator",
+  "auditor"
+]);
+
+const governanceServiceBoundarySchema = z.enum(["factory", "governance", "historical_library", "registry", "platform"]);
+const authorityRefSchema = z.object({
+  authorityType: z.enum(["historical_object", "participation", "publication_package", "feedback_package", "dispute"]),
+  authorityId: trimmedString(1, 160)
+});
+const governanceActorRefSchema = z.object({
+  actorId: trimmedString(2, 120),
+  role: governanceRoleSchema,
+  institutionId: trimmedString(2, 120)
+});
+const evidenceRefSchema = z.object({
+  evidenceId: trimmedString(1, 160),
+  evidenceType: z.enum(["source", "factory_validation", "library_review", "audit_record", "dispute_submission", "governance_note"]),
+  uri: z.string().trim().url().optional(),
+  authoritySafe: z.boolean()
+});
+
+export const governanceDecisionSchema = z.object({
+  decisionId: governanceDecisionIdSchema,
+  decisionType: z.enum([
+    "ADMIT_HISTORICAL_OBJECT",
+    "REVISE_HISTORICAL_OBJECT",
+    "MERGE_HISTORICAL_OBJECT",
+    "RETIRE_HISTORICAL_OBJECT",
+    "PRESERVE_HISTORICAL_OBJECT",
+    "ADMIT_PARTICIPATION",
+    "REVISE_PARTICIPATION",
+    "CHANGE_PARTICIPATION_PRIORITY",
+    "RETIRE_PARTICIPATION",
+    "CERTIFY_PUBLICATION_READINESS",
+    "ACCEPT_PUBLICATION_PACKAGE",
+    "REJECT_PUBLICATION_PACKAGE",
+    "RETURN_PUBLICATION_PACKAGE",
+    "CREATE_FEEDBACK_PACKAGE",
+    "CLOSE_FEEDBACK_PACKAGE",
+    "OPEN_DISPUTE",
+    "RESOLVE_DISPUTE",
+    "ESCALATE_AUTHORITY_REVIEW"
+  ]),
+  targetAuthority: authorityRefSchema,
+  actor: governanceActorRefSchema,
+  evidenceRefs: z.array(evidenceRefSchema).max(50).default([]),
+  rationale: z.object({
+    summary: trimmedString(3, 2000),
+    authorityBasis: z.array(trimmedString(1, 240)).min(1).max(25),
+    riskNotes: z.array(trimmedString(1, 500)).max(25).optional()
+  }),
+  approvalRefs: z.array(governanceDecisionIdSchema).max(25).default([]),
+  escalationRefs: z.array(governanceDecisionIdSchema).max(25).default([]),
+  outcome: z.enum(["approved", "rejected", "returned_for_revision", "escalated", "superseded", "no_action"]),
+  lifecycle: z.enum(["draft", "submitted", "under_review", "approval_pending", "approved", "rejected", "returned_for_revision", "escalated", "superseded", "preserved"])
+});
+
+export const approvalSchema = z.object({
+  approvalId: governanceDecisionIdSchema,
+  decisionId: governanceDecisionIdSchema,
+  request: z.object({
+    requestedBy: governanceActorRefSchema,
+    requestedRole: governanceRoleSchema,
+    targetAuthority: authorityRefSchema,
+    reason: trimmedString(3, 1000)
+  }),
+  steps: z.array(
+    z.object({
+      stepId: governanceDecisionIdSchema,
+      sequence: z.coerce.number().int().positive(),
+      requiredRole: governanceRoleSchema,
+      approver: governanceActorRefSchema.optional(),
+      outcome: z.enum(["approved", "rejected", "returned_for_revision", "escalated"]).optional(),
+      reason: z.string().trim().max(1000).optional(),
+      decidedAt: z.string().trim().datetime().optional()
+    })
+  ).min(1).max(20),
+  lifecycle: z.enum(["requested", "pending", "partially_approved", "approved", "rejected", "returned_for_revision", "escalated", "expired", "preserved"])
+});
+
+export const governanceQueueSchema = z.object({
+  queueId: governanceDecisionIdSchema,
+  queueType: z.enum([
+    "object_intake",
+    "object_validation",
+    "participation_intake",
+    "participation_priority_review",
+    "publication_readiness",
+    "library_review",
+    "feedback_return",
+    "dispute_triage",
+    "escalation_review",
+    "audit_review"
+  ]),
+  ownerService: governanceServiceBoundarySchema,
+  ownerRole: governanceRoleSchema,
+  targetAuthority: authorityRefSchema,
+  allowedActions: z.array(z.enum(["submit", "validate", "request_revision", "approve", "reject", "escalate", "certify_ready", "accept", "return_to_factory", "close", "preserve"])).min(1).max(20),
+  decisionRefs: z.array(governanceDecisionIdSchema).max(25).default([]),
+  auditRefs: z.array(governanceDecisionIdSchema).max(25).default([]),
+  lifecycle: z.enum(["entered", "in_review", "blocked", "exited", "preserved"])
+});
+
+export const publicationPackageSchema = z.object({
+  packageId: governanceDecisionIdSchema,
+  scope: z.object({
+    packageType: z.enum(["historical_object_publication", "participation_publication", "timeline_context_publication", "mixed_authority_publication"]),
+    description: trimmedString(3, 1000)
+  }),
+  includedAuthority: z.array(authorityRefSchema).min(1).max(100),
+  validationArtifacts: z.array(evidenceRefSchema).max(100).default([]),
+  decisionRefs: z.array(governanceDecisionIdSchema).max(50).default([]),
+  riskSummary: z.object({
+    unresolvedAuthorityRisks: z.array(trimmedString(1, 500)).max(50).default([]),
+    disputeRefs: z.array(governanceDecisionIdSchema).max(50).default([]),
+    validationWarnings: z.array(trimmedString(1, 500)).max(50).default([]),
+    publicationBlockers: z.array(trimmedString(1, 500)).max(50).default([])
+  }),
+  readinessCertification: z.object({
+    certifiedBy: governanceActorRefSchema,
+    decisionId: governanceDecisionIdSchema,
+    readinessStatus: z.enum(["ready", "blocked", "conditional"])
+  }).optional(),
+  acceptanceOutcome: z.enum(["accepted", "rejected", "returned_for_revision", "accepted_with_notes"]).optional(),
+  lifecycle: z.enum(["factory_draft", "factory_validating", "factory_ready", "governance_review", "readiness_certified", "library_review", "accepted", "rejected", "returned_for_revision", "published", "preserved"])
+});
+
+export const feedbackPackageSchema = z.object({
+  feedbackPackageId: governanceDecisionIdSchema,
+  origin: z.object({
+    originService: z.enum(["historical_library", "governance", "audit"]),
+    originActor: governanceActorRefSchema,
+    sourcePackageId: governanceDecisionIdSchema.optional()
+  }),
+  affectedAuthority: z.array(authorityRefSchema).min(1).max(100),
+  correctionClass: z.enum(["authority_error", "missing_context", "participation_error", "priority_error", "source_gap", "publication_quality_issue", "audit_gap"]),
+  evidence: z.array(evidenceRefSchema).max(100).default([]),
+  requiredResponse: z.enum(["factory_acknowledgement", "factory_revision", "governance_review", "new_publication_package", "no_action_required"]),
+  severity: z.enum(["low", "medium", "high", "blocking"]),
+  closureRequirements: z.array(trimmedString(1, 500)).max(50).default([]),
+  lifecycle: z.enum(["created", "delivered_to_factory", "acknowledged", "factory_reviewing", "action_required", "informational", "resolved", "closed", "preserved"])
+});
+
+export const disputeSchema = z.object({
+  disputeId: governanceDecisionIdSchema,
+  targetAuthority: authorityRefSchema,
+  disputeClass: z.enum(["identity_conflict", "chronology_conflict", "participation_conflict", "priority_conflict", "source_conflict", "publication_conflict", "governance_process_conflict"]),
+  evidenceBundle: z.array(evidenceRefSchema).max(100).default([]),
+  severity: z.enum(["minor", "material", "high", "blocking"]),
+  resolutionPath: z.enum(["standard_review", "senior_review", "library_review", "factory_revision", "audit_review"]),
+  outcome: z.enum(["upheld", "rejected", "amended", "merged", "retired", "returned_for_revision"]).optional(),
+  lifecycle: z.enum(["raised", "triaged", "evidence_gathering", "review_pending", "escalated", "resolved_upheld", "resolved_rejected", "resolved_amended", "closed", "preserved"])
+});
+
+export const auditRecordSchema = z.object({
+  auditRecordId: governanceDecisionIdSchema,
+  authorityRef: authorityRefSchema,
+  decisionRefs: z.array(governanceDecisionIdSchema).min(1).max(100),
+  approvalRefs: z.array(governanceDecisionIdSchema).max(100).default([]),
+  evidenceRefs: z.array(trimmedString(1, 160)).max(100).default([]),
+  packageRefs: z.array(governanceDecisionIdSchema).max(100).default([]),
+  disputeRefs: z.array(governanceDecisionIdSchema).max(100).default([]),
+  finalState: trimmedString(1, 160),
+  reconstruction: z.object({
+    actorChain: z.array(governanceActorRefSchema).min(1).max(100),
+    stateTransitions: z.array(z.object({
+      fromState: trimmedString(1, 120),
+      toState: trimmedString(1, 120),
+      changedBy: governanceActorRefSchema,
+      decisionId: governanceDecisionIdSchema.optional(),
+      approvalId: governanceDecisionIdSchema.optional(),
+      reason: trimmedString(3, 1000),
+      changedAt: z.string().trim().datetime().optional()
+    })).min(1).max(200)
+  })
+});
+
+export const governanceTransitionSchema = z.object({
+  actor: governanceActorRefSchema,
+  reason: trimmedString(3, 1000),
+  governanceDecisionId: governanceDecisionIdSchema.optional()
+});
+
+export const historicalLibraryAdmissionSchema = z.object({
+  actor: governanceActorRefSchema,
+  reason: trimmedString(3, 1000),
+  governanceDecisionId: governanceDecisionIdSchema,
+  requestedByService: governanceServiceBoundarySchema.default("historical_library"),
+  auditRefs: z.array(governanceDecisionIdSchema).max(100).default([])
+});
+
+const historicalLibraryLifecycleBaseSchema = z.object({
+  publicationPackageId: governanceDecisionIdSchema,
+  governanceDecisionId: governanceDecisionIdSchema,
+  actor: governanceActorRefSchema,
+  reason: trimmedString(3, 1000),
+  auditRecordId: governanceDecisionIdSchema.nullable().optional()
+});
+
+export const historicalLibraryRevisionSchema = historicalLibraryLifecycleBaseSchema.extend({
+  revisedSnapshot: z.record(z.unknown()),
+  amendmentSummary: trimmedString(3, 2000)
+});
+
+export const historicalLibraryRetirementSchema = historicalLibraryLifecycleBaseSchema.extend({
+  continuityPath: z.record(z.unknown()).default({})
+});
+
+export const historicalLibraryMergeSchema = historicalLibraryLifecycleBaseSchema.extend({
+  targetPublishedRecordId: governanceDecisionIdSchema,
+  continuityPath: z.record(z.unknown()).default({})
+});
+
+export const historicalLibraryPreservationSchema = historicalLibraryLifecycleBaseSchema.extend({
+  preservationMetadata: z.record(z.unknown()).default({})
+});
+
+export const historicalLibraryFeedbackGenerationSchema = z.object({
+  lifecycleActionType: z.enum(["revision", "retirement", "merge", "preservation"]),
+  lifecycleActionId: governanceDecisionIdSchema,
+  publicationPackageId: governanceDecisionIdSchema,
+  sourcePublishedRecordId: governanceDecisionIdSchema,
+  targetPublishedRecordId: governanceDecisionIdSchema.nullable().optional(),
+  governanceDecisionId: governanceDecisionIdSchema,
+  actor: governanceActorRefSchema,
+  affectedAuthority: z.array(authorityRefSchema).min(1).max(100),
+  correctionClass: z.enum(["authority_error", "missing_context", "participation_error", "priority_error", "source_gap", "publication_quality_issue", "audit_gap"]),
+  evidence: z.array(evidenceRefSchema).max(100).default([]),
+  requiredResponse: z.enum(["factory_acknowledgement", "factory_revision", "governance_review", "new_publication_package", "no_action_required"]),
+  severity: z.enum(["low", "medium", "high", "blocking"]),
+  closureRequirements: z.array(trimmedString(1, 500)).max(50).default([]),
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryObjectLifecycleSchema = z.enum([
+  "draft",
+  "researching",
+  "validated",
+  "validation_failed",
+  "package_candidate",
+  "packaged",
+  "submitted_to_governance",
+  "returned_for_revision",
+  "superseded",
+  "preserved"
+]);
+
+export const factoryPackageDraftLifecycleSchema = z.enum([
+  "draft",
+  "validating",
+  "ready_for_governance",
+  "submitted_to_governance",
+  "returned_for_revision",
+  "revised",
+  "superseded",
+  "preserved"
+]);
+
+export const factoryFeedbackLifecycleSchema = z.enum([
+  "received",
+  "acknowledged",
+  "triaged",
+  "revision_required",
+  "revision_in_progress",
+  "resubmission_prepared",
+  "resolved",
+  "closed",
+  "preserved"
+]);
+
+export const factoryObjectSchema = z.object({
+  objectType: z.enum([
+    "candidate_historical_object",
+    "candidate_milestone",
+    "candidate_participation",
+    "candidate_relationship",
+    "candidate_source",
+    "candidate_context_record"
+  ]),
+  title: trimmedString(2, 200),
+  payload: z.record(z.unknown()),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryArtifactSchema = z.object({
+  factoryObjectId: z.string().trim().uuid().nullable().optional(),
+  artifactType: z.enum(["validation", "evidence", "enrichment", "generation", "audit"]),
+  title: trimmedString(2, 200),
+  payload: z.record(z.unknown()),
+  authoritySafe: z.boolean().default(false),
+  modelProvider: z.string().trim().max(120).nullable().optional().transform((value) => value || null),
+  modelName: z.string().trim().max(120).nullable().optional().transform((value) => value || null),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+const factoryPackageRiskSummarySchema = z.object({
+  unresolvedAuthorityRisks: z.array(trimmedString(1, 500)).max(50).default([]),
+  validationWarnings: z.array(trimmedString(1, 500)).max(50).default([]),
+  publicationBlockers: z.array(trimmedString(1, 500)).max(50).default([])
+});
+
+export const factoryPackageDraftSchema = z.object({
+  title: trimmedString(2, 200),
+  description: trimmedString(10, 2000),
+  packageType: z.enum(["historical_object_publication", "participation_publication", "timeline_context_publication", "mixed_authority_publication"]),
+  factoryObjectRefs: z.array(z.string().trim().uuid()).min(1).max(100),
+  artifactRefs: z.array(z.string().trim().uuid()).max(100).default([]),
+  riskSummary: factoryPackageRiskSummarySchema.default({
+    unresolvedAuthorityRisks: [],
+    validationWarnings: [],
+    publicationBlockers: []
+  }),
+  supersedesPackageId: z.string().trim().uuid().nullable().optional(),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryObjectTransitionSchema = z.object({
+  lifecycle: factoryObjectLifecycleSchema,
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryPackageDraftTransitionSchema = z.object({
+  lifecycle: factoryPackageDraftLifecycleSchema,
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryPackageVersionSchema = z.object({
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryGovernanceSubmissionSchema = z.object({
+  actor: governanceActorRefSchema.refine((actor) => actor.role === "factory_editor", {
+    message: "Factory submission actor must have factory_editor role."
+  }),
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryFeedbackIntakeSchema = z.object({
+  feedbackPackageId: z.string().trim().uuid(),
+  affectedFactoryObjectIds: z.array(z.string().trim().uuid()).max(100).default([]),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryFeedbackTransitionSchema = z.object({
+  lifecycle: factoryFeedbackLifecycleSchema,
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryRevisionPlanSchema = z.object({
+  planSummary: trimmedString(10, 2000),
+  plannedActions: z.array(trimmedString(3, 1000)).min(1).max(100),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryResubmissionPreparationSchema = z.object({
+  title: trimmedString(2, 200),
+  description: trimmedString(10, 2000),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryResubmissionCompletionSchema = z.object({
+  actor: governanceActorRefSchema.refine((actor) => actor.role === "factory_editor", {
+    message: "Factory resubmission actor must have factory_editor role."
+  }),
+  reason: trimmedString(3, 1000)
+});
+
+export const approvalStepTransitionSchema = governanceTransitionSchema.extend({
+  stepId: governanceDecisionIdSchema
+});
+
+export const disputeResolutionTransitionSchema = governanceTransitionSchema.extend({
+  outcome: z.enum(["upheld", "rejected", "amended", "merged", "retired", "returned_for_revision"]),
+  governanceDecisionId: governanceDecisionIdSchema
 });

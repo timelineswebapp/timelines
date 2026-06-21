@@ -6,6 +6,7 @@ import { buildMilestoneJsonLd, sanitizeJsonLd } from "@/src/lib/timeline-jsonld"
 import { buildMilestonePath, buildMilestoneSlug, buildTimelinePath, parseMilestoneIdParam } from "@/src/lib/share";
 import { formatDisplayDate } from "@/src/lib/utils";
 import { contentService } from "@/src/server/services/content-service";
+import { HistoricalContextSection } from "@/components/timeline/HistoricalContextSection";
 
 export const revalidate = 3600;
 
@@ -18,11 +19,17 @@ async function resolveMilestone(params: Promise<MilestonePageParams>) {
   const { id, slug } = await params;
   const milestoneId = parseMilestoneIdParam(id);
   if (milestoneId === null) {
-    return { milestone: null, slug };
+    return { milestone: null, context: null, slug };
   }
 
+  const [milestone, context] = await Promise.all([
+    contentService.getMilestone(milestoneId),
+    contentService.getMilestoneContext(milestoneId)
+  ]);
+
   return {
-    milestone: await contentService.getMilestone(milestoneId),
+    milestone,
+    context,
     slug
   };
 }
@@ -42,7 +49,7 @@ export async function generateMetadata({ params }: { params: Promise<MilestonePa
 }
 
 export default async function MilestonePage({ params }: { params: Promise<MilestonePageParams> }) {
-  const { milestone, slug } = await resolveMilestone(params);
+  const { milestone, context, slug } = await resolveMilestone(params);
   if (!milestone) {
     notFound();
   }
@@ -83,6 +90,8 @@ export default async function MilestonePage({ params }: { params: Promise<Milest
             </div>
           </div>
         </div>
+
+        <HistoricalContextSection context={context || undefined} />
 
         <section className="timeline-section">
           <div className="section-heading-row">

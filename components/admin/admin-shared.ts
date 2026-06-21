@@ -13,8 +13,9 @@ import type {
   TimelineRequestRecord,
   TimelineSummary
 } from "@/src/lib/types";
+import type { GovernanceOperationsSnapshot } from "@/src/server/services/governance-operations-service";
 
-export type TopTab = "content" | "analytics" | "ads";
+export type TopTab = "content" | "analytics" | "ads" | "governance";
 export type ContentSection = "snapshot" | "timelines" | "events" | "taxonomy" | "import_data" | "data_health" | "requests";
 export type AdminFetcher = <T>(url: string, init?: RequestInit) => Promise<T>;
 
@@ -34,6 +35,8 @@ export type AnalyticsDataset = {
   analyticsSnapshot: AnalyticsSnapshot | null;
   analyticsReport: AdminAnalyticsReport | null;
 };
+
+export type GovernanceOperationsDataset = GovernanceOperationsSnapshot | null;
 
 export type TimelineDraft = {
   id: number | null;

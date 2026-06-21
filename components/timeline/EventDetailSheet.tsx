@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { EventRecord } from "@/src/lib/types";
 import { formatDisplayDate } from "@/src/lib/utils";
+import { HistoricalContextSection } from "@/components/timeline/HistoricalContextSection";
 import { CloseIcon } from "@/components/ui/Icons";
 
 export function EventDetailSheet({
@@ -99,6 +100,8 @@ export function EventDetailSheet({
             <h2 className="sheet-title">{event.title}</h2>
             <p className="sheet-description">{event.description}</p>
           </div>
+
+          <HistoricalContextSection context={event.historicalContext} compact />
 
           <section className="stack" style={{ gap: 10 }}>
             <strong>Sources</strong>
