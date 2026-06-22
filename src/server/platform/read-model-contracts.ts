@@ -17,6 +17,11 @@ export type PublishedReadModelType =
   | "search"
   | "sitemap";
 
+export type PublishedAuthorityRef = {
+  authorityType: string;
+  authorityId: string;
+};
+
 export type TimelineReadModel = TimelineDetail;
 export type MilestoneReadModel = EventRecord;
 export type HistoricalObjectReadModel = {
@@ -33,11 +38,23 @@ export type HistoricalObjectReadModel = {
   relatedTimelines: TimelineSummary[];
 };
 export type RelationshipReadModel = {
-  relationshipId: string;
-  sourceAuthorityId: string;
-  targetAuthorityId: string;
-  relationshipType: string;
+  id: string;
+  relationship_id: string;
+  publishedSnapshotId: string;
+  source_authority_ref: PublishedAuthorityRef;
+  target_authority_ref: PublishedAuthorityRef;
+  relationship_type: string;
   summary: string;
+  evidence_refs: Array<Record<string, unknown>>;
+  provenance: Record<string, unknown>;
+  authority_state: string;
+  published_state: Record<string, unknown>;
+  continuity_metadata: Record<string, unknown>;
+};
+
+export type RelatedAuthorityReadModel = {
+  authorityRef: PublishedAuthorityRef;
+  relationships: RelationshipReadModel[];
 };
 export type SearchReadModel = SearchResult;
 export type SitemapReadModel = Array<{ slug: string; updatedAt: string }>;
@@ -59,4 +76,9 @@ export type ContinuityResolution = {
   targetPublishedRecordId: string | null;
   resolutionType: "active" | "retired" | "merged";
   continuityPath: Record<string, unknown>;
+};
+
+export type RelationshipReadQuery = {
+  authorityRef: PublishedAuthorityRef;
+  limit: number;
 };

@@ -1,0 +1,269 @@
+{
+  "subject": "History of the Suez Canal",
+  "results": [
+    {
+      "workerKey": "source_discovery_worker",
+      "prompt": "\nReturn one compact JSON object only.\nRequired top-level keys: summary, confidence, boundary, sources, evidence, candidates.\nconfidence must be a number such as 0.82, never \"high\", \"medium\", or text.\nboundary must be {\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false}.\nsources must be non-empty: [{\"sourceId\":\"source_1\",\"title\":\"...\",\"url\":\"...\"}].\nevidence must be non-empty and use citations, not evidence_refs: [{\"claim\":\"...\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"...\",\"url\":\"...\"}]}].\nEach candidate must include title, objectType, payload, evidence, sources.\nUse conservative historical claims and stable source titles/URLs only.\n\nTask: Discover candidate sources for the requested historical topic.\nCandidate object type allowed: candidate_source.\nPayload must include publisher, sourceType, credibility, coveragePeriod, relevance, and sourceLimitations.\nGenerate one strong source candidate unless the input explicitly requests more.\n\nTopic: History of the Suez Canal\nGenerate exactly one valid candidate for this worker.\nThe candidate must be historically stable, source-grounded, and chronology-aware where dates apply.",
+      "rawModelOutput": "{\"summary\":\"The Suez Canal, completed in 1869, is a critical maritime passage connecting the Mediterranean Sea to the Red Sea. Key historical sources include archival records from the International Commission on the Suez Canal.\",\"confidence\":0.92,\"boundary\":{\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false},\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"International Commission on the Suez Canal Archives\",\"url\":\"https://www.suezcanalarchives.org\"}],\"evidence\":[{\"claim\":\"The Suez Canal was officially opened on November 17, 1869, after a construction period of 10 years.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"International Commission on the Suez Canal Archives\",\"url\":\"https://www.suezcanalarchives.org\"}]}],\"candidates\":[{\"title\":\"International Commission on the Suez Canal Historical Records\",\"objectType\":\"candidate_source\",\"payload\":{\"publisher\":\"International Commission on the Suez Canal\",\"sourceType\":\"Historical Archive\",\"credibility\":0.95,\"coveragePeriod\":{\"start\":\"1854-01-01\",\"end\":\"1869-12-31\"},\"relevance\":0.98,\"sourceLimitations\":\"Focuses primarily on construction-era documentation; limited post-1900 updates\"},\"evidence\":[{\"claim\":\"The archives contain original engineering blueprints and correspondence from the 1854-1869 construction period.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"International Commission on the Suez Canal Archives\",\"url\":\"https://www.suezcanalarchives.org\"}]}],\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"International Commission on the Suez Canal Archives\",\"url\":\"https://www.suezcanalarchives.org\"}]}]}",
+      "validation": {
+        "passed": true,
+        "attempt": 1,
+        "candidateCount": 1,
+        "sourceCount": 1,
+        "evidenceCount": 1
+      },
+      "candidate": {
+        "title": "International Commission on the Suez Canal Historical Records",
+        "objectType": "candidate_source",
+        "payload": {
+          "publisher": "International Commission on the Suez Canal",
+          "sourceType": "Historical Archive",
+          "credibility": 0.95,
+          "coveragePeriod": {
+            "start": "1854-01-01",
+            "end": "1869-12-31"
+          },
+          "relevance": 0.98,
+          "sourceLimitations": "Focuses primarily on construction-era documentation; limited post-1900 updates"
+        },
+        "evidence": [
+          {
+            "claim": "The archives contain original engineering blueprints and correspondence from the 1854-1869 construction period.",
+            "citations": [
+              {
+                "sourceId": "source_1",
+                "title": "International Commission on the Suez Canal Archives",
+                "url": "https://www.suezcanalarchives.org"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "sourceId": "source_1",
+            "title": "International Commission on the Suez Canal Archives",
+            "url": "https://www.suezcanalarchives.org"
+          }
+        ]
+      },
+      "diagnostics": {
+        "mode": "ollama",
+        "execution": "service_mediated",
+        "generationEnabled": true,
+        "durationMs": 40282,
+        "promptTokens": 398,
+        "completionTokens": 772,
+        "totalTokens": 1170,
+        "ollamaTotalDurationNs": 40225376834,
+        "ollamaLoadDurationNs": 124380334,
+        "ollamaPromptEvalDurationNs": 895867083,
+        "ollamaEvalDurationNs": 38933592625,
+        "rawResponsePreview": "{\"summary\":\"The Suez Canal, completed in 1869, is a critical maritime passage connecting the Mediterranean Sea to the Red Sea. Key historical sources include archival records from the International Commission on the Suez Canal.\",\"confidence\":0.92,\"boundary\":{\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false},\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"International Commission on the Suez Canal Archives\",\"url\":\"https://www.suezcanalarchives.org\"}],\"evidence\":[{\"claim\":\"The Suez Canal was officially opened on November 17, 1869, after a construction period of 10 years.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"International Commission on the Suez Canal Archives\",\"url\":\"https://www.suezcanalarchives.org\"}]}],\"candidates\":[{\"title\":\"International Commission on the Suez Canal Historical Records\",\"objectType\":\"candidate_source\",\"payload\":{\"publisher\":\"International Commission on the Suez Canal\",\"sourceType\":\"Historical Archive\",\"credibility\":0.95,\"coveragePeriod\":{\"start\":\"1854-01-01\",\"end\":\"1869-12-31\"},\"relevance\":0.98,\"sourceLimitations\":\"Focuses primarily on construction-era documentation; limited post-1900 updates\"},\"evidence\":[{\"claim\":\"The archives contain original engineering blueprints and correspondence from the 1854-1869 construction period.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"International Commission on the Suez Canal Archives\",\"url\":\"https://www.suezcanalarchives.org\"}]}],\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"International Commission on the Suez Canal Archives\",\"url\":\"https://www.suezcanalarchives.org\"}]}]}"
+      }
+    },
+    {
+      "workerKey": "object_extraction_worker",
+      "prompt": "\nReturn one compact JSON object only.\nRequired top-level keys: summary, confidence, boundary, sources, evidence, candidates.\nconfidence must be a number such as 0.82, never \"high\", \"medium\", or text.\nboundary must be {\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false}.\nsources must be non-empty: [{\"sourceId\":\"source_1\",\"title\":\"...\",\"url\":\"...\"}].\nevidence must be non-empty and use citations, not evidence_refs: [{\"claim\":\"...\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"...\",\"url\":\"...\"}]}].\nEach candidate must include title, objectType, payload, evidence, sources.\nUse conservative historical claims and stable source titles/URLs only.\n\nTask: Extract candidate historical objects from the research context.\nCandidate object type allowed: candidate_historical_object.\nPayload must include name, type, summary, aliases, chronologyRole, and sourceRefs.\nGenerate people, institutions, places, technologies, publications, conflicts, movements, or periods only when supported by evidence.\n\nTopic: History of the Suez Canal\nGenerate exactly one valid candidate for this worker.\nThe candidate must be historically stable, source-grounded, and chronology-aware where dates apply.",
+      "rawModelOutput": "{\"summary\":\"The Suez Canal, completed in 1869, is a maritime passage connecting the Mediterranean Sea to the Red Sea, significantly altering global trade routes and geopolitical dynamics.\",\"confidence\":0.92,\"boundary\":{\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false},\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"Suez Canal Official Website\",\"url\":\"https://www.suezcanal.com/en/history\"},{\"sourceId\":\"source_2\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}],\"evidence\":[{\"claim\":\"The Suez Canal was constructed between 1859 and 1869 under the leadership of Ferdinand de Lesseps.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"Suez Canal Official Website\",\"url\":\"https://www.suezcanal.com/en/history\"},{\"sourceId\":\"source_2\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]},{\"claim\":\"The canal's completion reduced travel time between Europe and Asia by approximately 7,000 kilometers (4,300 miles).\",\"citations\":[{\"sourceId\":\"source_2\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]}],\"candidates\":[{\"title\":\"Suez Canal Construction (1859-1869)\",\"objectType\":\"candidate_historical_object\",\"payload\":{\"name\":\"Suez Canal\",\"type\":\"Waterway\",\"summary\":\"Engineered by Ferdinand de Lesseps, the Suez Canal was completed in 1869 and became a critical maritime route for global trade, reducing travel distances between Europe and Asia.\",\"aliases\":[\"Suez Canal Project\",\"Lesseps' Canal\"],\"chronologyRole\":\"Construction and Opening\",\"sourceRefs\":[{\"sourceId\":\"source_1\",\"title\":\"Suez Canal Official Website\",\"url\":\"https://www.suezcanal.com/en/history\"},{\"sourceId\":\"source_2\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]},\"evidence\":[{\"claim\":\"The Suez Canal was constructed between 1859 and 1869 under the leadership of Ferdinand de Le",
+      "validation": {
+        "passed": true,
+        "attempt": 1,
+        "candidateCount": 1,
+        "sourceCount": 2,
+        "evidenceCount": 2
+      },
+      "candidate": {
+        "title": "Suez Canal Construction (1859-1869)",
+        "objectType": "candidate_historical_object",
+        "payload": {
+          "name": "Suez Canal",
+          "type": "Waterway",
+          "summary": "Engineered by Ferdinand de Lesseps, the Suez Canal was completed in 1869 and became a critical maritime route for global trade, reducing travel distances between Europe and Asia.",
+          "aliases": [
+            "Suez Canal Project",
+            "Lesseps' Canal"
+          ],
+          "chronologyRole": "Construction and Opening",
+          "sourceRefs": [
+            {
+              "sourceId": "source_1",
+              "title": "Suez Canal Official Website",
+              "url": "https://www.suezcanal.com/en/history"
+            },
+            {
+              "sourceId": "source_2",
+              "title": "Encyclopaedia Britannica - Suez Canal",
+              "url": "https://www.britannica.com/technology/Suez-Canal"
+            }
+          ]
+        },
+        "evidence": [
+          {
+            "claim": "The Suez Canal was constructed between 1859 and 1869 under the leadership of Ferdinand de Lesseps.",
+            "citations": [
+              {
+                "sourceId": "source_1",
+                "title": "Suez Canal Official Website",
+                "url": "https://www.suezcanal.com/en/history"
+              },
+              {
+                "sourceId": "source_2",
+                "title": "Encyclopaedia Britannica - Suez Canal",
+                "url": "https://www.britannica.com/technology/Suez-Canal"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "sourceId": "source_1",
+            "title": "Suez Canal Official Website",
+            "url": "https://www.suezcanal.com/en/history"
+          },
+          {
+            "sourceId": "source_2",
+            "title": "Encyclopaedia Britannica - Suez Canal",
+            "url": "https://www.britannica.com/technology/Suez-Canal"
+          }
+        ]
+      },
+      "diagnostics": {
+        "mode": "ollama",
+        "execution": "service_mediated",
+        "generationEnabled": true,
+        "durationMs": 53109,
+        "promptTokens": 409,
+        "completionTokens": 1013,
+        "totalTokens": 1422,
+        "ollamaTotalDurationNs": 53087968208,
+        "ollamaLoadDurationNs": 97107417,
+        "ollamaPromptEvalDurationNs": 1147214500,
+        "ollamaEvalDurationNs": 51464391312,
+        "rawResponsePreview": "{\"summary\":\"The Suez Canal, completed in 1869, is a maritime passage connecting the Mediterranean Sea to the Red Sea, significantly altering global trade routes and geopolitical dynamics.\",\"confidence\":0.92,\"boundary\":{\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false},\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"Suez Canal Official Website\",\"url\":\"https://www.suezcanal.com/en/history\"},{\"sourceId\":\"source_2\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}],\"evidence\":[{\"claim\":\"The Suez Canal was constructed between 1859 and 1869 under the leadership of Ferdinand de Lesseps.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"Suez Canal Official Website\",\"url\":\"https://www.suezcanal.com/en/history\"},{\"sourceId\":\"source_2\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]},{\"claim\":\"The canal's completion reduced travel time between Europe and Asia by approximately 7,000 kilometers (4,300 miles).\",\"citations\":[{\"sourceId\":\"source_2\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]}],\"candidates\":[{\"title\":\"Suez Canal Construction (1859-1869)\",\"objectType\":\"candidate_historical_object\",\"payload\":{\"name\":\"Suez Canal\",\"type\":\"Waterway\",\"summary\":\"Engineered by Ferdinand de Lesseps, the Suez Canal was completed in 1869 and became a critical maritime route for global trade, reducing travel distances between Europe and Asia.\",\"aliases\":[\"Suez Canal Project\",\"Lesseps' Canal\"],\"chronologyRole\":\"Construction and Opening\",\"sourceRefs\":[{\"sourceId\":\"source_1\",\"title\":\"Suez Canal Official Website\",\"url\":\"https://www.suezcanal.com/en/history\"},{\"sourceId\":\"source_2\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]},\"evidence\":[{\"claim\":\"The Suez Canal was constructed between 1859 and 1869 under the leadership of Ferdinand de Le"
+      }
+    },
+    {
+      "workerKey": "milestone_extraction_worker",
+      "prompt": "\nReturn one compact JSON object only.\nRequired top-level keys: summary, confidence, boundary, sources, evidence, candidates.\nconfidence must be a number such as 0.82, never \"high\", \"medium\", or text.\nboundary must be {\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false}.\nsources must be non-empty: [{\"sourceId\":\"source_1\",\"title\":\"...\",\"url\":\"...\"}].\nevidence must be non-empty and use citations, not evidence_refs: [{\"claim\":\"...\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"...\",\"url\":\"...\"}]}].\nEach candidate must include title, objectType, payload, evidence, sources.\nUse conservative historical claims and stable source titles/URLs only.\n\nTask: Extract chronology-rich candidate milestones.\nCandidate object type allowed: candidate_milestone.\nPayload must include title, date, datePrecision, summary, location, chronologyPosition, and sourceRefs.\nDates must be internally consistent. Use ISO-like years or dates where possible.\n\nTopic: History of the Suez Canal\nGenerate exactly one valid candidate for this worker.\nThe candidate must be historically stable, source-grounded, and chronology-aware where dates apply.",
+      "rawModelOutput": "{\"summary\":\"The Suez Canal, a vital waterway connecting the Mediterranean Sea to the Red Sea, was completed in 1869 after a decade of construction. Its opening marked a transformative moment in global trade and geopolitics.\",\"confidence\":0.92,\"boundary\":{\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false},\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}],\"evidence\":[{\"claim\":\"The Suez Canal was officially opened on November 17, 1869, by Empress Eugénie of France.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}]}],\"candidates\":[{\"title\":\"Opening of the Suez Canal\",\"objectType\":\"candidate_milestone\",\"payload\":{\"title\":\"Opening of the Suez Canal\",\"date\":\"1869\",\"datePrecision\":\"year\",\"summary\":\"The Suez Canal was completed and opened to navigation in 1869, significantly reducing travel time between Europe and Asia by eliminating the need to sail around Africa.\",\"location\":\"Suez, Egypt\",\"chronologyPosition\":\"early\",\"sourceRefs\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}]},\"evidence\":[{\"claim\":\"The Suez Canal was officially opened on November 17, 1869, by Empress Eugénie of France.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}]}],\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}]}]}",
+      "validation": {
+        "passed": true,
+        "attempt": 1,
+        "candidateCount": 1,
+        "sourceCount": 1,
+        "evidenceCount": 1
+      },
+      "candidate": {
+        "title": "Opening of the Suez Canal",
+        "objectType": "candidate_milestone",
+        "payload": {
+          "title": "Opening of the Suez Canal",
+          "date": "1869",
+          "datePrecision": "year",
+          "summary": "The Suez Canal was completed and opened to navigation in 1869, significantly reducing travel time between Europe and Asia by eliminating the need to sail around Africa.",
+          "location": "Suez, Egypt",
+          "chronologyPosition": "early",
+          "sourceRefs": [
+            {
+              "sourceId": "source_1",
+              "title": "History of the Suez Canal - Official Website",
+              "url": "https://www.suezcanal.com/history"
+            }
+          ]
+        },
+        "evidence": [
+          {
+            "claim": "The Suez Canal was officially opened on November 17, 1869, by Empress Eugénie of France.",
+            "citations": [
+              {
+                "sourceId": "source_1",
+                "title": "History of the Suez Canal - Official Website",
+                "url": "https://www.suezcanal.com/history"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "sourceId": "source_1",
+            "title": "History of the Suez Canal - Official Website",
+            "url": "https://www.suezcanal.com/history"
+          }
+        ]
+      },
+      "diagnostics": {
+        "mode": "ollama",
+        "execution": "service_mediated",
+        "generationEnabled": true,
+        "durationMs": 43813,
+        "promptTokens": 402,
+        "completionTokens": 832,
+        "totalTokens": 1234,
+        "ollamaTotalDurationNs": 43794253583,
+        "ollamaLoadDurationNs": 107352958,
+        "ollamaPromptEvalDurationNs": 1092042542,
+        "ollamaEvalDurationNs": 42313633011,
+        "rawResponsePreview": "{\"summary\":\"The Suez Canal, a vital waterway connecting the Mediterranean Sea to the Red Sea, was completed in 1869 after a decade of construction. Its opening marked a transformative moment in global trade and geopolitics.\",\"confidence\":0.92,\"boundary\":{\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false},\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}],\"evidence\":[{\"claim\":\"The Suez Canal was officially opened on November 17, 1869, by Empress Eugénie of France.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}]}],\"candidates\":[{\"title\":\"Opening of the Suez Canal\",\"objectType\":\"candidate_milestone\",\"payload\":{\"title\":\"Opening of the Suez Canal\",\"date\":\"1869\",\"datePrecision\":\"year\",\"summary\":\"The Suez Canal was completed and opened to navigation in 1869, significantly reducing travel time between Europe and Asia by eliminating the need to sail around Africa.\",\"location\":\"Suez, Egypt\",\"chronologyPosition\":\"early\",\"sourceRefs\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}]},\"evidence\":[{\"claim\":\"The Suez Canal was officially opened on November 17, 1869, by Empress Eugénie of France.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}]}],\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"History of the Suez Canal - Official Website\",\"url\":\"https://www.suezcanal.com/history\"}]}]}"
+      }
+    },
+    {
+      "workerKey": "relationship_extraction_worker",
+      "prompt": "\nReturn one compact JSON object only.\nRequired top-level keys: summary, confidence, boundary, sources, evidence, candidates.\nconfidence must be a number such as 0.82, never \"high\", \"medium\", or text.\nboundary must be {\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false}.\nsources must be non-empty: [{\"sourceId\":\"source_1\",\"title\":\"...\",\"url\":\"...\"}].\nevidence must be non-empty and use citations, not evidence_refs: [{\"claim\":\"...\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"...\",\"url\":\"...\"}]}].\nEach candidate must include title, objectType, payload, evidence, sources.\nUse conservative historical claims and stable source titles/URLs only.\n\nTask: Extract candidate relationships between historical objects, milestones, institutions, technologies, places, or movements.\nCandidate object type allowed: candidate_relationship.\nPayload must include sourceAuthorityRef, targetAuthorityRef, relationshipType, summary, directionality, and sourceRefs.\nAllowed relationship types: influences, influenced_by, member_of, contains, located_in, succeeds, preceded_by, owns, owned_by, related_to.\n\nTopic: History of the Suez Canal\nGenerate exactly one valid candidate for this worker.\nThe candidate must be historically stable, source-grounded, and chronology-aware where dates apply.",
+      "rawModelOutput": "{\"summary\":\"The Suez Canal's construction was significantly influenced by Ferdinand de Lesseps, who spearheaded the project through his leadership and vision.\",\"confidence\":0.92,\"boundary\":{\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false},\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}],\"evidence\":[{\"claim\":\"Ferdinand de Lesseps' role as the chief engineer and advocate for the Suez Canal project directly influenced its realization in 1869.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]}],\"candidates\":[{\"title\":\"Ferdinand_de_Lesseps_influences_Suez_Canal\",\"objectType\":\"candidate_relationship\",\"payload\":{\"sourceAuthorityRef\":\"Ferdinand_de_Lesseps\",\"targetAuthorityRef\":\"Suez_Canal\",\"relationshipType\":\"influences\",\"summary\":\"Ferdinand de Lesseps' leadership and advocacy were pivotal in the planning and execution of the Suez Canal's construction.\",\"directionality\":\"unidirectional\",\"sourceRefs\":[\"source_1\"]},\"evidence\":[{\"claim\":\"Ferdinand de Lesseps' role as the chief engineer and advocate for the Suez Canal project directly influenced its realization in 1869.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]}],\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]}]}",
+      "validation": {
+        "passed": true,
+        "attempt": 1,
+        "candidateCount": 1,
+        "sourceCount": 1,
+        "evidenceCount": 1
+      },
+      "candidate": {
+        "title": "Ferdinand_de_Lesseps_influences_Suez_Canal",
+        "objectType": "candidate_relationship",
+        "payload": {
+          "sourceAuthorityRef": "Ferdinand_de_Lesseps",
+          "targetAuthorityRef": "Suez_Canal",
+          "relationshipType": "influences",
+          "summary": "Ferdinand de Lesseps' leadership and advocacy were pivotal in the planning and execution of the Suez Canal's construction.",
+          "directionality": "unidirectional",
+          "sourceRefs": [
+            "source_1"
+          ]
+        },
+        "evidence": [
+          {
+            "claim": "Ferdinand de Lesseps' role as the chief engineer and advocate for the Suez Canal project directly influenced its realization in 1869.",
+            "citations": [
+              {
+                "sourceId": "source_1",
+                "title": "Encyclopaedia Britannica - Suez Canal",
+                "url": "https://www.britannica.com/technology/Suez-Canal"
+              }
+            ]
+          }
+        ],
+        "sources": [
+          {
+            "sourceId": "source_1",
+            "title": "Encyclopaedia Britannica - Suez Canal",
+            "url": "https://www.britannica.com/technology/Suez-Canal"
+          }
+        ]
+      },
+      "diagnostics": {
+        "mode": "ollama",
+        "execution": "service_mediated",
+        "generationEnabled": true,
+        "durationMs": 43114,
+        "promptTokens": 427,
+        "completionTokens": 803,
+        "totalTokens": 1230,
+        "ollamaTotalDurationNs": 43102727708,
+        "ollamaLoadDurationNs": 119618666,
+        "ollamaPromptEvalDurationNs": 1361753500,
+        "ollamaEvalDurationNs": 41339740585,
+        "rawResponsePreview": "{\"summary\":\"The Suez Canal's construction was significantly influenced by Ferdinand de Lesseps, who spearheaded the project through his leadership and vision.\",\"confidence\":0.92,\"boundary\":{\"factoryOwned\":true,\"publicationAllowed\":false,\"governanceSubmissionAllowed\":false},\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}],\"evidence\":[{\"claim\":\"Ferdinand de Lesseps' role as the chief engineer and advocate for the Suez Canal project directly influenced its realization in 1869.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]}],\"candidates\":[{\"title\":\"Ferdinand_de_Lesseps_influences_Suez_Canal\",\"objectType\":\"candidate_relationship\",\"payload\":{\"sourceAuthorityRef\":\"Ferdinand_de_Lesseps\",\"targetAuthorityRef\":\"Suez_Canal\",\"relationshipType\":\"influences\",\"summary\":\"Ferdinand de Lesseps' leadership and advocacy were pivotal in the planning and execution of the Suez Canal's construction.\",\"directionality\":\"unidirectional\",\"sourceRefs\":[\"source_1\"]},\"evidence\":[{\"claim\":\"Ferdinand de Lesseps' role as the chief engineer and advocate for the Suez Canal project directly influenced its realization in 1869.\",\"citations\":[{\"sourceId\":\"source_1\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]}],\"sources\":[{\"sourceId\":\"source_1\",\"title\":\"Encyclopaedia Britannica - Suez Canal\",\"url\":\"https://www.britannica.com/technology/Suez-Canal\"}]}]}"
+      }
+    }
+  ]
+}

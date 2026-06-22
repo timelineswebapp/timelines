@@ -3,6 +3,7 @@ import type { Sql } from "postgres";
 import type { AuthorityRef, EvidenceRef, GovernanceActorRef, PublicationPackage } from "@/src/server/governance/contracts";
 import { ApiError } from "@/src/server/api/responses";
 import { getWriteSql } from "@/src/server/db/client";
+import { historicalRelationshipRepository } from "@/src/server/repositories/historical-relationship-repository";
 
 export type HistoricalLibraryAdmission = {
   admissionId: string;
@@ -130,8 +131,37 @@ function hashSnapshot(snapshot: Record<string, unknown>): string {
   return createHash("sha256").update(stableJson(snapshot)).digest("hex");
 }
 
+async function buildPublishedMemorySnapshotPayload(input: {
+  authorityRef: AuthorityRef;
+  publicationPackage: PublicationPackage;
+}): Promise<Record<string, unknown>> {
+  const base = {
+    authorityRef: input.authorityRef,
+    publicationPackageId: input.publicationPackage.packageId,
+    packageScope: input.publicationPackage.scope,
+    readinessCertification: input.publicationPackage.readinessCertification,
+    acceptanceOutcome: input.publicationPackage.acceptanceOutcome,
+    admittedAtPackageLifecycle: input.publicationPackage.lifecycle
+  };
+
+  if (input.authorityRef.authorityType !== "relationship") {
+    return base;
+  }
+
+  const relationshipPayload = await historicalRelationshipRepository.getPublicationPayload(input.authorityRef.authorityId);
+  if (!relationshipPayload) {
+    throw new ApiError(409, "RELATIONSHIP_PUBLICATION_PAYLOAD_MISSING", "Relationship publication requires an existing relationship authority record.");
+  }
+
+  return {
+    ...base,
+    ...relationshipPayload,
+    published_memory_payload_type: "relationship"
+  };
+}
+
 export const historicalLibraryRepository = {
-  async listPublishedSnapshots(limit = 1000): Promise<PublishedMemorySnapshot[]> {
+  async listPublishedSnapshots(limit = 1000, offset = 0): Promise<PublishedMemorySnapshot[]> {
     const sql = getWriteSql("listing historical library published snapshots");
     return sql<PublishedMemorySnapshot[]>`
       SELECT
@@ -146,7 +176,18 @@ export const historicalLibraryRepository = {
       WHERE lifecycle = 'active'
       ORDER BY created_at DESC
       LIMIT ${limit}
+      OFFSET ${offset}
     `;
+  },
+
+  async countPublishedSnapshots(): Promise<number> {
+    const sql = getWriteSql("counting historical library published snapshots");
+    const [row] = await sql<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM historical_library_published_snapshots
+      WHERE lifecycle = 'active'
+    `;
+    return row?.count || 0;
   },
 
   async listRevisions(limit = 100): Promise<HistoricalLibraryRevision[]> {
@@ -170,7 +211,7 @@ export const historicalLibraryRepository = {
     `;
   },
 
-  async listRetirements(limit = 100): Promise<HistoricalLibraryRetirement[]> {
+  async listRetirements(limit = 100, offset = 0): Promise<HistoricalLibraryRetirement[]> {
     const sql = getWriteSql("listing historical library retirements");
     return sql<HistoricalLibraryRetirement[]>`
       SELECT
@@ -186,10 +227,20 @@ export const historicalLibraryRepository = {
       FROM historical_library_retirements
       ORDER BY created_at DESC
       LIMIT ${limit}
+      OFFSET ${offset}
     `;
   },
 
-  async listMerges(limit = 100): Promise<HistoricalLibraryMerge[]> {
+  async countRetirements(): Promise<number> {
+    const sql = getWriteSql("counting historical library retirements");
+    const [row] = await sql<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM historical_library_retirements
+    `;
+    return row?.count || 0;
+  },
+
+  async listMerges(limit = 100, offset = 0): Promise<HistoricalLibraryMerge[]> {
     const sql = getWriteSql("listing historical library merges");
     return sql<HistoricalLibraryMerge[]>`
       SELECT
@@ -206,7 +257,17 @@ export const historicalLibraryRepository = {
       FROM historical_library_merges
       ORDER BY created_at DESC
       LIMIT ${limit}
+      OFFSET ${offset}
     `;
+  },
+
+  async countMerges(): Promise<number> {
+    const sql = getWriteSql("counting historical library merges");
+    const [row] = await sql<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM historical_library_merges
+    `;
+    return row?.count || 0;
   },
 
   async listPreservations(limit = 100): Promise<HistoricalLibraryPreservation[]> {
@@ -292,25 +353,23 @@ export const historicalLibraryRepository = {
     const admissionId = input.admissionId || randomUUID();
     const auditRefs = input.auditRefs || [];
 
-    const snapshots = input.publicationPackage.includedAuthority.map((authorityRef) => {
-      const snapshot = {
-        authorityRef,
-        publicationPackageId: input.publicationPackage.packageId,
-        packageScope: input.publicationPackage.scope,
-        readinessCertification: input.publicationPackage.readinessCertification,
-        acceptanceOutcome: input.publicationPackage.acceptanceOutcome,
-        admittedAtPackageLifecycle: input.publicationPackage.lifecycle
-      };
+    const snapshots = await Promise.all(
+      input.publicationPackage.includedAuthority.map(async (authorityRef) => {
+        const snapshot = await buildPublishedMemorySnapshotPayload({
+          authorityRef,
+          publicationPackage: input.publicationPackage
+        });
 
-      return {
+        return {
         snapshotId: randomUUID(),
         admissionId,
         authorityRef,
         snapshot,
         snapshotHash: hashSnapshot(snapshot),
         lifecycle: "active" as const
-      };
-    });
+        };
+      })
+    );
 
     return sql.begin(async (transaction) => {
       const tx = transaction as unknown as Sql;

@@ -291,7 +291,7 @@ const governanceRoleSchema = z.enum([
 
 const governanceServiceBoundarySchema = z.enum(["factory", "governance", "historical_library", "registry", "platform"]);
 const authorityRefSchema = z.object({
-  authorityType: z.enum(["historical_object", "participation", "publication_package", "feedback_package", "dispute"]),
+  authorityType: z.enum(["historical_object", "participation", "relationship", "publication_package", "feedback_package", "dispute"]),
   authorityId: trimmedString(1, 160)
 });
 const governanceActorRefSchema = z.object({
@@ -306,6 +306,50 @@ const evidenceRefSchema = z.object({
   authoritySafe: z.boolean()
 });
 
+const relationshipTypeSchema = z.enum([
+  "influences",
+  "influenced_by",
+  "member_of",
+  "contains",
+  "located_in",
+  "succeeds",
+  "preceded_by",
+  "owns",
+  "owned_by",
+  "related_to"
+]);
+
+export const historicalRelationshipSchema = z.object({
+  sourceAuthorityRef: authorityRefSchema,
+  targetAuthorityRef: authorityRefSchema,
+  relationshipType: relationshipTypeSchema,
+  summary: trimmedString(3, 2000),
+  evidenceRefs: z.array(evidenceRefSchema).max(50).default([]),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  reason: trimmedString(3, 1000),
+  governanceDecisionId: governanceDecisionIdSchema
+});
+
+export const historicalRelationshipRevisionSchema = historicalRelationshipSchema;
+
+export const historicalRelationshipMergeSchema = z.object({
+  targetRelationshipId: governanceDecisionIdSchema,
+  continuityPath: z.record(z.unknown()).default({}),
+  reason: trimmedString(3, 1000),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  governanceDecisionId: governanceDecisionIdSchema
+});
+
+export const historicalRelationshipActionSchema = z.object({
+  reason: trimmedString(3, 1000),
+  continuityPath: z.record(z.unknown()).default({}),
+  provenance: provenanceSchema,
+  actor: actorSchema,
+  governanceDecisionId: governanceDecisionIdSchema
+});
+
 export const governanceDecisionSchema = z.object({
   decisionId: governanceDecisionIdSchema,
   decisionType: z.enum([
@@ -318,6 +362,11 @@ export const governanceDecisionSchema = z.object({
     "REVISE_PARTICIPATION",
     "CHANGE_PARTICIPATION_PRIORITY",
     "RETIRE_PARTICIPATION",
+    "ADMIT_RELATIONSHIP",
+    "REVISE_RELATIONSHIP",
+    "RETIRE_RELATIONSHIP",
+    "MERGE_RELATIONSHIP",
+    "PRESERVE_RELATIONSHIP",
     "CERTIFY_PUBLICATION_READINESS",
     "ACCEPT_PUBLICATION_PACKAGE",
     "REJECT_PUBLICATION_PACKAGE",
@@ -391,7 +440,7 @@ export const governanceQueueSchema = z.object({
 export const publicationPackageSchema = z.object({
   packageId: governanceDecisionIdSchema,
   scope: z.object({
-    packageType: z.enum(["historical_object_publication", "participation_publication", "timeline_context_publication", "mixed_authority_publication"]),
+    packageType: z.enum(["historical_object_publication", "participation_publication", "relationship_publication", "timeline_context_publication", "mixed_authority_publication"]),
     description: trimmedString(3, 1000)
   }),
   includedAuthority: z.array(authorityRefSchema).min(1).max(100),
@@ -660,6 +709,149 @@ export const factoryResubmissionCompletionSchema = z.object({
   actor: governanceActorRefSchema.refine((actor) => actor.role === "factory_editor", {
     message: "Factory resubmission actor must have factory_editor role."
   }),
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryRuntimeWorkerSchema = z.object({
+  workerKey: trimmedString(2, 120),
+  displayName: trimmedString(2, 200),
+  description: trimmedString(10, 1000),
+  capabilities: z.array(trimmedString(2, 120)).max(50).default([]),
+  defaultProviderKey: z.enum(["qwen14"]).default("qwen14"),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryRuntimePromptSchema = z.object({
+  promptKey: trimmedString(2, 120),
+  title: trimmedString(2, 200),
+  template: trimmedString(10, 10000),
+  inputSchema: z.record(z.unknown()).default({}),
+  outputSchema: z.record(z.unknown()).default({}),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryRuntimeJobSchema = z.object({
+  workerId: z.string().trim().uuid(),
+  promptId: z.string().trim().uuid(),
+  providerKey: z.enum(["qwen14"]).optional(),
+  priority: z.coerce.number().int().min(0).max(100).default(0),
+  input: z.record(z.unknown()),
+  configuration: z.record(z.unknown()).default({}),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryRuntimeJobTransitionSchema = z.object({
+  status: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryRuntimeJobExecutionSchema = z.object({
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryWorkerRegistrySyncSchema = z.object({
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryPipelineStartSchema = z.object({
+  pipelineId: z.enum(["historical_research_pipeline", "historical_extraction_pipeline", "publication_candidate_pipeline"]),
+  input: z.record(z.unknown()).default({}),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryPipelineCancellationSchema = z.object({
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryGovernanceHandoffSchema = z.object({
+  pipelineRunId: z.string().trim().uuid().nullable().optional(),
+  factoryPackageDraftId: z.string().trim().uuid(),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryGovernanceHandoffSubmissionSchema = z.object({
+  actor: governanceActorRefSchema.refine((actor) => actor.role === "factory_editor", {
+    message: "Factory handoff actor must have factory_editor role."
+  }),
+  reason: trimmedString(3, 1000)
+});
+
+const editorialEvidenceReviewSchema = z.array(z.record(z.unknown())).min(1).max(200);
+const editorialSourceReviewSchema = z.array(z.record(z.unknown())).min(1).max(200);
+
+export const factoryCandidateValidationSchema = z.object({
+  factoryPackageDraftId: z.string().trim().uuid(),
+  reviewer: actorSchema,
+  evidenceReviewed: editorialEvidenceReviewSchema,
+  sourcesReviewed: editorialSourceReviewSchema,
+  validationSummary: z.object({
+    minimumSourceCount: z.coerce.number().int().min(1).max(25),
+    minimumEvidenceCount: z.coerce.number().int().min(1).max(100),
+    sourceDiversity: z.boolean(),
+    dateConsistency: z.boolean(),
+    chronologyConsistency: z.boolean(),
+    relationshipConsistency: z.boolean(),
+    objectIdentityConsistency: z.boolean()
+  }),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryCandidateReviewSchema = z.object({
+  reviewer: actorSchema,
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryEditorialDecisionSchema = z.discriminatedUnion("decision", [
+  z.object({
+    decision: z.literal("approve"),
+    confidence: z.object({
+      confidenceLevel: z.enum(["high", "verified"]),
+      confidenceScore: z.coerce.number().min(0.75).max(1),
+      factors: z.object({
+        sourceQuality: z.coerce.number().min(0).max(1),
+        sourceCount: z.coerce.number().min(0).max(1),
+        evidenceCount: z.coerce.number().min(0).max(1),
+        crossSourceAgreement: z.coerce.number().min(0).max(1),
+        chronologicalConsistency: z.coerce.number().min(0).max(1)
+      })
+    }),
+    actor: actorSchema,
+    reason: trimmedString(3, 1000)
+  }),
+  z.object({
+    decision: z.literal("require_revision"),
+    evidenceReviewed: z.array(z.record(z.unknown())).max(200).optional(),
+    sourcesReviewed: z.array(z.record(z.unknown())).max(200).optional(),
+    actor: actorSchema,
+    reason: trimmedString(3, 1000)
+  })
+]);
+
+export const factoryAuthorityPreparationSchema = z.object({
+  editorialReviewId: z.string().trim().uuid(),
+  canonicalIdentityMapping: z.record(z.unknown()),
+  authorityReferences: z.record(z.unknown()),
+  sourceTraceability: z.record(z.unknown()),
+  evidenceTraceability: z.record(z.unknown()),
+  revisionTraceability: z.record(z.unknown()),
+  actor: actorSchema,
+  reason: trimmedString(3, 1000)
+});
+
+export const factoryGovernanceReadinessAssessmentSchema = z.object({
+  editorialReviewId: z.string().trim().uuid(),
+  actor: actorSchema,
   reason: trimmedString(3, 1000)
 });
 

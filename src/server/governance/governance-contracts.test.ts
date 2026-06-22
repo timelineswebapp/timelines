@@ -286,7 +286,7 @@ describe("governance contracts implementation", () => {
     }
   });
 
-  it("exposes read-only Governance operations through admin-authenticated service APIs and UI", () => {
+  it("exposes Governance operations through admin-authenticated service APIs and UI", () => {
     const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
     const operationsService = readFileSync("src/server/services/governance-operations-service.ts", "utf8");
     const operationsRoute = readFileSync("app/api/admin/governance/operations/route.ts", "utf8");
@@ -313,8 +313,44 @@ describe("governance contracts implementation", () => {
     assert.match(governanceUi, /Audit/);
     assert.match(governanceUi, /factoryPackageVersionId/);
     assert.match(governanceUi, /sourcePublishedRecordId/);
+    assert.match(governanceUi, /Service-mediated Governance actions/);
+    assert.match(governanceUi, /Decision confirmation/);
+    assert.match(governanceUi, /Impact preview/);
+    assert.match(governanceUi, /Audit reason/);
     assert.doesNotMatch(governanceUi, /governanceRepository|historicalLibraryRepository|factoryRepository|getWriteSql/);
     assert.doesNotMatch(governanceUi, /fetch\(["']\/api\/admin\/governance\/.*(approve|reject|publish|submit|resolve|close)/);
+  });
+
+  it("adds lifecycle-aware Governance action workflows without bypassing services", () => {
+    const governanceUi = readFileSync("components/admin/AdminGovernance.tsx", "utf8");
+    const service = readFileSync("src/server/services/governance-service.ts", "utf8");
+
+    for (const action of [
+      "CERTIFY_PUBLICATION_READINESS",
+      "ACCEPT_PUBLICATION_PACKAGE",
+      "REJECT_PUBLICATION_PACKAGE",
+      "RETURN_FOR_REVISION",
+      "ACKNOWLEDGE_FEEDBACK_PACKAGE",
+      "RESOLVE_FEEDBACK_PACKAGE"
+    ]) {
+      assert.match(governanceUi, new RegExp(action));
+    }
+
+    assert.match(governanceUi, /item\.lifecycle === "governance_review"/);
+    assert.match(governanceUi, /item\.lifecycle === "library_review"/);
+    assert.match(governanceUi, /item\.lifecycle === "delivered_to_factory"/);
+    assert.match(governanceUi, /item\.lifecycle === "factory_reviewing" \|\| item\.lifecycle === "action_required"/);
+    assert.match(governanceUi, /requiresDecision: true/);
+    assert.match(governanceUi, /governanceDecisionId: pendingAction\.requiresDecision/);
+    assert.match(governanceUi, /disabled=\{!canConfirmAction\}/);
+    assert.match(governanceUi, /roleOptions/);
+    assert.match(governanceUi, /fetchAdmin\(pendingAction\.endpoint/);
+    assert.doesNotMatch(governanceUi, /adminService|governanceRepository|createTransitionAudit/);
+
+    assert.match(service, /verifyApprovedGovernanceDecision/);
+    assert.match(service, /auditTransition\(\{/);
+    assert.match(service, /assertLifecycleTransition\("PublicationPackage"/);
+    assert.match(service, /assertLifecycleTransition\("FeedbackPackage"/);
   });
 });
 

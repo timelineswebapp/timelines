@@ -174,7 +174,7 @@ export const historicalLibraryService = {
     const publishedSnapshot = await loadLifecycleSnapshot(input);
     await verifyLibraryDecision({
       governanceDecisionId: input.governanceDecisionId,
-      expectedDecisionTypes: ["REVISE_HISTORICAL_OBJECT", "REVISE_PARTICIPATION"],
+      expectedDecisionTypes: ["REVISE_HISTORICAL_OBJECT", "REVISE_PARTICIPATION", "REVISE_RELATIONSHIP"],
       targetAuthority: publishedSnapshot.authorityRef
     });
     const revision = await historicalLibraryRepository.createRevision({
@@ -194,7 +194,7 @@ export const historicalLibraryService = {
     const publishedSnapshot = await loadLifecycleSnapshot(input);
     await verifyLibraryDecision({
       governanceDecisionId: input.governanceDecisionId,
-      expectedDecisionTypes: ["RETIRE_HISTORICAL_OBJECT", "RETIRE_PARTICIPATION"],
+      expectedDecisionTypes: ["RETIRE_HISTORICAL_OBJECT", "RETIRE_PARTICIPATION", "RETIRE_RELATIONSHIP"],
       targetAuthority: publishedSnapshot.authorityRef
     });
     const retirement = await historicalLibraryRepository.createRetirement({
@@ -227,7 +227,7 @@ export const historicalLibraryService = {
     }
     await verifyLibraryDecision({
       governanceDecisionId: input.governanceDecisionId,
-      expectedDecisionTypes: ["MERGE_HISTORICAL_OBJECT"],
+      expectedDecisionTypes: ["MERGE_HISTORICAL_OBJECT", "MERGE_RELATIONSHIP"],
       targetAuthority: sourceSnapshot.authorityRef
     });
     const merge = await historicalLibraryRepository.createMerge({
@@ -248,7 +248,7 @@ export const historicalLibraryService = {
     const publishedSnapshot = await loadLifecycleSnapshot(input);
     await verifyLibraryDecision({
       governanceDecisionId: input.governanceDecisionId,
-      expectedDecisionTypes: ["PRESERVE_HISTORICAL_OBJECT"],
+      expectedDecisionTypes: ["PRESERVE_HISTORICAL_OBJECT", "PRESERVE_RELATIONSHIP"],
       targetAuthority: publishedSnapshot.authorityRef
     });
     const preservation = await historicalLibraryRepository.createPreservation({

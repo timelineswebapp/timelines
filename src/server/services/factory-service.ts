@@ -2,15 +2,32 @@ import { randomUUID } from "node:crypto";
 import { ApiError } from "@/src/server/api/responses";
 import type {
   FactoryArtifactType,
+  FactoryAuthorityPreparation,
+  FactoryConfidenceLevel,
+  FactoryEditorialReview,
+  FactoryEditorialReviewLifecycle,
   FactoryFeedbackLifecycle,
+  FactoryGovernanceHandoffStatus,
   FactoryObjectLifecycle,
   FactoryObjectType,
   FactoryPackageDraft,
   FactoryPackageDraftLifecycle,
   FactoryPackageVersion,
   FactoryPackageType,
+  FactoryPipelineRunStatus,
+  FactoryRuntimeExecutionStatus,
+  FactoryRuntimeJobStatus,
   FactoryRevisionPlanLifecycle
 } from "@/src/server/factory/contracts";
+import { canonicalFactoryPipelines, getCanonicalFactoryPipeline } from "@/src/server/factory/pipeline-registry";
+import { getFactoryRuntimeProvider, listFactoryRuntimeProviders } from "@/src/server/factory/runtime-providers";
+import { validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
+import { getFactoryWorkerPromptTemplate } from "@/src/server/factory/worker-prompts";
+import {
+  allowedOperationsForWorker,
+  canonicalFactoryWorkers,
+  getCanonicalFactoryWorker
+} from "@/src/server/factory/worker-registry";
 import type { GovernanceActorRef, PublicationPackage } from "@/src/server/governance/contracts";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { governanceRepository } from "@/src/server/repositories/governance-repository";
@@ -42,6 +59,17 @@ const packageDraftTransitions: TransitionMap<FactoryPackageDraftLifecycle> = {
   preserved: []
 };
 
+const editorialReviewTransitions: TransitionMap<FactoryEditorialReviewLifecycle> = {
+  generated: ["validated", "under_editorial_review", "revision_required", "preserved"],
+  validated: ["under_editorial_review", "revision_required", "preserved"],
+  under_editorial_review: ["editorially_approved", "revision_required", "preserved"],
+  revision_required: ["under_editorial_review", "preserved"],
+  editorially_approved: ["authority_prepared", "revision_required", "preserved"],
+  authority_prepared: ["governance_ready", "revision_required", "preserved"],
+  governance_ready: ["preserved"],
+  preserved: []
+};
+
 const feedbackTransitions: TransitionMap<FactoryFeedbackLifecycle> = {
   received: ["acknowledged", "preserved"],
   acknowledged: ["triaged", "preserved"],
@@ -62,6 +90,22 @@ const revisionPlanTransitions: TransitionMap<FactoryRevisionPlanLifecycle> = {
   resolved: ["closed", "preserved"],
   closed: ["preserved"],
   preserved: []
+};
+
+const runtimeJobTransitions: TransitionMap<FactoryRuntimeJobStatus> = {
+  queued: ["running", "cancelled"],
+  running: ["completed", "failed", "cancelled"],
+  completed: [],
+  failed: [],
+  cancelled: []
+};
+
+const runtimeExecutionTransitions: TransitionMap<FactoryRuntimeExecutionStatus> = {
+  created: ["started", "cancelled"],
+  started: ["completed", "failed", "cancelled"],
+  completed: [],
+  failed: [],
+  cancelled: []
 };
 
 type ActorInput = {
@@ -134,6 +178,117 @@ export type CompleteFactoryResubmissionInput = {
   reason: string;
 };
 
+export type RegisterFactoryRuntimeWorkerInput = ActorInput & {
+  workerKey: string;
+  displayName: string;
+  description: string;
+  capabilities: string[];
+  defaultProviderKey?: string;
+};
+
+export type RegisterFactoryRuntimePromptInput = ActorInput & {
+  promptKey: string;
+  title: string;
+  template: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
+};
+
+export type QueueFactoryRuntimeJobInput = ActorInput & {
+  workerId: string;
+  promptId: string;
+  providerKey?: string;
+  priority?: number;
+  input: Record<string, unknown>;
+  configuration?: Record<string, unknown>;
+};
+
+export type TransitionFactoryRuntimeJobInput = ActorInput & {
+  jobId: string;
+  status: FactoryRuntimeJobStatus;
+};
+
+export type ExecuteFactoryRuntimeJobInput = ActorInput & {
+  jobId: string;
+};
+
+export type StartFactoryPipelineInput = ActorInput & {
+  pipelineId: string;
+  input: Record<string, unknown>;
+};
+
+export type CancelFactoryPipelineInput = ActorInput & {
+  pipelineRunId: string;
+};
+
+export type PrepareFactoryGovernanceHandoffInput = ActorInput & {
+  pipelineRunId?: string | null;
+  factoryPackageDraftId: string;
+};
+
+export type ValidateCandidatePackageInput = ActorInput & {
+  factoryPackageDraftId: string;
+  reviewer: string;
+  evidenceReviewed: unknown[];
+  sourcesReviewed: unknown[];
+  validationSummary: {
+    minimumSourceCount: number;
+    minimumEvidenceCount: number;
+    sourceDiversity: boolean;
+    dateConsistency: boolean;
+    chronologyConsistency: boolean;
+    relationshipConsistency: boolean;
+    objectIdentityConsistency: boolean;
+  };
+};
+
+export type ReviewCandidatePackageInput = ActorInput & {
+  editorialReviewId: string;
+  reviewer: string;
+};
+
+export type EditorialConfidenceInput = {
+  confidenceLevel: FactoryConfidenceLevel;
+  confidenceScore: number;
+  factors: {
+    sourceQuality: number;
+    sourceCount: number;
+    evidenceCount: number;
+    crossSourceAgreement: number;
+    chronologicalConsistency: number;
+  };
+};
+
+export type ApproveEditorialReviewInput = ActorInput & {
+  editorialReviewId: string;
+  confidence: EditorialConfidenceInput;
+};
+
+export type RequireRevisionInput = ActorInput & {
+  editorialReviewId: string;
+  evidenceReviewed?: unknown[];
+  sourcesReviewed?: unknown[];
+};
+
+export type PrepareAuthorityRecordsInput = ActorInput & {
+  editorialReviewId: string;
+  canonicalIdentityMapping: Record<string, unknown>;
+  authorityReferences: Record<string, unknown>;
+  sourceTraceability: Record<string, unknown>;
+  evidenceTraceability: Record<string, unknown>;
+  revisionTraceability: Record<string, unknown>;
+};
+
+export type AssessGovernanceReadinessInput = ActorInput & {
+  editorialReviewId: string;
+};
+
+export type SubmitFactoryGovernanceHandoffInput = {
+  handoffId: string;
+  actor: GovernanceActorRef;
+  reason: string;
+};
+
 function assertTransitionAllowed<T extends string>(name: string, transitions: TransitionMap<T>, from: T, to: T): void {
   if (!transitions[from]?.includes(to)) {
     throw new ApiError(409, "INVALID_FACTORY_LIFECYCLE_TRANSITION", `${name} cannot transition from ${from} to ${to}.`);
@@ -144,6 +299,116 @@ function assertNoPublicationBlockers(draft: FactoryPackageDraft): void {
   if (draft.riskSummary.publicationBlockers.length > 0) {
     throw new ApiError(409, "FACTORY_PACKAGE_BLOCKED", "Factory package draft has publication blockers.");
   }
+}
+
+function assertEditorialValidationPassed(input: ValidateCandidatePackageInput): void {
+  const summary = input.validationSummary;
+  const failures: string[] = [];
+  if (input.sourcesReviewed.length < summary.minimumSourceCount) failures.push("minimum_source_count");
+  if (input.evidenceReviewed.length < summary.minimumEvidenceCount) failures.push("minimum_evidence_count");
+  if (!summary.sourceDiversity) failures.push("source_diversity");
+  if (!summary.dateConsistency) failures.push("date_consistency");
+  if (!summary.chronologyConsistency) failures.push("chronology_consistency");
+  if (!summary.relationshipConsistency) failures.push("relationship_consistency");
+  if (!summary.objectIdentityConsistency) failures.push("object_identity_consistency");
+  if (failures.length > 0) {
+    throw new ApiError(409, "FACTORY_EDITORIAL_VALIDATION_FAILED", `Candidate package failed editorial validation: ${failures.join(", ")}.`);
+  }
+}
+
+function assertConfidenceSufficient(confidence: EditorialConfidenceInput): void {
+  if (!["high", "verified"].includes(confidence.confidenceLevel) || confidence.confidenceScore < 0.75) {
+    throw new ApiError(409, "FACTORY_CONFIDENCE_INSUFFICIENT", "Editorial approval requires high or verified confidence with score >= 0.75.");
+  }
+}
+
+function assertTraceabilityComplete(input: PrepareAuthorityRecordsInput): void {
+  for (const [key, value] of Object.entries({
+    canonicalIdentityMapping: input.canonicalIdentityMapping,
+    authorityReferences: input.authorityReferences,
+    sourceTraceability: input.sourceTraceability,
+    evidenceTraceability: input.evidenceTraceability,
+    revisionTraceability: input.revisionTraceability
+  })) {
+    if (Object.keys(value).length === 0) {
+      throw new ApiError(409, "FACTORY_AUTHORITY_TRACEABILITY_REQUIRED", `Authority preparation requires ${key}.`);
+    }
+  }
+}
+
+function assertWorkerExecutionPolicy(input: {
+  workerKey: string;
+  providerKey: string;
+  configuration: Record<string, unknown>;
+}): void {
+  const contract = getCanonicalFactoryWorker(input.workerKey);
+  if (!contract) {
+    throw new ApiError(409, "FACTORY_WORKER_CONTRACT_REQUIRED", "Factory runtime jobs require a canonical worker contract.");
+  }
+  if (contract.provider_policy.providerId !== input.providerKey && input.providerKey !== "qwen14") {
+    throw new ApiError(409, "FACTORY_WORKER_PROVIDER_FORBIDDEN", "Worker provider is not allowed by provider policy.");
+  }
+  const requestedOperation = input.configuration.requestedOperation;
+  if (typeof requestedOperation === "string" && contract.forbidden_operations.includes(requestedOperation as never)) {
+    throw new ApiError(403, "FACTORY_WORKER_OPERATION_FORBIDDEN", "Worker policy forbids the requested operation.");
+  }
+}
+
+function renderPrompt(template: string, input: Record<string, unknown>, outputSchema: Record<string, unknown>): string {
+  const boundary = [
+    "You are executing inside TiMELiNES Factory Runtime only.",
+    "Generate Factory-owned Production Memory candidates only.",
+    "Do not approve, certify, admit to Historical Library, publish, mutate projections, or mutate Platform read models.",
+    "Every candidate must include evidence and source attribution.",
+    "Return JSON that conforms to the provided output schema."
+  ].join("\n");
+  return `${boundary}
+
+Output schema:
+${JSON.stringify(outputSchema)}
+
+Prompt:
+${template.replaceAll("{{input}}", JSON.stringify(input))}`;
+}
+
+function classifyRuntimeFailure(error: unknown): Record<string, unknown> {
+  const message = error instanceof Error ? error.message : "Unexpected Factory runtime provider failure.";
+  const failureClass = message.includes("validation") || message.includes("required") || message.includes("Invalid")
+    ? "output_validation_failed"
+    : message.includes("Ollama") || message.includes("Qwen14")
+      ? "provider_execution_failed"
+      : "runtime_execution_failed";
+  return { failureClass, message };
+}
+
+function candidateObjectTypeForWorker(workerKey: string): FactoryObjectType | null {
+  const contract = getCanonicalFactoryWorker(workerKey);
+  return contract?.allowed_object_types[0] || null;
+}
+
+function artifactTypeForWorker(workerKey: string): FactoryArtifactType {
+  return workerKey === "validation_worker" || workerKey === "source_validation_worker" ? "validation" : "generation";
+}
+
+function pipelineStepOutput(input: {
+  pipelineId: string;
+  pipelineRunId: string;
+  workerKey: string;
+  stepIndex: number;
+  previousArtifactRefs: string[];
+  previousFactoryObjectRefs: string[];
+}): Record<string, unknown> {
+  return {
+    pipelineId: input.pipelineId,
+    pipelineRunId: input.pipelineRunId,
+    workerKey: input.workerKey,
+    stepIndex: input.stepIndex,
+    candidateGenerated: true,
+    publicationAllowed: false,
+    governanceSubmissionAllowed: false,
+    previousArtifactRefs: input.previousArtifactRefs,
+    previousFactoryObjectRefs: input.previousFactoryObjectRefs
+  };
 }
 
 export function assertFactoryCannotCertifyReadiness(): never {
@@ -167,6 +432,864 @@ export function assertFactoryCannotPublish(): never {
 }
 
 export const factoryService = {
+  listPipelineDefinitions() {
+    return canonicalFactoryPipelines;
+  },
+
+  async listPipelineRuns(status?: FactoryPipelineRunStatus, limit = 100) {
+    return factoryRepository.listPipelineRuns(status, limit);
+  },
+
+  async startPipeline(input: StartFactoryPipelineInput) {
+    const pipeline = getCanonicalFactoryPipeline(input.pipelineId);
+    if (!pipeline) {
+      throw new ApiError(404, "FACTORY_PIPELINE_NOT_FOUND", "Factory pipeline definition not found.");
+    }
+    const missingWorker = pipeline.steps.find((workerKey) => !getCanonicalFactoryWorker(workerKey));
+    if (missingWorker) {
+      throw new ApiError(409, "FACTORY_PIPELINE_WORKER_MISSING", `Pipeline worker ${missingWorker} is not registered in the canonical worker registry.`);
+    }
+
+    const run = await factoryRepository.createPipelineRun({
+      pipelineId: pipeline.pipelineId,
+      input: input.input,
+      actor: input.actor
+    });
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_execution", authorityId: run.pipelineRunId },
+      action: "create_pipeline_run",
+      actor: input.actor,
+      reason: input.reason,
+      afterState: run as unknown as Record<string, unknown>
+    });
+    await factoryRepository.transitionPipelineRun({ pipelineRunId: run.pipelineRunId, status: "running", actor: input.actor });
+
+    const artifactRefs: string[] = [];
+    const factoryObjectRefs: string[] = [];
+    let packageDraftId: string | null = null;
+
+    for (const [stepIndex, workerKey] of pipeline.steps.entries()) {
+      const contract = getCanonicalFactoryWorker(workerKey)!;
+      const step = await factoryRepository.createPipelineStep({
+        pipelineRunId: run.pipelineRunId,
+        stepIndex,
+        workerKey,
+        input: {
+          pipelineInput: input.input,
+          artifactRefs,
+          factoryObjectRefs
+        }
+      });
+      await factoryRepository.transitionPipelineStep({ pipelineStepId: step.pipelineStepId, status: "running" });
+      const provider = getFactoryRuntimeProvider("qwen14");
+      let result: Awaited<ReturnType<typeof provider.execute>> | null = null;
+      let validated = null;
+      let lastFailure: unknown = null;
+      try {
+        const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          try {
+            result = await provider.execute({
+              prompt: renderPrompt(
+                `${getFactoryWorkerPromptTemplate(workerKey)}
+
+Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory artifact and object references as context only.`,
+                {
+                  pipelineInput: input.input,
+                  artifactRefs,
+                  factoryObjectRefs
+                },
+                contract.output_schema
+              ),
+              input: {
+                pipelineInput: input.input,
+                artifactRefs,
+                factoryObjectRefs
+              },
+              outputSchema: contract.output_schema,
+              configuration: {
+                maxOutputTokens: contract.max_output_tokens,
+                pipelineId: pipeline.pipelineId,
+                stepIndex,
+                attempt
+              },
+              timeoutMs: contract.execution_timeout * 1000
+            });
+            validated = validateFactoryWorkerOutput({
+              workerKey,
+              allowedObjectTypes: contract.allowed_object_types,
+              output: result.output
+            });
+            break;
+          } catch (error) {
+            lastFailure = error;
+            if (attempt < maxAttempts && contract.retry_policy.backoffMs > 0) {
+              await new Promise((resolve) => setTimeout(resolve, contract.retry_policy.backoffMs));
+            }
+          }
+        }
+        if (!result || !validated) {
+          throw lastFailure instanceof Error ? lastFailure : new Error("Qwen14 pipeline worker failed validation.");
+        }
+      } catch (error) {
+        const failure = classifyRuntimeFailure(error);
+        const failedStep = await factoryRepository.transitionPipelineStep({
+          pipelineStepId: step.pipelineStepId,
+          status: "failed",
+          output: failure
+        });
+        await factoryRepository.transitionPipelineRun({
+          pipelineRunId: run.pipelineRunId,
+          status: "failed",
+          actor: input.actor,
+          artifactRefs,
+          factoryObjectRefs,
+          packageDraftId
+        });
+        await factoryRepository.createRuntimeAuditRecord({
+          targetRef: { authorityType: "factory_runtime_execution", authorityId: failedStep.pipelineStepId },
+          action: "fail_pipeline_step",
+          actor: input.actor,
+          reason: input.reason,
+          afterState: failedStep as unknown as Record<string, unknown>
+        });
+        throw new ApiError(502, "FACTORY_PIPELINE_WORKER_FAILED", failure.message as string);
+      }
+      const output = {
+        ...pipelineStepOutput({
+          pipelineId: pipeline.pipelineId,
+          pipelineRunId: run.pipelineRunId,
+          workerKey,
+          stepIndex,
+          previousArtifactRefs: artifactRefs,
+          previousFactoryObjectRefs: factoryObjectRefs
+        }),
+        generated: validated,
+        diagnostics: result.diagnostics
+      };
+      const objectType = candidateObjectTypeForWorker(workerKey);
+
+      for (const candidate of validated.candidates) {
+        const candidateType = candidate.objectType || objectType;
+        if (!candidateType) continue;
+        const object = await factoryRepository.createObject({
+          objectType: candidateType,
+          title: candidate.title,
+          payload: {
+            ...candidate.payload,
+            evidence: candidate.evidence,
+            sources: candidate.sources,
+            generationTarget: candidateType
+          },
+          provenance: {
+            pipelineId: pipeline.pipelineId,
+            pipelineRunId: run.pipelineRunId,
+            workerKey,
+            provider: result.providerKey,
+            modelName: result.modelName,
+            sources: candidate.sources
+          },
+          actor: input.actor
+        });
+        factoryObjectRefs.push(object.objectId);
+      }
+
+      const artifact = await factoryRepository.createArtifact({
+        artifactType: artifactTypeForWorker(workerKey),
+        title: `${contract.worker_name} output`,
+        payload: output,
+        authoritySafe: false,
+        modelProvider: result.providerKey,
+        modelName: result.modelName,
+        actor: input.actor
+      });
+      artifactRefs.push(artifact.artifactId);
+
+      if (workerKey === "package_assembly_worker") {
+        const draft = await factoryRepository.createPackageDraft({
+          title: `Pipeline package candidate ${run.pipelineRunId}`,
+          description: "Candidate package draft assembled by Factory pipeline. Not submitted to Governance.",
+          packageType: "mixed_authority_publication",
+          factoryObjectRefs,
+          artifactRefs,
+          riskSummary: {
+            unresolvedAuthorityRisks: [],
+            validationWarnings: ["Generated by Factory pipeline and requires human review."],
+            publicationBlockers: []
+          },
+          actor: input.actor
+        });
+        packageDraftId = draft.packageDraftId;
+      }
+
+      const completedStep = await factoryRepository.transitionPipelineStep({
+        pipelineStepId: step.pipelineStepId,
+        status: "completed",
+        output,
+        artifactRefs: [...artifactRefs],
+        factoryObjectRefs: [...factoryObjectRefs]
+      });
+      await factoryRepository.createRuntimeAuditRecord({
+        targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
+        action: "complete_pipeline_step",
+        actor: input.actor,
+        reason: input.reason,
+        afterState: completedStep as unknown as Record<string, unknown>
+      });
+    }
+
+    const completedRun = await factoryRepository.transitionPipelineRun({
+      pipelineRunId: run.pipelineRunId,
+      status: "completed",
+      actor: input.actor,
+      artifactRefs,
+      factoryObjectRefs,
+      packageDraftId
+    });
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_execution", authorityId: completedRun.pipelineRunId },
+      action: "complete_pipeline_run",
+      actor: input.actor,
+      reason: input.reason,
+      afterState: completedRun as unknown as Record<string, unknown>
+    });
+    return completedRun;
+  },
+
+  async cancelPipeline(input: CancelFactoryPipelineInput) {
+    const current = await factoryRepository.getPipelineRun(input.pipelineRunId);
+    if (!current) {
+      throw new ApiError(404, "FACTORY_PIPELINE_RUN_NOT_FOUND", "Factory pipeline run not found.");
+    }
+    if (current.status === "completed" || current.status === "failed" || current.status === "cancelled") {
+      throw new ApiError(409, "FACTORY_PIPELINE_TERMINAL", "Terminal Factory pipeline runs cannot be cancelled.");
+    }
+    const cancelled = await factoryRepository.transitionPipelineRun({
+      pipelineRunId: input.pipelineRunId,
+      status: "cancelled",
+      actor: input.actor
+    });
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_execution", authorityId: input.pipelineRunId },
+      action: "cancel_pipeline_run",
+      actor: input.actor,
+      reason: input.reason,
+      beforeState: current as unknown as Record<string, unknown>,
+      afterState: cancelled as unknown as Record<string, unknown>
+    });
+    return cancelled;
+  },
+
+  async prepareGovernanceHandoff(input: PrepareFactoryGovernanceHandoffInput) {
+    const draft = await factoryRepository.getPackageDraft(input.factoryPackageDraftId);
+    if (!draft) {
+      throw new ApiError(404, "FACTORY_PACKAGE_DRAFT_NOT_FOUND", "Factory package draft not found.");
+    }
+    if (draft.lifecycle !== "ready_for_governance") {
+      throw new ApiError(409, "FACTORY_PACKAGE_DRAFT_NOT_READY", "Factory handoff requires a ready_for_governance package draft.");
+    }
+    assertNoPublicationBlockers(draft);
+    const pipelineRun = input.pipelineRunId ? await factoryRepository.getPipelineRun(input.pipelineRunId) : null;
+    if (input.pipelineRunId && !pipelineRun) {
+      throw new ApiError(404, "FACTORY_PIPELINE_RUN_NOT_FOUND", "Factory pipeline run not found.");
+    }
+    if (pipelineRun && pipelineRun.status !== "completed") {
+      throw new ApiError(409, "FACTORY_PIPELINE_NOT_COMPLETE", "Factory handoff requires a completed pipeline run.");
+    }
+    const lineage = {
+      pipelineRunId: pipelineRun?.pipelineRunId || null,
+      workerOutputs: pipelineRun?.artifactRefs || draft.artifactRefs,
+      factoryObjectRefs: draft.factoryObjectRefs,
+      packageDraftId: draft.packageDraftId,
+      packageVersionId: null,
+      governancePublicationPackageId: null,
+      governanceDecisions: []
+    };
+    const handoff = await factoryRepository.createGovernanceHandoff({
+      pipelineRunId: pipelineRun?.pipelineRunId || null,
+      factoryPackageDraftId: draft.packageDraftId,
+      lineage,
+      validationArtifactRefs: draft.artifactRefs,
+      submissionReason: input.reason,
+      actor: input.actor
+    });
+    await factoryRepository.createSubmissionAuditRecord({
+      handoffId: handoff.handoffId,
+      action: "prepare_governance_handoff",
+      actor: input.actor,
+      reason: input.reason,
+      packageLineage: lineage,
+      pipelineLineage: pipelineRun ? (pipelineRun as unknown as Record<string, unknown>) : {},
+      validationArtifacts: draft.artifactRefs
+    });
+    await factoryRepository.createSubmissionLineage({
+      handoffId: handoff.handoffId,
+      pipelineRunId: pipelineRun?.pipelineRunId || null,
+      factoryPackageDraftId: draft.packageDraftId,
+      workerOutputs: pipelineRun?.artifactRefs || [],
+      validationArtifacts: draft.artifactRefs
+    });
+    return handoff;
+  },
+
+  async submitToGovernance(input: SubmitFactoryGovernanceHandoffInput) {
+    const handoff = await factoryRepository.getGovernanceHandoff(input.handoffId);
+    if (!handoff) {
+      throw new ApiError(404, "FACTORY_HANDOFF_NOT_FOUND", "Factory Governance handoff not found.");
+    }
+    if (handoff.status !== "prepared") {
+      throw new ApiError(409, "FACTORY_HANDOFF_NOT_PREPARED", "Only prepared handoffs can be submitted to Governance.");
+    }
+    const version = await factoryService.createPackageVersion({
+      packageDraftId: handoff.factoryPackageDraftId,
+      actor: input.actor.actorId,
+      reason: input.reason
+    });
+    const result = await factoryService.markPackageVersionSubmitted({
+      packageVersionId: version.packageVersionId,
+      actor: input.actor,
+      reason: input.reason
+    });
+    if (!result.governancePackage) {
+      throw new ApiError(409, "GOVERNANCE_PACKAGE_LINK_REQUIRED", "Factory handoff submission requires a linked Governance Publication Package.");
+    }
+    const submittedVersion = result.factoryPackageVersion || version;
+    const submitted = await factoryRepository.markGovernanceHandoffSubmitted({
+      handoffId: handoff.handoffId,
+      factoryPackageVersionId: submittedVersion.packageVersionId,
+      governancePublicationPackageId: result.governancePackage.packageId,
+      actor: input.actor.actorId
+    });
+    const packageLineage = {
+      ...handoff.lineage,
+      packageVersionId: submittedVersion.packageVersionId,
+      governancePublicationPackageId: result.governancePackage.packageId
+    };
+    await factoryRepository.createSubmissionAuditRecord({
+      handoffId: handoff.handoffId,
+      action: "submit_to_governance",
+      actor: input.actor.actorId,
+      reason: input.reason,
+      packageLineage,
+      pipelineLineage: handoff.pipelineRunId ? { pipelineRunId: handoff.pipelineRunId } : {},
+      validationArtifacts: handoff.validationArtifactRefs,
+      governancePublicationPackageId: result.governancePackage.packageId
+    });
+    await factoryRepository.createSubmissionLineage({
+      handoffId: handoff.handoffId,
+      pipelineRunId: handoff.pipelineRunId,
+      factoryPackageDraftId: handoff.factoryPackageDraftId,
+      factoryPackageVersionId: submittedVersion.packageVersionId,
+      governancePublicationPackageId: result.governancePackage.packageId,
+      workerOutputs: Array.isArray(handoff.lineage.workerOutputs) ? (handoff.lineage.workerOutputs as string[]) : [],
+      validationArtifacts: handoff.validationArtifactRefs,
+      governanceDecisions: []
+    });
+    return {
+      handoff: submitted,
+      submission: result.submission,
+      governancePackage: result.governancePackage,
+      factoryPackageVersion: submittedVersion
+    };
+  },
+
+  async getHandoffStatus(handoffId: string) {
+    return factoryRepository.getGovernanceHandoff(handoffId);
+  },
+
+  async listGovernanceSubmissions(status?: FactoryGovernanceHandoffStatus, limit = 100) {
+    return factoryRepository.listGovernanceHandoffs(status, limit);
+  },
+
+  async validateCandidatePackage(input: ValidateCandidatePackageInput) {
+    const draft = await factoryRepository.getPackageDraft(input.factoryPackageDraftId);
+    if (!draft) {
+      throw new ApiError(404, "FACTORY_PACKAGE_DRAFT_NOT_FOUND", "Factory package draft not found.");
+    }
+    assertEditorialValidationPassed(input);
+    const review = await factoryRepository.createEditorialReview({
+      factoryPackageDraftId: draft.packageDraftId,
+      lifecycle: "validated",
+      validationSummary: input.validationSummary,
+      evidenceReviewed: input.evidenceReviewed,
+      sourcesReviewed: input.sourcesReviewed,
+      reviewer: input.reviewer,
+      reason: input.reason,
+      actor: input.actor
+    });
+    await factoryRepository.createEditorialDecision({
+      editorialReviewId: review.reviewId,
+      decision: "validate",
+      reason: input.reason,
+      evidenceReviewed: input.evidenceReviewed,
+      sourcesReviewed: input.sourcesReviewed,
+      confidenceAssessment: {},
+      authorityMapping: {},
+      decidedBy: input.reviewer
+    });
+    await factoryRepository.createAuditRecord({
+      targetRef: { authorityType: "factory_editorial_review", authorityId: review.reviewId },
+      action: "validate_candidate_package",
+      actor: input.actor,
+      reason: input.reason,
+      afterState: review as unknown as Record<string, unknown>
+    });
+    return review;
+  },
+
+  async reviewCandidatePackage(input: ReviewCandidatePackageInput) {
+    const current = await factoryRepository.getEditorialReview(input.editorialReviewId);
+    if (!current) {
+      throw new ApiError(404, "FACTORY_EDITORIAL_REVIEW_NOT_FOUND", "Factory editorial review not found.");
+    }
+    assertTransitionAllowed("FactoryEditorialReview", editorialReviewTransitions, current.lifecycle, "under_editorial_review");
+    const review = await factoryRepository.transitionEditorialReview(input.editorialReviewId, "under_editorial_review", input.actor);
+    await factoryRepository.createEditorialDecision({
+      editorialReviewId: review.reviewId,
+      decision: "start_review",
+      reason: input.reason,
+      evidenceReviewed: review.evidenceReviewed,
+      sourcesReviewed: review.sourcesReviewed,
+      confidenceAssessment: {},
+      authorityMapping: {},
+      decidedBy: input.reviewer
+    });
+    return review;
+  },
+
+  async approveEditorialReview(input: ApproveEditorialReviewInput) {
+    const current = await factoryRepository.getEditorialReview(input.editorialReviewId);
+    if (!current) {
+      throw new ApiError(404, "FACTORY_EDITORIAL_REVIEW_NOT_FOUND", "Factory editorial review not found.");
+    }
+    assertConfidenceSufficient(input.confidence);
+    assertTransitionAllowed("FactoryEditorialReview", editorialReviewTransitions, current.lifecycle, "editorially_approved");
+    const confidence = await factoryRepository.createConfidenceAssessment({
+      editorialReviewId: current.reviewId,
+      confidenceLevel: input.confidence.confidenceLevel,
+      confidenceScore: input.confidence.confidenceScore,
+      factors: input.confidence.factors,
+      actor: input.actor
+    });
+    const review = await factoryRepository.transitionEditorialReview(input.editorialReviewId, "editorially_approved", input.actor);
+    await factoryRepository.createEditorialDecision({
+      editorialReviewId: review.reviewId,
+      decision: "approve",
+      reason: input.reason,
+      evidenceReviewed: review.evidenceReviewed,
+      sourcesReviewed: review.sourcesReviewed,
+      confidenceAssessment: confidence as unknown as Record<string, unknown>,
+      authorityMapping: {},
+      decidedBy: input.actor
+    });
+    return { review, confidence };
+  },
+
+  async requireRevision(input: RequireRevisionInput) {
+    const current = await factoryRepository.getEditorialReview(input.editorialReviewId);
+    if (!current) {
+      throw new ApiError(404, "FACTORY_EDITORIAL_REVIEW_NOT_FOUND", "Factory editorial review not found.");
+    }
+    assertTransitionAllowed("FactoryEditorialReview", editorialReviewTransitions, current.lifecycle, "revision_required");
+    const review = await factoryRepository.transitionEditorialReview(input.editorialReviewId, "revision_required", input.actor);
+    await factoryRepository.createEditorialDecision({
+      editorialReviewId: review.reviewId,
+      decision: "require_revision",
+      reason: input.reason,
+      evidenceReviewed: input.evidenceReviewed || review.evidenceReviewed,
+      sourcesReviewed: input.sourcesReviewed || review.sourcesReviewed,
+      confidenceAssessment: {},
+      authorityMapping: {},
+      decidedBy: input.actor
+    });
+    return review;
+  },
+
+  async prepareAuthorityRecords(input: PrepareAuthorityRecordsInput) {
+    const current = await factoryRepository.getEditorialReview(input.editorialReviewId);
+    if (!current) {
+      throw new ApiError(404, "FACTORY_EDITORIAL_REVIEW_NOT_FOUND", "Factory editorial review not found.");
+    }
+    assertTraceabilityComplete(input);
+    assertTransitionAllowed("FactoryEditorialReview", editorialReviewTransitions, current.lifecycle, "authority_prepared");
+    const preparation = await factoryRepository.createAuthorityPreparation({
+      editorialReviewId: current.reviewId,
+      factoryPackageDraftId: current.factoryPackageDraftId,
+      canonicalIdentityMapping: input.canonicalIdentityMapping,
+      authorityReferences: input.authorityReferences,
+      sourceTraceability: input.sourceTraceability,
+      evidenceTraceability: input.evidenceTraceability,
+      revisionTraceability: input.revisionTraceability,
+      preparedBy: input.actor
+    });
+    const review = await factoryRepository.transitionEditorialReview(input.editorialReviewId, "authority_prepared", input.actor);
+    await factoryRepository.createEditorialDecision({
+      editorialReviewId: review.reviewId,
+      decision: "prepare_authority",
+      reason: input.reason,
+      evidenceReviewed: review.evidenceReviewed,
+      sourcesReviewed: review.sourcesReviewed,
+      confidenceAssessment: {},
+      authorityMapping: preparation as unknown as Record<string, unknown>,
+      decidedBy: input.actor
+    });
+    return { review, preparation };
+  },
+
+  async assessGovernanceReadiness(input: AssessGovernanceReadinessInput) {
+    const current = await factoryRepository.getEditorialReview(input.editorialReviewId);
+    if (!current) {
+      throw new ApiError(404, "FACTORY_EDITORIAL_REVIEW_NOT_FOUND", "Factory editorial review not found.");
+    }
+    assertTransitionAllowed("FactoryEditorialReview", editorialReviewTransitions, current.lifecycle, "governance_ready");
+    const preparation = await factoryRepository.getLatestAuthorityPreparationForReview(current.reviewId);
+    if (!preparation) {
+      throw new ApiError(409, "FACTORY_AUTHORITY_PREPARATION_REQUIRED", "Governance readiness requires authority preparation.");
+    }
+    const review = await factoryRepository.transitionEditorialReview(input.editorialReviewId, "governance_ready", input.actor);
+    await factoryRepository.createEditorialDecision({
+      editorialReviewId: review.reviewId,
+      decision: "assess_governance_ready",
+      reason: input.reason,
+      evidenceReviewed: review.evidenceReviewed,
+      sourcesReviewed: review.sourcesReviewed,
+      confidenceAssessment: {},
+      authorityMapping: preparation as unknown as Record<string, unknown>,
+      decidedBy: input.actor
+    });
+    return { review, preparation };
+  },
+
+  async listEditorialReviews(limit = 100) {
+    return factoryRepository.listEditorialReviews(limit);
+  },
+
+  async getEditorialReview(reviewId: string) {
+    return factoryRepository.getEditorialReview(reviewId);
+  },
+
+  async syncCanonicalWorkerRegistry(input: ActorInput) {
+    const records = [];
+    for (const contract of canonicalFactoryWorkers) {
+      const permissions = allowedOperationsForWorker(contract);
+      const record = await factoryRepository.upsertWorkerRegistryContract({
+        contract,
+        permissions,
+        actor: input.actor
+      });
+      await factoryRepository.createRuntimeAuditRecord({
+        targetRef: { authorityType: "factory_runtime_worker", authorityId: record.workerRegistryId },
+        action: "sync_worker_contract",
+        actor: input.actor,
+        reason: input.reason,
+        afterState: record as unknown as Record<string, unknown>
+      });
+      records.push(record);
+    }
+    return records;
+  },
+
+  async listWorkerRegistry(limit = 100) {
+    return factoryRepository.listWorkerRegistry(limit);
+  },
+
+  async registerRuntimeWorker(input: RegisterFactoryRuntimeWorkerInput) {
+    const provider = getFactoryRuntimeProvider(input.defaultProviderKey || "qwen14");
+    const worker = await factoryRepository.registerRuntimeWorker({
+      workerKey: input.workerKey,
+      displayName: input.displayName,
+      description: input.description,
+      capabilities: input.capabilities,
+      defaultProviderKey: provider.providerKey,
+      actor: input.actor
+    });
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_worker", authorityId: worker.workerId },
+      action: "register_worker",
+      actor: input.actor,
+      reason: input.reason,
+      afterState: worker as unknown as Record<string, unknown>
+    });
+    return worker;
+  },
+
+  async listRuntimeWorkers(limit = 100) {
+    return factoryRepository.listRuntimeWorkers(limit);
+  },
+
+  async registerRuntimePrompt(input: RegisterFactoryRuntimePromptInput) {
+    const prompt = await factoryRepository.registerRuntimePrompt(input);
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_prompt", authorityId: prompt.promptId },
+      action: "register_prompt_version",
+      actor: input.actor,
+      reason: input.reason,
+      afterState: prompt as unknown as Record<string, unknown>
+    });
+    return prompt;
+  },
+
+  async listRuntimePrompts(limit = 100) {
+    return factoryRepository.listRuntimePrompts(limit);
+  },
+
+  async queueRuntimeJob(input: QueueFactoryRuntimeJobInput) {
+    const [worker, prompt] = await Promise.all([
+      factoryRepository.getRuntimeWorker(input.workerId),
+      factoryRepository.getRuntimePrompt(input.promptId)
+    ]);
+    if (!worker || worker.status !== "registered") {
+      throw new ApiError(404, "FACTORY_RUNTIME_WORKER_NOT_AVAILABLE", "Factory runtime worker is not registered.");
+    }
+    if (!prompt || prompt.status !== "active") {
+      throw new ApiError(404, "FACTORY_RUNTIME_PROMPT_NOT_AVAILABLE", "Factory runtime prompt is not active.");
+    }
+    const provider = getFactoryRuntimeProvider(input.providerKey || worker.defaultProviderKey);
+    assertWorkerExecutionPolicy({
+      workerKey: worker.workerKey,
+      providerKey: provider.providerKey,
+      configuration: input.configuration || {}
+    });
+    const job = await factoryRepository.queueRuntimeJob({
+      workerId: worker.workerId,
+      promptId: prompt.promptId,
+      providerKey: provider.providerKey,
+      modelName: provider.modelName,
+      priority: input.priority ?? 0,
+      input: input.input,
+      configuration: input.configuration || {},
+      actor: input.actor
+    });
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_job", authorityId: job.jobId },
+      action: "queue_job",
+      actor: input.actor,
+      reason: input.reason,
+      afterState: job as unknown as Record<string, unknown>
+    });
+    return job;
+  },
+
+  async listRuntimeJobs(status?: FactoryRuntimeJobStatus, limit = 100) {
+    return factoryRepository.listRuntimeJobs(status, limit);
+  },
+
+  async transitionRuntimeJob(input: TransitionFactoryRuntimeJobInput) {
+    const current = await factoryRepository.getRuntimeJob(input.jobId);
+    if (!current) {
+      throw new ApiError(404, "FACTORY_RUNTIME_JOB_NOT_FOUND", "Factory runtime job not found.");
+    }
+    assertTransitionAllowed("FactoryRuntimeJob", runtimeJobTransitions, current.status, input.status);
+    const updated = await factoryRepository.transitionRuntimeJob(input.jobId, input.status, input.actor);
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_job", authorityId: input.jobId },
+      action: "transition_job",
+      actor: input.actor,
+      reason: input.reason,
+      beforeState: current as unknown as Record<string, unknown>,
+      afterState: updated as unknown as Record<string, unknown>
+    });
+    return updated;
+  },
+
+  async executeRuntimeJob(input: ExecuteFactoryRuntimeJobInput) {
+    const current = await factoryRepository.getRuntimeJob(input.jobId);
+    if (!current) {
+      throw new ApiError(404, "FACTORY_RUNTIME_JOB_NOT_FOUND", "Factory runtime job not found.");
+    }
+    const [worker, prompt] = await Promise.all([
+      factoryRepository.getRuntimeWorker(current.workerId),
+      factoryRepository.getRuntimePrompt(current.promptId)
+    ]);
+    if (!worker || worker.status !== "registered") {
+      throw new ApiError(404, "FACTORY_RUNTIME_WORKER_NOT_AVAILABLE", "Factory runtime worker is not registered.");
+    }
+    if (!prompt || prompt.status !== "active") {
+      throw new ApiError(404, "FACTORY_RUNTIME_PROMPT_NOT_AVAILABLE", "Factory runtime prompt is not active.");
+    }
+    const contract = getCanonicalFactoryWorker(worker.workerKey);
+    if (!contract) {
+      throw new ApiError(409, "FACTORY_WORKER_CONTRACT_REQUIRED", "Factory runtime jobs require a canonical worker contract.");
+    }
+    assertTransitionAllowed("FactoryRuntimeJob", runtimeJobTransitions, current.status, "running");
+    const execution = await factoryRepository.createRuntimeExecution(current, input.actor);
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_execution", authorityId: execution.executionId },
+      action: "create_execution",
+      actor: input.actor,
+      reason: input.reason,
+      afterState: execution as unknown as Record<string, unknown>
+    });
+
+    const runningJob = await factoryRepository.transitionRuntimeJob(current.jobId, "running", input.actor);
+    const startedExecution = await factoryRepository.transitionRuntimeExecution({
+      executionId: execution.executionId,
+      status: "started",
+      actor: input.actor
+    });
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_execution", authorityId: execution.executionId },
+      action: "start_execution",
+      actor: input.actor,
+      reason: input.reason,
+      beforeState: execution as unknown as Record<string, unknown>,
+      afterState: startedExecution as unknown as Record<string, unknown>
+    });
+
+    const provider = getFactoryRuntimeProvider(current.providerKey);
+    try {
+      let result = null;
+      let validated = null;
+      let lastFailure: unknown = null;
+      let attemptsUsed = 0;
+      const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        attemptsUsed = attempt;
+        try {
+          result = await provider.execute({
+            prompt: renderPrompt(`${getFactoryWorkerPromptTemplate(worker.workerKey)}
+
+${prompt.template}`, current.input, prompt.outputSchema || contract.output_schema),
+            input: current.input,
+            outputSchema: prompt.outputSchema || contract.output_schema,
+            configuration: {
+              ...current.configuration,
+              maxOutputTokens: contract.max_output_tokens,
+              attempt
+            },
+            timeoutMs: contract.execution_timeout * 1000
+          });
+          validated = validateFactoryWorkerOutput({
+            workerKey: worker.workerKey,
+            allowedObjectTypes: contract.allowed_object_types,
+            output: result.output
+          });
+          break;
+        } catch (error) {
+          lastFailure = error;
+          if (attempt < maxAttempts && contract.retry_policy.backoffMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, contract.retry_policy.backoffMs));
+          }
+        }
+      }
+      if (!result) {
+        throw lastFailure instanceof Error ? lastFailure : new Error("Qwen14 execution failed without a provider result.");
+      }
+      if (!validated) {
+        throw new Error(`Output validation failed: ${lastFailure instanceof Error ? lastFailure.message : "invalid generated JSON"}`);
+      }
+
+      const artifact = await factoryRepository.createArtifact({
+        artifactType: artifactTypeForWorker(worker.workerKey),
+        title: `${contract.worker_name} Qwen14 output`,
+        payload: {
+          ...validated,
+          executionId: execution.executionId,
+          jobId: current.jobId,
+          workerKey: worker.workerKey
+        },
+        authoritySafe: false,
+        modelProvider: result.providerKey,
+        modelName: result.modelName,
+        actor: input.actor
+      });
+      const factoryObjectRefs: string[] = [];
+      for (const candidate of validated.candidates) {
+        const objectType = candidate.objectType || candidateObjectTypeForWorker(worker.workerKey);
+        if (!objectType) continue;
+        const object = await factoryRepository.createObject({
+          objectType,
+          title: candidate.title,
+          payload: {
+            ...candidate.payload,
+            evidence: candidate.evidence,
+            sources: candidate.sources,
+            executionId: execution.executionId,
+            artifactId: artifact.artifactId
+          },
+          provenance: {
+            factoryRuntimeJobId: current.jobId,
+            factoryRuntimeExecutionId: execution.executionId,
+            artifactId: artifact.artifactId,
+            workerKey: worker.workerKey,
+            providerKey: result.providerKey,
+            modelName: result.modelName,
+            sources: candidate.sources
+          },
+          actor: input.actor
+        });
+        factoryObjectRefs.push(object.objectId);
+      }
+      assertTransitionAllowed("FactoryRuntimeExecution", runtimeExecutionTransitions, startedExecution.status, "completed");
+      const completedExecution = await factoryRepository.transitionRuntimeExecution({
+        executionId: execution.executionId,
+        status: "completed",
+        output: {
+          providerKey: result.providerKey,
+          modelName: result.modelName,
+          output: result.output,
+          diagnostics: {
+            ...result.diagnostics,
+            attemptsUsed,
+            retryCount: Math.max(0, attemptsUsed - 1),
+            artifactId: artifact.artifactId,
+            factoryObjectRefs
+          }
+        },
+        actor: input.actor
+      });
+      const completedJob = await factoryRepository.transitionRuntimeJob(current.jobId, "completed", input.actor);
+      await factoryRepository.createRuntimeAuditRecord({
+        targetRef: { authorityType: "factory_runtime_execution", authorityId: execution.executionId },
+        action: "complete_execution",
+        actor: input.actor,
+        reason: input.reason,
+        beforeState: runningJob as unknown as Record<string, unknown>,
+        afterState: completedExecution as unknown as Record<string, unknown>
+      });
+      return { job: completedJob, execution: completedExecution };
+    } catch (error) {
+      const failure = classifyRuntimeFailure(error);
+      assertTransitionAllowed("FactoryRuntimeExecution", runtimeExecutionTransitions, startedExecution.status, "failed");
+      const failedExecution = await factoryRepository.transitionRuntimeExecution({
+        executionId: execution.executionId,
+        status: "failed",
+        error: failure,
+        actor: input.actor
+      });
+      const failedJob = await factoryRepository.transitionRuntimeJob(current.jobId, "failed", input.actor);
+      await factoryRepository.createRuntimeAuditRecord({
+        targetRef: { authorityType: "factory_runtime_execution", authorityId: execution.executionId },
+        action: "fail_execution",
+        actor: input.actor,
+        reason: input.reason,
+        beforeState: startedExecution as unknown as Record<string, unknown>,
+        afterState: failedExecution as unknown as Record<string, unknown>
+      });
+      return { job: failedJob, execution: failedExecution };
+    }
+  },
+
+  async listRuntimeExecutions(jobId?: string, limit = 100) {
+    return factoryRepository.listRuntimeExecutions(jobId, limit);
+  },
+
+  async getRuntimeMetrics() {
+    return factoryRepository.getRuntimeMetrics();
+  },
+
+  async getRuntimeHealth() {
+    const providers = await Promise.all(listFactoryRuntimeProviders().map((provider) => provider.health()));
+    return {
+      status: providers.every((provider) => provider.ok) ? "healthy" : "degraded",
+      providers,
+      workerRegistry: {
+        canonicalWorkerCount: canonicalFactoryWorkers.length,
+        sourceGroundedGenerationEnabled: true
+      }
+    };
+  },
+
   async createObject(input: CreateFactoryObjectInput) {
     const created = await factoryRepository.createObject(input);
     await factoryRepository.createAuditRecord({
@@ -238,6 +1361,14 @@ export const factoryService = {
     assertTransitionAllowed("FactoryPackageDraft", packageDraftTransitions, current.lifecycle, input.lifecycle);
     if (input.lifecycle === "ready_for_governance") {
       assertNoPublicationBlockers(current);
+      const review = await factoryRepository.getLatestEditorialReviewForPackage(current.packageDraftId);
+      if (!review || review.lifecycle !== "governance_ready") {
+        throw new ApiError(409, "FACTORY_EDITORIAL_REVIEW_REQUIRED", "Factory package drafts require governance-ready editorial review before Governance readiness.");
+      }
+      const preparation = await factoryRepository.getLatestAuthorityPreparationForReview(review.reviewId);
+      if (!preparation) {
+        throw new ApiError(409, "FACTORY_AUTHORITY_PREPARATION_REQUIRED", "Factory package drafts require authority preparation before Governance readiness.");
+      }
     }
     const updated = await factoryRepository.transitionPackageDraft(input.packageDraftId, input.lifecycle, input.actor);
     await factoryRepository.createAuditRecord({

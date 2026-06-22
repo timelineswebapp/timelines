@@ -11,6 +11,7 @@ export type GovernanceRole =
 export type AuthorityType =
   | "historical_object"
   | "participation"
+  | "relationship"
   | "publication_package"
   | "feedback_package"
   | "dispute";
@@ -49,6 +50,11 @@ export type GovernanceDecisionType =
   | "REVISE_PARTICIPATION"
   | "CHANGE_PARTICIPATION_PRIORITY"
   | "RETIRE_PARTICIPATION"
+  | "ADMIT_RELATIONSHIP"
+  | "REVISE_RELATIONSHIP"
+  | "RETIRE_RELATIONSHIP"
+  | "MERGE_RELATIONSHIP"
+  | "PRESERVE_RELATIONSHIP"
   | "CERTIFY_PUBLICATION_READINESS"
   | "ACCEPT_PUBLICATION_PACKAGE"
   | "REJECT_PUBLICATION_PACKAGE"
@@ -190,6 +196,7 @@ export type PublicationPackage = {
     packageType:
       | "historical_object_publication"
       | "participation_publication"
+      | "relationship_publication"
       | "timeline_context_publication"
       | "mixed_authority_publication";
     description: string;

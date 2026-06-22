@@ -336,6 +336,88 @@ CREATE TABLE IF NOT EXISTS milestone_participation_disputes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS historical_relationships (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_authority_ref JSONB NOT NULL,
+  target_authority_ref JSONB NOT NULL,
+  relationship_type TEXT NOT NULL CHECK (
+    relationship_type IN ('influences', 'influenced_by', 'member_of', 'contains', 'located_in', 'succeeds', 'preceded_by', 'owns', 'owned_by', 'related_to')
+  ),
+  summary TEXT NOT NULL,
+  evidence_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  lifecycle_status TEXT NOT NULL DEFAULT 'established' CHECK (
+    lifecycle_status IN ('established', 'revised', 'disputed', 'merged', 'retired', 'preserved')
+  ),
+  authority_state TEXT NOT NULL DEFAULT 'active' CHECK (authority_state IN ('active', 'inactive')),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+  merged_into_id UUID REFERENCES historical_relationships(id) ON DELETE RESTRICT,
+  dispute_reason TEXT,
+  retirement_reason TEXT,
+  preservation_reason TEXT,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (id IS DISTINCT FROM merged_into_id),
+  CHECK (
+    (lifecycle_status = 'merged' AND merged_into_id IS NOT NULL AND authority_state = 'inactive')
+    OR lifecycle_status <> 'merged'
+  ),
+  CHECK (
+    (lifecycle_status = 'retired' AND authority_state = 'inactive')
+    OR lifecycle_status <> 'retired'
+  )
+);
+
+CREATE TABLE IF NOT EXISTS historical_relationship_revisions (
+  id BIGSERIAL PRIMARY KEY,
+  relationship_id UUID NOT NULL REFERENCES historical_relationships(id) ON DELETE RESTRICT,
+  revision INTEGER NOT NULL CHECK (revision > 0),
+  action TEXT NOT NULL CHECK (action IN ('create', 'revise', 'dispute', 'merge', 'retire', 'preserve')),
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  reason TEXT NOT NULL,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (relationship_id, revision)
+);
+
+CREATE TABLE IF NOT EXISTS historical_relationship_merges (
+  id BIGSERIAL PRIMARY KEY,
+  source_relationship_id UUID NOT NULL REFERENCES historical_relationships(id) ON DELETE RESTRICT,
+  target_relationship_id UUID NOT NULL REFERENCES historical_relationships(id) ON DELETE RESTRICT,
+  reason TEXT NOT NULL,
+  continuity_path JSONB NOT NULL DEFAULT '{}'::jsonb,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (source_relationship_id IS DISTINCT FROM target_relationship_id)
+);
+
+CREATE TABLE IF NOT EXISTS historical_relationship_retirements (
+  id BIGSERIAL PRIMARY KEY,
+  relationship_id UUID NOT NULL REFERENCES historical_relationships(id) ON DELETE RESTRICT,
+  reason TEXT NOT NULL,
+  continuity_path JSONB NOT NULL DEFAULT '{}'::jsonb,
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS historical_relationship_disputes (
+  id BIGSERIAL PRIMARY KEY,
+  relationship_id UUID NOT NULL REFERENCES historical_relationships(id) ON DELETE RESTRICT,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'rejected')),
+  provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  resolved_by TEXT,
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS governance_decisions (
   id UUID PRIMARY KEY,
   decision_type TEXT NOT NULL CHECK (
@@ -649,6 +731,274 @@ CREATE TABLE IF NOT EXISTS factory_audit_records (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS factory_editorial_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  factory_package_draft_id UUID NOT NULL REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  lifecycle TEXT NOT NULL DEFAULT 'generated' CHECK (
+    lifecycle IN (
+      'generated',
+      'validated',
+      'under_editorial_review',
+      'revision_required',
+      'editorially_approved',
+      'authority_prepared',
+      'governance_ready',
+      'preserved'
+    )
+  ),
+  validation_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+  evidence_reviewed JSONB NOT NULL DEFAULT '[]'::jsonb,
+  sources_reviewed JSONB NOT NULL DEFAULT '[]'::jsonb,
+  reviewer TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_confidence_assessments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  editorial_review_id UUID NOT NULL REFERENCES factory_editorial_reviews(id) ON DELETE RESTRICT,
+  confidence_level TEXT NOT NULL CHECK (confidence_level IN ('low', 'medium', 'high', 'verified')),
+  confidence_score NUMERIC(5, 4) NOT NULL CHECK (confidence_score >= 0 AND confidence_score <= 1),
+  factors JSONB NOT NULL,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_editorial_decisions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  editorial_review_id UUID NOT NULL REFERENCES factory_editorial_reviews(id) ON DELETE RESTRICT,
+  decision TEXT NOT NULL CHECK (decision IN ('validate', 'start_review', 'approve', 'require_revision', 'prepare_authority', 'assess_governance_ready', 'preserve')),
+  reason TEXT NOT NULL,
+  evidence_reviewed JSONB NOT NULL DEFAULT '[]'::jsonb,
+  sources_reviewed JSONB NOT NULL DEFAULT '[]'::jsonb,
+  confidence_assessment JSONB NOT NULL DEFAULT '{}'::jsonb,
+  authority_mapping JSONB NOT NULL DEFAULT '{}'::jsonb,
+  decided_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_authority_preparations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  editorial_review_id UUID NOT NULL REFERENCES factory_editorial_reviews(id) ON DELETE RESTRICT,
+  factory_package_draft_id UUID NOT NULL REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  canonical_identity_mapping JSONB NOT NULL,
+  authority_references JSONB NOT NULL,
+  source_traceability JSONB NOT NULL,
+  evidence_traceability JSONB NOT NULL,
+  revision_traceability JSONB NOT NULL,
+  prepared_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_runtime_workers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  worker_key TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  capabilities JSONB NOT NULL DEFAULT '[]'::jsonb,
+  default_provider_key TEXT NOT NULL DEFAULT 'qwen14',
+  status TEXT NOT NULL DEFAULT 'registered' CHECK (status IN ('registered', 'disabled')),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_runtime_prompts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  prompt_key TEXT NOT NULL,
+  version INTEGER NOT NULL CHECK (version > 0),
+  title TEXT NOT NULL,
+  template TEXT NOT NULL,
+  input_schema JSONB NOT NULL DEFAULT '{}'::jsonb,
+  output_schema JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'superseded', 'disabled')),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (prompt_key, version)
+);
+
+CREATE TABLE IF NOT EXISTS factory_runtime_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  worker_id UUID NOT NULL REFERENCES factory_runtime_workers(id) ON DELETE RESTRICT,
+  prompt_id UUID NOT NULL REFERENCES factory_runtime_prompts(id) ON DELETE RESTRICT,
+  provider_key TEXT NOT NULL DEFAULT 'qwen14',
+  model_name TEXT NOT NULL DEFAULT 'Qwen14',
+  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+  priority INTEGER NOT NULL DEFAULT 0 CHECK (priority >= 0 AND priority <= 100),
+  input JSONB NOT NULL,
+  configuration JSONB NOT NULL DEFAULT '{}'::jsonb,
+  queued_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_runtime_executions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID NOT NULL REFERENCES factory_runtime_jobs(id) ON DELETE RESTRICT,
+  worker_id UUID NOT NULL REFERENCES factory_runtime_workers(id) ON DELETE RESTRICT,
+  provider_key TEXT NOT NULL,
+  model_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'created' CHECK (status IN ('created', 'started', 'completed', 'failed', 'cancelled')),
+  input JSONB NOT NULL,
+  output JSONB,
+  error JSONB,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_runtime_audit_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  target_ref JSONB NOT NULL,
+  action TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  before_state JSONB,
+  after_state JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_worker_capabilities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  worker_key TEXT NOT NULL,
+  worker_name TEXT NOT NULL,
+  worker_category TEXT NOT NULL CHECK (worker_category IN ('research', 'source', 'extraction', 'enrichment', 'assembly', 'validation')),
+  allowed_inputs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  allowed_outputs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  allowed_object_types JSONB NOT NULL DEFAULT '[]'::jsonb,
+  allowed_relationship_types JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (worker_key)
+);
+
+CREATE TABLE IF NOT EXISTS factory_worker_policies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  worker_key TEXT NOT NULL REFERENCES factory_worker_capabilities(worker_key) ON DELETE RESTRICT,
+  provider_policy JSONB NOT NULL,
+  max_context_tokens INTEGER NOT NULL CHECK (max_context_tokens > 0),
+  max_output_tokens INTEGER NOT NULL CHECK (max_output_tokens > 0),
+  retry_policy JSONB NOT NULL,
+  execution_timeout INTEGER NOT NULL CHECK (execution_timeout > 0),
+  audit_requirements JSONB NOT NULL,
+  forbidden_operations JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'superseded', 'disabled')),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_worker_versions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  worker_key TEXT NOT NULL REFERENCES factory_worker_capabilities(worker_key) ON DELETE RESTRICT,
+  worker_version INTEGER NOT NULL CHECK (worker_version > 0),
+  contract JSONB NOT NULL,
+  policy_id UUID NOT NULL REFERENCES factory_worker_policies(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'superseded', 'disabled')),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (worker_key, worker_version)
+);
+
+CREATE TABLE IF NOT EXISTS factory_worker_permissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  worker_key TEXT NOT NULL REFERENCES factory_worker_capabilities(worker_key) ON DELETE RESTRICT,
+  worker_version_id UUID NOT NULL REFERENCES factory_worker_versions(id) ON DELETE RESTRICT,
+  allowed_operations JSONB NOT NULL DEFAULT '[]'::jsonb,
+  forbidden_operations JSONB NOT NULL DEFAULT '[]'::jsonb,
+  provider_policy JSONB NOT NULL,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (worker_version_id)
+);
+
+CREATE TABLE IF NOT EXISTS factory_pipeline_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pipeline_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+  input JSONB NOT NULL DEFAULT '{}'::jsonb,
+  artifact_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  factory_object_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  package_draft_id UUID REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_pipeline_steps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pipeline_run_id UUID NOT NULL REFERENCES factory_pipeline_runs(id) ON DELETE RESTRICT,
+  step_index INTEGER NOT NULL CHECK (step_index >= 0),
+  worker_key TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed', 'skipped', 'cancelled')),
+  input JSONB NOT NULL DEFAULT '{}'::jsonb,
+  output JSONB,
+  artifact_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  factory_object_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (pipeline_run_id, step_index)
+);
+
+CREATE TABLE IF NOT EXISTS factory_governance_handoffs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pipeline_run_id UUID REFERENCES factory_pipeline_runs(id) ON DELETE RESTRICT,
+  factory_package_draft_id UUID NOT NULL REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  factory_package_version_id UUID REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
+  governance_publication_package_id UUID REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL DEFAULT 'prepared' CHECK (status IN ('prepared', 'submitted_to_governance', 'cancelled', 'preserved')),
+  lineage JSONB NOT NULL DEFAULT '{}'::jsonb,
+  validation_artifact_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  submission_reason TEXT NOT NULL,
+  created_by TEXT NOT NULL DEFAULT 'system',
+  submitted_by TEXT,
+  submitted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (factory_package_draft_id)
+);
+
+CREATE TABLE IF NOT EXISTS factory_submission_audit_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  handoff_id UUID NOT NULL REFERENCES factory_governance_handoffs(id) ON DELETE RESTRICT,
+  action TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  package_lineage JSONB NOT NULL DEFAULT '{}'::jsonb,
+  pipeline_lineage JSONB NOT NULL DEFAULT '{}'::jsonb,
+  validation_artifacts JSONB NOT NULL DEFAULT '[]'::jsonb,
+  governance_publication_package_id UUID REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS factory_submission_lineage (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  handoff_id UUID NOT NULL REFERENCES factory_governance_handoffs(id) ON DELETE RESTRICT,
+  pipeline_run_id UUID REFERENCES factory_pipeline_runs(id) ON DELETE RESTRICT,
+  factory_package_draft_id UUID NOT NULL REFERENCES factory_package_drafts(id) ON DELETE RESTRICT,
+  factory_package_version_id UUID REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
+  governance_publication_package_id UUID REFERENCES governance_publication_packages(id) ON DELETE RESTRICT,
+  worker_outputs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  validation_artifacts JSONB NOT NULL DEFAULT '[]'::jsonb,
+  governance_decisions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS factory_governance_submissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   factory_package_version_id UUID NOT NULL UNIQUE REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
@@ -754,6 +1104,12 @@ CREATE INDEX IF NOT EXISTS idx_milestone_participations_milestone ON milestone_p
 CREATE INDEX IF NOT EXISTS idx_milestone_participations_public_context ON milestone_participations(milestone_id, authority_state, lifecycle_status, participation_priority);
 CREATE INDEX IF NOT EXISTS idx_milestone_participation_revisions_participation ON milestone_participation_revisions(participation_id, revision DESC);
 CREATE INDEX IF NOT EXISTS idx_milestone_participation_disputes_participation ON milestone_participation_disputes(participation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_historical_relationships_type_status ON historical_relationships(relationship_type, lifecycle_status);
+CREATE INDEX IF NOT EXISTS idx_historical_relationships_source ON historical_relationships USING GIN(source_authority_ref);
+CREATE INDEX IF NOT EXISTS idx_historical_relationships_target ON historical_relationships USING GIN(target_authority_ref);
+CREATE INDEX IF NOT EXISTS idx_historical_relationship_revisions_relationship ON historical_relationship_revisions(relationship_id, revision DESC);
+CREATE INDEX IF NOT EXISTS idx_historical_relationship_merges_source ON historical_relationship_merges(source_relationship_id);
+CREATE INDEX IF NOT EXISTS idx_historical_relationship_retirements_relationship ON historical_relationship_retirements(relationship_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_governance_decisions_target ON governance_decisions USING GIN(target_authority);
 CREATE INDEX IF NOT EXISTS idx_governance_decisions_lifecycle ON governance_decisions(lifecycle, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_governance_approvals_decision ON governance_approvals(decision_id, lifecycle);
@@ -774,7 +1130,28 @@ CREATE INDEX IF NOT EXISTS idx_factory_package_versions_draft ON factory_package
 CREATE INDEX IF NOT EXISTS idx_factory_package_versions_lineage ON factory_package_versions(lineage_root_id, version DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_factory_package_versions_revision_plan ON factory_package_versions(revision_plan_id);
 CREATE INDEX IF NOT EXISTS idx_factory_package_versions_feedback ON factory_package_versions(source_feedback_package_id);
+CREATE INDEX IF NOT EXISTS idx_factory_editorial_reviews_package ON factory_editorial_reviews(factory_package_draft_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_editorial_reviews_lifecycle ON factory_editorial_reviews(lifecycle, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_editorial_decisions_review ON factory_editorial_decisions(editorial_review_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_confidence_assessments_review ON factory_confidence_assessments(editorial_review_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_authority_preparations_review ON factory_authority_preparations(editorial_review_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_factory_audit_records_target ON factory_audit_records USING GIN(target_ref);
+CREATE INDEX IF NOT EXISTS idx_factory_runtime_workers_status ON factory_runtime_workers(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_runtime_prompts_key_version ON factory_runtime_prompts(prompt_key, version DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_runtime_jobs_status_priority ON factory_runtime_jobs(status, priority DESC, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_factory_runtime_executions_job ON factory_runtime_executions(job_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_runtime_audit_records_target ON factory_runtime_audit_records USING GIN(target_ref);
+CREATE INDEX IF NOT EXISTS idx_factory_worker_capabilities_category ON factory_worker_capabilities(worker_category, status);
+CREATE INDEX IF NOT EXISTS idx_factory_worker_policies_worker ON factory_worker_policies(worker_key, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_worker_versions_worker ON factory_worker_versions(worker_key, worker_version DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_worker_permissions_worker ON factory_worker_permissions(worker_key, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_pipeline_runs_status ON factory_pipeline_runs(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_pipeline_steps_run ON factory_pipeline_steps(pipeline_run_id, step_index);
+CREATE INDEX IF NOT EXISTS idx_factory_pipeline_steps_worker ON factory_pipeline_steps(worker_key, status);
+CREATE INDEX IF NOT EXISTS idx_factory_governance_handoffs_status ON factory_governance_handoffs(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_governance_handoffs_pipeline ON factory_governance_handoffs(pipeline_run_id);
+CREATE INDEX IF NOT EXISTS idx_factory_submission_audit_handoff ON factory_submission_audit_records(handoff_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_factory_submission_lineage_handoff ON factory_submission_lineage(handoff_id);
 CREATE INDEX IF NOT EXISTS idx_governance_publication_packages_factory_version ON governance_publication_packages(factory_package_version_id);
 CREATE INDEX IF NOT EXISTS idx_factory_governance_submissions_lineage ON factory_governance_submissions(factory_lineage_root_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_factory_feedback_consumptions_feedback ON factory_feedback_consumptions(feedback_package_id);
@@ -821,6 +1198,12 @@ BEFORE UPDATE ON milestone_participations
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_historical_relationships_updated_at ON historical_relationships;
+CREATE TRIGGER trigger_historical_relationships_updated_at
+BEFORE UPDATE ON historical_relationships
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
 DROP TRIGGER IF EXISTS trigger_governance_queues_updated_at ON governance_queues;
 CREATE TRIGGER trigger_governance_queues_updated_at
 BEFORE UPDATE ON governance_queues
@@ -845,6 +1228,12 @@ BEFORE UPDATE ON factory_package_drafts
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_factory_editorial_reviews_updated_at ON factory_editorial_reviews;
+CREATE TRIGGER trigger_factory_editorial_reviews_updated_at
+BEFORE UPDATE ON factory_editorial_reviews
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
 DROP TRIGGER IF EXISTS trigger_factory_feedback_consumptions_updated_at ON factory_feedback_consumptions;
 CREATE TRIGGER trigger_factory_feedback_consumptions_updated_at
 BEFORE UPDATE ON factory_feedback_consumptions
@@ -854,6 +1243,48 @@ EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trigger_factory_revision_plans_updated_at ON factory_revision_plans;
 CREATE TRIGGER trigger_factory_revision_plans_updated_at
 BEFORE UPDATE ON factory_revision_plans
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_runtime_workers_updated_at ON factory_runtime_workers;
+CREATE TRIGGER trigger_factory_runtime_workers_updated_at
+BEFORE UPDATE ON factory_runtime_workers
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_runtime_jobs_updated_at ON factory_runtime_jobs;
+CREATE TRIGGER trigger_factory_runtime_jobs_updated_at
+BEFORE UPDATE ON factory_runtime_jobs
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_runtime_executions_updated_at ON factory_runtime_executions;
+CREATE TRIGGER trigger_factory_runtime_executions_updated_at
+BEFORE UPDATE ON factory_runtime_executions
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_worker_capabilities_updated_at ON factory_worker_capabilities;
+CREATE TRIGGER trigger_factory_worker_capabilities_updated_at
+BEFORE UPDATE ON factory_worker_capabilities
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_pipeline_runs_updated_at ON factory_pipeline_runs;
+CREATE TRIGGER trigger_factory_pipeline_runs_updated_at
+BEFORE UPDATE ON factory_pipeline_runs
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_pipeline_steps_updated_at ON factory_pipeline_steps;
+CREATE TRIGGER trigger_factory_pipeline_steps_updated_at
+BEFORE UPDATE ON factory_pipeline_steps
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trigger_factory_governance_handoffs_updated_at ON factory_governance_handoffs;
+CREATE TRIGGER trigger_factory_governance_handoffs_updated_at
+BEFORE UPDATE ON factory_governance_handoffs
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
@@ -909,6 +1340,36 @@ EXECUTE FUNCTION prevent_historical_authority_delete();
 DROP TRIGGER IF EXISTS prevent_milestone_participation_disputes_delete ON milestone_participation_disputes;
 CREATE TRIGGER prevent_milestone_participation_disputes_delete
 BEFORE DELETE ON milestone_participation_disputes
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_relationships_delete ON historical_relationships;
+CREATE TRIGGER prevent_historical_relationships_delete
+BEFORE DELETE ON historical_relationships
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_relationship_revisions_delete ON historical_relationship_revisions;
+CREATE TRIGGER prevent_historical_relationship_revisions_delete
+BEFORE DELETE ON historical_relationship_revisions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_relationship_merges_delete ON historical_relationship_merges;
+CREATE TRIGGER prevent_historical_relationship_merges_delete
+BEFORE DELETE ON historical_relationship_merges
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_relationship_retirements_delete ON historical_relationship_retirements;
+CREATE TRIGGER prevent_historical_relationship_retirements_delete
+BEFORE DELETE ON historical_relationship_retirements
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_authority_delete();
+
+DROP TRIGGER IF EXISTS prevent_historical_relationship_disputes_delete ON historical_relationship_disputes;
+CREATE TRIGGER prevent_historical_relationship_disputes_delete
+BEFORE DELETE ON historical_relationship_disputes
 FOR EACH ROW
 EXECUTE FUNCTION prevent_historical_authority_delete();
 
@@ -1020,6 +1481,30 @@ BEFORE DELETE ON factory_package_versions
 FOR EACH ROW
 EXECUTE FUNCTION prevent_factory_history_delete();
 
+DROP TRIGGER IF EXISTS prevent_factory_editorial_reviews_delete ON factory_editorial_reviews;
+CREATE TRIGGER prevent_factory_editorial_reviews_delete
+BEFORE DELETE ON factory_editorial_reviews
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_editorial_decisions_delete ON factory_editorial_decisions;
+CREATE TRIGGER prevent_factory_editorial_decisions_delete
+BEFORE DELETE ON factory_editorial_decisions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_confidence_assessments_delete ON factory_confidence_assessments;
+CREATE TRIGGER prevent_factory_confidence_assessments_delete
+BEFORE DELETE ON factory_confidence_assessments
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_authority_preparations_delete ON factory_authority_preparations;
+CREATE TRIGGER prevent_factory_authority_preparations_delete
+BEFORE DELETE ON factory_authority_preparations
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
 DROP TRIGGER IF EXISTS prevent_factory_package_versions_submitted_update ON factory_package_versions;
 CREATE TRIGGER prevent_factory_package_versions_submitted_update
 BEFORE UPDATE ON factory_package_versions
@@ -1029,6 +1514,90 @@ EXECUTE FUNCTION prevent_submitted_factory_package_version_update();
 DROP TRIGGER IF EXISTS prevent_factory_audit_records_delete ON factory_audit_records;
 CREATE TRIGGER prevent_factory_audit_records_delete
 BEFORE DELETE ON factory_audit_records
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_runtime_workers_delete ON factory_runtime_workers;
+CREATE TRIGGER prevent_factory_runtime_workers_delete
+BEFORE DELETE ON factory_runtime_workers
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_runtime_prompts_delete ON factory_runtime_prompts;
+CREATE TRIGGER prevent_factory_runtime_prompts_delete
+BEFORE DELETE ON factory_runtime_prompts
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_runtime_jobs_delete ON factory_runtime_jobs;
+CREATE TRIGGER prevent_factory_runtime_jobs_delete
+BEFORE DELETE ON factory_runtime_jobs
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_runtime_executions_delete ON factory_runtime_executions;
+CREATE TRIGGER prevent_factory_runtime_executions_delete
+BEFORE DELETE ON factory_runtime_executions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_runtime_audit_records_delete ON factory_runtime_audit_records;
+CREATE TRIGGER prevent_factory_runtime_audit_records_delete
+BEFORE DELETE ON factory_runtime_audit_records
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_worker_capabilities_delete ON factory_worker_capabilities;
+CREATE TRIGGER prevent_factory_worker_capabilities_delete
+BEFORE DELETE ON factory_worker_capabilities
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_worker_policies_delete ON factory_worker_policies;
+CREATE TRIGGER prevent_factory_worker_policies_delete
+BEFORE DELETE ON factory_worker_policies
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_worker_versions_delete ON factory_worker_versions;
+CREATE TRIGGER prevent_factory_worker_versions_delete
+BEFORE DELETE ON factory_worker_versions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_worker_permissions_delete ON factory_worker_permissions;
+CREATE TRIGGER prevent_factory_worker_permissions_delete
+BEFORE DELETE ON factory_worker_permissions
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_pipeline_runs_delete ON factory_pipeline_runs;
+CREATE TRIGGER prevent_factory_pipeline_runs_delete
+BEFORE DELETE ON factory_pipeline_runs
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_pipeline_steps_delete ON factory_pipeline_steps;
+CREATE TRIGGER prevent_factory_pipeline_steps_delete
+BEFORE DELETE ON factory_pipeline_steps
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_governance_handoffs_delete ON factory_governance_handoffs;
+CREATE TRIGGER prevent_factory_governance_handoffs_delete
+BEFORE DELETE ON factory_governance_handoffs
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_submission_audit_records_delete ON factory_submission_audit_records;
+CREATE TRIGGER prevent_factory_submission_audit_records_delete
+BEFORE DELETE ON factory_submission_audit_records
+FOR EACH ROW
+EXECUTE FUNCTION prevent_factory_history_delete();
+
+DROP TRIGGER IF EXISTS prevent_factory_submission_lineage_delete ON factory_submission_lineage;
+CREATE TRIGGER prevent_factory_submission_lineage_delete
+BEFORE DELETE ON factory_submission_lineage
 FOR EACH ROW
 EXECUTE FUNCTION prevent_factory_history_delete();
 
@@ -1182,6 +1751,7 @@ CREATE TABLE IF NOT EXISTS published_memory_projections (
   ),
   source_event_id UUID NOT NULL,
   audit_record_id UUID,
+  superseded_by_projection_id UUID REFERENCES published_memory_projections(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (published_snapshot_id, projection_type, projection_hash)
 );
@@ -1213,14 +1783,45 @@ CREATE TABLE IF NOT EXISTS published_memory_continuity_projections (
   UNIQUE (source_published_snapshot_id, continuity_type, projection_hash)
 );
 
+CREATE TABLE IF NOT EXISTS published_memory_projection_rebuild_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  status TEXT NOT NULL CHECK (status IN ('completed', 'completed_with_failures', 'failed')),
+  started_at TIMESTAMPTZ NOT NULL,
+  completed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  duration_ms INTEGER NOT NULL CHECK (duration_ms >= 0),
+  batch_size INTEGER NOT NULL CHECK (batch_size > 0),
+  total_processed INTEGER NOT NULL CHECK (total_processed >= 0),
+  generated INTEGER NOT NULL CHECK (generated >= 0),
+  updated INTEGER NOT NULL CHECK (updated >= 0),
+  unchanged INTEGER NOT NULL CHECK (unchanged >= 0),
+  failed INTEGER NOT NULL CHECK (failed >= 0),
+  skipped INTEGER NOT NULL CHECK (skipped >= 0),
+  continuity_projection_count INTEGER NOT NULL CHECK (continuity_projection_count >= 0),
+  coverage_summary JSONB NOT NULL,
+  dto_validation_failures JSONB NOT NULL DEFAULT '[]'::jsonb,
+  rebuild_failures JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_published_memory_projections_lookup
   ON published_memory_projections(projection_type, lifecycle, slug, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_published_memory_projections_one_active
+  ON published_memory_projections(published_snapshot_id, projection_type)
+  WHERE lifecycle = 'active';
+
+CREATE INDEX IF NOT EXISTS idx_published_memory_projections_superseded_by
+  ON published_memory_projections(superseded_by_projection_id)
+  WHERE superseded_by_projection_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_published_memory_projection_lineage_snapshot
   ON published_memory_projection_lineage(published_snapshot_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_published_memory_continuity_source
   ON published_memory_continuity_projections(source_published_snapshot_id, continuity_type);
+
+CREATE INDEX IF NOT EXISTS idx_published_memory_projection_rebuild_reports_created
+  ON published_memory_projection_rebuild_reports(created_at DESC);
 
 DROP TRIGGER IF EXISTS prevent_published_memory_projections_delete ON published_memory_projections;
 CREATE TRIGGER prevent_published_memory_projections_delete
@@ -1237,5 +1838,11 @@ EXECUTE FUNCTION prevent_historical_library_mutation();
 DROP TRIGGER IF EXISTS prevent_published_memory_continuity_projections_delete ON published_memory_continuity_projections;
 CREATE TRIGGER prevent_published_memory_continuity_projections_delete
 BEFORE DELETE ON published_memory_continuity_projections
+FOR EACH ROW
+EXECUTE FUNCTION prevent_historical_library_mutation();
+
+DROP TRIGGER IF EXISTS prevent_published_memory_projection_rebuild_reports_delete ON published_memory_projection_rebuild_reports;
+CREATE TRIGGER prevent_published_memory_projection_rebuild_reports_delete
+BEFORE DELETE ON published_memory_projection_rebuild_reports
 FOR EACH ROW
 EXECUTE FUNCTION prevent_historical_library_mutation();

@@ -180,4 +180,476 @@ describe("factory production memory foundation", () => {
     assert.doesNotMatch(repository, /historical_library_admissions|historical_library_published_snapshots|governance_publication_packages\s*\(/);
     assert.doesNotMatch(service, /certifyReadiness\(input|approveDecision|rejectDecision|admitPublicationPackage/);
   });
+
+  it("defines Factory Intelligence runtime schema with workers, prompts, jobs, executions, and audit preservation", () => {
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260625_factory_intelligence_foundation.sql", "utf8");
+
+    for (const source of [schema, migration]) {
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_runtime_workers/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_runtime_prompts/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_runtime_jobs/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_runtime_executions/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_runtime_audit_records/);
+      assert.match(source, /default_provider_key TEXT NOT NULL DEFAULT 'qwen14'/);
+      assert.match(source, /model_name TEXT NOT NULL DEFAULT 'Qwen14'/);
+      assert.match(source, /status TEXT NOT NULL DEFAULT 'queued' CHECK \(status IN \('queued', 'running', 'completed', 'failed', 'cancelled'\)\)/);
+      assert.match(source, /status TEXT NOT NULL DEFAULT 'created' CHECK \(status IN \('created', 'started', 'completed', 'failed', 'cancelled'\)\)/);
+      assert.match(source, /prevent_factory_runtime_workers_delete/);
+      assert.match(source, /prevent_factory_runtime_prompts_delete/);
+      assert.match(source, /prevent_factory_runtime_jobs_delete/);
+      assert.match(source, /prevent_factory_runtime_executions_delete/);
+      assert.match(source, /prevent_factory_runtime_audit_records_delete/);
+    }
+  });
+
+  it("implements provider-abstracted Qwen14 runtime with source-grounded generation", () => {
+    const contracts = readFileSync("src/server/factory/contracts.ts", "utf8");
+    const providers = readFileSync("src/server/factory/runtime-providers.ts", "utf8");
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const outputSchemas = readFileSync("src/server/factory/output-schemas.ts", "utf8");
+
+    assert.match(contracts, /FactoryRuntimeWorker/);
+    assert.match(contracts, /FactoryRuntimePrompt/);
+    assert.match(contracts, /FactoryRuntimeJob/);
+    assert.match(contracts, /FactoryRuntimeExecution/);
+    assert.match(contracts, /FactoryRuntimeMetrics/);
+    assert.match(providers, /FactoryRuntimeProvider/);
+    assert.match(providers, /providerKey: "qwen14"/);
+    assert.match(providers, /OLLAMA_BASE_URL/);
+    assert.match(providers, /api\/generate/);
+    assert.match(providers, /no_think/);
+    assert.match(providers, /Qwen14 provider returned an empty JSON object/);
+    assert.match(providers, /compactSchemaInstruction/);
+    assert.match(providers, /rawResponsePreview/);
+    assert.match(providers, /generationEnabled: true/);
+    assert.match(providers, /getFactoryRuntimeProvider/);
+    assert.match(providers, /listFactoryRuntimeProviders/);
+    assert.match(service, /getFactoryRuntimeProvider/);
+    assert.match(service, /provider\.execute/);
+    assert.match(service, /validateFactoryWorkerOutput/);
+    assert.match(service, /Output validation failed/);
+    assert.match(outputSchemas, /evidence/);
+    assert.match(outputSchemas, /sources/);
+    assert.match(outputSchemas, /publicationAllowed: z\.literal\(false\)/);
+    assert.doesNotMatch(providers, /historicalRelationshipRepository|historicalAuthorityRepository|historicalLibraryService|governanceService/);
+  });
+
+  it("keeps Factory runtime persistence repository-isolated and service-mediated", () => {
+    const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+    const validation = readFileSync("src/server/validation/schemas.ts", "utf8");
+
+    for (const method of [
+      "registerRuntimeWorker",
+      "registerRuntimePrompt",
+      "queueRuntimeJob",
+      "createRuntimeExecution",
+      "transitionRuntimeJob",
+      "transitionRuntimeExecution",
+      "createRuntimeAuditRecord",
+      "getRuntimeMetrics"
+    ]) {
+      assert.match(repository, new RegExp(method));
+    }
+    assert.match(repository, /INSERT INTO factory_runtime_workers/);
+    assert.match(repository, /INSERT INTO factory_runtime_prompts/);
+    assert.match(repository, /INSERT INTO factory_runtime_jobs/);
+    assert.match(repository, /INSERT INTO factory_runtime_executions/);
+    assert.match(repository, /INSERT INTO factory_runtime_audit_records/);
+    assert.match(service, /runtimeJobTransitions/);
+    assert.match(service, /runtimeExecutionTransitions/);
+    assert.match(service, /createRuntimeAuditRecord/);
+    assert.doesNotMatch(service, /INSERT INTO factory_runtime|UPDATE factory_runtime|DELETE FROM factory_runtime|getWriteSql/);
+
+    for (const method of [
+      "registerFactoryRuntimeWorker",
+      "listFactoryRuntimeWorkers",
+      "registerFactoryRuntimePrompt",
+      "listFactoryRuntimePrompts",
+      "queueFactoryRuntimeJob",
+      "listFactoryRuntimeJobs",
+      "transitionFactoryRuntimeJob",
+      "executeFactoryRuntimeJob",
+      "listFactoryRuntimeExecutions",
+      "getFactoryRuntimeMetrics",
+      "getFactoryRuntimeHealth"
+    ]) {
+      assert.match(adminService, new RegExp(`${method}: factoryService\\.`));
+    }
+    assert.match(validation, /factoryRuntimeWorkerSchema/);
+    assert.match(validation, /factoryRuntimePromptSchema/);
+    assert.match(validation, /factoryRuntimeJobSchema/);
+    assert.match(validation, /factoryRuntimeJobTransitionSchema/);
+    assert.match(validation, /factoryRuntimeJobExecutionSchema/);
+  });
+
+  it("exposes Factory runtime through admin-only routes without publication authority", () => {
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const routes = [
+      "app/api/admin/factory/runtime/workers/route.ts",
+      "app/api/admin/factory/runtime/prompts/route.ts",
+      "app/api/admin/factory/runtime/jobs/route.ts",
+      "app/api/admin/factory/runtime/jobs/[id]/transition/route.ts",
+      "app/api/admin/factory/runtime/jobs/[id]/execute/route.ts",
+      "app/api/admin/factory/runtime/executions/route.ts",
+      "app/api/admin/factory/runtime/metrics/route.ts",
+      "app/api/admin/factory/runtime/health/route.ts"
+    ];
+
+    for (const routePath of routes) {
+      const route = readFileSync(routePath, "utf8");
+      assert.match(route, /withAdminAuth/);
+      assert.match(route, /adminService\./);
+      assert.doesNotMatch(route, /factoryRepository|governanceRepository|historicalLibraryRepository|getWriteSql|INSERT INTO|UPDATE|DELETE FROM/);
+    }
+
+    assert.doesNotMatch(service, /admitPublicationPackage|publishPublicationPackage|certifyReadiness\(input|approveDecision|rejectDecision/);
+    assert.doesNotMatch(service, /historicalLibraryService/);
+  });
+
+  it("defines canonical versioned Factory worker registry contracts and policies", () => {
+    const registry = readFileSync("src/server/factory/worker-registry.ts", "utf8");
+    const contracts = readFileSync("src/server/factory/contracts.ts", "utf8");
+
+    for (const workerId of [
+      "research_worker",
+      "source_discovery_worker",
+      "source_validation_worker",
+      "object_extraction_worker",
+      "milestone_extraction_worker",
+      "participation_extraction_worker",
+      "relationship_extraction_worker",
+      "context_enrichment_worker",
+      "package_assembly_worker",
+      "validation_worker"
+    ]) {
+      assert.match(registry, new RegExp(`worker_id: "${workerId}"`));
+    }
+
+    for (const field of [
+      "worker_id",
+      "worker_name",
+      "worker_version",
+      "worker_category",
+      "allowed_inputs",
+      "allowed_outputs",
+      "output_schema",
+      "allowed_object_types",
+      "allowed_relationship_types",
+      "provider_policy",
+      "max_context_tokens",
+      "max_output_tokens",
+      "retry_policy",
+      "execution_timeout",
+      "audit_requirements",
+      "forbidden_operations"
+    ]) {
+      assert.match(contracts, new RegExp(field));
+    }
+
+    assert.match(registry, /providerId: "qwen14_local"/);
+    assert.match(registry, /providerType: "local_llm"/);
+    assert.match(registry, /providerAgnostic: true/);
+    assert.match(registry, /factoryWorkerForbiddenOperations/);
+    assert.match(registry, /create_governance_decisions/);
+    assert.match(registry, /certify_readiness/);
+    assert.match(registry, /admit_published_memory/);
+    assert.match(registry, /modify_historical_library/);
+    assert.match(registry, /modify_projections/);
+    assert.match(registry, /publish_content/);
+    assert.match(registry, /mutate_public_platform_read_models/);
+  });
+
+  it("persists worker capabilities, policies, versions, and permissions without deleting history", () => {
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260626_factory_worker_registry.sql", "utf8");
+    const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
+
+    for (const source of [schema, migration]) {
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_worker_capabilities/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_worker_policies/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_worker_versions/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_worker_permissions/);
+      assert.match(source, /UNIQUE \(worker_key, worker_version\)/);
+      assert.match(source, /prevent_factory_worker_capabilities_delete/);
+      assert.match(source, /prevent_factory_worker_policies_delete/);
+      assert.match(source, /prevent_factory_worker_versions_delete/);
+      assert.match(source, /prevent_factory_worker_permissions_delete/);
+    }
+
+    assert.match(repository, /upsertWorkerRegistryContract/);
+    assert.match(repository, /INSERT INTO factory_worker_capabilities/);
+    assert.match(repository, /INSERT INTO factory_worker_policies/);
+    assert.match(repository, /INSERT INTO factory_worker_versions/);
+    assert.match(repository, /INSERT INTO factory_worker_permissions/);
+    assert.match(repository, /listWorkerRegistry/);
+  });
+
+  it("service-mediates worker registry sync and blocks forbidden worker operations", () => {
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+    const validation = readFileSync("src/server/validation/schemas.ts", "utf8");
+    const route = readFileSync("app/api/admin/factory/runtime/worker-registry/route.ts", "utf8");
+
+    assert.match(service, /syncCanonicalWorkerRegistry/);
+    assert.match(service, /canonicalFactoryWorkers/);
+    assert.match(service, /allowedOperationsForWorker/);
+    assert.match(service, /assertWorkerExecutionPolicy/);
+    assert.match(service, /FACTORY_WORKER_CONTRACT_REQUIRED/);
+    assert.match(service, /FACTORY_WORKER_OPERATION_FORBIDDEN/);
+    assert.match(service, /forbidden_operations/);
+    assert.doesNotMatch(service, /INSERT INTO factory_worker|UPDATE factory_worker|DELETE FROM factory_worker/);
+
+    assert.match(adminService, /syncFactoryWorkerRegistry: factoryService\.syncCanonicalWorkerRegistry/);
+    assert.match(adminService, /listFactoryWorkerRegistry: factoryService\.listWorkerRegistry/);
+    assert.match(validation, /factoryWorkerRegistrySyncSchema/);
+    assert.match(route, /withAdminAuth/);
+    assert.match(route, /adminService\.syncFactoryWorkerRegistry/);
+    assert.match(route, /adminService\.listFactoryWorkerRegistry/);
+    assert.doesNotMatch(route, /factoryRepository|governanceRepository|historicalLibraryRepository|getWriteSql/);
+  });
+
+  it("defines controlled Factory production pipelines with ordered worker chains", () => {
+    const registry = readFileSync("src/server/factory/pipeline-registry.ts", "utf8");
+    const contracts = readFileSync("src/server/factory/contracts.ts", "utf8");
+
+    assert.match(registry, /historical_research_pipeline/);
+    assert.match(registry, /research_worker/);
+    assert.match(registry, /source_discovery_worker/);
+    assert.match(registry, /source_validation_worker/);
+    assert.match(registry, /historical_extraction_pipeline/);
+    assert.match(registry, /object_extraction_worker/);
+    assert.match(registry, /milestone_extraction_worker/);
+    assert.match(registry, /participation_extraction_worker/);
+    assert.match(registry, /relationship_extraction_worker/);
+    assert.match(registry, /context_enrichment_worker/);
+    assert.match(registry, /publication_candidate_pipeline/);
+    assert.match(registry, /validation_worker/);
+    assert.match(registry, /package_assembly_worker/);
+    assert.match(contracts, /FactoryPipelineDefinition/);
+    assert.match(contracts, /FactoryPipelineRun/);
+    assert.match(contracts, /FactoryPipelineStep/);
+  });
+
+  it("persists pipeline runs and steps with lineage, metrics, and no-delete preservation", () => {
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260627_factory_production_pipelines.sql", "utf8");
+    const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
+
+    for (const source of [schema, migration]) {
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_pipeline_runs/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_pipeline_steps/);
+      assert.match(source, /artifact_refs JSONB NOT NULL DEFAULT '\[\]'::jsonb/);
+      assert.match(source, /factory_object_refs JSONB NOT NULL DEFAULT '\[\]'::jsonb/);
+      assert.match(source, /package_draft_id UUID REFERENCES factory_package_drafts/);
+      assert.match(source, /prevent_factory_pipeline_runs_delete/);
+      assert.match(source, /prevent_factory_pipeline_steps_delete/);
+    }
+
+    assert.match(repository, /createPipelineRun/);
+    assert.match(repository, /createPipelineStep/);
+    assert.match(repository, /transitionPipelineRun/);
+    assert.match(repository, /transitionPipelineStep/);
+    assert.match(repository, /pipelineRunCount/);
+  });
+
+  it("orchestrates pipeline candidate generation inside Factory only", () => {
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+    const validation = readFileSync("src/server/validation/schemas.ts", "utf8");
+    const routes = [
+      "app/api/admin/factory/runtime/pipelines/route.ts",
+      "app/api/admin/factory/runtime/pipelines/runs/route.ts",
+      "app/api/admin/factory/runtime/pipelines/runs/[id]/cancel/route.ts"
+    ];
+
+    assert.match(service, /startPipeline/);
+    assert.match(service, /getCanonicalFactoryPipeline/);
+    assert.match(service, /createPipelineRun/);
+    assert.match(service, /createPipelineStep/);
+    assert.match(service, /factoryRepository\.createObject/);
+    assert.match(service, /factoryRepository\.createArtifact/);
+    assert.match(service, /factoryRepository\.createPackageDraft/);
+    assert.match(service, /cancelPipeline/);
+    assert.match(service, /publicationAllowed: false/);
+    assert.match(service, /governanceSubmissionAllowed: false/);
+    assert.doesNotMatch(service, /certifyReadiness\(input|approveDecision|rejectDecision|admitPublicationPackage|publishPublicationPackage/);
+    assert.doesNotMatch(service, /historicalLibraryService|publishedMemoryProjectionService/);
+    assert.doesNotMatch(service, /INSERT INTO factory_pipeline|UPDATE factory_pipeline|DELETE FROM factory_pipeline/);
+
+    assert.match(adminService, /listFactoryPipelineDefinitions: factoryService\.listPipelineDefinitions/);
+    assert.match(adminService, /startFactoryPipeline: factoryService\.startPipeline/);
+    assert.match(adminService, /listFactoryPipelineRuns: factoryService\.listPipelineRuns/);
+    assert.match(adminService, /cancelFactoryPipeline: factoryService\.cancelPipeline/);
+    assert.match(validation, /factoryPipelineStartSchema/);
+    assert.match(validation, /factoryPipelineCancellationSchema/);
+
+    for (const routePath of routes) {
+      const route = readFileSync(routePath, "utf8");
+      assert.match(route, /withAdminAuth/);
+      assert.match(route, /adminService\./);
+      assert.doesNotMatch(route, /factoryRepository|governanceRepository|historicalLibraryRepository|getWriteSql/);
+    }
+  });
+
+  it("defines Factory editorial gates, confidence assessments, authority preparation, and review metrics", () => {
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260629_factory_editorial_gates.sql", "utf8");
+    const contracts = readFileSync("src/server/factory/contracts.ts", "utf8");
+    const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
+
+    for (const source of [schema, migration]) {
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_editorial_reviews/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_editorial_decisions/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_confidence_assessments/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_authority_preparations/);
+      assert.match(source, /'generated'/);
+      assert.match(source, /'validated'/);
+      assert.match(source, /'under_editorial_review'/);
+      assert.match(source, /'revision_required'/);
+      assert.match(source, /'editorially_approved'/);
+      assert.match(source, /'authority_prepared'/);
+      assert.match(source, /'governance_ready'/);
+      assert.match(source, /prevent_factory_editorial_reviews_delete/);
+      assert.match(source, /prevent_factory_editorial_decisions_delete/);
+      assert.match(source, /prevent_factory_confidence_assessments_delete/);
+      assert.match(source, /prevent_factory_authority_preparations_delete/);
+    }
+
+    assert.match(contracts, /FactoryEditorialReviewLifecycle/);
+    assert.match(contracts, /FactoryConfidenceLevel/);
+    assert.match(repository, /createEditorialReview/);
+    assert.match(repository, /createEditorialDecision/);
+    assert.match(repository, /createConfidenceAssessment/);
+    assert.match(repository, /createAuthorityPreparation/);
+    assert.match(repository, /validationPassRate/);
+    assert.match(repository, /editorialApprovalRate/);
+    assert.match(repository, /revisionRate/);
+    assert.match(repository, /governanceReadinessRate/);
+    assert.match(repository, /confidenceDistribution/);
+  });
+
+  it("enforces editorial validation before Factory package Governance readiness", () => {
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const validation = readFileSync("src/server/validation/schemas.ts", "utf8");
+
+    assert.match(service, /validateCandidatePackage/);
+    assert.match(service, /reviewCandidatePackage/);
+    assert.match(service, /approveEditorialReview/);
+    assert.match(service, /requireRevision/);
+    assert.match(service, /prepareAuthorityRecords/);
+    assert.match(service, /assessGovernanceReadiness/);
+    assert.match(service, /FACTORY_EDITORIAL_VALIDATION_FAILED/);
+    assert.match(service, /FACTORY_CONFIDENCE_INSUFFICIENT/);
+    assert.match(service, /FACTORY_EDITORIAL_REVIEW_REQUIRED/);
+    assert.match(service, /FACTORY_AUTHORITY_PREPARATION_REQUIRED/);
+    assert.match(service, /getLatestEditorialReviewForPackage/);
+    assert.match(service, /getLatestAuthorityPreparationForReview/);
+    assert.doesNotMatch(service, /historicalLibraryService|publishedMemoryProjectionService/);
+
+    assert.match(validation, /factoryCandidateValidationSchema/);
+    assert.match(validation, /factoryCandidateReviewSchema/);
+    assert.match(validation, /factoryEditorialDecisionSchema/);
+    assert.match(validation, /factoryAuthorityPreparationSchema/);
+    assert.match(validation, /factoryGovernanceReadinessAssessmentSchema/);
+    assert.match(validation, /minimumSourceCount/);
+    assert.match(validation, /minimumEvidenceCount/);
+    assert.match(validation, /sourceDiversity/);
+    assert.match(validation, /chronologyConsistency/);
+  });
+
+  it("exposes Factory editorial workflows through admin-only routes without Governance or publication authority", () => {
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+    const routes = [
+      "app/api/admin/factory/editorial/reviews/route.ts",
+      "app/api/admin/factory/editorial/reviews/[id]/route.ts",
+      "app/api/admin/factory/editorial/decisions/route.ts",
+      "app/api/admin/factory/editorial/authority-preparation/route.ts"
+    ];
+
+    for (const method of [
+      "validateCandidatePackage",
+      "reviewCandidatePackage",
+      "approveEditorialReview",
+      "requireFactoryEditorialRevision",
+      "prepareFactoryAuthorityRecords",
+      "assessFactoryGovernanceReadiness",
+      "listFactoryEditorialReviews",
+      "getFactoryEditorialReview"
+    ]) {
+      assert.match(adminService, new RegExp(`${method}: factoryService\\.`));
+    }
+
+    for (const routePath of routes) {
+      const route = readFileSync(routePath, "utf8");
+      assert.match(route, /withAdminAuth/);
+      assert.match(route, /adminService\./);
+      assert.doesNotMatch(route, /factoryRepository|governanceRepository|historicalLibraryRepository|getWriteSql|INSERT INTO|UPDATE|DELETE FROM/);
+    }
+  });
+
+  it("defines Factory Governance handoff persistence with lineage and audit preservation", () => {
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260628_factory_governance_handoff.sql", "utf8");
+    const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
+
+    for (const source of [schema, migration]) {
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_governance_handoffs/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_submission_audit_records/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS factory_submission_lineage/);
+      assert.match(source, /governance_publication_package_id UUID REFERENCES governance_publication_packages/);
+      assert.match(source, /validation_artifact_refs JSONB NOT NULL DEFAULT '\[\]'::jsonb/);
+      assert.match(source, /governance_decisions JSONB NOT NULL DEFAULT '\[\]'::jsonb/);
+      assert.match(source, /prevent_factory_governance_handoffs_delete/);
+      assert.match(source, /prevent_factory_submission_audit_records_delete/);
+      assert.match(source, /prevent_factory_submission_lineage_delete/);
+    }
+
+    assert.match(repository, /createGovernanceHandoff/);
+    assert.match(repository, /markGovernanceHandoffSubmitted/);
+    assert.match(repository, /createSubmissionAuditRecord/);
+    assert.match(repository, /createSubmissionLineage/);
+    assert.match(repository, /listGovernanceHandoffs/);
+  });
+
+  it("implements service-mediated Factory handoff to Governance without publication authority", () => {
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+    const validation = readFileSync("src/server/validation/schemas.ts", "utf8");
+    const routes = [
+      "app/api/admin/factory/handoffs/route.ts",
+      "app/api/admin/factory/handoffs/[id]/route.ts",
+      "app/api/admin/factory/handoffs/[id]/submit/route.ts"
+    ];
+
+    assert.match(service, /prepareGovernanceHandoff/);
+    assert.match(service, /submitToGovernance/);
+    assert.match(service, /getHandoffStatus/);
+    assert.match(service, /listGovernanceSubmissions/);
+    assert.match(service, /createGovernanceHandoff/);
+    assert.match(service, /createPackageVersion/);
+    assert.match(service, /markPackageVersionSubmitted/);
+    assert.match(service, /governancePackage/);
+    assert.match(service, /createSubmissionAuditRecord/);
+    assert.match(service, /createSubmissionLineage/);
+    assert.match(service, /governanceDecisions: \[\]/);
+    assert.doesNotMatch(service, /certifyReadiness\(input|approveDecision|rejectDecision|admitPublicationPackage|publishPublicationPackage/);
+    assert.doesNotMatch(service, /historicalLibraryService|publishedMemoryProjectionService/);
+
+    assert.match(adminService, /prepareFactoryGovernanceHandoff: factoryService\.prepareGovernanceHandoff/);
+    assert.match(adminService, /submitFactoryGovernanceHandoff: factoryService\.submitToGovernance/);
+    assert.match(adminService, /getFactoryGovernanceHandoffStatus: factoryService\.getHandoffStatus/);
+    assert.match(adminService, /listFactoryGovernanceSubmissions: factoryService\.listGovernanceSubmissions/);
+    assert.match(validation, /factoryGovernanceHandoffSchema/);
+    assert.match(validation, /factoryGovernanceHandoffSubmissionSchema/);
+
+    for (const routePath of routes) {
+      const route = readFileSync(routePath, "utf8");
+      assert.match(route, /withAdminAuth/);
+      assert.match(route, /adminService\./);
+      assert.doesNotMatch(route, /factoryRepository|governanceRepository|historicalLibraryRepository|getWriteSql/);
+    }
+  });
 });

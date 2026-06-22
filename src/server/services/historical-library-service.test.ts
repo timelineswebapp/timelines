@@ -48,6 +48,9 @@ describe("historical library backend foundation", () => {
     const route = readFileSync("app/api/admin/historical-library/admissions/[packageId]/route.ts", "utf8");
 
     assert.match(repository, /getWriteSql\("creating historical library admission"\)/);
+    assert.match(repository, /buildPublishedMemorySnapshotPayload/);
+    assert.match(repository, /historicalRelationshipRepository\.getPublicationPayload/);
+    assert.match(repository, /RELATIONSHIP_PUBLICATION_PAYLOAD_MISSING/);
     assert.match(repository, /INSERT INTO historical_library_admissions/);
     assert.match(repository, /INSERT INTO historical_library_published_snapshots/);
     assert.match(repository, /INSERT INTO historical_library_published_revisions/);
@@ -70,6 +73,29 @@ describe("historical library backend foundation", () => {
     assert.match(service, /expectedDecisionTypes: \["ACCEPT_PUBLICATION_PACKAGE"\]/);
     assert.match(service, /expectedAuthorityType: "publication_package"/);
     assert.match(service, /expectedAuthorityId: input\.packageId/);
+  });
+
+  it("hydrates relationship authority payloads into Published Memory snapshots", () => {
+    const repository = readFileSync("src/server/repositories/historical-library-repository.ts", "utf8");
+    const relationshipRepository = readFileSync("src/server/repositories/historical-relationship-repository.ts", "utf8");
+
+    assert.match(repository, /authorityRef\.authorityType !== "relationship"/);
+    assert.match(repository, /published_memory_payload_type: "relationship"/);
+    assert.match(repository, /snapshotHash: hashSnapshot\(snapshot\)/);
+    assert.match(relationshipRepository, /getPublicationPayload/);
+    for (const field of [
+      "relationship_id",
+      "relationship_type",
+      "source_authority_ref",
+      "target_authority_ref",
+      "summary",
+      "evidence_refs",
+      "provenance",
+      "authority_state",
+      "continuity_metadata"
+    ]) {
+      assert.match(relationshipRepository, new RegExp(field));
+    }
   });
 
   it("blocks Factory and Platform admission paths", async () => {
@@ -128,10 +154,10 @@ describe("historical library backend foundation", () => {
     assert.match(service, /preservePublishedMemory/);
     assert.match(service, /generateFeedbackPackage/);
     assert.match(service, /verifyApprovedGovernanceDecision/);
-    assert.match(service, /expectedDecisionTypes: \["REVISE_HISTORICAL_OBJECT", "REVISE_PARTICIPATION"\]/);
-    assert.match(service, /expectedDecisionTypes: \["RETIRE_HISTORICAL_OBJECT", "RETIRE_PARTICIPATION"\]/);
-    assert.match(service, /expectedDecisionTypes: \["MERGE_HISTORICAL_OBJECT"\]/);
-    assert.match(service, /expectedDecisionTypes: \["PRESERVE_HISTORICAL_OBJECT"\]/);
+    assert.match(service, /expectedDecisionTypes: \["REVISE_HISTORICAL_OBJECT", "REVISE_PARTICIPATION", "REVISE_RELATIONSHIP"\]/);
+    assert.match(service, /expectedDecisionTypes: \["RETIRE_HISTORICAL_OBJECT", "RETIRE_PARTICIPATION", "RETIRE_RELATIONSHIP"\]/);
+    assert.match(service, /expectedDecisionTypes: \["MERGE_HISTORICAL_OBJECT", "MERGE_RELATIONSHIP"\]/);
+    assert.match(service, /expectedDecisionTypes: \["PRESERVE_HISTORICAL_OBJECT", "PRESERVE_RELATIONSHIP"\]/);
     assert.match(service, /expectedDecisionTypes: \["CREATE_FEEDBACK_PACKAGE"\]/);
     assert.match(service, /governanceService\.createFeedbackPackage/);
     assert.match(service, /historicalLibraryRepository\.createFeedbackLink/);

@@ -3,6 +3,8 @@ import type {
   CategoryEntry,
   EventRecord,
   EventShareContext,
+  MilestoneSearchSummary,
+  SearchResultItem,
   HistoricalObjectDetail,
   MilestoneContext,
   SearchResult,
@@ -12,8 +14,16 @@ import type {
   TimelineSummary
 } from "@/src/lib/types";
 import { normalizeQuery } from "@/src/lib/utils";
-import type { ContinuityResolution, PublishedReadModelSnapshot } from "@/src/server/platform/read-model-contracts";
+import type {
+  ContinuityResolution,
+  PublishedAuthorityRef,
+  PublishedReadModelSnapshot,
+  RelatedAuthorityReadModel,
+  RelationshipReadModel
+} from "@/src/server/platform/read-model-contracts";
 import { platformReadModelRepository } from "@/src/server/repositories/platform-read-model-repository";
+
+const MAX_RELATIONSHIP_READ_LIMIT = 100;
 
 function payloadAs<T>(snapshot: PublishedReadModelSnapshot | null): T | null {
   return snapshot ? (snapshot.payload as T) : null;
@@ -21,6 +31,143 @@ function payloadAs<T>(snapshot: PublishedReadModelSnapshot | null): T | null {
 
 function matchesQuery(value: string, normalizedQuery: string) {
   return value.toLowerCase().includes(normalizedQuery);
+}
+
+function searchText(payload: Record<string, unknown>) {
+  const directText = payload.searchableText;
+  if (typeof directText === "string") {
+    return directText;
+  }
+  return JSON.stringify(payload);
+}
+
+function clampRelationshipLimit(limit: number) {
+  if (!Number.isFinite(limit)) {
+    return 25;
+  }
+  return Math.max(1, Math.min(MAX_RELATIONSHIP_READ_LIMIT, Math.trunc(limit)));
+}
+
+function isAuthorityRef(value: unknown): value is PublishedAuthorityRef {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.authorityType === "string" && typeof candidate.authorityId === "string";
+}
+
+function otherAuthorityRef(relationship: RelationshipReadModel, authorityRef: PublishedAuthorityRef): PublishedAuthorityRef | null {
+  const sourceMatches =
+    relationship.source_authority_ref.authorityType === authorityRef.authorityType &&
+    relationship.source_authority_ref.authorityId === authorityRef.authorityId;
+  const targetMatches =
+    relationship.target_authority_ref.authorityType === authorityRef.authorityType &&
+    relationship.target_authority_ref.authorityId === authorityRef.authorityId;
+
+  if (sourceMatches) {
+    return relationship.target_authority_ref;
+  }
+  if (targetMatches) {
+    return relationship.source_authority_ref;
+  }
+  return null;
+}
+
+function relationshipFromSnapshot(snapshot: PublishedReadModelSnapshot): RelationshipReadModel | null {
+  const payload = snapshot.payload;
+  const relationshipId = typeof payload.relationship_id === "string" ? payload.relationship_id : typeof payload.id === "string" ? payload.id : null;
+  const sourceRef = payload.source_authority_ref;
+  const targetRef = payload.target_authority_ref;
+  if (!relationshipId || !isAuthorityRef(sourceRef) || !isAuthorityRef(targetRef) || typeof payload.relationship_type !== "string") {
+    return null;
+  }
+
+  return {
+    id: relationshipId,
+    relationship_id: relationshipId,
+    publishedSnapshotId: snapshot.snapshotId,
+    source_authority_ref: sourceRef,
+    target_authority_ref: targetRef,
+    relationship_type: payload.relationship_type,
+    summary: typeof payload.summary === "string" ? payload.summary : "",
+    evidence_refs: Array.isArray(payload.evidence_refs) ? (payload.evidence_refs as Array<Record<string, unknown>>) : [],
+    provenance: payload.provenance && typeof payload.provenance === "object" ? (payload.provenance as Record<string, unknown>) : {},
+    authority_state: typeof payload.authority_state === "string" ? payload.authority_state : "published",
+    published_state: payload.published_state && typeof payload.published_state === "object" ? (payload.published_state as Record<string, unknown>) : {},
+    continuity_metadata:
+      payload.continuity_metadata && typeof payload.continuity_metadata === "object" ? (payload.continuity_metadata as Record<string, unknown>) : {}
+  };
+}
+
+function relatedAuthoritiesByType(
+  relationships: RelationshipReadModel[],
+  authorityRef: PublishedAuthorityRef,
+  authorityType: string,
+  limit: number
+): RelatedAuthorityReadModel[] {
+  const related = new Map<string, RelatedAuthorityReadModel>();
+  for (const relationship of relationships) {
+    const ref = otherAuthorityRef(relationship, authorityRef);
+    if (!ref || ref.authorityType !== authorityType) {
+      continue;
+    }
+    const key = `${ref.authorityType}:${ref.authorityId}`;
+    const existing = related.get(key);
+    if (existing) {
+      existing.relationships.push(relationship);
+    } else {
+      related.set(key, { authorityRef: ref, relationships: [relationship] });
+    }
+    if (related.size >= limit) {
+      break;
+    }
+  }
+  return Array.from(related.values());
+}
+
+function projectionToSearchItem(payload: Record<string, unknown>, rank: number): SearchResultItem | null {
+  if (payload.type === "timeline" && typeof payload.id === "number" && payload.timeline && typeof payload.timeline === "object") {
+    return {
+      type: "timeline",
+      id: payload.id,
+      rank,
+      timeline: payload.timeline as TimelineSummary
+    };
+  }
+  if (payload.type === "milestone" && typeof payload.id === "number" && payload.milestone && typeof payload.milestone === "object") {
+    return {
+      type: "milestone",
+      id: payload.id,
+      rank,
+      milestone: payload.milestone as MilestoneSearchSummary
+    };
+  }
+  return null;
+}
+
+function sitemapEntriesFromProjection(payload: Record<string, unknown>): {
+  timelines: Array<{ slug: string; updatedAt: string }>;
+  milestones: Array<{ id: number; title: string; updatedAt: string }>;
+} {
+  const entries = Array.isArray(payload.entries) ? payload.entries : [];
+  const timelines: Array<{ slug: string; updatedAt: string }> = [];
+  const milestones: Array<{ id: number; title: string; updatedAt: string }> = [];
+
+  for (const entry of entries) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const candidate = entry as Record<string, unknown>;
+    const updatedAt = typeof candidate.updatedAt === "string" ? candidate.updatedAt : new Date(0).toISOString();
+    if (candidate.kind === "timeline" && typeof candidate.slug === "string") {
+      timelines.push({ slug: candidate.slug, updatedAt });
+    }
+    if (candidate.kind === "milestone" && typeof candidate.id === "number" && typeof candidate.title === "string") {
+      milestones.push({ id: candidate.id, title: candidate.title, updatedAt });
+    }
+  }
+
+  return { timelines, milestones };
 }
 
 export const platformReadModelService = {
@@ -49,6 +196,12 @@ export const platformReadModelService = {
   },
 
   async listSitemapEntries(): Promise<Array<{ slug: string; updatedAt: string }>> {
+    const sitemapSnapshots = await platformReadModelRepository.listPublishedReadModels("sitemap", 5000);
+    const projectedEntries = sitemapSnapshots.flatMap((snapshot) => sitemapEntriesFromProjection(snapshot.payload).timelines);
+    if (projectedEntries.length > 0) {
+      return projectedEntries;
+    }
+
     const snapshots = await platformReadModelRepository.listPublishedReadModels("timeline", 5000);
     return snapshots
       .filter((snapshot) => snapshot.slug)
@@ -59,6 +212,12 @@ export const platformReadModelService = {
   },
 
   async listMilestoneSitemapEntries(): Promise<Array<{ id: number; title: string; updatedAt: string }>> {
+    const sitemapSnapshots = await platformReadModelRepository.listPublishedReadModels("sitemap", 5000);
+    const projectedEntries = sitemapSnapshots.flatMap((snapshot) => sitemapEntriesFromProjection(snapshot.payload).milestones);
+    if (projectedEntries.length > 0) {
+      return projectedEntries;
+    }
+
     const snapshots = await platformReadModelRepository.listPublishedReadModels("milestone", 5000);
     return snapshots.map((snapshot) => {
       const payload = snapshot.payload as { id: number; title: string; updatedAt?: string };
@@ -141,6 +300,34 @@ export const platformReadModelService = {
     return payloadAs<HistoricalObjectDetail>(await platformReadModelRepository.getPublishedReadModelBySlug("historical_object", slug));
   },
 
+  async getRelationshipById(relationshipId: string): Promise<RelationshipReadModel | null> {
+    const snapshot = await platformReadModelRepository.getRelationshipByRelationshipId(relationshipId);
+    return snapshot ? relationshipFromSnapshot(snapshot) : null;
+  },
+
+  async listRelationshipsForAuthorityRef(authorityRef: PublishedAuthorityRef, limit = 25): Promise<RelationshipReadModel[]> {
+    const snapshots = await platformReadModelRepository.listRelationshipsForAuthorityRef(authorityRef, clampRelationshipLimit(limit));
+    return snapshots.map(relationshipFromSnapshot).filter((relationship): relationship is RelationshipReadModel => Boolean(relationship));
+  },
+
+  async listRelatedObjects(authorityRef: PublishedAuthorityRef, limit = 25): Promise<RelatedAuthorityReadModel[]> {
+    const boundedLimit = clampRelationshipLimit(limit);
+    const relationships = await platformReadModelService.listRelationshipsForAuthorityRef(authorityRef, boundedLimit);
+    return relatedAuthoritiesByType(relationships, authorityRef, "historical_object", boundedLimit);
+  },
+
+  async listRelatedMilestones(authorityRef: PublishedAuthorityRef, limit = 25): Promise<RelatedAuthorityReadModel[]> {
+    const boundedLimit = clampRelationshipLimit(limit);
+    const relationships = await platformReadModelService.listRelationshipsForAuthorityRef(authorityRef, boundedLimit);
+    return relatedAuthoritiesByType(relationships, authorityRef, "milestone", boundedLimit);
+  },
+
+  async listRelatedTimelines(authorityRef: PublishedAuthorityRef, limit = 25): Promise<RelatedAuthorityReadModel[]> {
+    const boundedLimit = clampRelationshipLimit(limit);
+    const relationships = await platformReadModelService.listRelationshipsForAuthorityRef(authorityRef, boundedLimit);
+    return relatedAuthoritiesByType(relationships, authorityRef, "timeline", boundedLimit);
+  },
+
   async getEventShareContext(eventId: number): Promise<EventShareContext | null> {
     const timelines = await platformReadModelService.listFeaturedTimelines(5000);
     for (const timeline of timelines as TimelineDetail[]) {
@@ -165,6 +352,16 @@ export const platformReadModelService = {
     if (!normalized) {
       return { query: "", total: 0, items: [] };
     }
+    const searchSnapshots = await platformReadModelRepository.listPublishedReadModels("search", 5000);
+    const projectedItems = searchSnapshots
+      .filter((snapshot) => matchesQuery(searchText(snapshot.payload), normalized))
+      .map((snapshot, index) => projectionToSearchItem(snapshot.payload, limit - index))
+      .filter((item): item is SearchResultItem => Boolean(item))
+      .slice(0, limit);
+    if (projectedItems.length > 0) {
+      return { query: normalized, total: projectedItems.length, items: projectedItems };
+    }
+
     const timelines = (await platformReadModelService.listFeaturedTimelines(5000)).filter((timeline) =>
       matchesQuery(`${timeline.title} ${timeline.description} ${timeline.category}`, normalized)
     );
