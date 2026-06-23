@@ -8,4 +8,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const packageDraftId = uuidParamSchema.parse(rawId);
   const input = factoryPackageVersionSchema.parse(await request.json());
   return ok(await adminService.createFactoryPackageVersion({ ...input, packageDraftId }), { status: 201 });
-});
+}, { roles: ["factory_operator"] });

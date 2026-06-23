@@ -13,4 +13,4 @@ export const PATCH = withAdminAuth(async (request: Request, { params }: { params
     return fail(404, "Historical object not found.");
   }
   return ok(updated);
-});
+}, { roles: ["admin"] });

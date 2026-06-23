@@ -8,4 +8,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const id = uuidParamSchema.parse(rawId);
   const input = approvalStepTransitionSchema.parse(await request.json());
   return ok(await adminService.rejectGovernanceApprovalStep({ ...input, id }));
-});
+}, { roles: ["governance_operator"] });

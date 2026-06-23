@@ -14,4 +14,4 @@ export const GET = withAdminAuth(async (request: Request) => {
   }
 
   return ok(await adminService.getDashboardOverview());
-});
+}, { roles: ["admin"] });

@@ -8,4 +8,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const revisionPlanId = uuidParamSchema.parse(rawId);
   const input = factoryResubmissionCompletionSchema.parse(await request.json());
   return ok(await adminService.completeFactoryResubmission({ ...input, revisionPlanId }), { status: 201 });
-});
+}, { roles: ["factory_operator"] });

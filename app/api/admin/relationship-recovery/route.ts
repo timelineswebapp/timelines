@@ -5,6 +5,6 @@ import { adminService } from "@/src/server/services/admin-service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export const GET = withAdminAuth(async () => ok(await adminService.previewRelationshipRecovery()));
+export const GET = withAdminAuth(async () => ok(await adminService.previewRelationshipRecovery()), { roles: ["admin"] });
 
-export const POST = withAdminAuth(async () => ok(await adminService.applyRelationshipRecovery()));
+export const POST = withAdminAuth(async () => ok(await adminService.applyRelationshipRecovery()), { roles: ["admin"] });

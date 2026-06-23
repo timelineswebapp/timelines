@@ -6,4 +6,4 @@ import { historicalLibraryFeedbackGenerationSchema } from "@/src/server/validati
 export const POST = withAdminAuth(async (request: Request) => {
   const input = historicalLibraryFeedbackGenerationSchema.parse(await request.json());
   return ok(await adminService.generateHistoricalLibraryFeedbackPackage(input), { status: 201 });
-});
+}, { roles: ["library_operator"] });

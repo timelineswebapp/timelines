@@ -12,7 +12,7 @@ export const PATCH = withAdminAuth(async (request: Request, { params }: { params
     return fail(404, "Event not found.");
   }
   return ok(updated);
-});
+}, { roles: ["admin"] });
 
 export const DELETE = withAdminAuth(async (_request: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
@@ -21,4 +21,4 @@ export const DELETE = withAdminAuth(async (_request: Request, { params }: { para
     return fail(404, "Event not found.");
   }
   return ok({ deleted: true });
-});
+}, { roles: ["admin"] });

@@ -10,7 +10,7 @@ export type AlertDefinition = {
   metric: string;
   threshold: string;
   severity: "warning" | "critical";
-  owner: "platform" | "database" | "source_authority" | "publication_pipeline" | "projection";
+  owner: "platform" | "database" | "source_authority" | "publication_pipeline" | "projection" | "recovery" | "cost";
 };
 
 export const operationalMetrics: OperationalMetric[] = [
@@ -21,7 +21,13 @@ export const operationalMetrics: OperationalMetric[] = [
   { key: "publication.pipeline.blocked_packages", severity: "critical", description: "Governance publication packages remain blocked or failed." },
   { key: "projection.rebuild.failed", severity: "critical", description: "Published Memory projection rebuild reports failures." },
   { key: "projection.coverage.empty", severity: "critical", description: "Platform has no active timeline projections." },
-  { key: "errors.structured.rate", severity: "warning", description: "Structured operational errors exceed threshold." }
+  { key: "errors.structured.rate", severity: "warning", description: "Structured operational errors exceed threshold." },
+  { key: "database.pitr.ready", severity: "critical", description: "Database PITR configuration satisfies recovery window and drill requirements." },
+  { key: "backup.baseline.valid", severity: "critical", description: "Latest backup baseline manifest passes checksum validation." },
+  { key: "restore.manifest.valid", severity: "critical", description: "Restore target is validated against a verified backup manifest." },
+  { key: "recovery.certification.ready", severity: "critical", description: "Recovery validation scripts and required queries are ready." },
+  { key: "storage.retention.configured", severity: "warning", description: "Retention policies cover operational storage classes." },
+  { key: "storage.budget.projected_monthly_usd", severity: "warning", description: "Projected monthly storage cost stays within budget thresholds." }
 ];
 
 export const alertDefinitions: AlertDefinition[] = [
@@ -31,7 +37,11 @@ export const alertDefinitions: AlertDefinition[] = [
   { key: "source-provider-failure-streak", metric: "source_authority.provider.consecutive_failures", threshold: ">= 3 for any provider", severity: "critical", owner: "source_authority" },
   { key: "publication-pipeline-blocked", metric: "publication.pipeline.blocked_packages", threshold: "> 0 for 30 minutes", severity: "critical", owner: "publication_pipeline" },
   { key: "projection-rebuild-failed", metric: "projection.rebuild.failed", threshold: "> 0 in latest rebuild report", severity: "critical", owner: "projection" },
-  { key: "projection-coverage-empty", metric: "projection.coverage.empty", threshold: "active timeline projections == 0", severity: "critical", owner: "projection" }
+  { key: "projection-coverage-empty", metric: "projection.coverage.empty", threshold: "active timeline projections == 0", severity: "critical", owner: "projection" },
+  { key: "database-pitr-not-ready", metric: "database.pitr.ready", threshold: "ready != true", severity: "critical", owner: "recovery" },
+  { key: "backup-baseline-invalid", metric: "backup.baseline.valid", threshold: "valid != true", severity: "critical", owner: "recovery" },
+  { key: "restore-manifest-invalid", metric: "restore.manifest.valid", threshold: "valid != true", severity: "critical", owner: "recovery" },
+  { key: "storage-budget-warning", metric: "storage.budget.projected_monthly_usd", threshold: "> configured soft limit", severity: "warning", owner: "cost" }
 ];
 
 export function validateMonitoringConfiguration(): { ok: boolean; missingAlertMetrics: string[] } {

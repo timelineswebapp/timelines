@@ -4,4 +4,4 @@ import { adminService } from "@/src/server/services/admin-service";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withAdminAuth(async () => ok(await adminService.getGovernanceOperationsSnapshot()));
+export const GET = withAdminAuth(async () => ok(await adminService.getGovernanceOperationsSnapshot()), { roles: ["governance_operator"] });

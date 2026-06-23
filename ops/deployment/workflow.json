@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "owner": "operations",
+  "environments": ["development", "staging", "production"],
+  "promotion": {
+    "source": "staging",
+    "target": "production",
+    "requiredChecks": [
+      "npm run typecheck",
+      "npm test",
+      "npm run lint",
+      "npm run build",
+      "npm audit --audit-level=high --omit=dev",
+      "npm run ops:migrations:dry-run",
+      "npm run ops:monitoring:verify",
+      "npm run ops:production:verify"
+    ]
+  },
+  "rollback": {
+    "requiresRollbackPlan": true,
+    "requiresMigrationRollbackWhenSchemaChanges": true,
+    "requiresBackupManifest": true,
+    "requiresIncidentCommanderApproval": true
+  }
+}

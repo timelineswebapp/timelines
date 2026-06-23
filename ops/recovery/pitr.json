@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "owner": "operations",
+  "provider": "neon-postgres",
+  "required": true,
+  "verification": {
+    "requiresProviderPitrEnabled": true,
+    "requiresRecoveryWindowHours": 24,
+    "requiresRestoreDrillWithinDays": 30,
+    "requiresBackupManifestValidation": true,
+    "requiresIsolatedRestoreTarget": true
+  },
+  "environment": {
+    "pitrEnabledVar": "DATABASE_PITR_ENABLED",
+    "recoveryWindowHoursVar": "DATABASE_PITR_WINDOW_HOURS",
+    "lastRestoreDrillAtVar": "LAST_RESTORE_DRILL_AT"
+  }
+}

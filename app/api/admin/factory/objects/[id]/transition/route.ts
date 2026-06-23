@@ -8,4 +8,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const objectId = uuidParamSchema.parse(rawId);
   const input = factoryObjectTransitionSchema.parse(await request.json());
   return ok(await adminService.transitionFactoryObject({ ...input, objectId }));
-});
+}, { roles: ["factory_operator"] });

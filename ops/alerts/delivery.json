@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "owner": "operations",
+  "severityLevels": ["info", "warning", "critical"],
+  "routes": [
+    {
+      "severity": "critical",
+      "channel": "operations-critical",
+      "delivery": "webhook",
+      "webhookEnv": "OPERATIONS_CRITICAL_WEBHOOK_URL"
+    },
+    {
+      "severity": "warning",
+      "channel": "operations-warning",
+      "delivery": "webhook",
+      "webhookEnv": "OPERATIONS_WARNING_WEBHOOK_URL"
+    },
+    {
+      "severity": "info",
+      "channel": "operations-info",
+      "delivery": "webhook",
+      "webhookEnv": "OPERATIONS_INFO_WEBHOOK_URL"
+    }
+  ]
+}

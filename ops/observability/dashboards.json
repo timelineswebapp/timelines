@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "owner": "operations",
+  "dashboards": [
+    {
+      "key": "platform-health",
+      "title": "Platform Health",
+      "metrics": ["platform.health.ok", "errors.structured.rate"],
+      "refreshSeconds": 60
+    },
+    {
+      "key": "publication-pipeline",
+      "title": "Publication Pipeline",
+      "metrics": ["publication.pipeline.blocked_packages"],
+      "refreshSeconds": 300
+    },
+    {
+      "key": "provider-health",
+      "title": "Source Provider Health",
+      "metrics": [
+        "source_authority.provider.cooldown_active",
+        "source_authority.provider.consecutive_failures"
+      ],
+      "refreshSeconds": 60
+    },
+    {
+      "key": "database-health",
+      "title": "Database Health",
+      "metrics": ["database.probe.latency_ms", "database.pitr.ready"],
+      "refreshSeconds": 60
+    },
+    {
+      "key": "projection-health",
+      "title": "Projection Health",
+      "metrics": ["projection.rebuild.failed", "projection.coverage.empty"],
+      "refreshSeconds": 300
+    },
+    {
+      "key": "recovery-readiness",
+      "title": "Recovery Readiness",
+      "metrics": ["backup.baseline.valid", "restore.manifest.valid", "recovery.certification.ready"],
+      "refreshSeconds": 900
+    },
+    {
+      "key": "cost-governance",
+      "title": "Cost Governance",
+      "metrics": ["storage.retention.configured", "storage.budget.projected_monthly_usd"],
+      "refreshSeconds": 3600
+    }
+  ]
+}

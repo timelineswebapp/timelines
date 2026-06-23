@@ -68,6 +68,33 @@ Validation queries cover:
 - Historical Library and Published Memory: `historical_library_published_snapshots`, `published_memory_projections`.
 - Provider runtime resilience: `provider_runtime_state`.
 
+## PITR Readiness
+Machine-readable PITR readiness policy:
+
+```text
+ops/recovery/pitr.json
+```
+
+PITR readiness requires:
+
+- Provider PITR enabled.
+- Minimum recovery window of 24 hours.
+- Restore drill within 30 days.
+- Backup manifest validation.
+- Isolated restore target for validation.
+
+Configured environment signals:
+
+- `DATABASE_PITR_ENABLED`
+- `DATABASE_PITR_WINDOW_HOURS`
+- `LAST_RESTORE_DRILL_AT`
+
+The repository verifies PITR readiness policy structure with:
+
+```bash
+npm run ops:production:verify
+```
+
 ## Recovery Procedure
 1. Verify the selected backup manifest.
 2. Restore into an isolated database using `RESTORE_DATABASE_URL`.
@@ -75,6 +102,9 @@ Validation queries cover:
 4. Run application typecheck and test suite against the restored environment.
 5. Compare critical counts to the backup-time operational report.
 6. Promote the restored database only through the deployment and rollback policy owner.
+
+## Recovery Certification
+Recovery certification requires a verified backup manifest, isolated restore, recovery validation queries, and deployment rollback approval when production data is affected. The certification script is `npm run ops:production:verify`; runtime restore validation remains bound to a real PostgreSQL restore target.
 
 ## Validation Tests
 Repository tests cover manifest validation and recovery query coverage. Runtime restore validation is intentionally integration-bound because it requires a real PostgreSQL target.

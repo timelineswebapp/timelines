@@ -109,3 +109,151 @@ test("resilientFetch retries unavailable providers before failing over to a late
     resetSourceProviderHealth();
   }
 });
+
+test("resilientFetch rejects non-HTTPS provider URLs before network access", async () => {
+  resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response("ok", { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      resilientFetch("http://www.wikidata.org/w/api.php", {
+        provider: "wikidata",
+        accept: "application/json",
+        maxAttempts: 1
+      }),
+      /must use HTTPS/
+    );
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setSourceProviderRuntimeStoreForTests(null);
+    resetSourceProviderHealth();
+  }
+});
+
+test("resilientFetch rejects hosts outside the selected provider boundary", async () => {
+  resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response("ok", { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      resilientFetch("https://metadata.google.internal/latest", {
+        provider: "wikidata",
+        accept: "application/json",
+        maxAttempts: 1
+      }),
+      /not allowed|blocked network/
+    );
+    assert.equal(calls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setSourceProviderRuntimeStoreForTests(null);
+    resetSourceProviderHealth();
+  }
+});
+
+test("resilientFetch follows validated same-provider redirects", async () => {
+  resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
+  const originalFetch = globalThis.fetch;
+  const urls: string[] = [];
+  globalThis.fetch = (async (url) => {
+    urls.push(String(url));
+    if (urls.length === 1) {
+      return new Response(null, {
+        status: 302,
+        headers: { location: "https://www.wikidata.org/wiki/Special:EntityData/Q1.json" }
+      });
+    }
+    return new Response("ok", { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const response = await resilientFetch("https://www.wikidata.org/w/api.php", {
+      provider: "wikidata",
+      accept: "application/json",
+      maxAttempts: 1
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(urls, [
+      "https://www.wikidata.org/w/api.php",
+      "https://www.wikidata.org/wiki/Special:EntityData/Q1.json"
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setSourceProviderRuntimeStoreForTests(null);
+    resetSourceProviderHealth();
+  }
+});
+
+test("resilientFetch blocks redirect targets outside provider allowlist before following", async () => {
+  resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response(null, {
+      status: 302,
+      headers: { location: "https://metadata.google.internal/latest" }
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      resilientFetch("https://www.wikidata.org/w/api.php", {
+        provider: "wikidata",
+        accept: "application/json",
+        maxAttempts: 1
+      }),
+      /not allowed|blocked network/
+    );
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setSourceProviderRuntimeStoreForTests(null);
+    resetSourceProviderHealth();
+  }
+});
+
+test("resilientFetch blocks redirect targets using unsafe schemes", async () => {
+  resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls += 1;
+    return new Response(null, {
+      status: 302,
+      headers: { location: "file:///etc/passwd" }
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      resilientFetch("https://www.wikidata.org/w/api.php", {
+        provider: "wikidata",
+        accept: "application/json",
+        maxAttempts: 1
+      }),
+      /must use HTTPS/
+    );
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setSourceProviderRuntimeStoreForTests(null);
+    resetSourceProviderHealth();
+  }
+});

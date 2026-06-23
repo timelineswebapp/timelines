@@ -8,4 +8,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const id = uuidParamSchema.parse(rawId);
   const input = governanceTransitionSchema.parse(await request.json());
   return ok(await adminService.resolveFeedbackPackage({ ...input, id }));
-});
+}, { roles: ["governance_operator"] });

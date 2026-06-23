@@ -9,4 +9,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const body = await request.json();
   const input = historicalObjectMergeSchema.parse(body);
   return ok(await adminService.mergeHistoricalObject(id, input.targetObjectId, input));
-});
+}, { roles: ["admin"] });

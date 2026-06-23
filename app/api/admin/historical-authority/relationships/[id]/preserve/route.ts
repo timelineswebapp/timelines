@@ -8,4 +8,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const id = uuidParamSchema.parse(rawId);
   const input = historicalRelationshipActionSchema.parse(await request.json());
   return ok(await adminService.preserveHistoricalRelationship(id, input));
-});
+}, { roles: ["admin"] });

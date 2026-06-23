@@ -7,4 +7,4 @@ export const POST = withAdminAuth(async (request: Request) => {
   const body = await request.json();
   const input = disputeSchema.parse(body);
   return ok(await adminService.createGovernanceDispute(input), { status: 201 });
-});
+}, { roles: ["governance_operator"] });

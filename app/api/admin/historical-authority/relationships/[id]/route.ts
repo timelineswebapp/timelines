@@ -8,4 +8,4 @@ export const PATCH = withAdminAuth(async (request: Request, { params }: { params
   const id = uuidParamSchema.parse(rawId);
   const input = historicalRelationshipRevisionSchema.parse(await request.json());
   return ok(await adminService.reviseHistoricalRelationship(id, input));
-});
+}, { roles: ["admin"] });

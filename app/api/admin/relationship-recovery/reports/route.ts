@@ -24,4 +24,4 @@ export const GET = withAdminAuth(async () => {
 
     return fromError(error);
   }
-});
+}, { roles: ["admin"] });

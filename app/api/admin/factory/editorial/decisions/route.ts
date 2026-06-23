@@ -12,4 +12,4 @@ export const POST = withAdminAuth(async (request: Request) => {
   }
   const { decision: _decision, ...revision } = input;
   return ok(await adminService.requireFactoryEditorialRevision({ ...revision, editorialReviewId: reviewId }));
-});
+}, { roles: ["factory_operator"] });

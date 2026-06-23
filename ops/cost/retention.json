@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "owner": "operations",
+  "storageBudget": {
+    "monthlyUsdSoftLimit": 500,
+    "monthlyUsdHardLimit": 1000,
+    "reviewCadenceDays": 30
+  },
+  "retentionPolicies": [
+    {
+      "key": "source_snapshots",
+      "retainDays": 2555,
+      "action": "archive",
+      "authority": "source_authority"
+    },
+    {
+      "key": "corpus_documents",
+      "retainDays": 2555,
+      "action": "archive",
+      "authority": "research_corpus"
+    },
+    {
+      "key": "evidence_records",
+      "retainDays": 2555,
+      "action": "archive",
+      "authority": "evidence"
+    },
+    {
+      "key": "runtime_executions",
+      "retainDays": 365,
+      "action": "archive",
+      "authority": "factory"
+    },
+    {
+      "key": "audit_events",
+      "retainDays": 2555,
+      "action": "archive",
+      "authority": "operations"
+    },
+    {
+      "key": "backups",
+      "retainDays": 90,
+      "action": "prune_after_verified_successor",
+      "authority": "operations"
+    },
+    {
+      "key": "projections",
+      "retainDays": 730,
+      "action": "archive_superseded",
+      "authority": "platform"
+    }
+  ]
+}

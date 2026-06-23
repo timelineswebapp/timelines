@@ -9,4 +9,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const body = await request.json();
   const input = milestoneParticipationDisputeSchema.parse(body);
   return ok(await adminService.disputeMilestoneParticipation(id, input));
-});
+}, { roles: ["admin"] });

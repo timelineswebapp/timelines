@@ -3,9 +3,9 @@ import { withAdminAuth } from "@/src/server/api/admin-auth";
 import { adminService } from "@/src/server/services/admin-service";
 import { factoryRuntimePromptSchema } from "@/src/server/validation/schemas";
 
-export const GET = withAdminAuth(async () => ok(await adminService.listFactoryRuntimePrompts()));
+export const GET = withAdminAuth(async () => ok(await adminService.listFactoryRuntimePrompts()), { roles: ["factory_operator"] });
 
 export const POST = withAdminAuth(async (request: Request) => {
   const input = factoryRuntimePromptSchema.parse(await request.json());
   return ok(await adminService.registerFactoryRuntimePrompt(input), { status: 201 });
-});
+}, { roles: ["factory_operator"] });

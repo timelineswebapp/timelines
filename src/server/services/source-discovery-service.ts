@@ -251,7 +251,7 @@ export const sourceDiscoveryService = {
     const limit = clampLimit(input.limit);
     const discovered = (await Promise.all(
       providers.map(async (provider) => {
-        if (providerInCooldown(provider)) {
+        if (await providerInCooldown(provider)) {
           console.warn(JSON.stringify({
             level: "warn",
             component: "source_discovery",

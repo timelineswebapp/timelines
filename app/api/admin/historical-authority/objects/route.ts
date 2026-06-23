@@ -7,4 +7,4 @@ export const POST = withAdminAuth(async (request: Request) => {
   const body = await request.json();
   const input = historicalObjectSchema.parse(body);
   return ok(await adminService.createHistoricalObject(input), { status: 201 });
-});
+}, { roles: ["admin"] });

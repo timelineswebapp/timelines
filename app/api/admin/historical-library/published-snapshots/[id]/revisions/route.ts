@@ -8,4 +8,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const publishedSnapshotId = uuidParamSchema.parse(rawId);
   const input = historicalLibraryRevisionSchema.parse(await request.json());
   return ok(await adminService.revisePublishedMemory({ ...input, publishedSnapshotId }), { status: 201 });
-});
+}, { roles: ["library_operator"] });

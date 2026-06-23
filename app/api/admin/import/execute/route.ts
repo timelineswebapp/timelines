@@ -26,4 +26,4 @@ export const POST = withAdminAuth(async (request: Request) => {
   }
 
   return ok(result);
-});
+}, { roles: ["admin"] });

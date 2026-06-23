@@ -9,4 +9,4 @@ export const PATCH = withAdminAuth(async (request: Request, { params }: { params
   const body = await request.json();
   const input = milestoneParticipationRevisionSchema.parse(body);
   return ok(await adminService.reviseMilestoneParticipation(id, input));
-});
+}, { roles: ["admin"] });

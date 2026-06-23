@@ -9,4 +9,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const input = historicalLibraryAdmissionSchema.parse(await request.json());
 
   return ok(await adminService.admitPublicationPackageToHistoricalLibrary({ ...input, packageId }), { status: 201 });
-});
+}, { roles: ["library_operator"] });

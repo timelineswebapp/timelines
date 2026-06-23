@@ -40,4 +40,4 @@ export const GET = withAdminAuth(async () => {
       "content-disposition": 'attachment; filename="existing-timelines.csv"'
     }
   });
-});
+}, { roles: ["admin"] });

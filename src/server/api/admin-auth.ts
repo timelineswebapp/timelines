@@ -1,5 +1,11 @@
-import { config } from "@/src/lib/config";
 import { fail, fromError } from "@/src/server/api/responses";
+import {
+  auditAdminSecurityEvent,
+  csrfTokenValid,
+  identityHasAnyRole,
+  resolveAdminIdentity,
+  type AdminOperatorRole
+} from "@/src/server/security/admin-identity";
 
 const ADMIN_RATE_LIMIT_WINDOW_MS = 60_000;
 const ADMIN_RATE_LIMIT_MAX_REQUESTS = 60;
@@ -51,21 +57,17 @@ function checkRateLimit(request: Request): { allowed: true } | { allowed: false;
   return { allowed: true };
 }
 
-export function isAdminAuthorized(request: Request): boolean {
-  if (!config.adminApiToken) {
-    return false;
-  }
-
-  const authHeader = request.headers.get("authorization");
-  const headerToken = request.headers.get("x-admin-token");
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : headerToken;
-
-  return token === config.adminApiToken;
+export async function isAdminAuthorized(request: Request): Promise<boolean> {
+  return Boolean(await resolveAdminIdentity(request));
 }
 
 type AdminHandler<TContext = unknown> = (request: Request, context: TContext) => Promise<Response>;
 
-export function withAdminAuth<TContext = unknown>(handler: AdminHandler<TContext>) {
+type AdminAuthOptions = {
+  roles?: AdminOperatorRole[];
+};
+
+export function withAdminAuth<TContext = unknown>(handler: AdminHandler<TContext>, options: AdminAuthOptions = {}) {
   return async (request: Request, context: TContext): Promise<Response> => {
     const rateLimit = checkRateLimit(request);
     if (!rateLimit.allowed) {
@@ -82,13 +84,30 @@ export function withAdminAuth<TContext = unknown>(handler: AdminHandler<TContext
       );
     }
 
-    if (!isAdminAuthorized(request)) {
+    const identity = await resolveAdminIdentity(request);
+    if (!identity) {
+      auditAdminSecurityEvent("admin_auth_failed", request, null);
       return fail(401, "Unauthorized.", undefined, "UNAUTHORIZED");
     }
+
+    if (options.roles && !identityHasAnyRole(identity, options.roles)) {
+      auditAdminSecurityEvent("admin_rbac_rejected", request, identity, { requiredRoles: options.roles });
+      return fail(403, "Forbidden.", undefined, "FORBIDDEN");
+    }
+
+    if (!csrfTokenValid(request)) {
+      auditAdminSecurityEvent("admin_csrf_rejected", request, identity);
+      return fail(403, "CSRF validation failed.", undefined, "CSRF_REJECTED");
+    }
+
+    auditAdminSecurityEvent("admin_auth_succeeded", request, identity);
 
     try {
       return await handler(request, context);
     } catch (error) {
+      auditAdminSecurityEvent("admin_request_failed", request, identity, {
+        error: error instanceof Error ? error.message : String(error)
+      });
       return fromError(error);
     }
   };

@@ -7,11 +7,11 @@ export const GET = withAdminAuth(async (_request: Request, { params }: { params:
   const { id: rawId } = await params;
   const reviewId = uuidParamSchema.parse(rawId);
   return ok(await adminService.getFactoryEditorialReview(reviewId));
-});
+}, { roles: ["factory_operator"] });
 
 export const POST = withAdminAuth(async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id: rawId } = await params;
   const editorialReviewId = uuidParamSchema.parse(rawId);
   const input = factoryCandidateReviewSchema.parse(await request.json());
   return ok(await adminService.reviewCandidatePackage({ ...input, editorialReviewId }));
-});
+}, { roles: ["factory_operator"] });

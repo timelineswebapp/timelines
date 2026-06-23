@@ -36,4 +36,4 @@ export const GET = withAdminAuth(async (request: Request, { params }: { params: 
   }
 
   return ok(report);
-});
+}, { roles: ["admin"] });

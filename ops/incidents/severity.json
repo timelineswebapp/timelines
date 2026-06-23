@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "owner": "operations",
+  "severities": [
+    {
+      "level": "SEV1",
+      "description": "Platform unavailable, data integrity at risk, or authority/publication corruption suspected.",
+      "responseMinutes": 15,
+      "escalation": ["incident_commander", "database_owner", "platform_owner"]
+    },
+    {
+      "level": "SEV2",
+      "description": "Major admin, publication, provider, projection, or recovery function degraded.",
+      "responseMinutes": 60,
+      "escalation": ["incident_commander", "service_owner"]
+    },
+    {
+      "level": "SEV3",
+      "description": "Limited operational degradation with available workaround.",
+      "responseMinutes": 240,
+      "escalation": ["service_owner"]
+    },
+    {
+      "level": "SEV4",
+      "description": "Informational defect or non-urgent operational follow-up.",
+      "responseMinutes": 1440,
+      "escalation": ["operations"]
+    }
+  ]
+}

@@ -8,4 +8,4 @@ export const POST = withAdminAuth(async (request: Request, { params }: { params:
   const sourcePublishedRecordId = uuidParamSchema.parse(rawId);
   const input = historicalLibraryMergeSchema.parse(await request.json());
   return ok(await adminService.mergePublishedMemory({ ...input, sourcePublishedRecordId }), { status: 201 });
-});
+}, { roles: ["library_operator"] });
