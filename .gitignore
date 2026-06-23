@@ -10,3 +10,5 @@ tsconfig.tsbuildinfo
 .env*
 test.env
 timelines_pre_v2_backup.sql
+test.env
+timelines_pre_v2_backup.sql
