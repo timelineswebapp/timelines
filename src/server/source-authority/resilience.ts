@@ -1,4 +1,9 @@
 import type { SourceAuthorityProvider } from "@/src/server/source-authority/contracts";
+import {
+  providerRuntimeStateRepository,
+  type ProviderRuntimeState,
+  type ProviderRuntimeStateUpdate
+} from "@/src/server/repositories/provider-runtime-state-repository";
 
 export type SourceProviderHealth = {
   provider: SourceAuthorityProvider;
@@ -23,6 +28,10 @@ const BASE_BACKOFF_MS = 250;
 const MAX_BACKOFF_MS = 2_000;
 
 const providerHealth = new Map<SourceAuthorityProvider, SourceProviderHealth>();
+let providerRuntimeStore: {
+  list(): Promise<ProviderRuntimeState[]>;
+  record(update: ProviderRuntimeStateUpdate): Promise<ProviderRuntimeState>;
+} | null = providerRuntimeStateRepository;
 
 function emptyHealth(provider: SourceAuthorityProvider): SourceProviderHealth {
   return {
@@ -63,21 +72,63 @@ function backoffDelay(attempt: number, retryAfterMs: number | null): number {
   return Math.min(BASE_BACKOFF_MS * 2 ** Math.max(0, attempt - 1), MAX_BACKOFF_MS);
 }
 
-function markProviderSuccess(provider: SourceAuthorityProvider): void {
+function stateToHealth(state: ProviderRuntimeState): SourceProviderHealth {
+  return {
+    provider: state.provider,
+    consecutiveFailures: state.consecutiveFailures,
+    cooldownUntil: state.cooldownUntil,
+    lastFailureAt: state.lastFailureAt,
+    lastSuccessAt: state.lastSuccessAt,
+    lastFailureReason: state.lastFailureReason
+  };
+}
+
+async function persistProviderRuntimeState(update: ProviderRuntimeStateUpdate): Promise<SourceProviderHealth | null> {
+  if (!providerRuntimeStore) return null;
+  try {
+    const persisted = await providerRuntimeStore.record(update);
+    const health = stateToHealth(persisted);
+    providerHealth.set(update.provider, health);
+    return health;
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        component: "source_provider_resilience",
+        message: "Provider runtime state persistence failed.",
+        provider: update.provider,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    );
+    return null;
+  }
+}
+
+async function markProviderSuccess(provider: SourceAuthorityProvider): Promise<void> {
+  const occurredAt = Date.now();
   const health = healthFor(provider);
   health.consecutiveFailures = 0;
   health.cooldownUntil = null;
   health.lastFailureReason = null;
-  health.lastSuccessAt = Date.now();
+  health.lastSuccessAt = occurredAt;
+  await persistProviderRuntimeState({ provider, outcome: "success", occurredAt });
 }
 
-function markProviderFailure(provider: SourceAuthorityProvider, reason: string, retryAfterMs: number | null): void {
+async function markProviderFailure(provider: SourceAuthorityProvider, reason: string, retryAfterMs: number | null): Promise<void> {
+  const occurredAt = Date.now();
   const health = healthFor(provider);
   health.consecutiveFailures += 1;
-  health.lastFailureAt = Date.now();
+  health.lastFailureAt = occurredAt;
   health.lastFailureReason = reason;
   const cooldownMs = retryAfterMs ?? Math.min(BASE_BACKOFF_MS * 2 ** Math.min(health.consecutiveFailures, 5), MAX_BACKOFF_MS);
-  health.cooldownUntil = Date.now() + cooldownMs;
+  health.cooldownUntil = occurredAt + cooldownMs;
+  await persistProviderRuntimeState({
+    provider,
+    outcome: "failure",
+    occurredAt,
+    cooldownUntil: health.cooldownUntil,
+    reason
+  });
 }
 
 function sleep(ms: number): Promise<void> {
@@ -93,8 +144,27 @@ export function getSourceProviderHealth(): SourceProviderHealth[] {
   return Array.from(providerHealth.values()).map((health) => ({ ...health }));
 }
 
+export async function loadPersistentSourceProviderHealth(): Promise<SourceProviderHealth[]> {
+  if (!providerRuntimeStore) return getSourceProviderHealth();
+  const persisted = await providerRuntimeStore.list();
+  providerHealth.clear();
+  for (const state of persisted) {
+    providerHealth.set(state.provider, stateToHealth(state));
+  }
+  return getSourceProviderHealth();
+}
+
 export function resetSourceProviderHealth(): void {
   providerHealth.clear();
+}
+
+export function setSourceProviderRuntimeStoreForTests(
+  store: {
+    list(): Promise<ProviderRuntimeState[]>;
+    record(update: ProviderRuntimeStateUpdate): Promise<ProviderRuntimeState>;
+  } | null
+): void {
+  providerRuntimeStore = store;
 }
 
 export function providerInCooldown(provider: SourceAuthorityProvider): boolean {
@@ -118,18 +188,18 @@ export async function resilientFetch(url: string, options: ResilientFetchOptions
         }
       });
       if (response.ok) {
-        markProviderSuccess(options.provider);
+        await markProviderSuccess(options.provider);
         return response;
       }
 
       const retryAfterMs = response.status === 429 ? parseRetryAfter(response.headers.get("retry-after")) : null;
       lastError = new Error(`Source provider returned HTTP ${response.status}.`);
-      markProviderFailure(options.provider, fetchErrorMessage(lastError), retryAfterMs);
+      await markProviderFailure(options.provider, fetchErrorMessage(lastError), retryAfterMs);
       if (response.status !== 429 && response.status < 500) break;
       if (attempt < maxAttempts) await sleep(backoffDelay(attempt, retryAfterMs));
     } catch (error) {
       lastError = error;
-      markProviderFailure(options.provider, fetchErrorMessage(error), null);
+      await markProviderFailure(options.provider, fetchErrorMessage(error), null);
       if (attempt < maxAttempts) await sleep(backoffDelay(attempt, null));
     } finally {
       clearTimeout(timeout);

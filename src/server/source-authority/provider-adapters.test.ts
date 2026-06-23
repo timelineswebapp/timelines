@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
-import { resetSourceProviderHealth } from "@/src/server/source-authority/resilience";
+import { resetSourceProviderHealth, setSourceProviderRuntimeStoreForTests } from "@/src/server/source-authority/resilience";
 import type { SourceAuthorityRegistryRecord } from "@/src/server/source-authority/contracts";
 
 const originalFetch = globalThis.fetch;
@@ -18,6 +18,7 @@ function restore() {
   (sourceAuthorityRepository as any).requireSourceRecord = originalRequire;
   (sourceAuthorityRepository as any).createSnapshot = originalCreateSnapshot;
   (sourceAuthorityRepository as any).getLatestSnapshot = originalLatestSnapshot;
+  setSourceProviderRuntimeStoreForTests(null);
   resetSourceProviderHealth();
 }
 
@@ -44,6 +45,7 @@ function stubRegister() {
 
 test("DBpedia discovery parses XML provider responses", async () => {
   resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
   stubRegister();
   globalThis.fetch = (async () => new Response(`<?xml version="1.0"?>
     <ArrayOfResult>
@@ -74,6 +76,7 @@ test("DBpedia discovery parses XML provider responses", async () => {
 
 test("provider discovery rejects HTML responses without throwing across failover", async () => {
   resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
   stubRegister();
   globalThis.fetch = (async (input: string | URL | Request) => {
     const url = String(input);
@@ -104,6 +107,7 @@ test("provider discovery rejects HTML responses without throwing across failover
 
 test("Wikidata retrieval uses EntityData JSON endpoint and rejects HTML persistence", async () => {
   resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
   const sourceRecord: SourceAuthorityRegistryRecord = {
     sourceRecordId: "source-1",
     provider: "wikidata",

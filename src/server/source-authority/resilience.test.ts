@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import {
   getSourceProviderHealth,
   resilientFetch,
-  resetSourceProviderHealth
+  resetSourceProviderHealth,
+  setSourceProviderRuntimeStoreForTests
 } from "@/src/server/source-authority/resilience";
 
 test("resilientFetch retries HTTP 429 responses and records provider health", async () => {
   resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
   const originalFetch = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = (async () => {
@@ -40,12 +42,14 @@ test("resilientFetch retries HTTP 429 responses and records provider health", as
     assert.equal(typeof health?.lastSuccessAt, "number");
   } finally {
     globalThis.fetch = originalFetch;
+    setSourceProviderRuntimeStoreForTests(null);
     resetSourceProviderHealth();
   }
 });
 
 test("resilientFetch aborts timed out providers and retries unavailable providers", async () => {
   resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
   const originalFetch = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = (async (_url, init) => {
@@ -70,12 +74,14 @@ test("resilientFetch aborts timed out providers and retries unavailable provider
     assert.equal(calls, 2);
   } finally {
     globalThis.fetch = originalFetch;
+    setSourceProviderRuntimeStoreForTests(null);
     resetSourceProviderHealth();
   }
 });
 
 test("resilientFetch retries unavailable providers before failing over to a later success", async () => {
   resetSourceProviderHealth();
+  setSourceProviderRuntimeStoreForTests(null);
   const originalFetch = globalThis.fetch;
   let calls = 0;
   globalThis.fetch = (async () => {
@@ -99,6 +105,7 @@ test("resilientFetch retries unavailable providers before failing over to a late
     assert.equal(health?.consecutiveFailures, 0);
   } finally {
     globalThis.fetch = originalFetch;
+    setSourceProviderRuntimeStoreForTests(null);
     resetSourceProviderHealth();
   }
 });
