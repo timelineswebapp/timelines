@@ -35,7 +35,15 @@ Feedback Packages are Factory artifacts produced from Published Memory amendment
 Evidence artifacts must preserve source tier, source material, publisher authority, and provenance context.
 
 ## Current Reality
-The current repository contains CSV files under `data/` and import/recovery services that consume CSV content. Normal imports are not durable Factory artifacts.
+Factory runtime now persists durable Factory objects and artifacts for certified candidate generation runs.
+
+Certified on 2026-06-22:
+- Research pipeline run `1072ee3e-d8d9-459c-a35c-80f515bd2be8`.
+- Extraction pipeline run `4a32aedc-b7a7-4605-aed9-08890fd42ade`.
+- Persisted Factory candidate object classes: source, context record, historical object, milestone, participation, and relationship.
+- Persisted Factory artifacts for worker outputs.
+
+The repository also contains CSV files under `data/` and import/recovery services that consume CSV content. Normal imports are not durable Factory artifacts.
 
 ## Future Architecture
 Factory artifacts include Historical Objects, Milestones, Timeline Views, relationships, sources, publisher authority evidence, validation records, Publication Packages, Feedback Packages, and audit records.

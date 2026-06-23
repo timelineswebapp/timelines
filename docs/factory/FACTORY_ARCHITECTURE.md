@@ -52,7 +52,14 @@ Historical Objects -> Milestones -> Timeline Views
 Relationships exist to explain history. Relationship architecture must center Milestones and must not treat Timeline Views as the canonical relationship container.
 
 ## Current Reality
-Current code supports import parsing, validation, duplicate detection, relationship insertion, chronology parsing, and recovery reports. Those capabilities are useful precedents, but they are not a complete Factory architecture.
+Factory runtime execution is Operational Alpha as of 2026-06-22. The implemented Factory runtime can execute canonical pipelines through the provider abstraction, call local Qwen14 via Ollama, validate structured worker output, and persist Factory Production Memory objects and artifacts.
+
+Certified runtime evidence:
+- Research pipeline run `1072ee3e-d8d9-459c-a35c-80f515bd2be8` completed for `Telephone`.
+- Extraction pipeline run `4a32aedc-b7a7-4605-aed9-08890fd42ade` completed for `Telephone`.
+- Factory objects and artifacts were verified for candidate source, context record, historical object, milestone, participation, and relationship generation.
+
+Current code also supports import parsing, validation, duplicate detection, relationship insertion, chronology parsing, and recovery reports. Those capabilities are useful precedents, but Factory runtime certification is now the primary implementation reality for Factory candidate generation.
 
 ## Future Architecture
 Factory architecture is valid only when it preserves Factory/Library memory separation, Publication Package handoff, Feedback Package return, Tiered Source Authority, and permanent Factory object identities.

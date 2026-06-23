@@ -65,6 +65,62 @@ Contributors:
 5. Database: durable authority, chronology, and platform data.
 6. Documentation: constitutional and architectural authority.
 
+## Certified Institutional Publication Path
+As of 2026-06-23, TiMELiNES has a certified institutional publication path. The locked architecture remains:
+
+```text
+Factory
+  -> Governance
+    -> Historical Library
+      -> Published Memory
+        -> Platform
+```
+
+Telephone is the inaugural institutionally certified subject. Multi-subject repeatability and scale execution have been certified within the accepted certification scope.
+
+The early Factory runtime path remains valid inside Platform Administration:
+
+```text
+Admin Factory API
+  -> Factory service
+    -> Canonical Factory pipeline
+      -> Canonical worker contract
+        -> Provider abstraction
+          -> Local Qwen14 via Ollama
+            -> Structured output validation
+              -> Factory Production Memory objects and artifacts
+```
+
+The certified institutional trace is:
+
+```text
+Source Authority
+  -> Source Snapshot
+    -> Research Corpus
+      -> Evidence
+        -> Evidence Validation
+          -> Factory Candidate
+            -> Governance Package
+              -> Governance Decisions
+                -> Library Review
+                  -> Historical Library Admission
+                    -> Published Memory Snapshot
+                      -> Timeline/Search/Sitemap Projections
+                        -> Platform Route
+```
+
+Certified early runtime evidence:
+- Provider: `qwen14`.
+- Runtime: local Ollama.
+- Certified local model: `qwen3:14b`.
+- Research pipeline completed for `Telephone` as pipeline run `1072ee3e-d8d9-459c-a35c-80f515bd2be8`.
+- Extraction pipeline completed for `Telephone` as pipeline run `4a32aedc-b7a7-4605-aed9-08890fd42ade`.
+- Factory Production Memory persistence verified for pipeline runs, pipeline steps, Factory objects, and Factory artifacts.
+- Candidate generation verified for candidate sources, context records, historical objects, milestones, participations, and relationships.
+
+Boundary rule:
+Factory-generated records remain Factory Production Memory candidates until Governance approval and Historical Library admission. Factory does not approve Governance decisions, admit Historical Library records, own Published Memory, or own Platform read models. Governance approval requires source-grounded validated evidence, and package acceptance requires the `library_review` lifecycle state before `accepted`.
+
 ## References
 - `AUTHORITY_INDEX.md`
 - `01_PRODUCT_CONSTITUTION_V2.md`

@@ -9,6 +9,8 @@ import {
   assertFactoryCannotPublish,
   assertFactoryCannotRejectPackage
 } from "@/src/server/services/factory-service";
+import { validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
+import { resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
 
 describe("factory production memory foundation", () => {
   it("defines Factory-owned Production Memory schema with preservation and immutability", () => {
@@ -223,16 +225,183 @@ describe("factory production memory foundation", () => {
     assert.match(providers, /compactSchemaInstruction/);
     assert.match(providers, /rawResponsePreview/);
     assert.match(providers, /generationEnabled: true/);
+    assert.match(providers, /FACTORY_QWEN_TIMEOUT_MS/);
+    assert.match(providers, /FactoryRuntimeProviderTimeoutError/);
+    assert.match(providers, /provider_timeout_failed/);
+    assert.match(providers, /baseUrlHost/);
+    assert.match(providers, /fetchReachedResponseParsing/);
     assert.match(providers, /getFactoryRuntimeProvider/);
     assert.match(providers, /listFactoryRuntimeProviders/);
     assert.match(service, /getFactoryRuntimeProvider/);
     assert.match(service, /provider\.execute/);
     assert.match(service, /validateFactoryWorkerOutput/);
     assert.match(service, /Output validation failed/);
+    assert.match(service, /withAttemptDiagnostics/);
+    assert.match(service, /provider_timeout_failed/);
+    assert.match(service, /AbortError/);
+    assert.match(service, /aborted/);
+    assert.match(service, /workerTimeoutMs/);
     assert.match(outputSchemas, /evidence/);
     assert.match(outputSchemas, /sources/);
     assert.match(outputSchemas, /publicationAllowed: z\.literal\(false\)/);
     assert.doesNotMatch(providers, /historicalRelationshipRepository|historicalAuthorityRepository|historicalLibraryService|governanceService/);
+  });
+
+  it("allows local Factory Qwen timeout override while preserving worker timeout defaults", () => {
+    const previous = process.env.FACTORY_QWEN_TIMEOUT_MS;
+    try {
+      delete process.env.FACTORY_QWEN_TIMEOUT_MS;
+      assert.equal(resolveFactoryQwenTimeoutMs(120000), 120000);
+      process.env.FACTORY_QWEN_TIMEOUT_MS = "300000";
+      assert.equal(resolveFactoryQwenTimeoutMs(120000), 300000);
+      process.env.FACTORY_QWEN_TIMEOUT_MS = "not-a-number";
+      assert.equal(resolveFactoryQwenTimeoutMs(120000), 120000);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.FACTORY_QWEN_TIMEOUT_MS;
+      } else {
+        process.env.FACTORY_QWEN_TIMEOUT_MS = previous;
+      }
+    }
+  });
+
+  it("normalizes candidate_source publisher from URL host without weakening Factory boundaries", () => {
+    const validated = validateFactoryWorkerOutput({
+      workerKey: "research_worker",
+      allowedObjectTypes: ["candidate_source", "candidate_context_record"],
+      output: {
+        summary: "Source candidate.",
+        confidence: 0.82,
+        boundary: {
+          factoryOwned: true,
+          publicationAllowed: false,
+          governanceSubmissionAllowed: false
+        },
+        sources: [{ sourceId: "source_1", title: "Patent record", url: "https://patents.google.com/patent/US174465A" }],
+        evidence: [{ claim: "Patent record exists.", citations: [{ sourceId: "source_1", title: "Patent record", url: "https://patents.google.com/patent/US174465A" }] }],
+        candidates: [
+          {
+            title: "Telephone Patent Source",
+            objectType: "candidate_source",
+            payload: {
+              url: "https://patents.google.com/patent/US174465A",
+              credibility: "medium"
+            },
+            sources: [{ sourceId: "source_1", title: "Patent record", url: "https://patents.google.com/patent/US174465A" }],
+            evidence: [{ claim: "Patent record exists.", citations: [{ sourceId: "source_1", title: "Patent record", url: "https://patents.google.com/patent/US174465A" }] }]
+          }
+        ]
+      }
+    });
+
+    assert.equal(validated.candidates[0]!.payload.publisher, "patents.google.com");
+    assert.deepEqual((validated as typeof validated & { normalizedFields?: string[] }).normalizedFields, ["publisher"]);
+    assert.equal(validated.boundary.publicationAllowed, false);
+    assert.equal(validated.boundary.governanceSubmissionAllowed, false);
+  });
+
+  it("falls back to Unknown publisher for candidate_source without a URL host", () => {
+    const validated = validateFactoryWorkerOutput({
+      workerKey: "research_worker",
+      allowedObjectTypes: ["candidate_source", "candidate_context_record"],
+      output: {
+        summary: "Source candidate.",
+        confidence: 0.74,
+        boundary: {
+          factoryOwned: true,
+          publicationAllowed: false,
+          governanceSubmissionAllowed: false
+        },
+        sources: [{ sourceId: "source_1", title: "Archival note" }],
+        evidence: [{ claim: "Archival note exists.", citations: [{ sourceId: "source_1", title: "Archival note" }] }],
+        candidates: [
+          {
+            title: "Archival Source",
+            objectType: "candidate_source",
+            payload: {
+              credibility: "low"
+            },
+            sources: [{ sourceId: "source_1", title: "Archival note" }],
+            evidence: [{ claim: "Archival note exists.", citations: [{ sourceId: "source_1", title: "Archival note" }] }]
+          }
+        ]
+      }
+    });
+
+    assert.equal(validated.candidates[0]!.payload.publisher, "Unknown publisher");
+    assert.match(String((validated.candidates[0]!.payload.normalizationWarnings as string[])[0]), /Unknown publisher/);
+  });
+
+  it("classifies missing credibility and traceability failures as output validation failures", () => {
+    assert.throws(
+      () => validateFactoryWorkerOutput({
+        workerKey: "research_worker",
+        allowedObjectTypes: ["candidate_source", "candidate_context_record"],
+        output: {
+          summary: "Source candidate.",
+          confidence: 0.82,
+          boundary: {
+            factoryOwned: true,
+            publicationAllowed: false,
+            governanceSubmissionAllowed: false
+          },
+          sources: [{ sourceId: "source_1", title: "Patent record", url: "https://patents.google.com/patent/US174465A" }],
+          evidence: [{ claim: "Patent record exists.", citations: [{ sourceId: "source_1", title: "Patent record", url: "https://patents.google.com/patent/US174465A" }] }],
+          candidates: [
+            {
+              title: "Telephone Patent Source",
+              objectType: "candidate_source",
+              payload: {
+                url: "https://patents.google.com/patent/US174465A"
+              },
+              sources: [{ sourceId: "source_1", title: "Patent record", url: "https://patents.google.com/patent/US174465A" }],
+              evidence: [{ claim: "Patent record exists.", citations: [{ sourceId: "source_1", title: "Patent record", url: "https://patents.google.com/patent/US174465A" }] }]
+            }
+          ]
+        }
+      }),
+      (error: unknown) => {
+        assert.equal((error as { diagnostics?: { failureClass?: string } }).diagnostics?.failureClass, "output_validation_failed");
+        assert.deepEqual((error as { diagnostics?: { normalizedFields?: string[] } }).diagnostics?.normalizedFields, ["publisher"]);
+        assert.match((error as Error).message, /missing credibility/);
+        return true;
+      }
+    );
+
+    assert.throws(
+      () => validateFactoryWorkerOutput({
+        workerKey: "research_worker",
+        allowedObjectTypes: ["candidate_source", "candidate_context_record"],
+        output: {
+          summary: "Source candidate.",
+          confidence: 0.82,
+          boundary: {
+            factoryOwned: true,
+            publicationAllowed: false,
+            governanceSubmissionAllowed: false
+          },
+          sources: [{ sourceId: "source_1", title: "Patent record" }],
+          evidence: [{ claim: "Patent record exists.", citations: [{ sourceId: "source_2", title: "Other record" }] }],
+          candidates: [
+            {
+              title: "Patent Source",
+              objectType: "candidate_source",
+              payload: {
+                publisher: "Patent office",
+                credibility: "medium"
+              },
+              sources: [{ sourceId: "source_1", title: "Patent record" }],
+              evidence: [{ claim: "Patent record exists.", citations: [{ sourceId: "source_1", title: "Patent record" }] }]
+            }
+          ]
+        }
+      }),
+      (error: unknown) => {
+        assert.equal((error as { diagnostics?: { failureClass?: string } }).diagnostics?.failureClass, "output_validation_failed");
+        assert.match((error as Error).message, /unknown sourceId/);
+        return true;
+      }
+    );
   });
 
   it("keeps Factory runtime persistence repository-isolated and service-mediated", () => {
@@ -307,6 +476,200 @@ describe("factory production memory foundation", () => {
 
     assert.doesNotMatch(service, /admitPublicationPackage|publishPublicationPackage|certifyReadiness\(input|approveDecision|rejectDecision/);
     assert.doesNotMatch(service, /historicalLibraryService/);
+  });
+
+  it("defines Source Authority Foundation schema with registry, snapshots, versioning, and preservation", () => {
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260622_source_authority_foundation.sql", "utf8");
+
+    for (const source of [schema, migration]) {
+      assert.match(source, /CREATE TABLE IF NOT EXISTS source_authority_records/);
+      assert.match(source, /provider TEXT NOT NULL CHECK \(provider IN \('wikidata', 'dbpedia', 'library_of_congress', 'nara'\)\)/);
+      assert.match(source, /provider_record_id TEXT NOT NULL/);
+      assert.match(source, /origin JSONB NOT NULL/);
+      assert.match(source, /provenance JSONB NOT NULL DEFAULT '\{\}'::jsonb/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS source_authority_snapshots/);
+      assert.match(source, /source_record_id UUID NOT NULL REFERENCES source_authority_records/);
+      assert.match(source, /version INTEGER NOT NULL CHECK \(version > 0\)/);
+      assert.match(source, /content_hash TEXT NOT NULL/);
+      assert.match(source, /retrieved_at TIMESTAMPTZ NOT NULL DEFAULT NOW\(\)/);
+      assert.match(source, /UNIQUE \(source_record_id, version\)/);
+      assert.match(source, /prevent_source_authority_snapshot_update/);
+      assert.match(source, /Source Authority snapshots are immutable/);
+    }
+  });
+
+  it("implements Source Authority discovery and retrieval without downstream validation or publication changes", () => {
+    const contracts = readFileSync("src/server/source-authority/contracts.ts", "utf8");
+    const discovery = readFileSync("src/server/services/source-discovery-service.ts", "utf8");
+    const retrieval = readFileSync("src/server/services/source-retrieval-service.ts", "utf8");
+    const repository = readFileSync("src/server/repositories/source-authority-repository.ts", "utf8");
+    const resilience = readFileSync("src/server/source-authority/resilience.ts", "utf8");
+    const factory = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+
+    for (const provider of ["wikidata", "dbpedia", "library_of_congress", "nara"]) {
+      assert.match(contracts, new RegExp(`"${provider}"`));
+      assert.match(discovery, new RegExp(provider));
+    }
+
+    assert.match(discovery, /approvedProviders/);
+    assert.match(discovery, /providerInCooldown/);
+    assert.match(discovery, /resilientFetch/);
+    assert.match(discovery, /registerDiscoveredSource/);
+    assert.match(repository, /INSERT INTO source_authority_records/);
+    assert.match(repository, /ON CONFLICT \(provider, provider_record_id\)/);
+    assert.match(repository, /INSERT INTO source_authority_snapshots/);
+    assert.match(repository, /ORDER BY version DESC/);
+    assert.match(repository, /getLatestSnapshot/);
+    assert.match(repository, /createHash\("sha256"\)/);
+    assert.match(retrieval, /sourceAuthorityRepository\.requireSourceRecord/);
+    assert.match(retrieval, /sourceAuthorityRepository\.getLatestSnapshot/);
+    assert.match(retrieval, /staleSourceReuse/);
+    assert.match(retrieval, /reusedSnapshotId/);
+    assert.match(retrieval, /contentLength/);
+    assert.match(retrieval, /retrievedAt/);
+    assert.match(retrieval, /createSnapshot/);
+    assert.match(resilience, /retry-after/i);
+    assert.match(resilience, /AbortController/);
+    assert.match(resilience, /consecutiveFailures/);
+    assert.match(resilience, /cooldownUntil/);
+    assert.match(factory, /discoverExternalSources: sourceDiscoveryService\.discover/);
+    assert.match(factory, /retrieveExternalSource: sourceRetrievalService\.retrieve/);
+    assert.match(adminService, /discoverFactoryExternalSources: factoryService\.discoverExternalSources/);
+    assert.match(adminService, /retrieveFactoryExternalSource: factoryService\.retrieveExternalSource/);
+
+    for (const source of [discovery, retrieval, repository, resilience]) {
+      assert.doesNotMatch(source, /historicalLibraryService|publishedMemoryProjectionService|governanceService/);
+      assert.doesNotMatch(source, /admitPublicationPackage|publishPublicationPackage|certifyReadiness|validateFactoryWorkerOutput/);
+      assert.doesNotMatch(source, /historical_library_|published_memory_|governance_/);
+    }
+  });
+
+  it("defines Research Corpus and Evidence schema with source snapshot lineage and preservation", () => {
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260623_research_corpus_evidence_foundation.sql", "utf8");
+
+    for (const source of [schema, migration]) {
+      assert.match(source, /CREATE TABLE IF NOT EXISTS corpus_documents/);
+      assert.match(source, /source_snapshot_id UUID NOT NULL UNIQUE REFERENCES source_authority_snapshots/);
+      assert.match(source, /source_record_id UUID NOT NULL REFERENCES source_authority_records/);
+      assert.match(source, /source_lineage JSONB NOT NULL/);
+      assert.match(source, /CREATE TABLE IF NOT EXISTS evidence_records/);
+      assert.match(source, /corpus_document_id UUID NOT NULL REFERENCES corpus_documents/);
+      assert.match(source, /source_snapshot_id UUID NOT NULL REFERENCES source_authority_snapshots/);
+      assert.match(source, /source_record_id UUID NOT NULL REFERENCES source_authority_records/);
+      assert.match(source, /retrieval_timestamp TIMESTAMPTZ NOT NULL/);
+      assert.match(source, /span_start INTEGER NOT NULL CHECK \(span_start >= 0\)/);
+      assert.match(source, /span_end INTEGER NOT NULL CHECK \(span_end > span_start\)/);
+      assert.match(source, /provenance JSONB NOT NULL/);
+      assert.match(source, /idx_corpus_documents_lineage/);
+      assert.match(source, /idx_evidence_records_provenance/);
+      assert.match(source, /prevent_research_corpus_delete/);
+      assert.match(source, /prevent_research_corpus_update/);
+    }
+  });
+
+  it("implements corpus generation and evidence extraction without verification or institutional coupling", () => {
+    const corpusContracts = readFileSync("src/server/research-corpus/contracts.ts", "utf8");
+    const corpusRepository = readFileSync("src/server/repositories/corpus-repository.ts", "utf8");
+    const evidenceRepository = readFileSync("src/server/repositories/evidence-repository.ts", "utf8");
+    const corpusService = readFileSync("src/server/services/corpus-generation-service.ts", "utf8");
+    const evidenceService = readFileSync("src/server/services/evidence-extraction-service.ts", "utf8");
+    const factory = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+
+    for (const symbol of [
+      "CorpusDocument",
+      "EvidenceRecord",
+      "CorpusSourceLineage",
+      "EvidenceProvenance",
+      "FactoryEvidenceReference"
+    ]) {
+      assert.match(corpusContracts, new RegExp(`type ${symbol}`));
+    }
+
+    assert.match(corpusRepository, /INNER JOIN source_authority_records/);
+    assert.match(corpusRepository, /FROM source_authority_snapshots/);
+    assert.match(corpusRepository, /INSERT INTO corpus_documents/);
+    assert.match(corpusRepository, /ON CONFLICT \(source_snapshot_id\) DO NOTHING/);
+    assert.match(corpusRepository, /retrievalProvenance: input\.snapshot\.provenance/);
+    assert.match(corpusService, /normalizeSnapshotText/);
+    assert.match(corpusService, /generateFromSourceSnapshot/);
+    assert.match(evidenceRepository, /INSERT INTO evidence_records/);
+    assert.match(evidenceRepository, /ON CONFLICT \(corpus_document_id, span_start, span_end, quote_text\) DO NOTHING/);
+    assert.match(evidenceRepository, /retrievalProvenance/);
+    assert.match(evidenceService, /extractSentenceSpans/);
+    assert.match(evidenceService, /toFactoryEvidenceReferences/);
+    assert.match(evidenceService, /retrievalProvenance: corpusDocument\.sourceLineage\.retrievalProvenance/);
+    assert.match(factory, /generateCorpusDocument: corpusGenerationService\.generateFromSourceSnapshot/);
+    assert.match(factory, /extractEvidenceRecords: evidenceExtractionService\.extractFromCorpusDocument/);
+    assert.match(factory, /toFactoryEvidenceReferences: evidenceExtractionService\.toFactoryEvidenceReferences/);
+    assert.match(adminService, /generateFactoryCorpusDocument: factoryService\.generateCorpusDocument/);
+    assert.match(adminService, /extractFactoryEvidenceRecords: factoryService\.extractEvidenceRecords/);
+
+    for (const source of [corpusRepository, evidenceRepository, corpusService, evidenceService]) {
+      assert.doesNotMatch(source, /governanceService|historicalLibraryService|publishedMemoryProjectionService/);
+      assert.doesNotMatch(source, /governance_|historical_library_|published_memory_|publishedMemory/);
+      assert.doesNotMatch(source, /certifyReadiness|admitPublicationPackage|publishPublicationPackage|validateCitation|citationVerification|credibilityScore/);
+    }
+  });
+
+  it("defines Evidence Validation schema with immutable validation provenance", () => {
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260623_evidence_validation_foundation.sql", "utf8");
+
+    for (const source of [schema, migration]) {
+      assert.match(source, /CREATE TABLE IF NOT EXISTS evidence_validation_records/);
+      assert.match(source, /evidence_record_id UUID NOT NULL REFERENCES evidence_records/);
+      assert.match(source, /status TEXT NOT NULL CHECK \(status IN \('passed', 'failed'\)\)/);
+      assert.match(source, /checks JSONB NOT NULL/);
+      assert.match(source, /provenance JSONB NOT NULL/);
+      assert.match(source, /idx_evidence_validation_records_evidence/);
+      assert.match(source, /idx_evidence_validation_records_status/);
+      assert.match(source, /idx_evidence_validation_records_provenance/);
+      assert.match(source, /prevent_evidence_validation_records_update/);
+      assert.match(source, /prevent_evidence_validation_records_delete/);
+      assert.match(source, /Evidence validation records are immutable validation history/);
+    }
+  });
+
+  it("implements structural evidence validation without authority, readiness, or publication decisions", () => {
+    const contracts = readFileSync("src/server/evidence-validation/contracts.ts", "utf8");
+    const repository = readFileSync("src/server/repositories/evidence-validation-repository.ts", "utf8");
+    const service = readFileSync("src/server/services/evidence-validation-service.ts", "utf8");
+    const factory = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+
+    for (const check of [
+      "corpus_document_reference",
+      "source_snapshot_reference",
+      "source_record_reference",
+      "provenance_complete",
+      "lineage_complete",
+      "span_boundaries_valid",
+      "content_non_empty"
+    ]) {
+      assert.match(contracts, new RegExp(check));
+      assert.match(service, new RegExp(check));
+    }
+
+    assert.match(repository, /FROM evidence_records/);
+    assert.match(repository, /LEFT JOIN corpus_documents/);
+    assert.match(repository, /LEFT JOIN source_authority_snapshots/);
+    assert.match(repository, /LEFT JOIN source_authority_records/);
+    assert.match(repository, /INSERT INTO evidence_validation_records/);
+    assert.match(service, /structural_evidence_validation/);
+    assert.match(service, /authorityDecision: false/);
+    assert.match(service, /publicationReadinessDecision: false/);
+    assert.match(factory, /validateEvidenceRecord: evidenceValidationService\.validateEvidence/);
+    assert.match(adminService, /validateFactoryEvidenceRecord: factoryService\.validateEvidenceRecord/);
+
+    for (const source of [contracts, repository, service]) {
+      assert.doesNotMatch(source, /governanceService|historicalLibraryService|publishedMemoryProjectionService/);
+      assert.doesNotMatch(source, /governance_|historical_library_|published_memory_|publishedMemory/);
+      assert.doesNotMatch(source, /createDecision|certifyReadiness|admitPublicationPackage|publishPublicationPackage|credibilityScore|historicalTruth|publication_ready/);
+    }
   });
 
   it("defines canonical versioned Factory worker registry contracts and policies", () => {

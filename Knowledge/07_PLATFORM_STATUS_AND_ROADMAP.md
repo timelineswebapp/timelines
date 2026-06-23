@@ -155,6 +155,7 @@ Current Institutional Architecture
 Factory
 → Governance
 → Historical Library
+→ Published Memory
 → Platform
 
 Factory
@@ -177,11 +178,60 @@ Implementation Status:
 Factory Foundation
 LOCKED
 Factory Runtime
-Platform Admin
+OPERATIONAL
 Default Model
-Local Qwen14
+Local Qwen14 via Ollama
+Certified Local Model
+qwen3:14b
 Model Provider
 Replaceable
+Research Pipeline
+OPERATIONAL
+Extraction Pipeline
+OPERATIONAL
+Publication Candidate Pipeline
+CERTIFIED
+Governance Handoff
+CERTIFIED
+
+Factory and Institutional Certification:
+
+On 2026-06-22, Factory runtime execution was certified as Operational Alpha using local Qwen14 through Ollama with `qwen3:14b`.
+
+Certified evidence:
+
+* Research Pipeline completed for subject `Telephone`.
+* Research pipeline run: `1072ee3e-d8d9-459c-a35c-80f515bd2be8`.
+* Extraction Pipeline completed for subject `Telephone`.
+* Extraction pipeline run: `4a32aedc-b7a7-4605-aed9-08890fd42ade`.
+* Factory Production Memory persistence verified for `factory_pipeline_runs`, `factory_pipeline_steps`, `factory_objects`, and `factory_artifacts`.
+* Candidate Production Memory generation verified for `candidate_source`, `candidate_context_record`, `candidate_historical_object`, `candidate_milestone`, `candidate_participation`, and `candidate_relationship`.
+
+Current certification boundary:
+
+Factory generates and persists candidate Production Memory inside Factory boundaries. Factory does not approve Governance decisions, admit Historical Library records, own Published Memory, or own Platform read models. Governance handoff, Historical Library admission, Published Memory generation, projection generation, and public timeline publication are certified through the institutional publication path.
+
+Certified institutional trace:
+
+Source Authority
+→ Source Snapshot
+→ Research Corpus
+→ Evidence
+→ Evidence Validation
+→ Factory Candidate
+→ Governance Package
+→ Governance Decisions
+→ Library Review
+→ Historical Library Admission
+→ Published Memory Snapshot
+→ Timeline/Search/Sitemap Projections
+→ Platform Route
+
+Telephone is the inaugural institutionally certified subject.
+
+Multi-subject repeatability is certified for Printing Press, Steam Engine, Internet, and World Wide Web.
+
+Scale certification is accepted: 25 and 50 subject batches passed at 100%; the 100 subject batch passed at 98%. Projection slug revalidation certified the final known slug defects.
 
 ⸻
 
@@ -200,6 +250,12 @@ Status:
 
 FULLY OPERATIONAL
 
+Certification:
+
+CERTIFIED
+
+Governance requires source-grounded validated evidence for authority-bearing decisions. Publication package acceptance requires the `library_review` lifecycle state before `accepted`.
+
 ⸻
 
 Historical Library
@@ -214,7 +270,7 @@ Owns:
 
 Status:
 
-NOT STARTED
+OPERATIONAL
 
 Architecture:
 
@@ -222,7 +278,11 @@ DEFINED
 
 Implementation:
 
-NOT STARTED
+IMPLEMENTED
+
+Certification:
+
+CERTIFIED
 
 ⸻
 
@@ -255,12 +315,19 @@ Historical Authority	Locked
 Historical Context	Locked
 Governance Foundation	Locked
 Governance Backend	Locked
-Historical Library	Not Started
-Factory Publication Workflow	Not Started
+Historical Library	Certified Operational
+Published Memory	Certified Operational
+Projection Layer	Certified Operational
+Platform Publication	Certified Operational
+Factory Runtime	Operational
+Factory Research Pipeline	Operational
+Factory Extraction Pipeline	Operational
+Factory Publication Candidate Pipeline	Certified
+Factory Governance Handoff	Certified
 Governance UI	Not Started
 Historical Knowledge Graph	Not Started
 Recommendation Layer	Not Started
-AI Layer	Not Started
+AI Layer	Factory-local Operational
 
 ⸻
 
@@ -271,46 +338,20 @@ Timeline Platform	95%
 Historical Authority	100%
 Historical Context	100%
 Governance	100%
-Historical Library	10%
-Factory	25%
-Institutional Operations	20%
+Historical Library	100%
+Published Memory	100%
+Projection Layer	100%
+Factory	100%
+Institutional Operations	90%
 Long-Term Platform Vision	~70%
 
 ⸻
 
 Authorized Next Programs
 
-The following programs are authorized.
+The following programs remain authorized. Completed Historical Library backend, Published Memory, Factory publication workflow certification, Governance handoff certification, projection generation, and Platform publication work has moved out of future/planned status.
 
 Priority 1
-
-Historical Library Backend
-
-Objectives:
-
-* Published Memory
-* Publication Acceptance
-* Library Operations
-* Feedback Package Generation
-* Published Revision Workflows
-
-⸻
-
-Priority 2
-
-Factory Publication Workflows
-
-Objectives:
-
-* Candidate Authority
-* Publication Package Generation
-* Validation Artifact Management
-* Feedback Package Consumption
-* Factory Operational Workflows
-
-⸻
-
-Priority 3
 
 Governance UI
 
@@ -324,6 +365,20 @@ Objectives:
 
 ⸻
 
+Priority 2
+
+Production Operations
+
+Objectives:
+
+* Production runbooks
+* Observability
+* Managed production deployment
+* Provider health persistence
+* Provider resilience monitoring
+
+⸻
+
 Deferred Programs
 
 Not currently authorized.
@@ -332,7 +387,7 @@ Historical Knowledge Graph
 
 Future capability.
 
-Requires Historical Library maturity.
+Requires certified institutional publication data to be promoted into graph authority through a separate approved program.
 
 ⸻
 
@@ -346,9 +401,9 @@ Requires Historical Graph maturity.
 
 AI Layer
 
-Future capability.
+Factory-local capability has reached Operational Alpha for source-grounded candidate generation through Qwen14/Ollama.
 
-Requires Historical Library and Factory maturity.
+Broader AI Layer capabilities remain future work and require separate certification beyond the current institutional publication scope.
 
 ⸻
 
@@ -362,6 +417,14 @@ The following foundations are considered closed and authoritative.
 * Governance Foundation (Wave 2B)
 * Governance Backend
 * Governance Operational Layer
+* Source Authority Foundation
+* Research Corpus Foundation
+* Evidence Foundation
+* Evidence Validation Foundation
+* Historical Library institutional admission path
+* Published Memory snapshot path
+* Projection generation path
+* Platform publication path
 
 Future programs must build upon these foundations and must not redesign them without an explicit constitutional review process.
 
@@ -382,10 +445,24 @@ LOCKED
 Governance Operational Layer
 LOCKED
 Historical Library
-NOT STARTED
-Factory Publication Workflow
-NOT STARTED
+CERTIFIED OPERATIONAL
+Published Memory
+CERTIFIED OPERATIONAL
+Projection Layer
+CERTIFIED OPERATIONAL
+Platform Publication
+CERTIFIED OPERATIONAL
+Factory Runtime
+OPERATIONAL
+Factory Research Pipeline
+OPERATIONAL
+Factory Extraction Pipeline
+OPERATIONAL
+Factory Publication Candidate Pipeline
+CERTIFIED
+Factory Governance Handoff
+CERTIFIED
 Governance UI
 NOT STARTED
 
-TiMELiNES is currently transitioning from a Chronological Knowledge Platform with Authority and Governance into a complete Historical Library and Historical Publishing System.
+TiMELiNES is now a certified Factory-to-Historical-Library publishing system within the accepted institutional certification scope. Telephone is the inaugural institutionally certified subject. Multi-subject repeatability and scale certification have been accepted. Remaining work is operational maturity, Governance UI, provider health persistence, production runbooks, observability, managed production deployment, and future Historical Knowledge Graph programs.

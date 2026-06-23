@@ -30,12 +30,15 @@ export type GovernanceActorRef = {
 export type EvidenceRef = {
   evidenceId: string;
   evidenceType:
+    | "validated_evidence"
     | "source"
     | "factory_validation"
     | "library_review"
     | "audit_record"
     | "dispute_submission"
     | "governance_note";
+  evidenceRecordId?: string;
+  validationRecordId?: string;
   uri?: string;
   authoritySafe: boolean;
 };

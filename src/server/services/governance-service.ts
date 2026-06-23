@@ -18,7 +18,11 @@ import {
   publicationPackageTransitions
 } from "@/src/server/governance/lifecycle";
 import { assertFactoryCannotPublish, assertPlatformReadOnly, assertServiceMayPerformAction } from "@/src/server/governance/service-boundaries";
-import { governanceRepository, verifyApprovedGovernanceDecision } from "@/src/server/repositories/governance-repository";
+import {
+  governanceRepository,
+  verifyApprovedGovernanceDecision,
+  verifyValidatedEvidenceRefs
+} from "@/src/server/repositories/governance-repository";
 
 type TransitionActor = AuditRecord["reconstruction"]["actorChain"][number];
 type TransitionInput = {
@@ -49,11 +53,35 @@ function assertInitialLifecycle<T extends string>(value: T, allowed: readonly T[
   }
 }
 
+function decisionRequiresValidatedEvidence(decisionType: GovernanceDecision["decisionType"]): boolean {
+  return [
+    "ADMIT_HISTORICAL_OBJECT",
+    "REVISE_HISTORICAL_OBJECT",
+    "MERGE_HISTORICAL_OBJECT",
+    "RETIRE_HISTORICAL_OBJECT",
+    "PRESERVE_HISTORICAL_OBJECT",
+    "ADMIT_PARTICIPATION",
+    "REVISE_PARTICIPATION",
+    "CHANGE_PARTICIPATION_PRIORITY",
+    "RETIRE_PARTICIPATION",
+    "ADMIT_RELATIONSHIP",
+    "REVISE_RELATIONSHIP",
+    "RETIRE_RELATIONSHIP",
+    "MERGE_RELATIONSHIP",
+    "PRESERVE_RELATIONSHIP",
+    "CERTIFY_PUBLICATION_READINESS",
+    "ACCEPT_PUBLICATION_PACKAGE"
+  ].includes(decisionType);
+}
+
 export const governanceService = {
-  createDecision(input: GovernanceDecision) {
+  async createDecision(input: GovernanceDecision) {
     assertPlatformReadOnly("governance");
     assertEvidenceAuthoritySafe(input.evidenceRefs, "GovernanceDecision");
     assertDecisionCanMutateAuthority(input);
+    if (decisionRequiresValidatedEvidence(input.decisionType)) {
+      await verifyValidatedEvidenceRefs(input.evidenceRefs, "GovernanceDecision");
+    }
     return governanceRepository.createDecision(input);
   },
 
@@ -74,9 +102,10 @@ export const governanceService = {
     return governanceRepository.createQueue(input);
   },
 
-  createPublicationPackage(input: PublicationPackage) {
+  async createPublicationPackage(input: PublicationPackage) {
     assertInitialLifecycle(input.lifecycle, ["factory_draft", "factory_validating", "factory_ready"], "PublicationPackage");
     assertEvidenceAuthoritySafe(input.validationArtifacts, "PublicationPackage");
+    await verifyValidatedEvidenceRefs(input.validationArtifacts, "PublicationPackage");
     if (input.readinessCertification || input.acceptanceOutcome) {
       throw new ApiError(409, "PUBLICATION_CHAIN_BYPASS_BLOCKED", "PublicationPackage cannot be created with readiness certification or library acceptance.");
     }
@@ -145,6 +174,9 @@ export const governanceService = {
       throw new ApiError(409, "APPROVAL_CHAIN_REQUIRED", "Approving a GovernanceDecision requires an approved approval chain.");
     }
     assertLifecycleTransition("GovernanceDecision", governanceDecisionTransitions, decision.lifecycle, "approved");
+    if (decisionRequiresValidatedEvidence(decision.decisionType)) {
+      await verifyValidatedEvidenceRefs(decision.evidenceRefs, "GovernanceDecision approval");
+    }
     const updated = await governanceRepository.transitionDecision(input.id, "approved", "approved");
     await auditTransition({
       authorityRef: decision.targetAuthority,
@@ -303,6 +335,10 @@ export const governanceService = {
     return transitionPublicationPackage(input, "readiness_certified");
   },
 
+  async submitPackageToLibraryReview(input: TransitionInput) {
+    return transitionPublicationPackage(input, "library_review");
+  },
+
   async acceptPackage(input: TransitionInput) {
     if (!input.governanceDecisionId) {
       throw new ApiError(409, "GOVERNANCE_DECISION_REQUIRED", "Package acceptance requires a GovernanceDecision.");
@@ -443,6 +479,9 @@ async function transitionPublicationPackage(
         expectedAuthorityType: "publication_package",
         expectedAuthorityId: input.id
       });
+      if (lifecycle === "readiness_certified" || lifecycle === "accepted") {
+        await verifyValidatedEvidenceRefs(decision.evidenceRefs, "GovernanceDecision");
+      }
       decisionRefs.push(decision.decisionId);
     }
   }
@@ -450,6 +489,7 @@ async function transitionPublicationPackage(
     if (!input.governanceDecisionId) {
       throw new ApiError(409, "GOVERNANCE_DECISION_REQUIRED", "Readiness certification requires a GovernanceDecision.");
     }
+    await verifyValidatedEvidenceRefs(publicationPackage.validationArtifacts, "PublicationPackage readiness certification");
     next = {
       ...next,
       decisionRefs,
@@ -463,6 +503,7 @@ async function transitionPublicationPackage(
     if (!publicationPackage.readinessCertification) {
       throw new ApiError(409, "READINESS_CERTIFICATION_REQUIRED", "Package acceptance requires readiness certification.");
     }
+    await verifyValidatedEvidenceRefs(publicationPackage.validationArtifacts, "PublicationPackage acceptance");
     next = { ...next, decisionRefs, acceptanceOutcome: "accepted" };
   } else if (lifecycle === "rejected") {
     next = { ...next, decisionRefs, acceptanceOutcome: "rejected" };

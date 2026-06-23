@@ -35,7 +35,9 @@ Feedback Package errors concern amendment return, correction interpretation, dis
 Source errors must distinguish missing evidence, weak source tier, publisher authority conflict, provenance loss, and claim support failure.
 
 ## Current Reality
-Current import and API services emit validation errors, `ApiError` responses, and structured logs. No Factory-specific error taxonomy exists.
+Factory runtime now classifies and persists operational failures for candidate generation runs, including provider timeout failures, runtime execution failures, and output validation failures. These classifications support failed pipeline step auditability inside Factory Production Memory.
+
+Current import and API services also emit validation errors, `ApiError` responses, and structured logs. Factory-specific error taxonomy remains doctrine-level and may become more complete as publication candidate and Governance handoff workflows are certified.
 
 ## Future Architecture
 Factory error classes should align to constitutional objects: Historical Object, Milestone, Timeline View, Relationship, Source, Publisher Authority, Publication Package, Feedback Package, and Factory Audit.

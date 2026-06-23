@@ -24,6 +24,17 @@ export type FactoryRuntimeProvider = {
 
 const defaultOllamaBaseUrl = "http://127.0.0.1:11434";
 const defaultQwen14Model = "qwen2.5:14b";
+const defaultFactoryQwenTimeoutMs = 120000;
+
+export class FactoryRuntimeProviderTimeoutError extends Error {
+  diagnostics: Record<string, unknown>;
+
+  constructor(message: string, diagnostics: Record<string, unknown>) {
+    super(message);
+    this.name = "FactoryRuntimeProviderTimeoutError";
+    this.diagnostics = diagnostics;
+  }
+}
 
 function diagnostics(startedAt: number, extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -65,6 +76,29 @@ function extractJsonObject(raw: string): Record<string, unknown> {
 function compactSchemaInstruction(schema: Record<string, unknown> | undefined): string {
   const workerKey = typeof schema?.workerKey === "string" ? schema.workerKey : "factory_worker";
   return `${workerKey} output object required keys: summary, confidence, boundary, sources, evidence, candidates. Arrays sources/evidence/candidates must be non-empty unless worker is validation-only. Evidence items require claim and citations[]. Candidate items require title, objectType, payload, evidence, sources.`;
+}
+
+export function resolveFactoryQwenTimeoutMs(requestTimeoutMs: number | undefined): number {
+  const configured = process.env.FACTORY_QWEN_TIMEOUT_MS;
+  if (configured) {
+    const parsed = Number(configured);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.floor(parsed);
+    }
+  }
+  return requestTimeoutMs || defaultFactoryQwenTimeoutMs;
+}
+
+function hostOnly(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).host;
+  } catch {
+    return "invalid_ollama_base_url";
+  }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 const qwen14Provider: FactoryRuntimeProvider = {
@@ -110,7 +144,9 @@ const qwen14Provider: FactoryRuntimeProvider = {
     const startedAt = Date.now();
     const baseUrl = process.env.OLLAMA_BASE_URL || defaultOllamaBaseUrl;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), request.timeoutMs || 120000);
+    const timeoutMs = resolveFactoryQwenTimeoutMs(request.timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    let fetchReachedResponseParsing = false;
     const prompt = `/no_think
 You are TiMELiNES Factory historical intelligence.
 Return one complete JSON object only. Do not return {}. Do not include markdown.
@@ -143,6 +179,7 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
       if (!response.ok) {
         throw new Error(`Ollama Qwen14 request failed with status ${response.status}.`);
       }
+      fetchReachedResponseParsing = true;
       const payload = (await response.json()) as {
         response?: string;
         prompt_eval_count?: number;
@@ -171,6 +208,20 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
           rawResponsePreview: payload.response.slice(0, 2000)
         })
       };
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new FactoryRuntimeProviderTimeoutError("Ollama Qwen14 request timed out.", diagnostics(startedAt, {
+          failureClass: "provider_timeout_failed",
+          providerKey: "qwen14",
+          modelName: this.modelName,
+          baseUrlHost: hostOnly(baseUrl),
+          timeoutMs,
+          elapsedMs: Date.now() - startedAt,
+          attempt: typeof request.configuration.attempt === "number" ? request.configuration.attempt : null,
+          fetchReachedResponseParsing
+        }));
+      }
+      throw error;
     } finally {
       clearTimeout(timeout);
     }

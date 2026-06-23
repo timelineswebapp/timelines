@@ -6,6 +6,8 @@ boundary must be {"factoryOwned":true,"publicationAllowed":false,"governanceSubm
 sources must be non-empty: [{"sourceId":"source_1","title":"...","url":"..."}].
 evidence must be non-empty and use citations, not evidence_refs: [{"claim":"...","citations":[{"sourceId":"source_1","title":"...","url":"..."}]}].
 Each candidate must include title, objectType, payload, evidence, sources.
+For every candidate_source payload include sourceId, title, url, publisher, credibility, citationNote, and evidenceSourceRefs.
+candidate_source publisher must never be empty. If exact publisher is unknown, derive a conservative publisher from the URL host or use "Unknown publisher".
 Use conservative historical claims and stable source titles/URLs only.
 `;
 
@@ -13,19 +15,20 @@ export const factoryWorkerPromptTemplates: Record<string, string> = {
   research_worker: `${sharedContract}
 Task: Produce bounded research notes and context candidates for the requested historical topic.
 Candidate object types allowed: candidate_source, candidate_context_record.
-Payload must include topic, scope, chronologyNotes, keyActors, keyPlaces, and openQuestions.
+Context payload must include topic, scope, chronologyNotes, keyActors, keyPlaces, and openQuestions.
+Source payload must include sourceId, title, url, publisher, credibility, citationNote, evidenceSourceRefs, coveragePeriod, relevance, and sourceLimitations.
 Generate at least one source candidate and one context record when enough information is available.`,
 
   source_discovery_worker: `${sharedContract}
 Task: Discover candidate sources for the requested historical topic.
 Candidate object type allowed: candidate_source.
-Payload must include publisher, sourceType, credibility, coveragePeriod, relevance, and sourceLimitations.
+Payload must include sourceId, title, url, publisher, sourceType, credibility, citationNote, evidenceSourceRefs, coveragePeriod, relevance, and sourceLimitations.
 Generate one strong source candidate unless the input explicitly requests more.`,
 
   source_validation_worker: `${sharedContract}
 Task: Validate proposed sources and evidence claims for historical reliability.
 Candidate object type allowed: candidate_source.
-Payload must include accepted, credibility, reliabilityReasons, limitations, and recommendedUse.
+Payload must include sourceId, title, url, publisher, accepted, credibility, citationNote, evidenceSourceRefs, reliabilityReasons, limitations, and recommendedUse.
 Only mark a source high-confidence when source quality and relevance are clear.`,
 
   object_extraction_worker: `${sharedContract}

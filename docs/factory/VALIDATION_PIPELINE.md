@@ -39,7 +39,20 @@ Validation must apply Tiered Source Authority:
 - Weak or conflicting evidence must not be hidden.
 
 ## Current Reality
-Zod validates current imports and admin payloads. The chronology parser validates date semantics. Import duplicate detection exists. These are current validation precedents, not complete Factory validation.
+Factory runtime now validates structured worker output before Factory Production Memory persistence.
+
+Implemented validation behavior:
+- Worker output must parse as structured JSON.
+- Required source attribution and evidence must be present.
+- Candidate source payloads must include source identity, publisher, credibility, and traceability metadata.
+- Invalid outputs fail closed before Factory object or artifact persistence.
+- Validation failures are classified for pipeline step diagnostics.
+
+Certified on 2026-06-22:
+- Research pipeline output validation passed for candidate sources and context records.
+- Extraction pipeline output validation passed for candidate historical objects, milestones, participations, relationships, and context records.
+
+Zod still validates imports and admin payloads, the chronology parser still validates date semantics, and import duplicate detection remains a validation precedent. Factory worker-output validation is now implemented for certified candidate generation pipelines.
 
 ## Future Architecture
 Factory validation doctrine covers Historical Objects, Milestones, Timeline Views, relationships, sources, publisher authority, Publication Packages, and Feedback Packages.

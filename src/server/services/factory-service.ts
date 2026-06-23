@@ -32,6 +32,11 @@ import type { GovernanceActorRef, PublicationPackage } from "@/src/server/govern
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { governanceRepository } from "@/src/server/repositories/governance-repository";
 import { governanceService } from "@/src/server/services/governance-service";
+import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
+import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
+import { corpusGenerationService } from "@/src/server/services/corpus-generation-service";
+import { evidenceExtractionService } from "@/src/server/services/evidence-extraction-service";
+import { evidenceValidationService } from "@/src/server/services/evidence-validation-service";
 
 type TransitionMap<T extends string> = Record<T, readonly T[]>;
 
@@ -373,12 +378,36 @@ ${template.replaceAll("{{input}}", JSON.stringify(input))}`;
 
 function classifyRuntimeFailure(error: unknown): Record<string, unknown> {
   const message = error instanceof Error ? error.message : "Unexpected Factory runtime provider failure.";
-  const failureClass = message.includes("validation") || message.includes("required") || message.includes("Invalid")
+  const diagnostics = error && typeof error === "object" && "diagnostics" in error && typeof error.diagnostics === "object" && error.diagnostics
+    ? (error.diagnostics as Record<string, unknown>)
+    : {};
+  const abortName = error && typeof error === "object" && "name" in error ? String(error.name) : "";
+  const failureClass = diagnostics.failureClass === "provider_timeout_failed" || abortName === "AbortError" || message.includes("timed out") || message.includes("aborted")
+    ? "provider_timeout_failed"
+    : diagnostics.failureClass === "output_validation_failed"
+    ? "output_validation_failed"
+    : message.includes("validation") || message.includes("required") || message.includes("Invalid")
+      || message.includes("missing") || message.includes("forbidden candidate") || message.includes("unknown sourceId")
     ? "output_validation_failed"
     : message.includes("Ollama") || message.includes("Qwen14")
       ? "provider_execution_failed"
       : "runtime_execution_failed";
-  return { failureClass, message };
+  return { ...diagnostics, failureClass, message };
+}
+
+function withAttemptDiagnostics(error: unknown, diagnostics: Record<string, unknown>): unknown {
+  if (error && typeof error === "object") {
+    const current = "diagnostics" in error && typeof error.diagnostics === "object" && error.diagnostics
+      ? (error.diagnostics as Record<string, unknown>)
+      : {};
+    Object.assign(error, {
+      diagnostics: {
+        ...diagnostics,
+        ...current
+      }
+    });
+  }
+  return error;
 }
 
 function candidateObjectTypeForWorker(workerKey: string): FactoryObjectType | null {
@@ -432,6 +461,13 @@ export function assertFactoryCannotPublish(): never {
 }
 
 export const factoryService = {
+  discoverExternalSources: sourceDiscoveryService.discover,
+  retrieveExternalSource: sourceRetrievalService.retrieve,
+  generateCorpusDocument: corpusGenerationService.generateFromSourceSnapshot,
+  extractEvidenceRecords: evidenceExtractionService.extractFromCorpusDocument,
+  toFactoryEvidenceReferences: evidenceExtractionService.toFactoryEvidenceReferences,
+  validateEvidenceRecord: evidenceValidationService.validateEvidence,
+
   listPipelineDefinitions() {
     return canonicalFactoryPipelines;
   },
@@ -522,7 +558,14 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
             });
             break;
           } catch (error) {
-            lastFailure = error;
+            lastFailure = withAttemptDiagnostics(error, {
+              attempt,
+              providerKey: provider.providerKey,
+              modelName: provider.modelName,
+              workerTimeoutMs: contract.execution_timeout * 1000,
+              workerKey,
+              rawResponsePreview: result?.diagnostics.rawResponsePreview
+            });
             if (attempt < maxAttempts && contract.retry_policy.backoffMs > 0) {
               await new Promise((resolve) => setTimeout(resolve, contract.retry_policy.backoffMs));
             }
@@ -1166,7 +1209,14 @@ ${prompt.template}`, current.input, prompt.outputSchema || contract.output_schem
           });
           break;
         } catch (error) {
-          lastFailure = error;
+          lastFailure = withAttemptDiagnostics(error, {
+            attempt,
+            providerKey: provider.providerKey,
+            modelName: provider.modelName,
+            workerTimeoutMs: contract.execution_timeout * 1000,
+            workerKey: worker.workerKey,
+            rawResponsePreview: result?.diagnostics.rawResponsePreview
+          });
           if (attempt < maxAttempts && contract.retry_policy.backoffMs > 0) {
             await new Promise((resolve) => setTimeout(resolve, contract.retry_policy.backoffMs));
           }

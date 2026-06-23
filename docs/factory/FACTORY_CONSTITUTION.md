@@ -68,7 +68,11 @@ Factory evidence is governed by Tiered Source Authority. Sources provide evidenc
 - Platform: public presentation and discovery.
 
 ## Current Reality
-No full Factory system exists. Current bulk creation is admin import preview/execute. Existing import, validation, chronology, relationship recovery, and audit concepts are useful precedents but are not the Factory constitutional model.
+Factory runtime reached Operational Alpha on 2026-06-22. Local Qwen14 execution through Ollama using `qwen3:14b` completed certified research and extraction runs for the subject `Telephone`.
+
+Certified Factory Production Memory outputs now include candidate sources, candidate context records, candidate historical objects, candidate milestones, candidate participations, and candidate relationships persisted as Factory objects and artifacts. Publication Candidate Pipeline completion, Governance handoff, Historical Library admission, Published Memory generation, and public timeline generation remain uncertified.
+
+Existing import, validation, chronology, relationship recovery, and audit concepts remain useful precedents but are not the Factory constitutional model.
 
 ## Future Architecture
 All Factory documents must align to this doctrine: Historical Objects -> Milestones -> Timeline Views, with Milestones as central relationship nodes and the publication flow Factory -> Publication Package -> Historical Library -> Platform.

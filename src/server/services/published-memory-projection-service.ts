@@ -17,10 +17,62 @@ import { ApiError } from "@/src/server/api/responses";
 
 const DEFAULT_REBUILD_BATCH_SIZE = 500;
 
+function stableTimelineId(value: string): number {
+  const hex = value.replace(/[^a-f0-9]/gi, "").slice(0, 12) || "1";
+  return (Number.parseInt(hex, 16) % 2_147_483_647) + 1;
+}
+
+function slugifyProjection(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\+/g, " plus ")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "publication-package";
+}
+
+function packageDescription(payload: Record<string, unknown>): string {
+  const packageScope = payload.packageScope;
+  if (packageScope && typeof packageScope === "object" && !Array.isArray(packageScope)) {
+    const description = (packageScope as Record<string, unknown>).description;
+    if (typeof description === "string" && description.trim()) {
+      return description.trim();
+    }
+  }
+  return "Published timeline context package.";
+}
+
+function publicationPackageTitle(payload: Record<string, unknown>): string {
+  for (const candidate of [payload.title, payload.subject, payload.name]) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  const description = packageDescription(payload);
+  const inferred = description.match(/^(.+?)\s+(?:inaugural|institutional|timeline|publication|package)\b/i);
+  return inferred?.[1]?.trim() || "Publication Package Timeline";
+}
+
+function isPublicationPackageTimelineSnapshot(snapshot: PublishedMemorySnapshot, payload: Record<string, unknown>): boolean {
+  if (snapshot.authorityRef.authorityType !== "publication_package") {
+    return false;
+  }
+  const packageScope = payload.packageScope;
+  if (!packageScope || typeof packageScope !== "object" || Array.isArray(packageScope)) {
+    return true;
+  }
+  const packageType = (packageScope as Record<string, unknown>).packageType;
+  return packageType === "timeline_context_publication" || packageType === "mixed_authority_publication";
+}
+
 function inferProjectionType(snapshot: PublishedMemorySnapshot, payload: Record<string, unknown>): PublishedReadModelType {
   const explicitType = payload.readModelType;
   if (typeof explicitType === "string") {
     return explicitType as PublishedReadModelType;
+  }
+  if (isPublicationPackageTimelineSnapshot(snapshot, payload)) {
+    return "timeline";
   }
   if (snapshot.authorityRef.authorityType === "participation") {
     return "milestone";
@@ -98,6 +150,46 @@ function ogMetadata(title: string, description: string) {
 }
 
 function buildTimelineDto(payload: Record<string, unknown>, snapshot: PublishedMemorySnapshot): Record<string, unknown> {
+  if (isPublicationPackageTimelineSnapshot(snapshot, payload)) {
+    const title = publicationPackageTitle(payload);
+    const description = packageDescription(payload);
+    const slug = typeof payload.slug === "string" && payload.slug.trim() ? payload.slug.trim() : slugifyProjection(title);
+    const updatedAt = snapshot.createdAt || new Date(0).toISOString();
+    return {
+      ...payload,
+      ...projectionDtoMetadata("timeline"),
+      id: stableTimelineId(snapshot.snapshotId),
+      slug,
+      title,
+      description,
+      category: "Technology",
+      orderingMode: "chronology",
+      createdAt: snapshot.createdAt || updatedAt,
+      updatedAt,
+      tags: [],
+      events: [],
+      relatedTimelines: [],
+      eventCount: 0,
+      highlightedEventTitles: [],
+      chronology_metadata: {
+        ordering_mode: "chronology",
+        event_count: 0,
+        highlighted_event_titles: []
+      },
+      seo_metadata: seoMetadata(title, description, slug),
+      og_metadata: ogMetadata(title, description),
+      published_state: publishedState(snapshot),
+      continuity_metadata: continuityMetadata(snapshot),
+      provenance: {
+        authorityRef: snapshot.authorityRef,
+        admissionId: snapshot.admissionId,
+        publicationPackageId: payload.publicationPackageId,
+        readinessCertification: payload.readinessCertification,
+        acceptanceOutcome: payload.acceptanceOutcome,
+        packageScope: payload.packageScope
+      }
+    };
+  }
   if (!isTimelinePayload(payload)) {
     return payload;
   }

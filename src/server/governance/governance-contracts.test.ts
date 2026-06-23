@@ -35,6 +35,13 @@ describe("governance contracts implementation", () => {
     assert.doesNotThrow(() =>
       assertLifecycleTransition("PublicationPackage", publicationPackageTransitions, "readiness_certified", "library_review")
     );
+    assert.doesNotThrow(() =>
+      assertLifecycleTransition("PublicationPackage", publicationPackageTransitions, "library_review", "accepted")
+    );
+    assert.throws(
+      () => assertLifecycleTransition("PublicationPackage", publicationPackageTransitions, "readiness_certified", "accepted"),
+      ApiError
+    );
     assert.throws(
       () => assertLifecycleTransition("PublicationPackage", publicationPackageTransitions, "published", "factory_draft"),
       ApiError
@@ -54,8 +61,8 @@ describe("governance contracts implementation", () => {
     assert.doesNotThrow(() => assertGovernanceDecisionRequired(validUuid, "Revising historical object"));
   });
 
-  it("rejects direct terminal lifecycle creation", () => {
-    assert.throws(
+  it("rejects direct terminal lifecycle creation", async () => {
+    await assert.rejects(
       () =>
         governanceService.createPublicationPackage({
           packageId: validUuid,
@@ -90,8 +97,8 @@ describe("governance contracts implementation", () => {
     );
   });
 
-  it("rejects unsafe evidence before persistence", () => {
-    assert.throws(
+  it("rejects unsafe evidence before persistence", async () => {
+    await assert.rejects(
       () =>
         governanceService.createDecision({
           decisionId: validUuid,
@@ -104,6 +111,81 @@ describe("governance contracts implementation", () => {
           escalationRefs: [],
           outcome: "approved",
           lifecycle: "approved"
+        }),
+      ApiError
+    );
+  });
+
+  it("requires passed validated evidence for authority and publication readiness paths", () => {
+    const contracts = readFileSync("src/server/governance/contracts.ts", "utf8");
+    const repository = readFileSync("src/server/repositories/governance-repository.ts", "utf8");
+    const service = readFileSync("src/server/services/governance-service.ts", "utf8");
+    const historicalLibraryService = readFileSync("src/server/services/historical-library-service.ts", "utf8");
+    const validation = readFileSync("src/server/validation/schemas.ts", "utf8");
+
+    assert.match(contracts, /"validated_evidence"/);
+    assert.match(contracts, /evidenceRecordId\?: string/);
+    assert.match(contracts, /validationRecordId\?: string/);
+    assert.match(validation, /"validated_evidence"/);
+    assert.match(validation, /evidenceRecordId: governanceDecisionIdSchema\.optional\(\)/);
+    assert.match(validation, /validationRecordId: governanceDecisionIdSchema\.optional\(\)/);
+
+    assert.match(repository, /export function extractValidatedEvidenceRefs/);
+    assert.match(repository, /export async function verifyValidatedEvidenceRefs/);
+    assert.match(repository, /FROM evidence_validation_records/);
+    assert.match(repository, /INNER JOIN evidence_records/);
+    assert.match(repository, /LEFT JOIN corpus_documents/);
+    assert.match(repository, /LEFT JOIN source_authority_snapshots/);
+    assert.match(repository, /LEFT JOIN source_authority_records/);
+    assert.match(repository, /evidence_validation_records\.status = 'passed'/);
+    assert.match(repository, /VALIDATED_EVIDENCE_REQUIRED/);
+    assert.match(repository, /VALIDATED_EVIDENCE_REFERENCE_INCOMPLETE/);
+    assert.match(repository, /VALIDATED_EVIDENCE_NOT_PASSED/);
+    assert.match(repository, /VALIDATED_EVIDENCE_LINEAGE_INCOMPLETE/);
+
+    assert.match(service, /decisionRequiresValidatedEvidence/);
+    assert.match(service, /await verifyValidatedEvidenceRefs\(input\.evidenceRefs, "GovernanceDecision"\)/);
+    assert.match(service, /await verifyValidatedEvidenceRefs\(input\.validationArtifacts, "PublicationPackage"\)/);
+    assert.match(service, /await verifyValidatedEvidenceRefs\(publicationPackage\.validationArtifacts, "PublicationPackage readiness certification"\)/);
+    assert.match(service, /await verifyValidatedEvidenceRefs\(publicationPackage\.validationArtifacts, "PublicationPackage acceptance"\)/);
+    assert.match(service, /await verifyValidatedEvidenceRefs\(decision\.evidenceRefs, "GovernanceDecision"\)/);
+    assert.match(historicalLibraryService, /verifyValidatedEvidenceRefs/);
+    assert.match(historicalLibraryService, /await verifyValidatedEvidenceRefs\(publicationPackage\.validationArtifacts, "Historical Library admission"\)/);
+    assert.doesNotMatch(service, /historicalTruth|credibilityScore|scoreEvidence|automaticApproval/);
+  });
+
+  it("blocks validated evidence bypass during approval and authority mutation verification", async () => {
+    const repository = readFileSync("src/server/repositories/governance-repository.ts", "utf8");
+    const service = readFileSync("src/server/services/governance-service.ts", "utf8");
+    const historicalAuthorityRepository = readFileSync("src/server/repositories/historical-authority-repository.ts", "utf8");
+    const historicalRelationshipRepository = readFileSync("src/server/repositories/historical-relationship-repository.ts", "utf8");
+
+    assert.match(service, /async approveDecision/);
+    assert.match(service, /decisionRequiresValidatedEvidence\(decision\.decisionType\)/);
+    assert.match(service, /await verifyValidatedEvidenceRefs\(decision\.evidenceRefs, "GovernanceDecision approval"\)/);
+
+    assert.match(repository, /export async function verifyApprovedGovernanceDecision/);
+    assert.match(repository, /await verifyValidatedEvidenceRefs\(decision\.evidenceRefs, "Approved GovernanceDecision"\)/);
+    assert.match(repository, /VALIDATED_EVIDENCE_REQUIRED/);
+    assert.match(repository, /VALIDATED_EVIDENCE_NOT_PASSED/);
+    assert.match(repository, /VALIDATED_EVIDENCE_LINEAGE_INCOMPLETE/);
+
+    assert.match(historicalAuthorityRepository, /verifyApprovedGovernanceDecision/);
+    assert.match(historicalRelationshipRepository, /verifyApprovedGovernanceDecision/);
+
+    await assert.rejects(
+      () =>
+        governanceService.createDecision({
+          decisionId: validUuid,
+          decisionType: "ADMIT_HISTORICAL_OBJECT",
+          targetAuthority: { authorityType: "historical_object", authorityId: validUuid },
+          actor,
+          evidenceRefs: [{ evidenceId: "model-evidence-1", evidenceType: "factory_validation", authoritySafe: true }],
+          rationale: { summary: "Admit generated object.", authorityBasis: ["factory-generated"] },
+          approvalRefs: [],
+          escalationRefs: [],
+          outcome: "no_action",
+          lifecycle: "draft"
         }),
       ApiError
     );
@@ -190,6 +272,7 @@ describe("governance contracts implementation", () => {
       "escalateQueue",
       "submitPackage",
       "certifyReadiness",
+      "submitPackageToLibraryReview",
       "acceptPackage",
       "rejectPackage",
       "returnPackage",
@@ -237,6 +320,7 @@ describe("governance contracts implementation", () => {
       "advanceGovernanceQueue",
       "escalateGovernanceQueue",
       "certifyPublicationReadiness",
+      "submitPublicationPackageToLibraryReview",
       "acceptPublicationPackage",
       "rejectPublicationPackage",
       "returnPublicationPackage",
@@ -265,6 +349,7 @@ describe("governance contracts implementation", () => {
       "queues/[id]/advance/route.ts",
       "queues/[id]/escalate/route.ts",
       "publication-packages/[id]/certify-readiness/route.ts",
+      "publication-packages/[id]/submit-library-review/route.ts",
       "publication-packages/[id]/accept/route.ts",
       "publication-packages/[id]/reject/route.ts",
       "publication-packages/[id]/return/route.ts",

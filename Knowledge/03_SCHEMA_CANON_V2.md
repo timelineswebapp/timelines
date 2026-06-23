@@ -35,9 +35,16 @@ Canonical data ownership:
 | Historical Objects | Historical Object Registry | Durable historical identity. |
 | Participation | Historical Authority | Meaning between objects and milestones. |
 | Sources | Evidence authority | Source links and credibility. |
+| Source Authority Records | Source Authority | Externally discovered provider source records and source origin provenance. |
+| Source Authority Snapshots | Source Authority | Immutable retrieved source snapshots, snapshot versions, retrieval provenance, and stale-source provenance when reused. |
+| Corpus Documents | Research Corpus | Normalized documents derived from retrieved source snapshots. |
+| Evidence Records | Evidence foundation | Evidence spans linked to corpus documents, source snapshots, source authority records, providers, and retrieval timestamps. |
+| Evidence Validation Records | Evidence validation | Structural validation records and validation provenance; non-authoritative. |
+| Governance Packages and Decisions | Governance | Publication packages, review decisions, readiness certification, library review, and acceptance lifecycle. |
 | Tags/Categories | Taxonomy authority | Discovery and classification support. |
-| Published Memory | Historical Library | Future operational authority. |
-| Production Memory | Factory | Future operational authority. |
+| Published Memory | Historical Library | Historical Library authority; Factory must treat it as outside Factory Production Memory. |
+| Production Memory | Factory | Factory authority for candidate objects, artifacts, pipeline runs, and pipeline steps before Governance approval. |
+| Projections | Platform read-model layer | Timeline, search, sitemap, and public-route read models derived from Published Memory. |
 
 ## Ownership
 Owner: Data/schema authority steward
@@ -64,7 +71,8 @@ Contributors:
 - Participation owns meaning.
 - Historical Library owns Published Memory.
 - Factory owns Production Memory.
-- Platform presents published and approved read models.
+- Governance owns publication readiness, library review, and authority-bearing decisions.
+- Platform presents published read models derived from Historical Library Published Memory.
 
 ## References
 - `AUTHORITY_INDEX.md`

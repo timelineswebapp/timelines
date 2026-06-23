@@ -33,7 +33,17 @@ Research is governed by Tiered Source Authority:
 Research artifacts must preserve enough provenance to support source tier assessment, Milestone validation, and Feedback Package review.
 
 ## Current Reality
-Current imports accept source publisher, URL, and credibility. No full research pipeline exists.
+The Factory research pipeline is operational as of 2026-06-22.
+
+Certified runtime evidence:
+- Pipeline run `1072ee3e-d8d9-459c-a35c-80f515bd2be8` completed for subject `Telephone`.
+- Runtime provider: `qwen14`.
+- Local runtime: Ollama.
+- Certified model: `qwen3:14b`.
+- Persisted Factory Production Memory outputs include candidate sources and candidate context records.
+- Source publisher, URL, credibility, citation note, evidence references, and source traceability are required for source-producing worker outputs.
+
+Current imports also accept source publisher, URL, and credibility, but the Factory research pipeline is now the certified implementation reality for Factory source-grounded candidate research.
 
 ## Future Architecture
 Research doctrine must remain evidence-centered and must support Historical Objects, Milestones, Publication Packages, and Feedback Packages.

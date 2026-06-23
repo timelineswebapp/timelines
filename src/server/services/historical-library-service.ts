@@ -9,7 +9,11 @@ import type {
   GovernanceServiceBoundary
 } from "@/src/server/governance/contracts";
 import { assertPlatformReadOnly } from "@/src/server/governance/service-boundaries";
-import { governanceRepository, verifyApprovedGovernanceDecision } from "@/src/server/repositories/governance-repository";
+import {
+  governanceRepository,
+  verifyApprovedGovernanceDecision,
+  verifyValidatedEvidenceRefs
+} from "@/src/server/repositories/governance-repository";
 import { historicalLibraryRepository } from "@/src/server/repositories/historical-library-repository";
 import { governanceService } from "@/src/server/services/governance-service";
 import { publishedMemoryProjectionService } from "@/src/server/services/published-memory-projection-service";
@@ -142,6 +146,7 @@ export const historicalLibraryService = {
     if (publicationPackage.riskSummary.publicationBlockers.length > 0) {
       throw new ApiError(409, "PUBLICATION_PACKAGE_BLOCKED", "PublicationPackage has unresolved publication blockers.");
     }
+    await verifyValidatedEvidenceRefs(publicationPackage.validationArtifacts, "Historical Library admission");
 
     const existingAdmission = await historicalLibraryRepository.getAdmissionByPackageId(input.packageId);
     if (existingAdmission) {

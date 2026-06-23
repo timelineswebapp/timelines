@@ -98,6 +98,47 @@ describe("published memory projection system", () => {
     assert.match(service, /kind: "milestone"/);
   });
 
+  it("projects publication package snapshots as provenance-preserving timelines", () => {
+    const service = readFileSync("src/server/services/published-memory-projection-service.ts", "utf8");
+
+    assert.match(service, /isPublicationPackageTimelineSnapshot/);
+    assert.match(service, /snapshot\.authorityRef\.authorityType !== "publication_package"/);
+    assert.match(service, /return "timeline"/);
+    assert.match(service, /projectionDtoMetadata\("timeline"\)/);
+    assert.match(service, /stableTimelineId\(snapshot\.snapshotId\)/);
+    assert.match(service, /slugifyProjection\(title\)/);
+    assert.match(service, /category: "Technology"/);
+    assert.match(service, /orderingMode: "chronology"/);
+    assert.match(service, /tags: \[\]/);
+    assert.match(service, /events: \[\]/);
+    assert.match(service, /publicationPackageId: payload\.publicationPackageId/);
+    assert.match(service, /readinessCertification: payload\.readinessCertification/);
+    assert.match(service, /acceptanceOutcome: payload\.acceptanceOutcome/);
+    assert.match(service, /packageScope: payload\.packageScope/);
+  });
+
+  it("normalizes punctuation, symbols, digits, acronyms, and non-standard timeline titles into deterministic slugs", () => {
+    const service = readFileSync("src/server/services/published-memory-projection-service.ts", "utf8");
+
+    assert.match(service, /replace\(\/\\\+\/g, " plus "\)/);
+    assert.match(service, /replace\(\/&\/g, " and "\)/);
+    assert.match(service, /\^\(\.\+\?\)\\s\+\(\?:inaugural\|institutional\|timeline\|publication\|package\)\\b\/i/);
+
+    for (const subject of [
+      "X-ray",
+      "3D Printing",
+      "C++",
+      "B-52 Bomber",
+      "Apollo 11",
+      "COVID-19",
+      "Web 2.0",
+      "World War II"
+    ]) {
+      const description = `${subject} institutional scale certification package.`;
+      assert.match(description, /^(.+?)\s+(?:inaugural|institutional|timeline|publication|package)\b/i);
+    }
+  });
+
   it("defines and enforces DTO-complete projection contracts", () => {
     const contracts = readFileSync("src/server/platform/projection-dto-contracts.ts", "utf8");
     const service = readFileSync("src/server/services/published-memory-projection-service.ts", "utf8");

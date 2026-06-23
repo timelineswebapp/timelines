@@ -1,0 +1,155 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
+import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
+import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
+import { resetSourceProviderHealth } from "@/src/server/source-authority/resilience";
+import type { SourceAuthorityRegistryRecord } from "@/src/server/source-authority/contracts";
+
+const originalFetch = globalThis.fetch;
+const originalRegister = sourceAuthorityRepository.registerDiscoveredSource;
+const originalRequire = sourceAuthorityRepository.requireSourceRecord;
+const originalCreateSnapshot = sourceAuthorityRepository.createSnapshot;
+const originalLatestSnapshot = sourceAuthorityRepository.getLatestSnapshot;
+
+function restore() {
+  globalThis.fetch = originalFetch;
+  (sourceAuthorityRepository as any).registerDiscoveredSource = originalRegister;
+  (sourceAuthorityRepository as any).requireSourceRecord = originalRequire;
+  (sourceAuthorityRepository as any).createSnapshot = originalCreateSnapshot;
+  (sourceAuthorityRepository as any).getLatestSnapshot = originalLatestSnapshot;
+  resetSourceProviderHealth();
+}
+
+function stubRegister() {
+  (sourceAuthorityRepository as any).registerDiscoveredSource = async (input: any) => ({
+    sourceRecordId: `${input.discovery.provider}-${input.discovery.providerRecordId}`,
+    provider: input.discovery.provider,
+    providerRecordId: input.discovery.providerRecordId,
+    canonicalUrl: input.discovery.canonicalUrl,
+    title: input.discovery.title,
+    description: input.discovery.description,
+    sourceType: input.discovery.sourceType,
+    origin: {
+      provider: input.discovery.provider,
+      providerRecordId: input.discovery.providerRecordId,
+      providerUrl: input.discovery.originUrl,
+      discoveredFromQuery: input.query,
+      discoveredAt: new Date().toISOString()
+    },
+    provenance: input.discovery.raw,
+    createdBy: input.actor
+  });
+}
+
+test("DBpedia discovery parses XML provider responses", async () => {
+  resetSourceProviderHealth();
+  stubRegister();
+  globalThis.fetch = (async () => new Response(`<?xml version="1.0"?>
+    <ArrayOfResult>
+      <Result>
+        <Label>Printing press</Label>
+        <URI>https://dbpedia.org/resource/Printing_press</URI>
+        <Description>Mechanical movable type printing technology.</Description>
+      </Result>
+    </ArrayOfResult>`, {
+    status: 200,
+    headers: { "content-type": "application/xml" }
+  })) as typeof fetch;
+
+  try {
+    const result = await sourceDiscoveryService.discover({
+      query: "Printing Press",
+      providers: ["dbpedia"],
+      limit: 1,
+      actor: "provider-adapter-test"
+    });
+    assert.equal(result.records.length, 1);
+    assert.equal(result.records[0]?.provider, "dbpedia");
+    assert.equal(result.records[0]?.canonicalUrl, "https://dbpedia.org/data/Printing_press.json");
+  } finally {
+    restore();
+  }
+});
+
+test("provider discovery rejects HTML responses without throwing across failover", async () => {
+  resetSourceProviderHealth();
+  stubRegister();
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes("lookup.dbpedia.org")) {
+      return new Response("<!doctype html><html><body>not json</body></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" }
+      });
+    }
+    return new Response(JSON.stringify({ search: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await sourceDiscoveryService.discover({
+      query: "Printing Press",
+      providers: ["dbpedia"],
+      limit: 1,
+      actor: "provider-adapter-test"
+    });
+    assert.equal(result.records.length, 0);
+  } finally {
+    restore();
+  }
+});
+
+test("Wikidata retrieval uses EntityData JSON endpoint and rejects HTML persistence", async () => {
+  resetSourceProviderHealth();
+  const sourceRecord: SourceAuthorityRegistryRecord = {
+    sourceRecordId: "source-1",
+    provider: "wikidata",
+    providerRecordId: "Q1103",
+    canonicalUrl: "https://www.wikidata.org/wiki/Q1103",
+    title: "Printing press",
+    description: null,
+    sourceType: "knowledge_base_entity",
+    origin: {
+      provider: "wikidata",
+      providerRecordId: "Q1103",
+      providerUrl: "https://www.wikidata.org/wiki/Q1103",
+      discoveredFromQuery: "Printing Press",
+      discoveredAt: new Date().toISOString()
+    },
+    provenance: {},
+    createdBy: "test"
+  };
+  let requestedUrl = "";
+  (sourceAuthorityRepository as any).requireSourceRecord = async () => sourceRecord;
+  (sourceAuthorityRepository as any).getLatestSnapshot = async () => null;
+  (sourceAuthorityRepository as any).createSnapshot = async (input: any) => ({
+    snapshotId: "snapshot-1",
+    sourceRecordId: sourceRecord.sourceRecordId,
+    version: 1,
+    retrievalUrl: input.retrievalUrl,
+    contentType: input.contentType,
+    contentHash: "hash",
+    contentText: input.contentText,
+    rawMetadata: input.rawMetadata,
+    provenance: input.provenance,
+    retrievedBy: input.actor
+  });
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    requestedUrl = String(input);
+    return new Response(JSON.stringify({ entities: { Q1103: { id: "Q1103" } } }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await sourceRetrievalService.retrieve({ sourceRecordId: "source-1", actor: "provider-adapter-test" });
+    assert.equal(requestedUrl, "https://www.wikidata.org/wiki/Special:EntityData/Q1103.json");
+    assert.equal(result.snapshot.retrievalUrl, requestedUrl);
+  } finally {
+    restore();
+  }
+});

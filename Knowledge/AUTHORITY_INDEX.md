@@ -59,6 +59,29 @@ Stewards:
 | `05_EXECUTION_CANON_V2.md` | Highest engineering authority | Engineering execution steward | Active starter |
 | `06_PERMANENT_CONTEXT_V2.md` | Highest long-term context authority | Institutional memory steward | Active starter |
 
+## Implementation Maturity Notes
+The authority hierarchy above is unchanged by institutional certification.
+
+As of 2026-06-23, TiMELiNES has a certified institutional publication path from source-backed discovery through Platform route rendering. Telephone is the inaugural institutionally certified subject. Multi-subject repeatability and scale execution have also been certified within the documented certification scope.
+
+This maturity note does not change authority ordering: Factory Production Memory remains separate from Historical Library Published Memory, Governance remains the sole authority boundary for approval and publication-readiness decisions, and Historical Library remains the authority owner for Published Memory.
+
+## Certification Ledger
+| Certification | Current Status | Notes |
+|---|---|---|
+| `TL-PUBLICATION-CERTIFICATION-001` | Superseded historical failure | Preserved as historical evidence; no longer represents current publication status. |
+| `TL-QWEN14-HISTORICAL-PRODUCTION-001` | Superseded by institutional certification | Valid early Factory runtime evidence. |
+| Source Authority Foundation | Certified | External discovery, retrieval, immutable snapshots, versioning, and provenance. |
+| Research Corpus and Evidence Foundation | Certified | Retrieved snapshots generate corpus documents and evidence records with lineage. |
+| Evidence Validation Foundation | Certified | Structural evidence validation with validation provenance. |
+| Governance Authority Hardening | Certified | Validated source-grounded evidence is required for authority-bearing decisions. |
+| Telephone Institutional Certification | Institutionally Certified | Inaugural complete institutional publication subject. |
+| Multi-Subject Institutional Certification | Certified | Printing Press, Steam Engine, Internet, and World Wide Web repeated the certified path. |
+| Source Resilience Certification | Certified with minor defects | Provider retry, failover, cooldown, and stale snapshot provenance certified; provider health persistence remains planned. |
+| Provider Adapter Hardening | Implemented and certified by later scale run | Provider response validation and diagnostics improved fresh-database acquisition. |
+| Scale Certification | Certified | 25 and 50 subject batches passed at 100%; 100 subject batch passed at 98%. |
+| Projection Slug Revalidation | Certified | Final known slug defects were corrected and revalidated. |
+
 ## References
 - `01_PRODUCT_CONSTITUTION_V2.md`
 - `02_ARCHITECTURE_CANON_V2.md`

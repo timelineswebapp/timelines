@@ -301,7 +301,9 @@ const governanceActorRefSchema = z.object({
 });
 const evidenceRefSchema = z.object({
   evidenceId: trimmedString(1, 160),
-  evidenceType: z.enum(["source", "factory_validation", "library_review", "audit_record", "dispute_submission", "governance_note"]),
+  evidenceType: z.enum(["validated_evidence", "source", "factory_validation", "library_review", "audit_record", "dispute_submission", "governance_note"]),
+  evidenceRecordId: governanceDecisionIdSchema.optional(),
+  validationRecordId: governanceDecisionIdSchema.optional(),
   uri: z.string().trim().url().optional(),
   authoritySafe: z.boolean()
 });

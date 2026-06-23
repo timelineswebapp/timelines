@@ -2,6 +2,7 @@ import type {
   Approval,
   AuditRecord,
   Dispute,
+  EvidenceRef,
   FeedbackPackage,
   GovernanceDecision,
   GovernanceQueue,
@@ -33,6 +34,75 @@ type TransitionAuditInput = {
   packageRefs?: string[];
   disputeRefs?: string[];
 };
+
+type ValidatedEvidenceLineageRow = {
+  validationRecordId: string;
+  evidenceRecordId: string;
+  corpusDocumentExists: boolean;
+  sourceSnapshotExists: boolean;
+  sourceRecordExists: boolean;
+  provenance: Record<string, unknown>;
+};
+
+function validatedEvidenceKey(evidence: EvidenceRef): string {
+  return `${evidence.evidenceRecordId || ""}:${evidence.validationRecordId || ""}`;
+}
+
+export function extractValidatedEvidenceRefs(evidenceRefs: EvidenceRef[]): EvidenceRef[] {
+  return evidenceRefs.filter((evidence) => evidence.evidenceType === "validated_evidence");
+}
+
+export async function verifyValidatedEvidenceRefs(evidenceRefs: EvidenceRef[], context: string): Promise<void> {
+  const validatedEvidenceRefs = extractValidatedEvidenceRefs(evidenceRefs);
+  if (validatedEvidenceRefs.length === 0) {
+    throw new ApiError(409, "VALIDATED_EVIDENCE_REQUIRED", `${context} requires at least one validated source-grounded evidence reference.`);
+  }
+
+  const malformed = validatedEvidenceRefs.find((evidence) => !evidence.evidenceRecordId || !evidence.validationRecordId);
+  if (malformed) {
+    throw new ApiError(409, "VALIDATED_EVIDENCE_REFERENCE_INCOMPLETE", `${context} validated evidence must reference evidence_records and evidence_validation_records.`);
+  }
+
+  const sql = getWriteSql("verifying validated evidence lineage");
+  const rows = await sql<ValidatedEvidenceLineageRow[]>`
+    SELECT
+      evidence_validation_records.id::text AS "validationRecordId",
+      evidence_records.id::text AS "evidenceRecordId",
+      (corpus_documents.id IS NOT NULL) AS "corpusDocumentExists",
+      (source_authority_snapshots.id IS NOT NULL) AS "sourceSnapshotExists",
+      (source_authority_records.id IS NOT NULL) AS "sourceRecordExists",
+      evidence_validation_records.provenance
+    FROM evidence_validation_records
+    INNER JOIN evidence_records
+      ON evidence_records.id = evidence_validation_records.evidence_record_id
+    LEFT JOIN corpus_documents
+      ON corpus_documents.id = evidence_records.corpus_document_id
+    LEFT JOIN source_authority_snapshots
+      ON source_authority_snapshots.id = evidence_records.source_snapshot_id
+    LEFT JOIN source_authority_records
+      ON source_authority_records.id = evidence_records.source_record_id
+    WHERE evidence_validation_records.status = 'passed'
+      AND evidence_validation_records.id = ANY(${validatedEvidenceRefs.map((evidence) => evidence.validationRecordId!)}::uuid[])
+  `;
+
+  const verified = new Map(rows.map((row) => [`${row.evidenceRecordId}:${row.validationRecordId}`, row]));
+  for (const evidence of validatedEvidenceRefs) {
+    const row = verified.get(validatedEvidenceKey(evidence));
+    if (!row) {
+      throw new ApiError(409, "VALIDATED_EVIDENCE_NOT_PASSED", `${context} references evidence without a passed validation record.`);
+    }
+    const provenance = row.provenance || {};
+    if (
+      !row.corpusDocumentExists ||
+      !row.sourceSnapshotExists ||
+      !row.sourceRecordExists ||
+      provenance.authorityDecision !== false ||
+      provenance.publicationReadinessDecision !== false
+    ) {
+      throw new ApiError(409, "VALIDATED_EVIDENCE_LINEAGE_INCOMPLETE", `${context} validated evidence lineage or validation provenance is incomplete.`);
+    }
+  }
+}
 
 export async function verifyApprovedGovernanceDecision(input: DecisionVerificationInput): Promise<GovernanceDecision> {
   const sql = getWriteSql("verifying governance decision");
@@ -80,6 +150,7 @@ export async function verifyApprovedGovernanceDecision(input: DecisionVerificati
   if (decision.approvalRefs.length === 0 || decision.approvedApprovalCount < 1) {
     throw new ApiError(409, "GOVERNANCE_DECISION_APPROVAL_REQUIRED", "Referenced GovernanceDecision lacks an approved approval chain.");
   }
+  await verifyValidatedEvidenceRefs(decision.evidenceRefs, "Approved GovernanceDecision");
 
   return decision;
 }
