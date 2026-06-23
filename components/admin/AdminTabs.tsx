@@ -9,7 +9,7 @@ export function AdminTabs({
 }) {
   return (
     <div className="stack" style={{ gap: 8 }}>
-      {(["analytics", "governance", "content", "ads"] as const).map((tab) => (
+      {(["publication", "governance", "content", "analytics", "ads"] as const).map((tab) => (
         <button
           key={tab}
           type="button"

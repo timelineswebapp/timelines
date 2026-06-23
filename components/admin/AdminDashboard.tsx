@@ -6,6 +6,7 @@ import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import { AdminContent } from "@/components/admin/AdminContent";
 import { AdminGovernance } from "@/components/admin/AdminGovernance";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { AdminPublicationPath } from "@/components/admin/AdminPublicationPath";
 import type { AnalyticsSnapshot } from "@/src/lib/types";
 import type { ContentSection, TopTab } from "@/components/admin/admin-shared";
 
@@ -14,7 +15,7 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
   const [status, setStatus] = useState("Provide the admin token to unlock dashboard actions.");
   const [error, setError] = useState("");
   const [databaseConnected, setDatabaseConnected] = useState(initialDatabaseConnected);
-  const [activeTab, setActiveTab] = useState<TopTab>("analytics");
+  const [activeTab, setActiveTab] = useState<TopTab>("publication");
   const [contentSection, setContentSection] = useState<ContentSection>("snapshot");
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -127,6 +128,10 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
           section={contentSection}
           statusHandlers={statusHandlers}
         />
+      ) : null}
+
+      {activeTab === "publication" ? (
+        <AdminPublicationPath token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
       ) : null}
 
       {activeTab === "analytics" ? (

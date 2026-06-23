@@ -15,7 +15,7 @@ import type {
 } from "@/src/lib/types";
 import type { GovernanceOperationsSnapshot } from "@/src/server/services/governance-operations-service";
 
-export type TopTab = "content" | "analytics" | "ads" | "governance";
+export type TopTab = "content" | "analytics" | "ads" | "governance" | "publication";
 export type ContentSection = "snapshot" | "timelines" | "events" | "taxonomy" | "import_data" | "data_health" | "requests";
 export type AdminFetcher = <T>(url: string, init?: RequestInit) => Promise<T>;
 
