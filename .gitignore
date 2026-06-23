@@ -8,3 +8,5 @@ coverage
 tsconfig.tsbuildinfo
 .vercel
 .env*
+test.env
+timelines_pre_v2_backup.sql
