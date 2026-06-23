@@ -1,3 +1,4 @@
+import "@/src/server/operations/environment";
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";

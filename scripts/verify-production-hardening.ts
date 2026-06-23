@@ -1,3 +1,4 @@
+import "@/src/server/operations/environment";
 import { validateProductionHardening } from "@/src/server/operations/production-hardening";
 
 const result = validateProductionHardening();

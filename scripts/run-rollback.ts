@@ -1,3 +1,4 @@
+import "@/src/server/operations/environment";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { closeSql, getWriteSql } from "@/src/server/db/client";

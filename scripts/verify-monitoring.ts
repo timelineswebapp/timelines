@@ -1,3 +1,4 @@
+import "@/src/server/operations/environment";
 import { validateMonitoringConfiguration, alertDefinitions, operationalMetrics } from "@/src/server/operations/monitoring";
 
 const result = validateMonitoringConfiguration();

@@ -617,7 +617,7 @@ describe("factory production memory foundation", () => {
 
   it("defines Evidence Validation schema with immutable validation provenance", () => {
     const schema = readFileSync("db/schema.sql", "utf8");
-    const migration = readFileSync("db/migrations/20260623_evidence_validation_foundation.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260623_z_evidence_validation_foundation.sql", "utf8");
 
     for (const source of [schema, migration]) {
       assert.match(source, /CREATE TABLE IF NOT EXISTS evidence_validation_records/);

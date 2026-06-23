@@ -1,3 +1,4 @@
+import "@/src/server/operations/environment";
 import { requiredRecoveryValidationQueries } from "@/src/server/operations/backup-recovery";
 import { getWriteSql, closeSql } from "@/src/server/db/client";
 

@@ -1,3 +1,4 @@
+import "@/src/server/operations/environment";
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import type { BackupManifest } from "@/src/server/operations/backup-recovery";
