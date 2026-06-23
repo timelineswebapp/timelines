@@ -14,10 +14,11 @@ export const metadata: Metadata = {
   }
 };
 
-export default function AdminPage({ params }: { params: { adminRoute: string } }) {
+export default async function AdminPage({ params }: { params: Promise<{ adminRoute: string }> }) {
+  const { adminRoute } = await params;
   const adminRouteSlug = getAdminRouteSlug();
 
-  if (!adminRouteSlug || params.adminRoute !== adminRouteSlug) {
+  if (!adminRouteSlug || adminRoute !== adminRouteSlug) {
     notFound();
   }
 
