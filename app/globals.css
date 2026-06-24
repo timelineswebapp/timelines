@@ -129,7 +129,7 @@ main {
 .site-menu-trigger {
   position: absolute;
   top: 0;
-  left: 4px;
+  left: max(4px, calc((100% - 760px) / 2));
   z-index: 10;
   display: inline-flex;
   align-items: center;
@@ -226,7 +226,7 @@ main {
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
-  padding: 0 max(12px, calc((100vw - 1120px) / 2));
+  padding: 0 max(12px, calc((100vw - 760px) / 2));
   background: rgba(8, 18, 34, 0.24);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
