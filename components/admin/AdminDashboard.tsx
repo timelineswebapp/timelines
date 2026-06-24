@@ -10,6 +10,26 @@ import { AdminPublicationPath } from "@/components/admin/AdminPublicationPath";
 import type { AnalyticsSnapshot } from "@/src/lib/types";
 import type { ContentSection, TopTab } from "@/components/admin/admin-shared";
 
+const ADMIN_CSRF_COOKIE_NAME = "timelines_admin_csrf";
+const UNSAFE_ADMIN_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function readCookieValue(name: string): string {
+  return document.cookie
+    .split(";")
+    .map((segment) => segment.trim())
+    .find((segment) => segment.startsWith(`${name}=`))
+    ?.slice(name.length + 1) || "";
+}
+
+function csrfHeadersFor(init?: RequestInit): Record<string, string> {
+  const method = (init?.method || "GET").toUpperCase();
+  if (!UNSAFE_ADMIN_METHODS.has(method)) {
+    return {};
+  }
+  const token = readCookieValue(ADMIN_CSRF_COOKIE_NAME);
+  return token ? { "x-csrf-token": decodeURIComponent(token) } : {};
+}
+
 export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseConnected: boolean }) {
   const [token, setToken] = useState("");
   const [status, setStatus] = useState("Provide the admin token to unlock dashboard actions.");
@@ -76,6 +96,7 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
         ...init,
         headers: {
           ...adminHeaders,
+          ...csrfHeadersFor(init),
           ...(init?.headers || {})
         }
       });

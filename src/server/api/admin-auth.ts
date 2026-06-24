@@ -1,4 +1,6 @@
+import { randomBytes } from "node:crypto";
 import { fail, fromError } from "@/src/server/api/responses";
+import { config } from "@/src/lib/config";
 import {
   auditAdminSecurityEvent,
   csrfTokenValid,
@@ -9,6 +11,7 @@ import {
 
 const ADMIN_RATE_LIMIT_WINDOW_MS = 60_000;
 const ADMIN_RATE_LIMIT_MAX_REQUESTS = 60;
+const ADMIN_CSRF_MAX_AGE_SECONDS = 8 * 60 * 60;
 
 type RateLimitEntry = {
   count: number;
@@ -57,6 +60,33 @@ function checkRateLimit(request: Request): { allowed: true } | { allowed: false;
   return { allowed: true };
 }
 
+function cookieValue(request: Request, name: string): string {
+  const cookie = request.headers.get("cookie") || "";
+  for (const segment of cookie.split(";")) {
+    const [key, ...valueParts] = segment.trim().split("=");
+    if (key === name) return decodeURIComponent(valueParts.join("="));
+  }
+  return "";
+}
+
+function csrfCookieValue(request: Request): string {
+  return cookieValue(request, config.adminCsrfCookieName) || randomBytes(32).toString("base64url");
+}
+
+function attachAdminCsrfCookie(response: Response, request: Request): Response {
+  const attributes = [
+    `${config.adminCsrfCookieName}=${encodeURIComponent(csrfCookieValue(request))}`,
+    "Path=/",
+    `Max-Age=${ADMIN_CSRF_MAX_AGE_SECONDS}`,
+    "SameSite=Strict"
+  ];
+  if (config.isProduction) {
+    attributes.push("Secure");
+  }
+  response.headers.append("set-cookie", attributes.join("; "));
+  return response;
+}
+
 export async function isAdminAuthorized(request: Request): Promise<boolean> {
   return Boolean(await resolveAdminIdentity(request));
 }
@@ -103,7 +133,7 @@ export function withAdminAuth<TContext = unknown>(handler: AdminHandler<TContext
     auditAdminSecurityEvent("admin_auth_succeeded", request, identity);
 
     try {
-      return await handler(request, context);
+      return attachAdminCsrfCookie(await handler(request, context), request);
     } catch (error) {
       auditAdminSecurityEvent("admin_request_failed", request, identity, {
         error: error instanceof Error ? error.message : String(error)
