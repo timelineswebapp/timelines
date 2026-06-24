@@ -12,3 +12,16 @@ test.env
 timelines_pre_v2_backup.sql
 test.env
 timelines_pre_v2_backup.sql
+
+# Local backup outputs must not be committed.
+ops/backups/
+*.dump
+*.backup
+*.bak
+*.sql.gz
+*.sql.zip
+*.dump.gz
+*.dump.zip
+backup-*.json
+backup-*.manifest.json
+manifest.backup.json
