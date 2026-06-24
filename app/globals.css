@@ -129,7 +129,7 @@ main {
 .site-menu-trigger {
   position: absolute;
   top: 0;
-  left: 0;
+  left: 4px;
   z-index: 10;
   display: inline-flex;
   align-items: center;
@@ -226,15 +226,17 @@ main {
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
-  padding: 0;
+  padding: 0 max(12px, calc((100vw - 1120px) / 2));
   background: rgba(8, 18, 34, 0.24);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .site-menu-drawer {
   position: relative;
-  width: min(390px, 100vw);
+  width: min(392px, 100vw - 24px);
   height: 100vh;
-  padding: 32px 26px;
+  padding: 28px 24px 34px;
   overflow-x: hidden;
   overflow: auto;
   background: rgba(255, 255, 255, 0.98);
@@ -255,8 +257,8 @@ main {
 
 .site-menu-close {
   position: absolute;
-  top: 24px;
-  right: 22px;
+  top: 26px;
+  right: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -278,29 +280,32 @@ main {
 .site-menu-brand {
   display: grid;
   justify-items: start;
-  padding-right: 56px;
+  min-height: 44px;
+  padding-right: 76px;
+  align-content: center;
 }
 
 .site-menu-logo-image {
   display: block;
   width: auto;
-  height: 43px;
+  height: 31px;
   filter: drop-shadow(0 8px 18px rgba(77, 145, 210, 0.08));
 }
 
 .site-menu-socials {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   align-items: center;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .site-menu-socials span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 100%;
+  height: 42px;
   border: 1px solid rgba(19, 34, 54, 0.1);
   border-radius: 12px;
   background: #f8fbff;
@@ -309,8 +314,8 @@ main {
 }
 
 .site-menu-socials svg {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
 }
 
 .site-menu-tabs {
@@ -350,24 +355,29 @@ main {
 
 .site-menu-mission,
 .site-menu-contact,
-.site-menu-legal,
 .site-menu-form {
   display: grid;
   gap: 16px;
 }
 
+.site-menu-legal {
+  display: grid;
+  gap: 12px;
+}
+
 .site-menu-kicker {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: 2rem;
+  font-size: 2.18rem;
   font-weight: 700;
-  line-height: 1;
+  line-height: 0.98;
 }
 
 .site-menu-body {
   margin: 0;
   color: var(--muted);
-  line-height: 1.7;
+  font-size: 0.95rem;
+  line-height: 1.72;
 }
 
 .site-menu-core-card {
@@ -391,6 +401,13 @@ main {
 .site-menu-core-card strong {
   font-size: 0.95rem;
   line-height: 1.5;
+}
+
+.site-menu-legal-title {
+  margin: 0 0 6px;
+  font-family: var(--font-serif);
+  font-size: 1.9rem;
+  line-height: 1;
 }
 
 .site-menu-contact-tabs {
@@ -493,11 +510,28 @@ main {
   cursor: pointer;
 }
 
+.site-menu-disclosure button svg {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  color: var(--highlight-strong);
+}
+
 .site-menu-disclosure p {
   margin: 0;
   padding: 0 16px 16px;
   color: var(--muted);
   line-height: 1.7;
+}
+
+@media (max-width: 640px) {
+  .site-menu-trigger {
+    left: 4px;
+  }
+
+  .site-menu-backdrop {
+    padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right));
+  }
 }
 
 .admin-request-details {

@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { TIMELINES_LOGO_PUBLIC_PATH } from "@/src/lib/brand";
 import {
+  ChevronDownIcon,
+  ChevronUpIcon,
   CloseIcon,
   MenuIcon,
   SocialFacebookIcon,
@@ -68,7 +70,7 @@ export function SiteNavigationMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("mission");
   const [activeContactTab, setActiveContactTab] = useState<ContactTabId>("general");
-  const [openLegalSection, setOpenLegalSection] = useState<"privacy" | "terms" | null>("privacy");
+  const [openLegalSection, setOpenLegalSection] = useState<LegalSectionId | null>("privacy");
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [submitMessage, setSubmitMessage] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -289,11 +291,14 @@ function MissionPanel() {
     <div className="site-menu-mission">
       <p className="site-menu-kicker">Everything has a timeline</p>
       <p className="site-menu-body">
-        TiMELiNES presents complex histories and developments as chronological timelines.
+        History is not just a collection of isolated events; it is a continuous chain of cause and effect. Our goal is to break down complex historical, scientific, and cultural concepts into clean, visual, and highly readable chronological guides.
+      </p>
+      <p className="site-menu-body">
+        Whether you are exploring the 250th anniversary of the Illuminati, tracking the commercialization of deep space, or diving into the history of science, TiMELiNES organizes information to make it beautiful and easy to understand.
       </p>
       <article className="site-menu-core-card">
         <span>Curation Core</span>
-        <strong>Chronology-first records, source-aware editorial review, and structured historical context.</strong>
+        <strong>Every timeline added to our collection goes through direct historical fact-checking to guarantee strict chronological alignment.</strong>
       </article>
     </div>
   );
@@ -368,30 +373,56 @@ function LegalPanel({
   openLegalSection,
   setOpenLegalSection
 }: {
-  openLegalSection: "privacy" | "terms" | null;
-  setOpenLegalSection: (section: "privacy" | "terms" | null) => void;
+  openLegalSection: LegalSectionId | null;
+  setOpenLegalSection: (section: LegalSectionId | null) => void;
 }) {
   return (
     <div className="site-menu-legal">
-      <LegalDisclosure
-        id="privacy"
-        title="Privacy Policy"
-        openLegalSection={openLegalSection}
-        setOpenLegalSection={setOpenLegalSection}
-      >
-        TiMELiNES limits public request collection to the information submitted through the request form and platform diagnostics required to operate the service.
-      </LegalDisclosure>
-      <LegalDisclosure
-        id="terms"
-        title="Terms of Service"
-        openLegalSection={openLegalSection}
-        setOpenLegalSection={setOpenLegalSection}
-      >
-        TiMELiNES publishes informational historical timelines for reading, discovery, and editorial review.
-      </LegalDisclosure>
+      <h2 className="site-menu-legal-title">Disclosures & Compliance</h2>
+      {legalSections.map((section) => (
+        <LegalDisclosure
+          key={section.id}
+          id={section.id}
+          title={section.title}
+          openLegalSection={openLegalSection}
+          setOpenLegalSection={setOpenLegalSection}
+        >
+          {section.body}
+        </LegalDisclosure>
+      ))}
     </div>
   );
 }
+
+const legalSections = [
+  {
+    id: "privacy",
+    title: "Privacy Policy Disclosures",
+    body: "Standard Log Files are processed to evaluate global browser footprints, retaining no directly identifiable data parameters."
+  },
+  {
+    id: "cookies",
+    title: "Cookie Declarations",
+    body: "We use cookies to structure navigation profiles and cache alignment variables to improve layout initialization speed."
+  },
+  {
+    id: "dart",
+    title: "Google DoubleClick DART Cookies",
+    body: "Google is an active partner displaying programmatic ads on timelines.sbs via DART cookies. Opt-outs can be processed at Google’s active Ads Network parameters."
+  },
+  {
+    id: "terms",
+    title: "Terms of Service",
+    body: "All timeline media layouts are restricted strictly to private, educational reference parameters. Re-syndication is prohibited."
+  },
+  {
+    id: "factual",
+    title: "Factual Disclaimers",
+    body: "While curation is executed under thorough research profiles, we provide no legal guarantees concerning continuous accuracy."
+  }
+] as const;
+
+type LegalSectionId = (typeof legalSections)[number]["id"];
 
 function LegalDisclosure({
   id,
@@ -400,10 +431,10 @@ function LegalDisclosure({
   setOpenLegalSection,
   children
 }: {
-  id: "privacy" | "terms";
+  id: LegalSectionId;
   title: string;
-  openLegalSection: "privacy" | "terms" | null;
-  setOpenLegalSection: (section: "privacy" | "terms" | null) => void;
+  openLegalSection: LegalSectionId | null;
+  setOpenLegalSection: (section: LegalSectionId | null) => void;
   children: string;
 }) {
   const isOpen = openLegalSection === id;
@@ -412,7 +443,7 @@ function LegalDisclosure({
     <section className="site-menu-disclosure">
       <button type="button" aria-expanded={isOpen} aria-controls={`site-menu-${id}`} onClick={() => setOpenLegalSection(isOpen ? null : id)}>
         <span>{title}</span>
-        <span aria-hidden="true">{isOpen ? "-" : "+"}</span>
+        {isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
       </button>
       {isOpen ? <p id={`site-menu-${id}`}>{children}</p> : null}
     </section>

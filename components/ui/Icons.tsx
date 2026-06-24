@@ -173,3 +173,18 @@ export function ChevronDownIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function ChevronUpIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className={className}>
+      <path
+        d="m5.8 12 4.2-4.2 4.2 4.2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </svg>
+  );
+}
