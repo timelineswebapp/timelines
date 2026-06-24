@@ -19,6 +19,18 @@ function normalizeRetrievalUrl(provider: string, canonicalUrl: string): string {
     const resource = canonicalUrl.match(/\/resource\/([^/?#]+)/)?.[1];
     if (resource) return `https://dbpedia.org/data/${resource}.json`;
   }
+  if (provider === "library_of_congress") {
+    try {
+      const parsed = new URL(canonicalUrl);
+      const hostname = parsed.hostname.toLowerCase();
+      if ((hostname === "www.loc.gov" || hostname === "loc.gov") && parsed.protocol === "http:") {
+        parsed.protocol = "https:";
+        return parsed.toString();
+      }
+    } catch {
+      return canonicalUrl;
+    }
+  }
   return canonicalUrl;
 }
 

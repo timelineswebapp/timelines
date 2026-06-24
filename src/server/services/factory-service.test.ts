@@ -614,6 +614,7 @@ describe("factory production memory foundation", () => {
     assert.match(discovery, /registerDiscoveredSource/);
     assert.match(repository, /INSERT INTO source_authority_records/);
     assert.match(repository, /ON CONFLICT \(provider, provider_record_id\)/);
+    assert.match(repository, /canonical_url = EXCLUDED\.canonical_url/);
     assert.match(repository, /INSERT INTO source_authority_snapshots/);
     assert.match(repository, /ORDER BY version DESC/);
     assert.match(repository, /getLatestSnapshot/);
@@ -957,7 +958,8 @@ describe("factory production memory foundation", () => {
 
   async function withMockedFactoryPipeline<T>(
     outputOverride: Record<string, unknown>,
-    run: (state: { artifacts: any[]; objects: any[]; verifierCalls: any[] }) => Promise<T>
+    run: (state: { artifacts: any[]; objects: any[]; verifierCalls: any[]; pipelineStatuses: string[]; stepStatuses: string[] }) => Promise<T>,
+    options: { failRetrieval?: boolean } = {}
   ): Promise<T> {
     const originals = {
       discover: sourceDiscoveryService.discover,
@@ -974,7 +976,7 @@ describe("factory production memory foundation", () => {
       createObject: factoryRepository.createObject,
       fetch: globalThis.fetch
     };
-    const state = { artifacts: [] as any[], objects: [] as any[], verifierCalls: [] as any[] };
+    const state = { artifacts: [] as any[], objects: [] as any[], verifierCalls: [] as any[], pipelineStatuses: [] as string[], stepStatuses: [] as string[] };
     let stepId = 0;
     let artifactId = 0;
     let objectId = 0;
@@ -996,7 +998,11 @@ describe("factory production memory foundation", () => {
           createdBy: "factory-test"
         }]
       });
-      (sourceRetrievalService as any).retrieve = async () => ({
+      (sourceRetrievalService as any).retrieve = async () => {
+        if (options.failRetrieval) {
+          throw new Error("Source provider URL must use HTTPS.");
+        }
+        return ({
         sourceRecord: {
           sourceRecordId: "source-record-1",
           provider: "wikidata",
@@ -1022,6 +1028,7 @@ describe("factory production memory foundation", () => {
           retrievedBy: "factory-test"
         }
       });
+      };
       (corpusGenerationService as any).generateFromSourceSnapshot = async () => ({
         corpusDocumentId: "corpus-1",
         sourceSnapshotId: "snapshot-1",
@@ -1057,9 +1064,15 @@ describe("factory production memory foundation", () => {
         createdBy: "factory-test"
       });
       (factoryRepository as any).createPipelineRun = async (input: any) => ({ pipelineRunId: "run-1", pipelineId: input.pipelineId, status: "queued", input: input.input, artifactRefs: [], factoryObjectRefs: [], packageDraftId: null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
-      (factoryRepository as any).transitionPipelineRun = async (input: any) => ({ pipelineRunId: input.pipelineRunId, pipelineId: "pipeline", status: input.status, input: {}, artifactRefs: input.artifactRefs || [], factoryObjectRefs: input.factoryObjectRefs || [], packageDraftId: input.packageDraftId || null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
+      (factoryRepository as any).transitionPipelineRun = async (input: any) => {
+        state.pipelineStatuses.push(input.status);
+        return { pipelineRunId: input.pipelineRunId, pipelineId: "pipeline", status: input.status, input: {}, artifactRefs: input.artifactRefs || [], factoryObjectRefs: input.factoryObjectRefs || [], packageDraftId: input.packageDraftId || null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor };
+      };
       (factoryRepository as any).createPipelineStep = async (input: any) => ({ pipelineStepId: `step-${++stepId}`, pipelineRunId: input.pipelineRunId, stepIndex: input.stepIndex, workerKey: input.workerKey, status: "pending", input: input.input, output: null, artifactRefs: [], factoryObjectRefs: [], startedAt: null, completedAt: null });
-      (factoryRepository as any).transitionPipelineStep = async (input: any) => ({ pipelineStepId: input.pipelineStepId, pipelineRunId: "run-1", stepIndex: 0, workerKey: "worker", status: input.status, input: {}, output: input.output || null, artifactRefs: input.artifactRefs || [], factoryObjectRefs: input.factoryObjectRefs || [], startedAt: null, completedAt: null });
+      (factoryRepository as any).transitionPipelineStep = async (input: any) => {
+        state.stepStatuses.push(input.status);
+        return { pipelineStepId: input.pipelineStepId, pipelineRunId: "run-1", stepIndex: 0, workerKey: "worker", status: input.status, input: {}, output: input.output || null, artifactRefs: input.artifactRefs || [], factoryObjectRefs: input.factoryObjectRefs || [], startedAt: null, completedAt: null };
+      };
       (factoryRepository as any).createRuntimeAuditRecord = async () => ({});
       (factoryRepository as any).createArtifact = async (input: any) => {
         const artifact = { artifactId: `artifact-${++artifactId}`, factoryObjectId: null, artifactType: input.artifactType, title: input.title, payload: input.payload, authoritySafe: input.authoritySafe, modelProvider: input.modelProvider || null, modelName: input.modelName || null, createdBy: input.actor };
@@ -1147,6 +1160,22 @@ describe("factory production memory foundation", () => {
       })),
       /not present in Source Authority/
     );
+  });
+
+  it("marks authority orchestration failures as failed pipeline and step states", async () => {
+    await withMockedFactoryPipeline({}, async (state) => {
+      await assert.rejects(
+        factoryService.startPipeline({
+          pipelineId: "historical_research_pipeline",
+          input: { subject: "Telephone" },
+          actor: "factory-test",
+          reason: "Fail authority retrieval."
+        }),
+        /Source provider URL must use HTTPS/
+      );
+      assert.deepEqual(state.pipelineStatuses, ["running", "failed"]);
+      assert.deepEqual(state.stepStatuses, ["running", "failed"]);
+    }, { failRetrieval: true });
   });
 
   it("gates historical extraction on passed validated evidence", async () => {

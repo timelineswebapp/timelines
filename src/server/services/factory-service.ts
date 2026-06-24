@@ -748,40 +748,65 @@ export const factoryService = {
       await factoryRepository.transitionPipelineStep({ pipelineStepId: step.pipelineStepId, status: "running" });
 
       if (deterministicResearchSteps.has(workerKey)) {
-        validatedEvidenceContext ||= await buildValidatedEvidenceContext(input);
-        const stepOutput = {
-          ...pipelineStepOutput({
-            pipelineId: pipeline.pipelineId,
+        try {
+          validatedEvidenceContext ||= await buildValidatedEvidenceContext(input);
+          const stepOutput = {
+            ...pipelineStepOutput({
+              pipelineId: pipeline.pipelineId,
+              pipelineRunId: run.pipelineRunId,
+              workerKey,
+              stepIndex,
+              previousArtifactRefs: artifactRefs,
+              previousFactoryObjectRefs: factoryObjectRefs
+            }),
+            generated: deterministicStepOutput(workerKey, validatedEvidenceContext)
+          };
+          const artifact = await factoryRepository.createArtifact({
+            artifactType: "evidence",
+            title: `${workerKey} output`,
+            payload: stepOutput,
+            authoritySafe: false,
+            actor: input.actor
+          });
+          artifactRefs.push(artifact.artifactId);
+          const completedStep = await factoryRepository.transitionPipelineStep({
+            pipelineStepId: step.pipelineStepId,
+            status: "completed",
+            output: stepOutput,
+            artifactRefs: [...artifactRefs],
+            factoryObjectRefs: [...factoryObjectRefs]
+          });
+          await factoryRepository.createRuntimeAuditRecord({
+            targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
+            action: "complete_pipeline_step",
+            actor: input.actor,
+            reason: input.reason,
+            afterState: completedStep as unknown as Record<string, unknown>
+          });
+        } catch (error) {
+          const failure = classifyRuntimeFailure(error);
+          const failedStep = await factoryRepository.transitionPipelineStep({
+            pipelineStepId: step.pipelineStepId,
+            status: "failed",
+            output: failure
+          });
+          await factoryRepository.transitionPipelineRun({
             pipelineRunId: run.pipelineRunId,
-            workerKey,
-            stepIndex,
-            previousArtifactRefs: artifactRefs,
-            previousFactoryObjectRefs: factoryObjectRefs
-          }),
-          generated: deterministicStepOutput(workerKey, validatedEvidenceContext)
-        };
-        const artifact = await factoryRepository.createArtifact({
-          artifactType: "evidence",
-          title: `${workerKey} output`,
-          payload: stepOutput,
-          authoritySafe: false,
-          actor: input.actor
-        });
-        artifactRefs.push(artifact.artifactId);
-        const completedStep = await factoryRepository.transitionPipelineStep({
-          pipelineStepId: step.pipelineStepId,
-          status: "completed",
-          output: stepOutput,
-          artifactRefs: [...artifactRefs],
-          factoryObjectRefs: [...factoryObjectRefs]
-        });
-        await factoryRepository.createRuntimeAuditRecord({
-          targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
-          action: "complete_pipeline_step",
-          actor: input.actor,
-          reason: input.reason,
-          afterState: completedStep as unknown as Record<string, unknown>
-        });
+            status: "failed",
+            actor: input.actor,
+            artifactRefs,
+            factoryObjectRefs,
+            packageDraftId
+          });
+          await factoryRepository.createRuntimeAuditRecord({
+            targetRef: { authorityType: "factory_runtime_execution", authorityId: failedStep.pipelineStepId },
+            action: "fail_pipeline_step",
+            actor: input.actor,
+            reason: input.reason,
+            afterState: failedStep as unknown as Record<string, unknown>
+          });
+          throw error;
+        }
         continue;
       }
 

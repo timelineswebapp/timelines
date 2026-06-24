@@ -65,7 +65,9 @@ export const sourceAuthorityRepository = {
         ${input.actor}
       )
       ON CONFLICT (provider, provider_record_id) DO UPDATE
-      SET provenance = source_authority_records.provenance || EXCLUDED.provenance
+      SET canonical_url = EXCLUDED.canonical_url,
+          origin = EXCLUDED.origin,
+          provenance = source_authority_records.provenance || EXCLUDED.provenance
       RETURNING
         id::text AS "sourceRecordId",
         provider,

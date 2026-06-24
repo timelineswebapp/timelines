@@ -112,6 +112,25 @@ function dbpediaDataUrl(resource: string): string {
   return `https://dbpedia.org/data/${encodeURIComponent(name)}.json`;
 }
 
+function normalizeLibraryOfCongressUrl(rawUrl: string | null): string | null {
+  if (!rawUrl) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname !== "www.loc.gov" && hostname !== "loc.gov") {
+    return null;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return null;
+  }
+  parsed.protocol = "https:";
+  return parsed.toString();
+}
+
 async function discoverWikidata(query: string, limit: number): Promise<SourceDiscoveryResult[]> {
   const url = new URL("https://www.wikidata.org/w/api.php");
   url.searchParams.set("action", "wbsearchentities");
@@ -190,7 +209,10 @@ async function discoverLibraryOfCongress(query: string, limit: number): Promise<
   url.searchParams.set("c", String(limit));
   const payload = await fetchJson(url.toString()) as { results?: Array<Record<string, unknown>> };
   return (payload.results || []).map((item) => {
-    const link = text(item.id) || text(item.url) || "https://www.loc.gov/";
+    const link = normalizeLibraryOfCongressUrl(text(item.url)) || normalizeLibraryOfCongressUrl(text(item.id));
+    if (!link) {
+      throw new Error("Library of Congress discovery returned a non-normalizable source URL.");
+    }
     return {
       provider: "library_of_congress",
       providerRecordId: link,

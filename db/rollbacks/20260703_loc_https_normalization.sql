@@ -1,0 +1,2 @@
+-- Irreversible safety migration.
+-- Library of Congress Source Authority URLs must remain HTTPS-only.
