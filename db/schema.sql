@@ -683,6 +683,7 @@ CREATE TABLE IF NOT EXISTS factory_package_drafts (
   ),
   factory_object_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
   artifact_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  validated_evidence_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
   risk_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
   lifecycle TEXT NOT NULL DEFAULT 'draft' CHECK (
     lifecycle IN (
@@ -714,6 +715,7 @@ CREATE TABLE IF NOT EXISTS factory_package_versions (
   supersedes_version_id UUID REFERENCES factory_package_versions(id) ON DELETE RESTRICT,
   package_snapshot JSONB NOT NULL,
   snapshot_hash TEXT NOT NULL,
+  validated_evidence_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
   lifecycle TEXT NOT NULL DEFAULT 'draft' CHECK (
     lifecycle IN ('draft', 'submitted_to_governance', 'returned_for_revision', 'superseded', 'preserved')
   ),

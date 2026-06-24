@@ -1,3 +1,5 @@
+import type { EvidenceRef } from "@/src/server/governance/contracts";
+
 export type FactoryObjectType =
   | "candidate_historical_object"
   | "candidate_milestone"
@@ -435,6 +437,7 @@ export type FactoryPackageDraft = {
   packageType: FactoryPackageType;
   factoryObjectRefs: string[];
   artifactRefs: string[];
+  validatedEvidenceRefs: EvidenceRef[];
   riskSummary: FactoryPackageRiskSummary;
   lifecycle: FactoryPackageDraftLifecycle;
   lineageRootId: string | null;
@@ -453,6 +456,7 @@ export type FactoryPackageVersion = {
   supersedesVersionId: string | null;
   packageSnapshot: Record<string, unknown>;
   snapshotHash: string;
+  validatedEvidenceRefs: EvidenceRef[];
   lifecycle: FactoryPackageVersionLifecycle;
   governancePublicationPackageId: string | null;
   feedbackPackageRefs: string[];

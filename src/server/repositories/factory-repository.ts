@@ -42,7 +42,7 @@ import type {
   FactoryRevisionPlan,
   FactoryRevisionPlanLifecycle
 } from "@/src/server/factory/contracts";
-import type { GovernanceActorRef } from "@/src/server/governance/contracts";
+import type { EvidenceRef, GovernanceActorRef } from "@/src/server/governance/contracts";
 
 export type CreateFactoryObjectInput = {
   objectType: FactoryObjectType;
@@ -69,6 +69,7 @@ export type CreateFactoryPackageDraftInput = {
   packageType: FactoryPackageType;
   factoryObjectRefs: string[];
   artifactRefs: string[];
+  validatedEvidenceRefs?: EvidenceRef[];
   riskSummary: FactoryPackageRiskSummary;
   supersedesPackageId?: string | null;
   actor: string;
@@ -1564,6 +1565,7 @@ export const factoryRepository = {
         package_type,
         factory_object_refs,
         artifact_refs,
+        validated_evidence_refs,
         risk_summary,
         lineage_root_id,
         supersedes_package_id,
@@ -1577,6 +1579,7 @@ export const factoryRepository = {
         ${input.packageType},
         ${sql.json(input.factoryObjectRefs as any)},
         ${sql.json(input.artifactRefs as any)},
+        ${sql.json((input.validatedEvidenceRefs || []) as any)},
         ${sql.json(input.riskSummary as any)},
         ${lineageRootId === packageDraftId ? null : lineageRootId},
         ${input.supersedesPackageId || null},
@@ -1590,6 +1593,7 @@ export const factoryRepository = {
         package_type AS "packageType",
         factory_object_refs AS "factoryObjectRefs",
         artifact_refs AS "artifactRefs",
+        validated_evidence_refs AS "validatedEvidenceRefs",
         risk_summary AS "riskSummary",
         lifecycle,
         COALESCE(lineage_root_id, id)::text AS "lineageRootId",
@@ -1612,6 +1616,7 @@ export const factoryRepository = {
         package_type AS "packageType",
         factory_object_refs AS "factoryObjectRefs",
         artifact_refs AS "artifactRefs",
+        validated_evidence_refs AS "validatedEvidenceRefs",
         risk_summary AS "riskSummary",
         lifecycle,
         COALESCE(lineage_root_id, id)::text AS "lineageRootId",
@@ -1640,6 +1645,7 @@ export const factoryRepository = {
         package_type AS "packageType",
         factory_object_refs AS "factoryObjectRefs",
         artifact_refs AS "artifactRefs",
+        validated_evidence_refs AS "validatedEvidenceRefs",
         risk_summary AS "riskSummary",
         lifecycle,
         COALESCE(lineage_root_id, id)::text AS "lineageRootId",
@@ -1666,6 +1672,7 @@ export const factoryRepository = {
         supersedes_version_id::text AS "supersedesVersionId",
         package_snapshot AS "packageSnapshot",
         snapshot_hash AS "snapshotHash",
+        validated_evidence_refs AS "validatedEvidenceRefs",
         lifecycle,
         governance_publication_package_id::text AS "governancePublicationPackageId",
         feedback_package_refs AS "feedbackPackageRefs",
@@ -1694,6 +1701,7 @@ export const factoryRepository = {
         supersedes_version_id::text AS "supersedesVersionId",
         package_snapshot AS "packageSnapshot",
         snapshot_hash AS "snapshotHash",
+        validated_evidence_refs AS "validatedEvidenceRefs",
         lifecycle,
         governance_publication_package_id::text AS "governancePublicationPackageId",
         feedback_package_refs AS "feedbackPackageRefs",
@@ -1725,6 +1733,7 @@ export const factoryRepository = {
         supersedes_version_id,
         package_snapshot,
         snapshot_hash,
+        validated_evidence_refs,
         feedback_package_refs,
         revision_plan_id,
         source_feedback_package_id,
@@ -1739,6 +1748,7 @@ export const factoryRepository = {
         ${input.supersedesVersionId || latest?.packageVersionId || null},
         ${sql.json(input.packageSnapshot as any)},
         ${snapshotHash},
+        ${sql.json(input.draft.validatedEvidenceRefs as any)},
         ${sql.json((input.feedbackPackageRefs || []) as any)},
         ${input.revisionPlanId || null},
         ${input.sourceFeedbackPackageId || null},
@@ -1754,6 +1764,7 @@ export const factoryRepository = {
         supersedes_version_id::text AS "supersedesVersionId",
         package_snapshot AS "packageSnapshot",
         snapshot_hash AS "snapshotHash",
+        validated_evidence_refs AS "validatedEvidenceRefs",
         lifecycle,
         governance_publication_package_id::text AS "governancePublicationPackageId",
         feedback_package_refs AS "feedbackPackageRefs",
@@ -1784,6 +1795,7 @@ export const factoryRepository = {
         supersedes_version_id::text AS "supersedesVersionId",
         package_snapshot AS "packageSnapshot",
         snapshot_hash AS "snapshotHash",
+        validated_evidence_refs AS "validatedEvidenceRefs",
         lifecycle,
         governance_publication_package_id::text AS "governancePublicationPackageId",
         feedback_package_refs AS "feedbackPackageRefs",

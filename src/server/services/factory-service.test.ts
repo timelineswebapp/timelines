@@ -7,7 +7,8 @@ import {
   assertFactoryCannotApprovePackage,
   assertFactoryCannotCertifyReadiness,
   assertFactoryCannotPublish,
-  assertFactoryCannotRejectPackage
+  assertFactoryCannotRejectPackage,
+  buildGovernancePublicationPackage
 } from "@/src/server/services/factory-service";
 import { validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
 import { resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
@@ -181,6 +182,65 @@ describe("factory production memory foundation", () => {
     assert.match(route, /factoryGovernanceSubmissionSchema\.parse/);
     assert.doesNotMatch(repository, /historical_library_admissions|historical_library_published_snapshots|governance_publication_packages\s*\(/);
     assert.doesNotMatch(service, /certifyReadiness\(input|approveDecision|rejectDecision|admitPublicationPackage/);
+  });
+
+  it("assembles Governance packages with passed validated evidence and supplemental Factory validation", () => {
+    const validatedEvidenceRef = {
+      evidenceId: "validated-evidence-1",
+      evidenceType: "validated_evidence" as const,
+      evidenceRecordId: "123e4567-e89b-12d3-a456-426614174001",
+      validationRecordId: "123e4567-e89b-12d3-a456-426614174002",
+      authoritySafe: true
+    };
+    const draft = {
+      packageDraftId: "123e4567-e89b-12d3-a456-426614174010",
+      title: "Validated package",
+      description: "Package with source-grounded evidence.",
+      packageType: "mixed_authority_publication" as const,
+      factoryObjectRefs: ["123e4567-e89b-12d3-a456-426614174011"],
+      artifactRefs: ["123e4567-e89b-12d3-a456-426614174012"],
+      validatedEvidenceRefs: [validatedEvidenceRef],
+      riskSummary: {
+        unresolvedAuthorityRisks: [],
+        validationWarnings: [],
+        publicationBlockers: []
+      },
+      lifecycle: "ready_for_governance" as const,
+      lineageRootId: "123e4567-e89b-12d3-a456-426614174010",
+      supersedesPackageId: null,
+      createdBy: "factory-editor",
+      updatedBy: "factory-editor"
+    };
+    const version = {
+      packageVersionId: "123e4567-e89b-12d3-a456-426614174020",
+      draftId: draft.packageDraftId,
+      lineageRootId: draft.lineageRootId,
+      version: 1,
+      supersedesVersionId: null,
+      packageSnapshot: {},
+      snapshotHash: "sha256",
+      validatedEvidenceRefs: [validatedEvidenceRef],
+      lifecycle: "draft" as const,
+      governancePublicationPackageId: null,
+      feedbackPackageRefs: [],
+      revisionPlanId: null,
+      sourceFeedbackPackageId: null,
+      resubmissionAuditRecordId: null,
+      createdBy: "factory-editor"
+    };
+
+    const publicationPackage = buildGovernancePublicationPackage(
+      version,
+      draft,
+      { actorId: "factory-editor", role: "factory_editor", institutionId: "timelines-governance" },
+      "123e4567-e89b-12d3-a456-426614174030"
+    );
+
+    assert.equal(publicationPackage.validationArtifacts[0], validatedEvidenceRef);
+    const factoryValidationRef = publicationPackage.validationArtifacts[1];
+    assert.ok(factoryValidationRef);
+    assert.equal(factoryValidationRef.evidenceType, "factory_validation");
+    assert.equal(factoryValidationRef.authoritySafe, true);
   });
 
   it("defines Factory Intelligence runtime schema with workers, prompts, jobs, executions, and audit preservation", () => {

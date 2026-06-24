@@ -689,6 +689,12 @@ export const factoryPackageDraftSchema = z.object({
   packageType: z.enum(["historical_object_publication", "participation_publication", "timeline_context_publication", "mixed_authority_publication"]),
   factoryObjectRefs: z.array(z.string().trim().uuid()).min(1).max(100),
   artifactRefs: z.array(z.string().trim().uuid()).max(100).default([]),
+  validatedEvidenceRefs: z.array(
+    evidenceRefSchema.extend({
+      evidenceType: z.literal("validated_evidence"),
+      authoritySafe: z.literal(true)
+    })
+  ).max(100).default([]),
   riskSummary: factoryPackageRiskSummarySchema.default({
     unresolvedAuthorityRisks: [],
     validationWarnings: [],

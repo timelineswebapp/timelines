@@ -191,6 +191,45 @@ describe("governance contracts implementation", () => {
     );
   });
 
+  it("rejects PublicationPackage creation when Factory validation is the only evidence", async () => {
+    await assert.rejects(
+      () =>
+        governanceService.createPublicationPackage({
+          packageId: validUuid,
+          scope: { packageType: "mixed_authority_publication", description: "Factory handoff package." },
+          includedAuthority: [{ authorityType: "publication_package", authorityId: validUuid }],
+          validationArtifacts: [{ evidenceId: "factory-artifact-1", evidenceType: "factory_validation", authoritySafe: true }],
+          decisionRefs: [],
+          riskSummary: {
+            unresolvedAuthorityRisks: [],
+            disputeRefs: [],
+            validationWarnings: [],
+            publicationBlockers: []
+          },
+          lifecycle: "factory_ready"
+        }),
+      (error: unknown) => error instanceof ApiError && error.code === "VALIDATED_EVIDENCE_REQUIRED"
+    );
+  });
+
+  it("keeps Factory validation supplemental to required validated evidence in PublicationPackages", () => {
+    const factoryService = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const factoryRepository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
+    const factoryContracts = readFileSync("src/server/factory/contracts.ts", "utf8");
+    const schema = readFileSync("db/schema.sql", "utf8");
+    const migration = readFileSync("db/migrations/20260624_validated_evidence_bridge.sql", "utf8");
+
+    assert.match(factoryContracts, /validatedEvidenceRefs: EvidenceRef\[\]/);
+    assert.match(schema, /validated_evidence_refs JSONB NOT NULL DEFAULT '\[\]'::jsonb/);
+    assert.match(migration, /ALTER TABLE factory_package_drafts/);
+    assert.match(migration, /ALTER TABLE factory_package_versions/);
+    assert.match(factoryRepository, /validated_evidence_refs AS "validatedEvidenceRefs"/);
+    assert.match(factoryRepository, /validated_evidence_refs,/);
+    assert.match(factoryService, /const validatedEvidenceRefs = packageVersion\.validatedEvidenceRefs\.length > 0/);
+    assert.match(factoryService, /validationArtifacts: \[\.\.\.validatedEvidenceRefs, \.\.\.factoryValidationRefs\]/);
+    assert.doesNotMatch(factoryService, /evidenceType: "validated_evidence" as const,\s*authoritySafe: true\s*\}\)\)/);
+  });
+
   it("requires audit reconstruction decision and transition chains", () => {
     assert.throws(
       () =>

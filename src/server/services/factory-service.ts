@@ -28,7 +28,7 @@ import {
   canonicalFactoryWorkers,
   getCanonicalFactoryWorker
 } from "@/src/server/factory/worker-registry";
-import type { GovernanceActorRef, PublicationPackage } from "@/src/server/governance/contracts";
+import type { EvidenceRef, GovernanceActorRef, PublicationPackage } from "@/src/server/governance/contracts";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { governanceRepository } from "@/src/server/repositories/governance-repository";
 import { governanceService } from "@/src/server/services/governance-service";
@@ -1451,6 +1451,7 @@ ${prompt.template}`, current.input, prompt.outputSchema || contract.output_schem
         packageType: draft.packageType,
         factoryObjectRefs: draft.factoryObjectRefs,
         artifactRefs: draft.artifactRefs,
+        validatedEvidenceRefs: draft.validatedEvidenceRefs,
         riskSummary: draft.riskSummary,
         lineageRootId: draft.lineageRootId || draft.packageDraftId,
         supersedesPackageId: draft.supersedesPackageId
@@ -1660,6 +1661,7 @@ ${prompt.template}`, current.input, prompt.outputSchema || contract.output_schem
       packageType: sourceDraft.packageType,
       factoryObjectRefs: Array.from(new Set([...sourceDraft.factoryObjectRefs, ...plan.affectedFactoryObjectIds])),
       artifactRefs: sourceDraft.artifactRefs,
+      validatedEvidenceRefs: sourceDraft.validatedEvidenceRefs,
       riskSummary: {
         unresolvedAuthorityRisks: [],
         validationWarnings: [`Prepared from revision plan ${plan.revisionPlanId}.`],
@@ -1775,6 +1777,7 @@ ${prompt.template}`, current.input, prompt.outputSchema || contract.output_schem
         packageType: resubmissionDraft.packageType,
         factoryObjectRefs: resubmissionDraft.factoryObjectRefs,
         artifactRefs: resubmissionDraft.artifactRefs,
+        validatedEvidenceRefs: resubmissionDraft.validatedEvidenceRefs,
         riskSummary: resubmissionDraft.riskSummary,
         lineageRootId: resubmissionDraft.lineageRootId,
         supersedesPackageId: resubmissionDraft.supersedesPackageId,
@@ -1835,12 +1838,21 @@ ${prompt.template}`, current.input, prompt.outputSchema || contract.output_schem
   publish: assertFactoryCannotPublish
 };
 
-function buildGovernancePublicationPackage(
+export function buildGovernancePublicationPackage(
   packageVersion: FactoryPackageVersion,
   draft: FactoryPackageDraft,
   actor: GovernanceActorRef,
   auditRecordId: string
 ): PublicationPackage {
+  const factoryValidationRefs: EvidenceRef[] = draft.artifactRefs.map((artifactId) => ({
+    evidenceId: artifactId,
+    evidenceType: "factory_validation" as const,
+    authoritySafe: true
+  }));
+  const validatedEvidenceRefs = packageVersion.validatedEvidenceRefs.length > 0
+    ? packageVersion.validatedEvidenceRefs
+    : draft.validatedEvidenceRefs;
+
   return {
     packageId: randomUUID(),
     scope: {
@@ -1853,11 +1865,7 @@ function buildGovernancePublicationPackage(
         authorityId: packageVersion.packageVersionId
       }
     ],
-    validationArtifacts: draft.artifactRefs.map((artifactId) => ({
-      evidenceId: artifactId,
-      evidenceType: "factory_validation" as const,
-      authoritySafe: true
-    })),
+    validationArtifacts: [...validatedEvidenceRefs, ...factoryValidationRefs],
     decisionRefs: [],
     riskSummary: {
       unresolvedAuthorityRisks: draft.riskSummary.unresolvedAuthorityRisks,
