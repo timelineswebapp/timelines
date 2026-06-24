@@ -39,6 +39,7 @@ export const timelineOrderingModeSchema = z.enum(["chronology", "editorial"]);
 export const importFormatSchema = z.enum(["csv", "json", "text"]);
 export const importTypeSchema = z.enum(["timeline_with_events", "events_into_existing_timeline"]);
 export const requestStatusSchema = z.enum(["pending", "reviewed", "planned", "rejected", "completed"]);
+export const timelineRequestTypeSchema = z.enum(["timeline_request", "general_contact", "timeline_proposal", "timeline_correction"]);
 export const adSlotSchema = z.enum([
   "home_feed_ad",
   "timeline_inline_1",
@@ -135,10 +136,52 @@ export const timelineSchema = z.object({
   orderingMode: timelineOrderingModeSchema.default("chronology")
 });
 
-export const timelineRequestSchema = z.object({
-  query: trimmedString(3, 120),
-  language: z.string().trim().min(2).max(20).default("en")
-});
+const requestLanguageSchema = z.string().trim().min(2).max(20).default("en");
+const requestEmailSchema = z.string().trim().email().max(254);
+const requestMetadataSchema = z.record(z.unknown()).default({});
+
+const timelineRequestPayloadSchema = z.discriminatedUnion("requestType", [
+  z.object({
+    requestType: z.literal("timeline_request"),
+    query: trimmedString(3, 120),
+    language: requestLanguageSchema,
+    metadata: requestMetadataSchema
+  }),
+  z.object({
+    requestType: z.literal("general_contact"),
+    query: trimmedString(3, 160).default("General contact"),
+    language: requestLanguageSchema,
+    email: requestEmailSchema,
+    message: trimmedString(3, 5000),
+    metadata: requestMetadataSchema
+  }),
+  z.object({
+    requestType: z.literal("timeline_proposal"),
+    query: trimmedString(3, 240),
+    language: requestLanguageSchema,
+    email: requestEmailSchema,
+    message: trimmedString(3, 5000),
+    sourcesScope: trimmedString(3, 5000),
+    metadata: requestMetadataSchema
+  }),
+  z.object({
+    requestType: z.literal("timeline_correction"),
+    query: trimmedString(3, 240),
+    language: requestLanguageSchema,
+    email: requestEmailSchema,
+    targetTimeline: trimmedString(3, 500),
+    message: trimmedString(3, 5000),
+    metadata: requestMetadataSchema
+  })
+]);
+
+export const timelineRequestSchema = z.preprocess((value) => {
+  if (value && typeof value === "object" && !("requestType" in value)) {
+    return { ...(value as Record<string, unknown>), requestType: "timeline_request" };
+  }
+
+  return value;
+}, timelineRequestPayloadSchema);
 
 export const requestStatusUpdateSchema = z.object({
   id: z.coerce.number().int().positive(),

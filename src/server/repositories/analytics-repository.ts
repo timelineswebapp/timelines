@@ -1,4 +1,4 @@
-import type { AdminAnalyticsReport, AnalyticsSnapshot, DashboardOverview, TimelineRequestStatus } from "@/src/lib/types";
+import type { AdminAnalyticsReport, AnalyticsSnapshot, DashboardOverview, TimelineRequestStatus, TimelineRequestType } from "@/src/lib/types";
 import { config } from "@/src/lib/config";
 import { getSql } from "@/src/server/db/client";
 import { getSampleDashboardOverview } from "@/src/server/dev/sample-data";
@@ -46,10 +46,29 @@ export const analyticsRepository = {
         normalized_query: string;
         ip_hash: string;
         language: string;
+        request_type: TimelineRequestType;
+        email: string | null;
+        message: string | null;
+        target_timeline: string | null;
+        sources_scope: string | null;
+        metadata: Record<string, unknown>;
         status: TimelineRequestStatus;
         created_at: string;
       }[]>`
-        SELECT id, query, normalized_query, ip_hash, language, status, created_at::text
+        SELECT
+          id,
+          query,
+          normalized_query,
+          ip_hash,
+          language,
+          request_type,
+          email,
+          message,
+          target_timeline,
+          sources_scope,
+          metadata,
+          status,
+          created_at::text
         FROM timeline_requests
         ORDER BY created_at DESC
         LIMIT 8
@@ -71,6 +90,12 @@ export const analyticsRepository = {
         normalizedQuery: row.normalized_query,
         ipHash: row.ip_hash,
         language: row.language,
+        requestType: row.request_type,
+        email: row.email,
+        message: row.message,
+        targetTimeline: row.target_timeline,
+        sourcesScope: row.sources_scope,
+        metadata: row.metadata,
         status: row.status,
         createdAt: row.created_at
       }))

@@ -146,6 +146,12 @@ CREATE TABLE IF NOT EXISTS timeline_requests (
   normalized_query TEXT NOT NULL,
   ip_hash TEXT NOT NULL,
   language TEXT NOT NULL,
+  request_type TEXT NOT NULL CHECK (request_type IN ('timeline_request', 'general_contact', 'timeline_proposal', 'timeline_correction')) DEFAULT 'timeline_request',
+  email TEXT,
+  message TEXT,
+  target_timeline TEXT,
+  sources_scope TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   status TEXT NOT NULL CHECK (status IN ('pending', 'reviewed', 'planned', 'rejected', 'completed')) DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1087,6 +1093,7 @@ CREATE INDEX IF NOT EXISTS idx_events_search_vector ON events USING GIN(search_v
 CREATE INDEX IF NOT EXISTS idx_timeline_events_order ON timeline_events(timeline_id, event_order);
 CREATE INDEX IF NOT EXISTS idx_tags_slug ON tags(slug);
 CREATE INDEX IF NOT EXISTS idx_timeline_requests_hash_date ON timeline_requests(ip_hash, created_at);
+CREATE INDEX IF NOT EXISTS idx_timeline_requests_type_date ON timeline_requests(request_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_timeline_slug_history_timeline_id ON timeline_slug_history(timeline_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_type_date ON analytics_events(event_type, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_events_timeline_type_date ON analytics_events(timeline_id, event_type, created_at DESC);

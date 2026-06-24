@@ -1,10 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import { SiteNavigationMenu } from "@/components/layout/SiteNavigationMenu";
 import { TIMELINES_LOGO_PUBLIC_PATH } from "@/src/lib/brand";
 
 export function SiteHeader() {
   return (
     <header className="site-header">
+      <SiteNavigationMenu />
       <div className="site-header-row">
         <Link href="/" className="site-logo" aria-label="TiMELiNES home">
           <Image

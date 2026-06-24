@@ -404,9 +404,17 @@ export interface TimelineRequestRecord {
   normalizedQuery: string;
   ipHash: string;
   language: string;
+  requestType: TimelineRequestType;
+  email: string | null;
+  message: string | null;
+  targetTimeline: string | null;
+  sourcesScope: string | null;
+  metadata: Record<string, unknown>;
   status: TimelineRequestStatus;
   createdAt: string;
 }
+
+export type TimelineRequestType = "timeline_request" | "general_contact" | "timeline_proposal" | "timeline_correction";
 
 export interface DashboardOverview {
   totals: {

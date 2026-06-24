@@ -235,6 +235,12 @@ export const sampleRequests: TimelineRequestRecord[] = [
     normalizedQuery: "history of biotechnology",
     ipHash: "sample",
     language: "en",
+    requestType: "timeline_request",
+    email: null,
+    message: null,
+    targetTimeline: null,
+    sourcesScope: null,
+    metadata: {},
     status: "pending",
     createdAt: "2026-03-08T10:00:00.000Z"
   },
@@ -244,6 +250,12 @@ export const sampleRequests: TimelineRequestRecord[] = [
     normalizedQuery: "timeline of renewable energy policy",
     ipHash: "sample",
     language: "en",
+    requestType: "timeline_request",
+    email: null,
+    message: null,
+    targetTimeline: null,
+    sourcesScope: null,
+    metadata: {},
     status: "planned",
     createdAt: "2026-03-07T09:00:00.000Z"
   }
