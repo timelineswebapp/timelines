@@ -8,10 +8,45 @@ import {
   assertFactoryCannotCertifyReadiness,
   assertFactoryCannotPublish,
   assertFactoryCannotRejectPackage,
-  buildGovernancePublicationPackage
+  buildGovernancePublicationPackage,
+  factoryService,
+  setFactoryPipelineEvidenceVerifierForTests
 } from "@/src/server/services/factory-service";
 import { validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
 import { resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
+import { factoryRepository } from "@/src/server/repositories/factory-repository";
+import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
+import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
+import { corpusGenerationService } from "@/src/server/services/corpus-generation-service";
+import { evidenceExtractionService } from "@/src/server/services/evidence-extraction-service";
+import { evidenceValidationService } from "@/src/server/services/evidence-validation-service";
+
+function factoryOutputForPrompt(prompt: string, override: Record<string, unknown> = {}) {
+  const source = { sourceId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" };
+  const evidence = { claim: "The telephone evidence is source-grounded.", citations: [source] };
+  const candidateBase = { title: "Telephone Source", objectType: "candidate_source", payload: { sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: source.url, publisher: "Wikidata", credibility: "authoritative", citationNote: "Retrieved Source Authority snapshot.", evidenceSourceRefs: ["evidence-1"] }, evidence: [evidence], sources: [source] };
+  let candidate: any = candidateBase;
+  if (prompt.includes("object_extraction_worker")) {
+    candidate = { ...candidateBase, title: "Telephone", objectType: "candidate_historical_object", payload: { name: "Telephone", type: "technology", summary: "A communications technology.", sourceRefs: ["evidence-1"] } };
+  } else if (prompt.includes("milestone_extraction_worker")) {
+    candidate = { ...candidateBase, title: "Telephone milestone", objectType: "candidate_milestone", payload: { title: "Telephone milestone", date: "1876", datePrecision: "year", summary: "A milestone.", sourceRefs: ["evidence-1"] } };
+  } else if (prompt.includes("participation_extraction_worker")) {
+    candidate = { ...candidateBase, title: "Telephone participation", objectType: "candidate_participation", payload: { historicalObjectRef: "telephone", milestoneRef: "milestone", role: "subject", summary: "Participation.", sourceRefs: ["evidence-1"] } };
+  } else if (prompt.includes("relationship_extraction_worker")) {
+    candidate = { ...candidateBase, title: "Telephone relationship", objectType: "candidate_relationship", payload: { sourceAuthorityRef: "telephone", targetAuthorityRef: "telegraph", relationshipType: "related_to", summary: "Relationship.", sourceRefs: ["evidence-1"] } };
+  } else if (prompt.includes("context_enrichment_worker")) {
+    candidate = { ...candidateBase, title: "Telephone context", objectType: "candidate_context_record", payload: { contextType: "summary", summary: "Context.", chronologyScope: "telephone", relatedCandidateRefs: ["telephone"], sourceRefs: ["evidence-1"] } };
+  }
+  return {
+    summary: "Factory output grounded in validated evidence.",
+    confidence: 0.9,
+    boundary: { factoryOwned: true, publicationAllowed: false, governanceSubmissionAllowed: false },
+    sources: [source],
+    evidence: [evidence],
+    candidates: [candidate],
+    ...override
+  };
+}
 
 describe("factory production memory foundation", () => {
   it("defines Factory-owned Production Memory schema with preservation and immutability", () => {
@@ -840,8 +875,11 @@ describe("factory production memory foundation", () => {
 
     assert.match(registry, /historical_research_pipeline/);
     assert.match(registry, /research_worker/);
-    assert.match(registry, /source_discovery_worker/);
-    assert.match(registry, /source_validation_worker/);
+    assert.match(registry, /source_authority_discovery/);
+    assert.match(registry, /source_authority_retrieval/);
+    assert.match(registry, /research_corpus_generation/);
+    assert.match(registry, /evidence_extraction/);
+    assert.match(registry, /evidence_validation/);
     assert.match(registry, /historical_extraction_pipeline/);
     assert.match(registry, /object_extraction_worker/);
     assert.match(registry, /milestone_extraction_worker/);
@@ -915,6 +953,232 @@ describe("factory production memory foundation", () => {
       assert.match(route, /adminService\./);
       assert.doesNotMatch(route, /factoryRepository|governanceRepository|historicalLibraryRepository|getWriteSql/);
     }
+  });
+
+  async function withMockedFactoryPipeline<T>(
+    outputOverride: Record<string, unknown>,
+    run: (state: { artifacts: any[]; objects: any[]; verifierCalls: any[] }) => Promise<T>
+  ): Promise<T> {
+    const originals = {
+      discover: sourceDiscoveryService.discover,
+      retrieve: sourceRetrievalService.retrieve,
+      corpus: corpusGenerationService.generateFromSourceSnapshot,
+      extract: evidenceExtractionService.extractFromCorpusDocument,
+      validate: evidenceValidationService.validateEvidence,
+      createPipelineRun: factoryRepository.createPipelineRun,
+      transitionPipelineRun: factoryRepository.transitionPipelineRun,
+      createPipelineStep: factoryRepository.createPipelineStep,
+      transitionPipelineStep: factoryRepository.transitionPipelineStep,
+      createRuntimeAuditRecord: factoryRepository.createRuntimeAuditRecord,
+      createArtifact: factoryRepository.createArtifact,
+      createObject: factoryRepository.createObject,
+      fetch: globalThis.fetch
+    };
+    const state = { artifacts: [] as any[], objects: [] as any[], verifierCalls: [] as any[] };
+    let stepId = 0;
+    let artifactId = 0;
+    let objectId = 0;
+    try {
+      (sourceDiscoveryService as any).discover = async () => ({
+        query: "Telephone",
+        providers: ["wikidata"],
+        discovered: [],
+        records: [{
+          sourceRecordId: "source-record-1",
+          provider: "wikidata",
+          providerRecordId: "Q11035",
+          canonicalUrl: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json",
+          title: "Authoritative Telephone Evidence",
+          description: "Telephone source.",
+          sourceType: "entity",
+          origin: { provider: "wikidata", providerRecordId: "Q11035", providerUrl: "https://www.wikidata.org/wiki/Q11035", discoveredFromQuery: "Telephone", discoveredAt: "2026-06-24T00:00:00.000Z" },
+          provenance: {},
+          createdBy: "factory-test"
+        }]
+      });
+      (sourceRetrievalService as any).retrieve = async () => ({
+        sourceRecord: {
+          sourceRecordId: "source-record-1",
+          provider: "wikidata",
+          providerRecordId: "Q11035",
+          canonicalUrl: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json",
+          title: "Authoritative Telephone Evidence",
+          description: "Telephone source.",
+          sourceType: "entity",
+          origin: { provider: "wikidata", providerRecordId: "Q11035", providerUrl: "https://www.wikidata.org/wiki/Q11035", discoveredFromQuery: "Telephone", discoveredAt: "2026-06-24T00:00:00.000Z" },
+          provenance: {},
+          createdBy: "factory-test"
+        },
+        snapshot: {
+          snapshotId: "snapshot-1",
+          sourceRecordId: "source-record-1",
+          version: 1,
+          retrievalUrl: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json",
+          contentType: "application/json",
+          contentHash: "hash",
+          contentText: "The telephone is a telecommunications device supported by source authority evidence.",
+          rawMetadata: {},
+          provenance: { provider: "wikidata", sourceRecordId: "source-record-1", retrievalUrl: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json", retrievedAt: "2026-06-24T00:00:00.000Z", httpStatus: 200, contentType: "application/json", contentLength: 85 },
+          retrievedBy: "factory-test"
+        }
+      });
+      (corpusGenerationService as any).generateFromSourceSnapshot = async () => ({
+        corpusDocumentId: "corpus-1",
+        sourceSnapshotId: "snapshot-1",
+        sourceRecordId: "source-record-1",
+        provider: "wikidata",
+        title: "Authoritative Telephone Evidence",
+        contentType: "application/json",
+        normalizedText: "The telephone is a telecommunications device supported by source authority evidence.",
+        contentHash: "hash",
+        sourceLineage: { sourceSnapshotId: "snapshot-1", sourceRecordId: "source-record-1", provider: "wikidata", retrievalTimestamp: "2026-06-24T00:00:00.000Z", snapshotVersion: 1, retrievalUrl: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json", retrievalProvenance: { provider: "wikidata", sourceRecordId: "source-record-1", retrievalUrl: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json", retrievedAt: "2026-06-24T00:00:00.000Z", httpStatus: 200, contentType: "application/json", contentLength: 85 } },
+        createdBy: "factory-test"
+      });
+      (evidenceExtractionService as any).extractFromCorpusDocument = async () => [{
+        evidenceRecordId: "evidence-1",
+        corpusDocumentId: "corpus-1",
+        sourceSnapshotId: "snapshot-1",
+        sourceRecordId: "source-record-1",
+        provider: "wikidata",
+        retrievalTimestamp: "2026-06-24T00:00:00.000Z",
+        spanStart: 0,
+        spanEnd: 80,
+        quoteText: "The telephone is a telecommunications device supported by source authority evidence.",
+        normalizedClaim: "The telephone is a telecommunications device supported by source authority evidence.",
+        provenance: {},
+        createdBy: "factory-test"
+      }];
+      (evidenceValidationService as any).validateEvidence = async () => ({
+        validationRecordId: "validation-1",
+        evidenceRecordId: "evidence-1",
+        status: "passed",
+        checks: [],
+        provenance: { validationType: "structural_evidence_validation", evidenceRecordId: "evidence-1", corpusDocumentId: "corpus-1", sourceSnapshotId: "snapshot-1", sourceRecordId: "source-record-1", provider: "wikidata", validatedAt: "2026-06-24T00:00:00.000Z", validator: "factory-test", authorityDecision: false, publicationReadinessDecision: false },
+        createdBy: "factory-test"
+      });
+      (factoryRepository as any).createPipelineRun = async (input: any) => ({ pipelineRunId: "run-1", pipelineId: input.pipelineId, status: "queued", input: input.input, artifactRefs: [], factoryObjectRefs: [], packageDraftId: null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
+      (factoryRepository as any).transitionPipelineRun = async (input: any) => ({ pipelineRunId: input.pipelineRunId, pipelineId: "pipeline", status: input.status, input: {}, artifactRefs: input.artifactRefs || [], factoryObjectRefs: input.factoryObjectRefs || [], packageDraftId: input.packageDraftId || null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
+      (factoryRepository as any).createPipelineStep = async (input: any) => ({ pipelineStepId: `step-${++stepId}`, pipelineRunId: input.pipelineRunId, stepIndex: input.stepIndex, workerKey: input.workerKey, status: "pending", input: input.input, output: null, artifactRefs: [], factoryObjectRefs: [], startedAt: null, completedAt: null });
+      (factoryRepository as any).transitionPipelineStep = async (input: any) => ({ pipelineStepId: input.pipelineStepId, pipelineRunId: "run-1", stepIndex: 0, workerKey: "worker", status: input.status, input: {}, output: input.output || null, artifactRefs: input.artifactRefs || [], factoryObjectRefs: input.factoryObjectRefs || [], startedAt: null, completedAt: null });
+      (factoryRepository as any).createRuntimeAuditRecord = async () => ({});
+      (factoryRepository as any).createArtifact = async (input: any) => {
+        const artifact = { artifactId: `artifact-${++artifactId}`, factoryObjectId: null, artifactType: input.artifactType, title: input.title, payload: input.payload, authoritySafe: input.authoritySafe, modelProvider: input.modelProvider || null, modelName: input.modelName || null, createdBy: input.actor };
+        state.artifacts.push(artifact);
+        return artifact;
+      };
+      (factoryRepository as any).createObject = async (input: any) => {
+        const object = { objectId: `object-${++objectId}`, objectType: input.objectType, title: input.title, payload: input.payload, provenance: input.provenance, lifecycle: "draft", createdBy: input.actor, updatedBy: input.actor };
+        state.objects.push(object);
+        return object;
+      };
+      globalThis.fetch = async (_url: any, init?: any) => {
+        const prompt = JSON.parse(init.body).prompt as string;
+        return new Response(JSON.stringify({ response: JSON.stringify(factoryOutputForPrompt(prompt, outputOverride)) }), { status: 200, headers: { "content-type": "application/json" } });
+      };
+      setFactoryPipelineEvidenceVerifierForTests(async (refs, context) => {
+        state.verifierCalls.push({ refs, context });
+      });
+      return await run(state);
+    } finally {
+      (sourceDiscoveryService as any).discover = originals.discover;
+      (sourceRetrievalService as any).retrieve = originals.retrieve;
+      (corpusGenerationService as any).generateFromSourceSnapshot = originals.corpus;
+      (evidenceExtractionService as any).extractFromCorpusDocument = originals.extract;
+      (evidenceValidationService as any).validateEvidence = originals.validate;
+      (factoryRepository as any).createPipelineRun = originals.createPipelineRun;
+      (factoryRepository as any).transitionPipelineRun = originals.transitionPipelineRun;
+      (factoryRepository as any).createPipelineStep = originals.createPipelineStep;
+      (factoryRepository as any).transitionPipelineStep = originals.transitionPipelineStep;
+      (factoryRepository as any).createRuntimeAuditRecord = originals.createRuntimeAuditRecord;
+      (factoryRepository as any).createArtifact = originals.createArtifact;
+      (factoryRepository as any).createObject = originals.createObject;
+      globalThis.fetch = originals.fetch;
+      setFactoryPipelineEvidenceVerifierForTests(null);
+    }
+  }
+
+  it("executes historical research through Source Authority, snapshots, corpus, evidence, and validation", async () => {
+    await withMockedFactoryPipeline({}, async (state) => {
+      await factoryService.startPipeline({
+        pipelineId: "historical_research_pipeline",
+        input: { subject: "Telephone" },
+        actor: "factory-test",
+        reason: "Test authority-grounded research."
+      });
+
+      assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.sourceAuthorityRecords?.length === 1));
+      assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.sourceAuthoritySnapshots?.length === 1));
+      assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.corpusDocuments?.length === 1));
+      assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.evidenceRecords?.length === 1));
+      assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.evidenceValidationRecords?.length === 1));
+      assert.ok(state.artifacts.some((artifact) => artifact.payload.validatedEvidenceRefs?.[0]?.validationRecordId === "validation-1"));
+    });
+  });
+
+  it("rejects authority-grounded research output with fabricated citations or URLs", async () => {
+    await assert.rejects(
+      withMockedFactoryPipeline({
+        sources: [{ sourceId: "fabricated-source", title: "Fabricated", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }]
+      }, async () => factoryService.startPipeline({
+        pipelineId: "historical_research_pipeline",
+        input: { subject: "Telephone" },
+        actor: "factory-test",
+        reason: "Reject fabricated citation."
+      })),
+      /unknown sourceId|does not map to validated evidence/
+    );
+
+    await assert.rejects(
+      withMockedFactoryPipeline({
+        sources: [{ sourceId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }],
+        evidence: [{ claim: "Fabricated URL claim.", citations: [{ sourceId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }] }],
+        candidates: [{
+          title: "Fabricated source",
+          objectType: "candidate_source",
+          payload: { sourceId: "source-record-1", title: "Fabricated", url: "https://example.org/fake", publisher: "Fabricated", credibility: "invalid", citationNote: "Fake.", evidenceSourceRefs: ["evidence-1"] },
+          evidence: [{ claim: "Fabricated URL claim.", citations: [{ sourceId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }] }],
+          sources: [{ sourceId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }]
+        }]
+      }, async () => factoryService.startPipeline({
+        pipelineId: "historical_research_pipeline",
+        input: { subject: "Telephone" },
+        actor: "factory-test",
+        reason: "Reject fabricated URL."
+      })),
+      /not present in Source Authority/
+    );
+  });
+
+  it("gates historical extraction on passed validated evidence", async () => {
+    await assert.rejects(
+      factoryService.startPipeline({
+        pipelineId: "historical_extraction_pipeline",
+        input: { subject: "Telephone" },
+        actor: "factory-test",
+        reason: "Missing evidence must fail."
+      }),
+      /validated evidence/
+    );
+
+    await withMockedFactoryPipeline({}, async (state) => {
+      await factoryService.startPipeline({
+        pipelineId: "historical_extraction_pipeline",
+        input: {
+          subject: "Telephone",
+          validatedEvidenceRefs: [{
+            evidenceId: "validation-1",
+            evidenceType: "validated_evidence",
+            evidenceRecordId: "evidence-1",
+            validationRecordId: "validation-1",
+            authoritySafe: true
+          }]
+        },
+        actor: "factory-test",
+        reason: "Evidence-gated extraction may run."
+      });
+      assert.equal(state.verifierCalls.length, 1);
+      assert.ok(state.objects.length >= 1);
+    });
   });
 
   it("defines Factory editorial gates, confidence assessments, authority preparation, and review metrics", () => {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/src/server/api/responses";
+import type { EvidenceValidationRecord } from "@/src/server/evidence-validation/contracts";
 import type {
   FactoryArtifactType,
   FactoryAuthorityPreparation,
@@ -29,8 +30,10 @@ import {
   getCanonicalFactoryWorker
 } from "@/src/server/factory/worker-registry";
 import type { EvidenceRef, GovernanceActorRef, PublicationPackage } from "@/src/server/governance/contracts";
+import type { CorpusDocument, EvidenceRecord } from "@/src/server/research-corpus/contracts";
+import type { SourceAuthorityRegistryRecord, SourceAuthoritySnapshot } from "@/src/server/source-authority/contracts";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
-import { governanceRepository } from "@/src/server/repositories/governance-repository";
+import { governanceRepository, verifyValidatedEvidenceRefs } from "@/src/server/repositories/governance-repository";
 import { governanceService } from "@/src/server/services/governance-service";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
@@ -294,6 +297,26 @@ export type SubmitFactoryGovernanceHandoffInput = {
   reason: string;
 };
 
+type ValidatedEvidenceContext = {
+  sourceRecords: SourceAuthorityRegistryRecord[];
+  snapshots: SourceAuthoritySnapshot[];
+  corpusDocuments: CorpusDocument[];
+  evidenceRecords: EvidenceRecord[];
+  validationRecords: EvidenceValidationRecord[];
+  validatedEvidenceRefs: EvidenceRef[];
+  allowedSourceIds: Set<string>;
+  allowedUrls: Set<string>;
+  promptContext: Array<Record<string, unknown>>;
+};
+
+type PipelineEvidenceVerifier = (refs: EvidenceRef[], context: string) => Promise<void>;
+
+let pipelineEvidenceVerifier: PipelineEvidenceVerifier = verifyValidatedEvidenceRefs;
+
+export function setFactoryPipelineEvidenceVerifierForTests(verifier: PipelineEvidenceVerifier | null): void {
+  pipelineEvidenceVerifier = verifier || verifyValidatedEvidenceRefs;
+}
+
 function assertTransitionAllowed<T extends string>(name: string, transitions: TransitionMap<T>, from: T, to: T): void {
   if (!transitions[from]?.includes(to)) {
     throw new ApiError(409, "INVALID_FACTORY_LIFECYCLE_TRANSITION", `${name} cannot transition from ${from} to ${to}.`);
@@ -374,6 +397,211 @@ ${JSON.stringify(outputSchema)}
 
 Prompt:
 ${template.replaceAll("{{input}}", JSON.stringify(input))}`;
+}
+
+function authorityGroundedResearchPrompt(template: string): string {
+  return `${template}
+
+Authority-grounded execution requirement:
+- Use only the provided validatedEvidenceContext.
+- Do not invent sources, URLs, citations, publishers, evidence, or provenance.
+- Every citation sourceId must be one of the provided evidenceRecordId, validationRecordId, sourceSnapshotId, or sourceRecordId values.
+- Every citation URL, if included, must be one of the provided authoritative source URLs.
+- Prefer citing evidenceRecordId values so downstream lineage remains exact.`;
+}
+
+function stringArrayField(input: Record<string, unknown>, field: string): string[] {
+  const value = input[field];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+function sourceUrls(record: SourceAuthorityRegistryRecord, snapshot?: SourceAuthoritySnapshot): string[] {
+  return [record.canonicalUrl, record.origin.providerUrl, snapshot?.retrievalUrl]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+}
+
+function evidenceRefFromValidation(record: EvidenceRecord, validation: EvidenceValidationRecord): EvidenceRef {
+  return {
+    evidenceId: validation.validationRecordId,
+    evidenceType: "validated_evidence",
+    evidenceRecordId: record.evidenceRecordId,
+    validationRecordId: validation.validationRecordId,
+    uri: `evidence://${record.evidenceRecordId}#validation=${validation.validationRecordId}`,
+    authoritySafe: true
+  };
+}
+
+async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): Promise<ValidatedEvidenceContext> {
+  const subject = typeof input.input.subject === "string" && input.input.subject.trim()
+    ? input.input.subject.trim()
+    : typeof input.input.query === "string" && input.input.query.trim()
+      ? input.input.query.trim()
+      : "";
+  if (!subject) {
+    throw new ApiError(400, "FACTORY_RESEARCH_SUBJECT_REQUIRED", "Authority-grounded research requires a subject or query.");
+  }
+
+  const discovery = await sourceDiscoveryService.discover({
+    query: subject,
+    providers: Array.isArray(input.input.providers) ? input.input.providers as never : undefined,
+    limit: typeof input.input.sourceLimit === "number" ? input.input.sourceLimit : 3,
+    actor: input.actor
+  });
+  if (discovery.records.length === 0) {
+    throw new ApiError(409, "SOURCE_AUTHORITY_RECORDS_REQUIRED", "Historical research requires at least one discovered Source Authority record.");
+  }
+
+  const sourceRecords: SourceAuthorityRegistryRecord[] = [];
+  const snapshots: SourceAuthoritySnapshot[] = [];
+  const corpusDocuments: CorpusDocument[] = [];
+  const evidenceRecords: EvidenceRecord[] = [];
+  const validationRecords: EvidenceValidationRecord[] = [];
+
+  for (const sourceRecord of discovery.records) {
+    const retrieval = await sourceRetrievalService.retrieve({ sourceRecordId: sourceRecord.sourceRecordId, actor: input.actor });
+    const corpusDocument = await corpusGenerationService.generateFromSourceSnapshot({
+      sourceSnapshotId: retrieval.snapshot.snapshotId,
+      actor: input.actor
+    });
+    const extracted = await evidenceExtractionService.extractFromCorpusDocument({
+      corpusDocumentId: corpusDocument.corpusDocumentId,
+      actor: input.actor,
+      maxEvidenceRecords: typeof input.input.maxEvidenceRecordsPerSource === "number" ? input.input.maxEvidenceRecordsPerSource : 5
+    });
+    const validations = await Promise.all(
+      extracted.map((record) => evidenceValidationService.validateEvidence({ evidenceRecordId: record.evidenceRecordId, actor: input.actor }))
+    );
+
+    sourceRecords.push(retrieval.sourceRecord);
+    snapshots.push(retrieval.snapshot);
+    corpusDocuments.push(corpusDocument);
+    evidenceRecords.push(...extracted);
+    validationRecords.push(...validations.filter((validation) => validation.status === "passed"));
+  }
+
+  const passedEvidence = evidenceRecords.filter((record) =>
+    validationRecords.some((validation) => validation.evidenceRecordId === record.evidenceRecordId)
+  );
+  if (passedEvidence.length === 0) {
+    throw new ApiError(409, "PASSED_EVIDENCE_REQUIRED", "Historical research requires at least one passed evidence validation record.");
+  }
+
+  const snapshotById = new Map(snapshots.map((snapshot) => [snapshot.snapshotId, snapshot]));
+  const sourceById = new Map(sourceRecords.map((record) => [record.sourceRecordId, record]));
+  const validationByEvidence = new Map(validationRecords.map((validation) => [validation.evidenceRecordId, validation]));
+  const allowedSourceIds = new Set<string>();
+  const allowedUrls = new Set<string>();
+  const promptContext = passedEvidence.map((record) => {
+    const validation = validationByEvidence.get(record.evidenceRecordId)!;
+    const source = sourceById.get(record.sourceRecordId)!;
+    const snapshot = snapshotById.get(record.sourceSnapshotId);
+    for (const id of [record.evidenceRecordId, validation.validationRecordId, record.sourceSnapshotId, record.sourceRecordId]) {
+      allowedSourceIds.add(id);
+    }
+    for (const url of sourceUrls(source, snapshot)) {
+      allowedUrls.add(url);
+    }
+    return {
+      evidenceRecordId: record.evidenceRecordId,
+      corpusDocumentId: record.corpusDocumentId,
+      validationRecordId: validation.validationRecordId,
+      sourceSnapshotId: record.sourceSnapshotId,
+      sourceRecordId: record.sourceRecordId,
+      provider: record.provider,
+      title: source.title,
+      urls: sourceUrls(source, snapshot),
+      quoteText: record.quoteText,
+      normalizedClaim: record.normalizedClaim,
+      retrievalTimestamp: record.retrievalTimestamp
+    };
+  });
+
+  return {
+    sourceRecords,
+    snapshots,
+    corpusDocuments,
+    evidenceRecords: passedEvidence,
+    validationRecords,
+    validatedEvidenceRefs: passedEvidence.map((record) => evidenceRefFromValidation(record, validationByEvidence.get(record.evidenceRecordId)!)),
+    allowedSourceIds,
+    allowedUrls,
+    promptContext
+  };
+}
+
+function assertAuthorityGroundedOutput(output: ReturnType<typeof validateFactoryWorkerOutput>, context: ValidatedEvidenceContext): void {
+  const citations = [
+    ...output.sources,
+    ...output.evidence.flatMap((evidence) => evidence.citations),
+    ...output.candidates.flatMap((candidate) => [
+      ...candidate.sources,
+      ...candidate.evidence.flatMap((evidence) => evidence.citations)
+    ])
+  ];
+
+  for (const citation of citations) {
+    if (!citation.sourceId || !context.allowedSourceIds.has(citation.sourceId)) {
+      throw new ApiError(409, "FACTORY_RESEARCH_CITATION_NOT_AUTHORIZED", "Factory research output contains a citation that does not map to validated evidence.");
+    }
+    if (citation.url && !context.allowedUrls.has(citation.url)) {
+      throw new ApiError(409, "FACTORY_RESEARCH_URL_NOT_AUTHORIZED", "Factory research output contains a URL that is not present in Source Authority.");
+    }
+  }
+}
+
+function evidenceRefsFromPipelineInput(input: Record<string, unknown>): EvidenceRef[] {
+  const refs = input.validatedEvidenceRefs;
+  if (!Array.isArray(refs)) return [];
+  return refs.filter((ref): ref is EvidenceRef =>
+    Boolean(
+      ref &&
+      typeof ref === "object" &&
+      (ref as EvidenceRef).evidenceType === "validated_evidence" &&
+      (ref as EvidenceRef).authoritySafe === true &&
+      typeof (ref as EvidenceRef).evidenceRecordId === "string" &&
+      typeof (ref as EvidenceRef).validationRecordId === "string"
+    )
+  );
+}
+
+async function assertExtractionEvidenceGate(input: StartFactoryPipelineInput): Promise<void> {
+  if (input.pipelineId !== "historical_extraction_pipeline") return;
+  const refs = evidenceRefsFromPipelineInput(input.input);
+  if (refs.length === 0) {
+    throw new ApiError(409, "VALIDATED_EVIDENCE_REQUIRED", "Historical extraction requires passed validated evidence from authority-grounded research.");
+  }
+  await pipelineEvidenceVerifier(refs, "Historical extraction pipeline");
+}
+
+const deterministicResearchSteps = new Set([
+  "source_authority_discovery",
+  "source_authority_retrieval",
+  "research_corpus_generation",
+  "evidence_extraction",
+  "evidence_validation"
+]);
+
+function deterministicStepOutput(workerKey: string, context: ValidatedEvidenceContext): Record<string, unknown> {
+  const base = {
+    boundary: { factoryOwned: true, publicationAllowed: false, governanceSubmissionAllowed: false },
+    validatedEvidenceRefs: context.validatedEvidenceRefs
+  };
+  if (workerKey === "source_authority_discovery") {
+    return { ...base, sourceAuthorityRecords: context.sourceRecords };
+  }
+  if (workerKey === "source_authority_retrieval") {
+    return { ...base, sourceAuthoritySnapshots: context.snapshots };
+  }
+  if (workerKey === "research_corpus_generation") {
+    return {
+      ...base,
+      corpusDocuments: context.corpusDocuments
+    };
+  }
+  if (workerKey === "evidence_extraction") {
+    return { ...base, evidenceRecords: context.evidenceRecords };
+  }
+  return { ...base, evidenceValidationRecords: context.validationRecords };
 }
 
 function classifyRuntimeFailure(error: unknown): Record<string, unknown> {
@@ -481,7 +709,8 @@ export const factoryService = {
     if (!pipeline) {
       throw new ApiError(404, "FACTORY_PIPELINE_NOT_FOUND", "Factory pipeline definition not found.");
     }
-    const missingWorker = pipeline.steps.find((workerKey) => !getCanonicalFactoryWorker(workerKey));
+    await assertExtractionEvidenceGate(input);
+    const missingWorker = pipeline.steps.find((workerKey) => !deterministicResearchSteps.has(workerKey) && !getCanonicalFactoryWorker(workerKey));
     if (missingWorker) {
       throw new ApiError(409, "FACTORY_PIPELINE_WORKER_MISSING", `Pipeline worker ${missingWorker} is not registered in the canonical worker registry.`);
     }
@@ -503,9 +732,9 @@ export const factoryService = {
     const artifactRefs: string[] = [];
     const factoryObjectRefs: string[] = [];
     let packageDraftId: string | null = null;
+    let validatedEvidenceContext: ValidatedEvidenceContext | null = null;
 
     for (const [stepIndex, workerKey] of pipeline.steps.entries()) {
-      const contract = getCanonicalFactoryWorker(workerKey)!;
       const step = await factoryRepository.createPipelineStep({
         pipelineRunId: run.pipelineRunId,
         stepIndex,
@@ -517,6 +746,46 @@ export const factoryService = {
         }
       });
       await factoryRepository.transitionPipelineStep({ pipelineStepId: step.pipelineStepId, status: "running" });
+
+      if (deterministicResearchSteps.has(workerKey)) {
+        validatedEvidenceContext ||= await buildValidatedEvidenceContext(input);
+        const stepOutput = {
+          ...pipelineStepOutput({
+            pipelineId: pipeline.pipelineId,
+            pipelineRunId: run.pipelineRunId,
+            workerKey,
+            stepIndex,
+            previousArtifactRefs: artifactRefs,
+            previousFactoryObjectRefs: factoryObjectRefs
+          }),
+          generated: deterministicStepOutput(workerKey, validatedEvidenceContext)
+        };
+        const artifact = await factoryRepository.createArtifact({
+          artifactType: "evidence",
+          title: `${workerKey} output`,
+          payload: stepOutput,
+          authoritySafe: false,
+          actor: input.actor
+        });
+        artifactRefs.push(artifact.artifactId);
+        const completedStep = await factoryRepository.transitionPipelineStep({
+          pipelineStepId: step.pipelineStepId,
+          status: "completed",
+          output: stepOutput,
+          artifactRefs: [...artifactRefs],
+          factoryObjectRefs: [...factoryObjectRefs]
+        });
+        await factoryRepository.createRuntimeAuditRecord({
+          targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
+          action: "complete_pipeline_step",
+          actor: input.actor,
+          reason: input.reason,
+          afterState: completedStep as unknown as Record<string, unknown>
+        });
+        continue;
+      }
+
+      const contract = getCanonicalFactoryWorker(workerKey)!;
       const provider = getFactoryRuntimeProvider("qwen14");
       let result: Awaited<ReturnType<typeof provider.execute>> | null = null;
       let validated = null;
@@ -525,22 +794,28 @@ export const factoryService = {
         const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           try {
-            result = await provider.execute({
+            const attemptResult = await provider.execute({
               prompt: renderPrompt(
-                `${getFactoryWorkerPromptTemplate(workerKey)}
+                `${pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker"
+                  ? authorityGroundedResearchPrompt(getFactoryWorkerPromptTemplate(workerKey))
+                  : getFactoryWorkerPromptTemplate(workerKey)}
 
 Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory artifact and object references as context only.`,
                 {
                   pipelineInput: input.input,
                   artifactRefs,
-                  factoryObjectRefs
+                  factoryObjectRefs,
+                  validatedEvidenceContext: validatedEvidenceContext?.promptContext || null,
+                  validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
                 },
                 contract.output_schema
               ),
               input: {
                 pipelineInput: input.input,
                 artifactRefs,
-                factoryObjectRefs
+                factoryObjectRefs,
+                validatedEvidenceContext: validatedEvidenceContext?.promptContext || null,
+                validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
               },
               outputSchema: contract.output_schema,
               configuration: {
@@ -551,11 +826,16 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
               },
               timeoutMs: contract.execution_timeout * 1000
             });
-            validated = validateFactoryWorkerOutput({
+            const attemptValidated = validateFactoryWorkerOutput({
               workerKey,
               allowedObjectTypes: contract.allowed_object_types,
-              output: result.output
+              output: attemptResult.output
             });
+            if (validatedEvidenceContext && pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker") {
+              assertAuthorityGroundedOutput(attemptValidated, validatedEvidenceContext);
+            }
+            result = attemptResult;
+            validated = attemptValidated;
             break;
           } catch (error) {
             lastFailure = withAttemptDiagnostics(error, {
@@ -608,7 +888,8 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
           previousFactoryObjectRefs: factoryObjectRefs
         }),
         generated: validated,
-        diagnostics: result.diagnostics
+        diagnostics: result.diagnostics,
+        validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
       };
       const objectType = candidateObjectTypeForWorker(workerKey);
 
@@ -630,7 +911,8 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
             workerKey,
             provider: result.providerKey,
             modelName: result.modelName,
-            sources: candidate.sources
+            sources: candidate.sources,
+            validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
           },
           actor: input.actor
         });
@@ -655,6 +937,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
           packageType: "mixed_authority_publication",
           factoryObjectRefs,
           artifactRefs,
+          validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input),
           riskSummary: {
             unresolvedAuthorityRisks: [],
             validationWarnings: ["Generated by Factory pipeline and requires human review."],

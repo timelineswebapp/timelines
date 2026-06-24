@@ -5,7 +5,7 @@ export const canonicalFactoryPipelines: FactoryPipelineDefinition[] = [
     pipelineId: "historical_research_pipeline",
     pipelineName: "Historical Research Pipeline",
     description: "Creates bounded research and source validation artifacts inside Factory Production Memory.",
-    steps: ["research_worker", "source_discovery_worker", "source_validation_worker"],
+    steps: ["source_authority_discovery", "source_authority_retrieval", "research_corpus_generation", "evidence_extraction", "evidence_validation", "research_worker"],
     generationTargets: ["candidate_source", "candidate_context_record"]
   },
   {
