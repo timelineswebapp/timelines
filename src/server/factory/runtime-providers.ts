@@ -36,6 +36,17 @@ export class FactoryRuntimeProviderTimeoutError extends Error {
   }
 }
 
+export class FactoryRuntimeProviderOutputTruncatedError extends Error {
+  diagnostics: Record<string, unknown>;
+  code = "MODEL_OUTPUT_TRUNCATED";
+
+  constructor(message: string, diagnostics: Record<string, unknown>) {
+    super(message);
+    this.name = "FactoryRuntimeProviderOutputTruncatedError";
+    this.diagnostics = diagnostics;
+  }
+}
+
 function diagnostics(startedAt: number, extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     mode: "ollama",
@@ -75,6 +86,9 @@ function extractJsonObject(raw: string): Record<string, unknown> {
 
 function compactSchemaInstruction(schema: Record<string, unknown> | undefined): string {
   const workerKey = typeof schema?.workerKey === "string" ? schema.workerKey : "factory_worker";
+  if (workerKey === "research_worker_compact") {
+    return "research_worker compact output required keys: summary, confidence, boundary, claims, candidates. Claims and candidates must reference supporting evidenceRecordIds only. Do not emit sources, citations, URLs, quotes, publishers, provenance, source IDs, snapshot IDs, or validation IDs.";
+  }
   return `${workerKey} output object required keys: summary, confidence, boundary, sources, evidence, candidates. Arrays sources/evidence/candidates must be non-empty unless worker is validation-only. Evidence items require claim and citations[]. Candidate items require title, objectType, payload, evidence, sources.`;
 }
 
@@ -182,6 +196,7 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
       fetchReachedResponseParsing = true;
       const payload = (await response.json()) as {
         response?: string;
+        done_reason?: string;
         prompt_eval_count?: number;
         eval_count?: number;
         total_duration?: number;
@@ -191,6 +206,18 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
       };
       if (typeof payload.response !== "string" || payload.response.trim().length === 0) {
         throw new Error("Ollama Qwen14 returned an empty response.");
+      }
+      if (payload.done_reason === "length") {
+        throw new FactoryRuntimeProviderOutputTruncatedError("MODEL_OUTPUT_TRUNCATED: Ollama stopped generation because the output token limit was reached.", diagnostics(startedAt, {
+          failureClass: "model_output_truncated",
+          code: "MODEL_OUTPUT_TRUNCATED",
+          providerKey: "qwen14",
+          modelName: this.modelName,
+          promptTokens: payload.prompt_eval_count ?? null,
+          completionTokens: payload.eval_count ?? null,
+          totalTokens: (payload.prompt_eval_count ?? 0) + (payload.eval_count ?? 0),
+          rawResponsePreview: payload.response.slice(0, 2000)
+        }));
       }
       const output = extractJsonObject(payload.response);
       return {

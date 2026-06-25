@@ -13,7 +13,7 @@ import {
   setFactoryPipelineEvidenceVerifierForTests
 } from "@/src/server/services/factory-service";
 import { validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
-import { resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
+import { getFactoryRuntimeProvider, resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
@@ -22,6 +22,32 @@ import { evidenceExtractionService } from "@/src/server/services/evidence-extrac
 import { evidenceValidationService } from "@/src/server/services/evidence-validation-service";
 
 function factoryOutputForPrompt(prompt: string, override: Record<string, unknown> = {}) {
+  if (prompt.includes("research_worker")) {
+    return {
+      summary: "Factory output grounded in validated evidence.",
+      confidence: 0.9,
+      boundary: { factoryOwned: true, publicationAllowed: false, governanceSubmissionAllowed: false },
+      claims: [{
+        claim: "The telephone evidence is source-grounded.",
+        evidenceRecordIds: ["evidence-1"]
+      }],
+      candidates: [
+        {
+          title: "Telephone Source",
+          objectType: "candidate_source",
+          payload: { relevance: "Authority-grounded telephone source." },
+          evidenceRecordIds: ["evidence-1"]
+        },
+        {
+          title: "Telephone Context",
+          objectType: "candidate_context_record",
+          payload: { topic: "Telephone", scope: "Authority-grounded research context." },
+          evidenceRecordIds: ["evidence-1"]
+        }
+      ],
+      ...override
+    };
+  }
   const source = { sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" };
   const evidence = { claim: "The telephone evidence is source-grounded.", citations: [source] };
   const candidateBase = { title: "Telephone Source", objectType: "candidate_source", payload: { sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: source.url, publisher: "Wikidata", credibility: "authoritative", citationNote: "Retrieved Source Authority snapshot.", evidenceSourceRefs: ["evidence-1"] }, evidence: [evidence], sources: [source] };
@@ -359,6 +385,38 @@ describe("factory production memory foundation", () => {
       } else {
         process.env.FACTORY_QWEN_TIMEOUT_MS = previous;
       }
+    }
+  });
+
+  it("raises MODEL_OUTPUT_TRUNCATED before parsing length-stopped Ollama output", async () => {
+    const originalFetch = globalThis.fetch;
+    const provider = getFactoryRuntimeProvider("qwen14");
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      response: "{\"summary\":\"truncated\"",
+      done_reason: "length",
+      prompt_eval_count: 10,
+      eval_count: 2000
+    }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
+
+    try {
+      await assert.rejects(
+        provider.execute({
+          prompt: "Return compact JSON.",
+          input: {},
+          configuration: { maxOutputTokens: 2000 },
+          outputSchema: { workerKey: "research_worker_compact" },
+          timeoutMs: 120000
+        }),
+        (error: unknown) => {
+          assert.equal(error instanceof Error, true);
+          assert.match((error as Error).message, /MODEL_OUTPUT_TRUNCATED/);
+          assert.equal((error as any).code, "MODEL_OUTPUT_TRUNCATED");
+          assert.equal((error as any).diagnostics.failureClass, "model_output_truncated");
+          return true;
+        }
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 
@@ -1176,32 +1234,44 @@ describe("factory production memory foundation", () => {
       assert.match(researchPrompt, /"sourceAuthorityRecordId":"source-record-1"/);
       assert.match(researchPrompt, /"evidenceRecordId":"evidence-1"/);
       assert.doesNotMatch(researchPrompt, /"sourceRecordId":"source-record-1"/);
+      assert.match(researchPrompt, /claims, candidates/);
+      assert.match(researchPrompt, /Do not emit sources, citations, URLs, quotes, publishers/);
+      const researchArtifact = state.artifacts.find((artifact) => artifact.title === "Research Worker output");
+      assert.equal(researchArtifact.payload.generated.sources[0].sourceId, "source-record-1");
+      assert.equal(researchArtifact.payload.generated.sources[0].evidenceRecordId, "evidence-1");
+      assert.equal(researchArtifact.payload.generated.sources[0].title, "Authoritative Telephone Evidence");
+      assert.equal(researchArtifact.payload.generated.candidates[0].payload.publisher, "Wikidata");
+      assert.equal(state.objects[0].payload.sources[0].sourceId, "source-record-1");
     });
   });
 
-  it("rejects authority-grounded research output with fabricated citations or URLs", async () => {
+  it("rejects authority-grounded research output with unknown evidence references or emitted source metadata", async () => {
     await assert.rejects(
       withMockedFactoryPipeline({
-        sources: [{ sourceId: "fabricated-source", title: "Fabricated", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }]
+        claims: [{ claim: "Fabricated evidence claim.", evidenceRecordIds: ["fabricated-evidence"] }],
+        candidates: [{
+          title: "Fabricated Evidence Candidate",
+          objectType: "candidate_context_record",
+          payload: { topic: "Telephone" },
+          evidenceRecordIds: ["fabricated-evidence"]
+        }]
       }, async () => factoryService.startPipeline({
         pipelineId: "historical_research_pipeline",
         input: { subject: "Telephone" },
         actor: "factory-test",
         reason: "Reject fabricated citation."
       })),
-      /unknown sourceId|does not map to validated evidence/
+      /unknown evidenceRecordId|outside the validated authority context/
     );
 
     await assert.rejects(
       withMockedFactoryPipeline({
-        sources: [{ sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }],
-        evidence: [{ claim: "Fabricated URL claim.", citations: [{ sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }] }],
+        claims: [{ claim: "Metadata should not be emitted.", evidenceRecordIds: ["evidence-1"] }],
         candidates: [{
           title: "Fabricated source",
           objectType: "candidate_source",
-          payload: { sourceId: "source-record-1", title: "Fabricated", url: "https://example.org/fake", publisher: "Fabricated", credibility: "invalid", citationNote: "Fake.", evidenceSourceRefs: ["evidence-1"] },
-          evidence: [{ claim: "Fabricated URL claim.", citations: [{ sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }] }],
-          sources: [{ sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }]
+          payload: { url: "https://example.org/fake", publisher: "Fabricated" },
+          evidenceRecordIds: ["evidence-1"]
         }]
       }, async () => factoryService.startPipeline({
         pipelineId: "historical_research_pipeline",
@@ -1209,43 +1279,19 @@ describe("factory production memory foundation", () => {
         actor: "factory-test",
         reason: "Reject fabricated URL."
       })),
-      /not present in Source Authority/
+      /may not include/
     );
   });
 
-  it("rejects authority-grounded research output that uses evidence record IDs as citation source IDs", async () => {
+  it("rejects authority-grounded research output with missing compact evidence lineage", async () => {
     await assert.rejects(
       withMockedFactoryPipeline({
-        sources: [{ sourceId: "evidence-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }],
-        evidence: [{ claim: "Evidence id is incorrectly used as source id.", citations: [{ sourceId: "evidence-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }] }],
+        claims: [{ claim: "Evidence lineage is missing.", evidenceRecordIds: [] }],
         candidates: [{
           title: "Telephone Source",
           objectType: "candidate_source",
-          payload: { sourceId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json", publisher: "Wikidata", credibility: "authoritative", citationNote: "Retrieved Source Authority snapshot.", evidenceSourceRefs: ["evidence-1"] },
-          evidence: [{ claim: "Evidence id is incorrectly used as source id.", citations: [{ sourceId: "evidence-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }] }],
-          sources: [{ sourceId: "evidence-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }]
-        }]
-      }, async () => factoryService.startPipeline({
-        pipelineId: "historical_research_pipeline",
-        input: { subject: "Telephone" },
-        actor: "factory-test",
-        reason: "Reject evidence id as source id."
-      })),
-      /does not map to validated evidence/
-    );
-  });
-
-  it("rejects authority-grounded research output with missing evidenceRecordId lineage", async () => {
-    await assert.rejects(
-      withMockedFactoryPipeline({
-        sources: [{ sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }],
-        evidence: [{ claim: "Evidence lineage is missing.", citations: [{ sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }] }],
-        candidates: [{
-          title: "Telephone Source",
-          objectType: "candidate_source",
-          payload: { sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json", publisher: "Wikidata", credibility: "authoritative", citationNote: "Retrieved Source Authority snapshot.", evidenceSourceRefs: ["evidence-1"] },
-          evidence: [{ claim: "Evidence lineage is missing.", citations: [{ sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }] }],
-          sources: [{ sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }]
+          payload: { relevance: "Missing evidence." },
+          evidenceRecordIds: ["evidence-1"]
         }]
       }, async () => factoryService.startPipeline({
         pipelineId: "historical_research_pipeline",
@@ -1253,7 +1299,7 @@ describe("factory production memory foundation", () => {
         actor: "factory-test",
         reason: "Reject missing evidence lineage."
       })),
-      /passed evidence record/
+      /schema validation/
     );
   });
 
@@ -1314,7 +1360,13 @@ describe("factory production memory foundation", () => {
 
   it("preserves worker retry history in structured pipeline failures", async () => {
     await withMockedFactoryPipeline({
-      sources: [{ sourceId: "fabricated-source", title: "Fabricated", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }]
+      claims: [{ claim: "Fabricated evidence claim.", evidenceRecordIds: ["fabricated-evidence"] }],
+      candidates: [{
+        title: "Fabricated Evidence Candidate",
+        objectType: "candidate_context_record",
+        payload: { topic: "Telephone" },
+        evidenceRecordIds: ["fabricated-evidence"]
+      }]
     }, async () => {
       await assert.rejects(
         factoryService.startPipeline({
@@ -1329,7 +1381,7 @@ describe("factory production memory foundation", () => {
           assert.equal(failure.stage, "worker_execution");
           assert.equal(failure.retryHistory.length, 2);
           assert.deepEqual(failure.retryHistory.map((attempt: any) => attempt.attempt), [1, 2]);
-          assert.match(failure.originalMessage, /unknown sourceId|does not map to validated evidence/);
+          assert.match(failure.originalMessage, /unknown evidenceRecordId|outside the validated authority context/);
           return true;
         }
       );

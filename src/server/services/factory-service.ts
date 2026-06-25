@@ -23,7 +23,13 @@ import type {
 } from "@/src/server/factory/contracts";
 import { canonicalFactoryPipelines, getCanonicalFactoryPipeline } from "@/src/server/factory/pipeline-registry";
 import { getFactoryRuntimeProvider, listFactoryRuntimeProviders } from "@/src/server/factory/runtime-providers";
-import { validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
+import {
+  compactResearchWorkerOutputContractSchema,
+  validateCompactResearchWorkerOutput,
+  validateFactoryWorkerOutput,
+  type CompactResearchWorkerOutput,
+  type ValidatedFactoryWorkerOutput
+} from "@/src/server/factory/output-schemas";
 import { getFactoryWorkerPromptTemplate } from "@/src/server/factory/worker-prompts";
 import {
   allowedOperationsForWorker,
@@ -406,12 +412,11 @@ function authorityGroundedResearchPrompt(template: string): string {
 
 Authority-grounded execution requirement:
 - Use only the provided validatedEvidenceContext.
-- Do not invent sources, URLs, citations, publishers, evidence, or provenance.
-- Every citation sourceId must equal a provided sourceAuthorityRecordId value.
-- Every citation evidenceRecordId must equal the provided evidenceRecordId for the cited evidence.
-- Do not put evidenceRecordId, validationRecordId, or sourceSnapshotId in citation sourceId.
-- Every citation URL, if included, must be one of the provided authoritative source URLs.
-- Preserve sourceAuthorityRecordId and evidenceRecordId as separate identifiers.`;
+- Emit compact research only: summary, confidence, boundary, claims, candidates.
+- claims must contain claim and supporting evidenceRecordIds only.
+- candidates must contain title, objectType, payload, and supporting evidenceRecordIds only.
+- Do not emit sources, citations, URLs, quotes, publishers, source IDs, snapshot IDs, validation IDs, or provenance.
+- Factory will hydrate citations, source metadata, URLs, quotes, and provenance from stored Source Authority and evidence records.`;
 }
 
 function stringArrayField(input: Record<string, unknown>, field: string): string[] {
@@ -557,6 +562,131 @@ function assertAuthorityGroundedOutput(output: ReturnType<typeof validateFactory
   }
 }
 
+function sourcePublisher(source: SourceAuthorityRegistryRecord): string {
+  if (source.provider === "wikidata") return "Wikidata";
+  if (source.provider === "dbpedia") return "DBpedia";
+  if (source.provider === "library_of_congress") return "Library of Congress";
+  if (source.provider === "nara") return "National Archives";
+  return source.title || "Unknown publisher";
+}
+
+function stripAuthorityMetadata(payload: Record<string, unknown>): Record<string, unknown> {
+  const forbidden = new Set([
+    "sources",
+    "source",
+    "citations",
+    "citation",
+    "url",
+    "urls",
+    "publisher",
+    "quote",
+    "quoteText",
+    "provenance",
+    "sourceId",
+    "sourceAuthorityRecordId",
+    "sourceSnapshotId",
+    "validationRecordId"
+  ]);
+  return Object.fromEntries(Object.entries(payload).filter(([key]) => !forbidden.has(key)));
+}
+
+function hydrateCitationFromEvidence(
+  evidenceRecordId: string,
+  context: ValidatedEvidenceContext,
+  evidenceById: Map<string, EvidenceRecord>,
+  sourceById: Map<string, SourceAuthorityRegistryRecord>,
+  snapshotById: Map<string, SourceAuthoritySnapshot>
+): ValidatedFactoryWorkerOutput["sources"][number] {
+  const evidence = evidenceById.get(evidenceRecordId);
+  if (!evidence) {
+    throw new ApiError(409, "FACTORY_RESEARCH_EVIDENCE_NOT_AUTHORIZED", "Factory research output references an unknown evidenceRecordId.");
+  }
+  const source = sourceById.get(evidence.sourceRecordId);
+  if (!source) {
+    throw new ApiError(409, "FACTORY_RESEARCH_SOURCE_LINEAGE_MISSING", "Factory research evidence is missing Source Authority lineage.");
+  }
+  const snapshot = snapshotById.get(evidence.sourceSnapshotId);
+  const urls = sourceUrls(source, snapshot);
+  const citation: ValidatedFactoryWorkerOutput["sources"][number] = {
+    sourceId: source.sourceRecordId,
+    evidenceRecordId: evidence.evidenceRecordId,
+    title: source.title,
+    url: urls[0],
+    quote: evidence.quoteText
+  };
+  if (!citation.url) {
+    delete citation.url;
+  }
+  if (!citation.quote) {
+    delete citation.quote;
+  }
+  if (!context.allowedSourceIds.has(source.sourceRecordId) || !context.allowedEvidenceRecordIds.has(evidence.evidenceRecordId)) {
+    throw new ApiError(409, "FACTORY_RESEARCH_EVIDENCE_NOT_AUTHORIZED", "Factory research output references evidence outside the validated authority context.");
+  }
+  return citation;
+}
+
+function hydrateResearchWorkerOutput(output: CompactResearchWorkerOutput, context: ValidatedEvidenceContext): ValidatedFactoryWorkerOutput {
+  const evidenceById = new Map(context.evidenceRecords.map((record) => [record.evidenceRecordId, record]));
+  const sourceById = new Map(context.sourceRecords.map((record) => [record.sourceRecordId, record]));
+  const snapshotById = new Map(context.snapshots.map((snapshot) => [snapshot.snapshotId, snapshot]));
+  const citationByEvidenceId = new Map<string, ValidatedFactoryWorkerOutput["sources"][number]>();
+
+  const hydrateCitation = (evidenceRecordId: string) => {
+    const existing = citationByEvidenceId.get(evidenceRecordId);
+    if (existing) return existing;
+    const citation = hydrateCitationFromEvidence(evidenceRecordId, context, evidenceById, sourceById, snapshotById);
+    citationByEvidenceId.set(evidenceRecordId, citation);
+    return citation;
+  };
+
+  const hydratedEvidence = output.claims.map((claim) => ({
+    claim: claim.claim,
+    citations: claim.evidenceRecordIds.map(hydrateCitation)
+  }));
+
+  const candidates = output.candidates.map((candidate) => {
+    const citations = candidate.evidenceRecordIds.map(hydrateCitation);
+    const primaryEvidence = evidenceById.get(candidate.evidenceRecordIds[0]!);
+    const primarySource = primaryEvidence ? sourceById.get(primaryEvidence.sourceRecordId) : null;
+    const safePayload = stripAuthorityMetadata(candidate.payload);
+    const payload = candidate.objectType === "candidate_source" && primarySource
+      ? {
+        ...safePayload,
+        sourceId: primarySource.sourceRecordId,
+        title: primarySource.title,
+        url: sourceUrls(primarySource, primaryEvidence ? snapshotById.get(primaryEvidence.sourceSnapshotId) : undefined)[0],
+        publisher: sourcePublisher(primarySource),
+        credibility: "authority-grounded",
+        citationNote: "Hydrated from passed Source Authority evidence by Factory.",
+        evidenceSourceRefs: candidate.evidenceRecordIds
+      }
+      : {
+        ...safePayload,
+        sourceRefs: candidate.evidenceRecordIds
+      };
+    return {
+      title: candidate.title,
+      objectType: candidate.objectType,
+      payload,
+      evidence: [{
+        claim: candidate.title,
+        citations
+      }],
+      sources: citations
+    };
+  });
+
+  return {
+    summary: output.summary,
+    confidence: output.confidence,
+    boundary: output.boundary,
+    evidence: hydratedEvidence,
+    sources: Array.from(citationByEvidenceId.values()),
+    candidates
+  };
+}
+
 function evidenceRefsFromPipelineInput(input: Record<string, unknown>): EvidenceRef[] {
   const refs = input.validatedEvidenceRefs;
   if (!Array.isArray(refs)) return [];
@@ -618,13 +748,16 @@ function classifyRuntimeFailure(error: unknown): Record<string, unknown> {
     ? (error.diagnostics as Record<string, unknown>)
     : {};
   const abortName = error && typeof error === "object" && "name" in error ? String(error.name) : "";
-  const failureClass = diagnostics.failureClass === "provider_timeout_failed" || abortName === "AbortError" || message.includes("timed out") || message.includes("aborted")
+  const diagnosticFailureClass = typeof diagnostics.failureClass === "string" ? diagnostics.failureClass : null;
+  const failureClass = diagnosticFailureClass === "provider_timeout_failed" || abortName === "AbortError" || message.includes("timed out") || message.includes("aborted")
     ? "provider_timeout_failed"
-    : diagnostics.failureClass === "output_validation_failed"
+    : diagnosticFailureClass === "output_validation_failed"
     ? "output_validation_failed"
     : message.includes("validation") || message.includes("required") || message.includes("Invalid")
       || message.includes("missing") || message.includes("forbidden candidate") || message.includes("unknown sourceId")
     ? "output_validation_failed"
+    : diagnosticFailureClass
+      ? diagnosticFailureClass
     : message.includes("Ollama") || message.includes("Qwen14")
       ? "provider_execution_failed"
       : "runtime_execution_failed";
@@ -976,6 +1109,8 @@ export const factoryService = {
       let validated = null;
       let lastFailure: unknown = null;
       const retryHistory: Array<Record<string, unknown>> = [];
+      const compactAuthorityResearch = Boolean(validatedEvidenceContext && pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker");
+      const outputSchema = compactAuthorityResearch ? compactResearchWorkerOutputContractSchema() : contract.output_schema;
       try {
         const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -994,7 +1129,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
                   validatedEvidenceContext: validatedEvidenceContext?.promptContext || null,
                   validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
                 },
-                contract.output_schema
+                outputSchema
               ),
               input: {
                 pipelineInput: input.input,
@@ -1003,7 +1138,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
                 validatedEvidenceContext: validatedEvidenceContext?.promptContext || null,
                 validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
               },
-              outputSchema: contract.output_schema,
+              outputSchema,
               configuration: {
                 maxOutputTokens: contract.max_output_tokens,
                 pipelineId: pipeline.pipelineId,
@@ -1012,13 +1147,19 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
               },
               timeoutMs: contract.execution_timeout * 1000
             });
-            const attemptValidated = validateFactoryWorkerOutput({
-              workerKey,
-              allowedObjectTypes: contract.allowed_object_types,
-              output: attemptResult.output
-            });
-            if (validatedEvidenceContext && pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker") {
-              assertAuthorityGroundedOutput(attemptValidated, validatedEvidenceContext);
+            const attemptValidated = compactAuthorityResearch
+              ? validateFactoryWorkerOutput({
+                workerKey,
+                allowedObjectTypes: contract.allowed_object_types,
+                output: hydrateResearchWorkerOutput(validateCompactResearchWorkerOutput(attemptResult.output), validatedEvidenceContext!)
+              })
+              : validateFactoryWorkerOutput({
+                workerKey,
+                allowedObjectTypes: contract.allowed_object_types,
+                output: attemptResult.output
+              });
+            if (compactAuthorityResearch) {
+              assertAuthorityGroundedOutput(attemptValidated, validatedEvidenceContext!);
             }
             result = attemptResult;
             validated = attemptValidated;

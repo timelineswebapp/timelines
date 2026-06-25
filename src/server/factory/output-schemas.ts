@@ -50,6 +50,32 @@ const candidateSchema = baseOutputSchema.extend({
 
 export type ValidatedFactoryWorkerOutput = z.infer<typeof candidateSchema>;
 
+const compactResearchClaimSchema = z.object({
+  claim: z.string().min(1),
+  evidenceRecordIds: z.array(z.string().min(1)).min(1)
+}).strict();
+
+const compactResearchCandidateSchema = z.object({
+  title: z.string().min(1),
+  objectType: z.enum(["candidate_source", "candidate_context_record"]),
+  payload: z.record(z.unknown()).default({}),
+  evidenceRecordIds: z.array(z.string().min(1)).min(1)
+}).strict();
+
+const compactResearchOutputSchema = z.object({
+  summary: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  boundary: z.object({
+    factoryOwned: z.literal(true),
+    publicationAllowed: z.literal(false),
+    governanceSubmissionAllowed: z.literal(false)
+  }),
+  claims: z.array(compactResearchClaimSchema).min(1),
+  candidates: z.array(compactResearchCandidateSchema).min(1)
+}).strict();
+
+export type CompactResearchWorkerOutput = z.infer<typeof compactResearchOutputSchema>;
+
 export class FactoryWorkerOutputValidationError extends Error {
   diagnostics: Record<string, unknown>;
 
@@ -61,6 +87,37 @@ export class FactoryWorkerOutputValidationError extends Error {
       validationErrors: [message],
       ...diagnostics
     };
+  }
+}
+
+function assertNoAuthorityMetadata(value: unknown, path = "output"): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertNoAuthorityMetadata(item, `${path}[${index}]`));
+    return;
+  }
+
+  const forbidden = new Set([
+    "sources",
+    "source",
+    "citations",
+    "citation",
+    "url",
+    "urls",
+    "publisher",
+    "quote",
+    "quoteText",
+    "provenance",
+    "sourceId",
+    "sourceAuthorityRecordId",
+    "sourceSnapshotId",
+    "validationRecordId"
+  ]);
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    if (forbidden.has(key)) {
+      throw new FactoryWorkerOutputValidationError(`Compact research output may not include ${path}.${key}.`);
+    }
+    assertNoAuthorityMetadata(nested, `${path}.${key}`);
   }
 }
 
@@ -210,6 +267,68 @@ export function factoryWorkerOutputContractSchema(workerKey: string): Record<str
     },
     workerKey
   };
+}
+
+export function compactResearchWorkerOutputContractSchema(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["summary", "confidence", "boundary", "claims", "candidates"],
+    properties: {
+      summary: { type: "string", minLength: 1 },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+      boundary: {
+        type: "object",
+        required: ["factoryOwned", "publicationAllowed", "governanceSubmissionAllowed"],
+        properties: {
+          factoryOwned: { const: true },
+          publicationAllowed: { const: false },
+          governanceSubmissionAllowed: { const: false }
+        }
+      },
+      claims: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["claim", "evidenceRecordIds"],
+          properties: {
+            claim: { type: "string", minLength: 1 },
+            evidenceRecordIds: { type: "array", minItems: 1, items: { type: "string" } }
+          }
+        }
+      },
+      candidates: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "objectType", "payload", "evidenceRecordIds"],
+          properties: {
+            title: { type: "string", minLength: 1 },
+            objectType: { enum: ["candidate_source", "candidate_context_record"] },
+            payload: { type: "object" },
+            evidenceRecordIds: { type: "array", minItems: 1, items: { type: "string" } }
+          }
+        }
+      }
+    },
+    workerKey: "research_worker_compact"
+  };
+}
+
+export function validateCompactResearchWorkerOutput(output: Record<string, unknown>): CompactResearchWorkerOutput {
+  let parsed: CompactResearchWorkerOutput;
+  try {
+    parsed = compactResearchOutputSchema.parse(output);
+  } catch (error) {
+    const validationErrors = error instanceof z.ZodError ? error.issues.map((issue) => issue.message) : ["Generated compact research output failed schema validation."];
+    throw new FactoryWorkerOutputValidationError("Generated compact research output failed schema validation.", { validationErrors });
+  }
+  assertNoAuthorityMetadata(parsed);
+  return parsed;
 }
 
 export function validateFactoryWorkerOutput(input: {
