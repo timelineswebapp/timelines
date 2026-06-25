@@ -23,10 +23,16 @@ function normalizeRetrievalUrl(provider: string, canonicalUrl: string): string {
     try {
       const parsed = new URL(canonicalUrl);
       const hostname = parsed.hostname.toLowerCase();
-      if ((hostname === "www.loc.gov" || hostname === "loc.gov") && parsed.protocol === "http:") {
-        parsed.protocol = "https:";
-        return parsed.toString();
+      if (hostname !== "www.loc.gov" && hostname !== "loc.gov") {
+        return canonicalUrl;
       }
+      if (parsed.protocol === "http:") {
+        parsed.protocol = "https:";
+      }
+      if (parsed.protocol === "https:" && /^\/item\/[^/]+\/?$/i.test(parsed.pathname)) {
+        parsed.searchParams.set("fo", "json");
+      }
+      return parsed.toString();
     } catch {
       return canonicalUrl;
     }
