@@ -4,7 +4,7 @@ Required top-level keys: summary, confidence, boundary, sources, evidence, candi
 confidence must be a number such as 0.82, never "high", "medium", or text.
 boundary must be {"factoryOwned":true,"publicationAllowed":false,"governanceSubmissionAllowed":false}.
 sources must be non-empty: [{"sourceId":"source_1","title":"...","url":"..."}].
-evidence must be non-empty and use citations, not evidence_refs: [{"claim":"...","citations":[{"sourceId":"source_1","title":"...","url":"..."}]}].
+evidence must be non-empty and use citations, not evidence_refs: [{"claim":"...","citations":[{"sourceId":"source_1","evidenceRecordId":"evidence_record_uuid","title":"...","url":"..."}]}].
 Each candidate must include title, objectType, payload, evidence, sources.
 For every candidate_source payload include sourceId, title, url, publisher, credibility, citationNote, and evidenceSourceRefs.
 candidate_source publisher must never be empty. If exact publisher is unknown, derive a conservative publisher from the URL host or use "Unknown publisher".

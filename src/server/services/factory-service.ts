@@ -15,6 +15,7 @@ import type {
   FactoryPackageDraftLifecycle,
   FactoryPackageVersion,
   FactoryPackageType,
+  FactoryPipelineFailure,
   FactoryPipelineRunStatus,
   FactoryRuntimeExecutionStatus,
   FactoryRuntimeJobStatus,
@@ -305,6 +306,7 @@ type ValidatedEvidenceContext = {
   validationRecords: EvidenceValidationRecord[];
   validatedEvidenceRefs: EvidenceRef[];
   allowedSourceIds: Set<string>;
+  allowedEvidenceRecordIds: Set<string>;
   allowedUrls: Set<string>;
   promptContext: Array<Record<string, unknown>>;
 };
@@ -405,9 +407,11 @@ function authorityGroundedResearchPrompt(template: string): string {
 Authority-grounded execution requirement:
 - Use only the provided validatedEvidenceContext.
 - Do not invent sources, URLs, citations, publishers, evidence, or provenance.
-- Every citation sourceId must be one of the provided evidenceRecordId, validationRecordId, sourceSnapshotId, or sourceRecordId values.
+- Every citation sourceId must equal a provided sourceAuthorityRecordId value.
+- Every citation evidenceRecordId must equal the provided evidenceRecordId for the cited evidence.
+- Do not put evidenceRecordId, validationRecordId, or sourceSnapshotId in citation sourceId.
 - Every citation URL, if included, must be one of the provided authoritative source URLs.
-- Prefer citing evidenceRecordId values so downstream lineage remains exact.`;
+- Preserve sourceAuthorityRecordId and evidenceRecordId as separate identifiers.`;
 }
 
 function stringArrayField(input: Record<string, unknown>, field: string): string[] {
@@ -491,13 +495,13 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
   const validationByEvidence = new Map(validationRecords.map((validation) => [validation.evidenceRecordId, validation]));
   const allowedSourceIds = new Set<string>();
   const allowedUrls = new Set<string>();
+  const allowedEvidenceRecordIds = new Set<string>();
   const promptContext = passedEvidence.map((record) => {
     const validation = validationByEvidence.get(record.evidenceRecordId)!;
     const source = sourceById.get(record.sourceRecordId)!;
     const snapshot = snapshotById.get(record.sourceSnapshotId);
-    for (const id of [record.evidenceRecordId, validation.validationRecordId, record.sourceSnapshotId, record.sourceRecordId]) {
-      allowedSourceIds.add(id);
-    }
+    allowedSourceIds.add(record.sourceRecordId);
+    allowedEvidenceRecordIds.add(record.evidenceRecordId);
     for (const url of sourceUrls(source, snapshot)) {
       allowedUrls.add(url);
     }
@@ -506,7 +510,7 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
       corpusDocumentId: record.corpusDocumentId,
       validationRecordId: validation.validationRecordId,
       sourceSnapshotId: record.sourceSnapshotId,
-      sourceRecordId: record.sourceRecordId,
+      sourceAuthorityRecordId: record.sourceRecordId,
       provider: record.provider,
       title: source.title,
       urls: sourceUrls(source, snapshot),
@@ -524,6 +528,7 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
     validationRecords,
     validatedEvidenceRefs: passedEvidence.map((record) => evidenceRefFromValidation(record, validationByEvidence.get(record.evidenceRecordId)!)),
     allowedSourceIds,
+    allowedEvidenceRecordIds,
     allowedUrls,
     promptContext
   };
@@ -542,6 +547,9 @@ function assertAuthorityGroundedOutput(output: ReturnType<typeof validateFactory
   for (const citation of citations) {
     if (!citation.sourceId || !context.allowedSourceIds.has(citation.sourceId)) {
       throw new ApiError(409, "FACTORY_RESEARCH_CITATION_NOT_AUTHORIZED", "Factory research output contains a citation that does not map to validated evidence.");
+    }
+    if (!citation.evidenceRecordId || !context.allowedEvidenceRecordIds.has(citation.evidenceRecordId)) {
+      throw new ApiError(409, "FACTORY_RESEARCH_EVIDENCE_CITATION_NOT_AUTHORIZED", "Factory research output contains a citation that does not map to a passed evidence record.");
     }
     if (citation.url && !context.allowedUrls.has(citation.url)) {
       throw new ApiError(409, "FACTORY_RESEARCH_URL_NOT_AUTHORIZED", "Factory research output contains a URL that is not present in Source Authority.");
@@ -621,6 +629,164 @@ function classifyRuntimeFailure(error: unknown): Record<string, unknown> {
       ? "provider_execution_failed"
       : "runtime_execution_failed";
   return { ...diagnostics, failureClass, message };
+}
+
+function errorDiagnostics(error: unknown): Record<string, unknown> {
+  return error && typeof error === "object" && "diagnostics" in error && typeof error.diagnostics === "object" && error.diagnostics
+    ? { ...(error.diagnostics as Record<string, unknown>) }
+    : {};
+}
+
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function errorStack(error: unknown): string | null {
+  return error instanceof Error ? error.stack || null : null;
+}
+
+function errorCode(error: unknown): string | null {
+  return error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code : null;
+}
+
+function errorStatus(error: unknown): number | null {
+  return error instanceof ApiError ? error.status : null;
+}
+
+function freezeFailure(failure: FactoryPipelineFailure): FactoryPipelineFailure {
+  Object.freeze(failure.retryHistory);
+  Object.freeze(failure.cleanupDiagnostics);
+  Object.freeze(failure.diagnostics);
+  return Object.freeze(failure);
+}
+
+function createPipelineFailure(input: {
+  error: unknown;
+  pipelineRunId: string;
+  pipelineStepId?: string | null;
+  workerKey?: string | null;
+  stepIndex?: number | null;
+  stage: string;
+  retryHistory?: Array<Record<string, unknown>>;
+}): FactoryPipelineFailure {
+  const diagnostics = errorDiagnostics(input.error);
+  const classified = classifyRuntimeFailure(input.error);
+  return freezeFailure({
+    failureId: randomUUID(),
+    pipelineRunId: input.pipelineRunId,
+    pipelineStepId: input.pipelineStepId || null,
+    workerKey: input.workerKey || null,
+    stepIndex: typeof input.stepIndex === "number" ? input.stepIndex : null,
+    stage: input.stage,
+    failureClass: String(classified.failureClass || "runtime_execution_failed"),
+    originalName: errorName(input.error),
+    originalMessage: errorMessage(input.error),
+    originalStack: errorStack(input.error),
+    originalCode: errorCode(input.error),
+    originalStatus: errorStatus(input.error),
+    retryHistory: input.retryHistory || [],
+    diagnostics,
+    cleanupDiagnostics: [],
+    failedAt: new Date().toISOString()
+  });
+}
+
+function appendCleanupDiagnostic(failure: FactoryPipelineFailure, diagnostic: Record<string, unknown>): FactoryPipelineFailure {
+  return freezeFailure({
+    ...failure,
+    cleanupDiagnostics: [
+      ...failure.cleanupDiagnostics,
+      {
+        ...diagnostic,
+        failedAt: new Date().toISOString()
+      }
+    ]
+  });
+}
+
+function factoryPipelineFailureError(failure: FactoryPipelineFailure): ApiError {
+  return new ApiError(
+    failure.originalStatus || 502,
+    "FACTORY_PIPELINE_FAILED",
+    `Factory pipeline failed: ${failure.originalMessage}`,
+    { failure }
+  );
+}
+
+async function finalizePipelineFailure(input: {
+  failure: FactoryPipelineFailure;
+  actor: string;
+  reason: string;
+  artifactRefs: string[];
+  factoryObjectRefs: string[];
+  packageDraftId: string | null;
+}): Promise<never> {
+  let failure = input.failure;
+  let failedStep: unknown = null;
+
+  if (failure.pipelineStepId) {
+    try {
+      failedStep = await factoryRepository.transitionPipelineStep({
+        pipelineStepId: failure.pipelineStepId,
+        status: "failed",
+        output: failure as unknown as Record<string, unknown>
+      });
+    } catch (cleanupError) {
+      failure = appendCleanupDiagnostic(failure, {
+        operation: "transitionPipelineStep",
+        message: errorMessage(cleanupError),
+        stack: errorStack(cleanupError)
+      });
+    }
+  }
+
+  try {
+    await factoryRepository.transitionPipelineRun({
+      pipelineRunId: failure.pipelineRunId,
+      status: "failed",
+      actor: input.actor,
+      artifactRefs: input.artifactRefs,
+      factoryObjectRefs: input.factoryObjectRefs,
+      packageDraftId: input.packageDraftId
+    });
+  } catch (cleanupError) {
+    failure = appendCleanupDiagnostic(failure, {
+      operation: "transitionPipelineRun",
+      message: errorMessage(cleanupError),
+      stack: errorStack(cleanupError)
+    });
+  }
+
+  try {
+    await factoryRepository.createRuntimeAuditRecord({
+      targetRef: { authorityType: "factory_runtime_execution", authorityId: failure.pipelineStepId || failure.pipelineRunId },
+      action: "fail_pipeline_step",
+      actor: input.actor,
+      reason: input.reason,
+      afterState: {
+        failure,
+        failedStep
+      }
+    });
+  } catch (cleanupError) {
+    failure = appendCleanupDiagnostic(failure, {
+      operation: "createRuntimeAuditRecord",
+      message: errorMessage(cleanupError),
+      stack: errorStack(cleanupError)
+    });
+    console.error(JSON.stringify({
+      level: "error",
+      component: "factory_pipeline",
+      message: "Factory pipeline failure audit persistence failed.",
+      failure
+    }));
+  }
+
+  throw factoryPipelineFailureError(failure);
 }
 
 function withAttemptDiagnostics(error: unknown, diagnostics: Record<string, unknown>): unknown {
@@ -720,6 +886,12 @@ export const factoryService = {
       input: input.input,
       actor: input.actor
     });
+    const artifactRefs: string[] = [];
+    const factoryObjectRefs: string[] = [];
+    let packageDraftId: string | null = null;
+    let validatedEvidenceContext: ValidatedEvidenceContext | null = null;
+
+    try {
     await factoryRepository.createRuntimeAuditRecord({
       targetRef: { authorityType: "factory_runtime_execution", authorityId: run.pipelineRunId },
       action: "create_pipeline_run",
@@ -728,11 +900,6 @@ export const factoryService = {
       afterState: run as unknown as Record<string, unknown>
     });
     await factoryRepository.transitionPipelineRun({ pipelineRunId: run.pipelineRunId, status: "running", actor: input.actor });
-
-    const artifactRefs: string[] = [];
-    const factoryObjectRefs: string[] = [];
-    let packageDraftId: string | null = null;
-    let validatedEvidenceContext: ValidatedEvidenceContext | null = null;
 
     for (const [stepIndex, workerKey] of pipeline.steps.entries()) {
       const step = await factoryRepository.createPipelineStep({
@@ -784,28 +951,21 @@ export const factoryService = {
             afterState: completedStep as unknown as Record<string, unknown>
           });
         } catch (error) {
-          const failure = classifyRuntimeFailure(error);
-          const failedStep = await factoryRepository.transitionPipelineStep({
-            pipelineStepId: step.pipelineStepId,
-            status: "failed",
-            output: failure
-          });
-          await factoryRepository.transitionPipelineRun({
-            pipelineRunId: run.pipelineRunId,
-            status: "failed",
+          await finalizePipelineFailure({
+            failure: createPipelineFailure({
+              error,
+              pipelineRunId: run.pipelineRunId,
+              pipelineStepId: step.pipelineStepId,
+              workerKey,
+              stepIndex,
+              stage: "authority_orchestration"
+            }),
             actor: input.actor,
+            reason: input.reason,
             artifactRefs,
             factoryObjectRefs,
             packageDraftId
           });
-          await factoryRepository.createRuntimeAuditRecord({
-            targetRef: { authorityType: "factory_runtime_execution", authorityId: failedStep.pipelineStepId },
-            action: "fail_pipeline_step",
-            actor: input.actor,
-            reason: input.reason,
-            afterState: failedStep as unknown as Record<string, unknown>
-          });
-          throw error;
         }
         continue;
       }
@@ -815,6 +975,7 @@ export const factoryService = {
       let result: Awaited<ReturnType<typeof provider.execute>> | null = null;
       let validated = null;
       let lastFailure: unknown = null;
+      const retryHistory: Array<Record<string, unknown>> = [];
       try {
         const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -871,6 +1032,15 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
               workerKey,
               rawResponsePreview: result?.diagnostics.rawResponsePreview
             });
+            retryHistory.push({
+              attempt,
+              workerKey,
+              providerKey: provider.providerKey,
+              modelName: provider.modelName,
+              message: errorMessage(error),
+              stack: errorStack(error),
+              diagnostics: errorDiagnostics(lastFailure)
+            });
             if (attempt < maxAttempts && contract.retry_policy.backoffMs > 0) {
               await new Promise((resolve) => setTimeout(resolve, contract.retry_policy.backoffMs));
             }
@@ -880,28 +1050,25 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
           throw lastFailure instanceof Error ? lastFailure : new Error("Qwen14 pipeline worker failed validation.");
         }
       } catch (error) {
-        const failure = classifyRuntimeFailure(error);
-        const failedStep = await factoryRepository.transitionPipelineStep({
-          pipelineStepId: step.pipelineStepId,
-          status: "failed",
-          output: failure
-        });
-        await factoryRepository.transitionPipelineRun({
-          pipelineRunId: run.pipelineRunId,
-          status: "failed",
+        await finalizePipelineFailure({
+          failure: createPipelineFailure({
+            error,
+            pipelineRunId: run.pipelineRunId,
+            pipelineStepId: step.pipelineStepId,
+            workerKey,
+            stepIndex,
+            stage: "worker_execution",
+            retryHistory
+          }),
           actor: input.actor,
+          reason: input.reason,
           artifactRefs,
           factoryObjectRefs,
           packageDraftId
         });
-        await factoryRepository.createRuntimeAuditRecord({
-          targetRef: { authorityType: "factory_runtime_execution", authorityId: failedStep.pipelineStepId },
-          action: "fail_pipeline_step",
-          actor: input.actor,
-          reason: input.reason,
-          afterState: failedStep as unknown as Record<string, unknown>
-        });
-        throw new ApiError(502, "FACTORY_PIPELINE_WORKER_FAILED", failure.message as string);
+      }
+      if (!result || !validated) {
+        throw new Error("Factory pipeline failure finalization did not terminate execution.");
       }
       const output = {
         ...pipelineStepOutput({
@@ -1005,6 +1172,23 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
       afterState: completedRun as unknown as Record<string, unknown>
     });
     return completedRun;
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "FACTORY_PIPELINE_FAILED") {
+        throw error;
+      }
+      await finalizePipelineFailure({
+        failure: createPipelineFailure({
+          error,
+          pipelineRunId: run.pipelineRunId,
+          stage: "pipeline_execution"
+        }),
+        actor: input.actor,
+        reason: input.reason,
+        artifactRefs,
+        factoryObjectRefs,
+        packageDraftId
+      });
+    }
   },
 
   async cancelPipeline(input: CancelFactoryPipelineInput) {

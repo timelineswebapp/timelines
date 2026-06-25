@@ -111,6 +111,24 @@ export type FactoryRuntimeExecutionStatus = "created" | "started" | "completed" 
 export type FactoryPipelineRunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 export type FactoryPipelineStepStatus = "pending" | "running" | "completed" | "failed" | "skipped" | "cancelled";
 export type FactoryGovernanceHandoffStatus = "prepared" | "submitted_to_governance" | "cancelled" | "preserved";
+export type FactoryPipelineFailure = Readonly<{
+  failureId: string;
+  pipelineRunId: string;
+  pipelineStepId: string | null;
+  workerKey: string | null;
+  stepIndex: number | null;
+  stage: string;
+  failureClass: string;
+  originalName: string;
+  originalMessage: string;
+  originalStack: string | null;
+  originalCode: string | null;
+  originalStatus: number | null;
+  retryHistory: ReadonlyArray<Record<string, unknown>>;
+  diagnostics: Readonly<Record<string, unknown>>;
+  cleanupDiagnostics: ReadonlyArray<Record<string, unknown>>;
+  failedAt: string;
+}>;
 export type FactoryWorkerCategory = "research" | "source" | "extraction" | "enrichment" | "assembly" | "validation";
 export type FactoryWorkerOperation =
   | "read_factory_production_memory"

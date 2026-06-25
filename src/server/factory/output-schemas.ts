@@ -3,6 +3,7 @@ import type { FactoryObjectType } from "@/src/server/factory/contracts";
 
 const citationSchema = z.object({
   sourceId: z.string().min(1).optional(),
+  evidenceRecordId: z.string().min(1).optional(),
   title: z.string().min(1),
   url: z.string().url().optional(),
   locator: z.string().min(1).optional(),

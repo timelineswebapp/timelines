@@ -22,7 +22,7 @@ import { evidenceExtractionService } from "@/src/server/services/evidence-extrac
 import { evidenceValidationService } from "@/src/server/services/evidence-validation-service";
 
 function factoryOutputForPrompt(prompt: string, override: Record<string, unknown> = {}) {
-  const source = { sourceId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" };
+  const source = { sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" };
   const evidence = { claim: "The telephone evidence is source-grounded.", citations: [source] };
   const candidateBase = { title: "Telephone Source", objectType: "candidate_source", payload: { sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: source.url, publisher: "Wikidata", credibility: "authoritative", citationNote: "Retrieved Source Authority snapshot.", evidenceSourceRefs: ["evidence-1"] }, evidence: [evidence], sources: [source] };
   let candidate: any = candidateBase;
@@ -36,6 +36,8 @@ function factoryOutputForPrompt(prompt: string, override: Record<string, unknown
     candidate = { ...candidateBase, title: "Telephone relationship", objectType: "candidate_relationship", payload: { sourceAuthorityRef: "telephone", targetAuthorityRef: "telegraph", relationshipType: "related_to", summary: "Relationship.", sourceRefs: ["evidence-1"] } };
   } else if (prompt.includes("context_enrichment_worker")) {
     candidate = { ...candidateBase, title: "Telephone context", objectType: "candidate_context_record", payload: { contextType: "summary", summary: "Context.", chronologyScope: "telephone", relatedCandidateRefs: ["telephone"], sourceRefs: ["evidence-1"] } };
+  } else if (prompt.includes("package_assembly_worker")) {
+    candidate = null;
   }
   return {
     summary: "Factory output grounded in validated evidence.",
@@ -43,7 +45,7 @@ function factoryOutputForPrompt(prompt: string, override: Record<string, unknown
     boundary: { factoryOwned: true, publicationAllowed: false, governanceSubmissionAllowed: false },
     sources: [source],
     evidence: [evidence],
-    candidates: [candidate],
+    candidates: candidate ? [candidate] : [],
     ...override
   };
 }
@@ -958,8 +960,22 @@ describe("factory production memory foundation", () => {
 
   async function withMockedFactoryPipeline<T>(
     outputOverride: Record<string, unknown>,
-    run: (state: { artifacts: any[]; objects: any[]; verifierCalls: any[]; pipelineStatuses: string[]; stepStatuses: string[] }) => Promise<T>,
-    options: { failRetrieval?: boolean } = {}
+    run: (state: {
+      artifacts: any[];
+      objects: any[];
+      packageDrafts: any[];
+      verifierCalls: any[];
+      pipelineStatuses: string[];
+      stepStatuses: string[];
+      providerPrompts: string[];
+      auditRecords: any[];
+    }) => Promise<T>,
+    options: {
+      failRetrieval?: boolean;
+      failStepFailureTransition?: boolean;
+      failRunFailureTransition?: boolean;
+      failFailureAudit?: boolean;
+    } = {}
   ): Promise<T> {
     const originals = {
       discover: sourceDiscoveryService.discover,
@@ -974,9 +990,19 @@ describe("factory production memory foundation", () => {
       createRuntimeAuditRecord: factoryRepository.createRuntimeAuditRecord,
       createArtifact: factoryRepository.createArtifact,
       createObject: factoryRepository.createObject,
+      createPackageDraft: factoryRepository.createPackageDraft,
       fetch: globalThis.fetch
     };
-    const state = { artifacts: [] as any[], objects: [] as any[], verifierCalls: [] as any[], pipelineStatuses: [] as string[], stepStatuses: [] as string[] };
+    const state = {
+      artifacts: [] as any[],
+      objects: [] as any[],
+      packageDrafts: [] as any[],
+      verifierCalls: [] as any[],
+      pipelineStatuses: [] as string[],
+      stepStatuses: [] as string[],
+      providerPrompts: [] as string[],
+      auditRecords: [] as any[]
+    };
     let stepId = 0;
     let artifactId = 0;
     let objectId = 0;
@@ -1066,14 +1092,26 @@ describe("factory production memory foundation", () => {
       (factoryRepository as any).createPipelineRun = async (input: any) => ({ pipelineRunId: "run-1", pipelineId: input.pipelineId, status: "queued", input: input.input, artifactRefs: [], factoryObjectRefs: [], packageDraftId: null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
       (factoryRepository as any).transitionPipelineRun = async (input: any) => {
         state.pipelineStatuses.push(input.status);
+        if (options.failRunFailureTransition && input.status === "failed") {
+          throw new Error("run cleanup failed");
+        }
         return { pipelineRunId: input.pipelineRunId, pipelineId: "pipeline", status: input.status, input: {}, artifactRefs: input.artifactRefs || [], factoryObjectRefs: input.factoryObjectRefs || [], packageDraftId: input.packageDraftId || null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor };
       };
       (factoryRepository as any).createPipelineStep = async (input: any) => ({ pipelineStepId: `step-${++stepId}`, pipelineRunId: input.pipelineRunId, stepIndex: input.stepIndex, workerKey: input.workerKey, status: "pending", input: input.input, output: null, artifactRefs: [], factoryObjectRefs: [], startedAt: null, completedAt: null });
       (factoryRepository as any).transitionPipelineStep = async (input: any) => {
         state.stepStatuses.push(input.status);
+        if (options.failStepFailureTransition && input.status === "failed") {
+          throw new Error("step cleanup failed");
+        }
         return { pipelineStepId: input.pipelineStepId, pipelineRunId: "run-1", stepIndex: 0, workerKey: "worker", status: input.status, input: {}, output: input.output || null, artifactRefs: input.artifactRefs || [], factoryObjectRefs: input.factoryObjectRefs || [], startedAt: null, completedAt: null };
       };
-      (factoryRepository as any).createRuntimeAuditRecord = async () => ({});
+      (factoryRepository as any).createRuntimeAuditRecord = async (input: any) => {
+        state.auditRecords.push(input);
+        if (options.failFailureAudit && input.action === "fail_pipeline_step") {
+          throw new Error("audit cleanup failed");
+        }
+        return "audit-1";
+      };
       (factoryRepository as any).createArtifact = async (input: any) => {
         const artifact = { artifactId: `artifact-${++artifactId}`, factoryObjectId: null, artifactType: input.artifactType, title: input.title, payload: input.payload, authoritySafe: input.authoritySafe, modelProvider: input.modelProvider || null, modelName: input.modelName || null, createdBy: input.actor };
         state.artifacts.push(artifact);
@@ -1084,8 +1122,15 @@ describe("factory production memory foundation", () => {
         state.objects.push(object);
         return object;
       };
+      (factoryRepository as any).createPackageDraft = async (input: any) => {
+        const draft = { packageDraftId: "draft-1", lifecycle: "draft", lineageRootId: "draft-1", createdBy: input.actor, updatedBy: input.actor, ...input };
+        state.packageDrafts.push(draft);
+        return draft;
+      };
       globalThis.fetch = async (_url: any, init?: any) => {
-        const prompt = JSON.parse(init.body).prompt as string;
+        const body = JSON.parse(init.body);
+        const prompt = body.prompt as string;
+        state.providerPrompts.push(prompt);
         return new Response(JSON.stringify({ response: JSON.stringify(factoryOutputForPrompt(prompt, outputOverride)) }), { status: 200, headers: { "content-type": "application/json" } });
       };
       setFactoryPipelineEvidenceVerifierForTests(async (refs, context) => {
@@ -1105,6 +1150,7 @@ describe("factory production memory foundation", () => {
       (factoryRepository as any).createRuntimeAuditRecord = originals.createRuntimeAuditRecord;
       (factoryRepository as any).createArtifact = originals.createArtifact;
       (factoryRepository as any).createObject = originals.createObject;
+      (factoryRepository as any).createPackageDraft = originals.createPackageDraft;
       globalThis.fetch = originals.fetch;
       setFactoryPipelineEvidenceVerifierForTests(null);
     }
@@ -1125,6 +1171,11 @@ describe("factory production memory foundation", () => {
       assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.evidenceRecords?.length === 1));
       assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.evidenceValidationRecords?.length === 1));
       assert.ok(state.artifacts.some((artifact) => artifact.payload.validatedEvidenceRefs?.[0]?.validationRecordId === "validation-1"));
+      const researchPrompt = state.providerPrompts.find((prompt) => prompt.includes("validatedEvidenceContext"));
+      assert.ok(researchPrompt);
+      assert.match(researchPrompt, /"sourceAuthorityRecordId":"source-record-1"/);
+      assert.match(researchPrompt, /"evidenceRecordId":"evidence-1"/);
+      assert.doesNotMatch(researchPrompt, /"sourceRecordId":"source-record-1"/);
     });
   });
 
@@ -1143,14 +1194,14 @@ describe("factory production memory foundation", () => {
 
     await assert.rejects(
       withMockedFactoryPipeline({
-        sources: [{ sourceId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }],
-        evidence: [{ claim: "Fabricated URL claim.", citations: [{ sourceId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }] }],
+        sources: [{ sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }],
+        evidence: [{ claim: "Fabricated URL claim.", citations: [{ sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }] }],
         candidates: [{
           title: "Fabricated source",
           objectType: "candidate_source",
           payload: { sourceId: "source-record-1", title: "Fabricated", url: "https://example.org/fake", publisher: "Fabricated", credibility: "invalid", citationNote: "Fake.", evidenceSourceRefs: ["evidence-1"] },
-          evidence: [{ claim: "Fabricated URL claim.", citations: [{ sourceId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }] }],
-          sources: [{ sourceId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }]
+          evidence: [{ claim: "Fabricated URL claim.", citations: [{ sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }] }],
+          sources: [{ sourceId: "source-record-1", evidenceRecordId: "evidence-1", title: "Fabricated", url: "https://example.org/fake" }]
         }]
       }, async () => factoryService.startPipeline({
         pipelineId: "historical_research_pipeline",
@@ -1159,6 +1210,50 @@ describe("factory production memory foundation", () => {
         reason: "Reject fabricated URL."
       })),
       /not present in Source Authority/
+    );
+  });
+
+  it("rejects authority-grounded research output that uses evidence record IDs as citation source IDs", async () => {
+    await assert.rejects(
+      withMockedFactoryPipeline({
+        sources: [{ sourceId: "evidence-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }],
+        evidence: [{ claim: "Evidence id is incorrectly used as source id.", citations: [{ sourceId: "evidence-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }] }],
+        candidates: [{
+          title: "Telephone Source",
+          objectType: "candidate_source",
+          payload: { sourceId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json", publisher: "Wikidata", credibility: "authoritative", citationNote: "Retrieved Source Authority snapshot.", evidenceSourceRefs: ["evidence-1"] },
+          evidence: [{ claim: "Evidence id is incorrectly used as source id.", citations: [{ sourceId: "evidence-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }] }],
+          sources: [{ sourceId: "evidence-1", evidenceRecordId: "evidence-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }]
+        }]
+      }, async () => factoryService.startPipeline({
+        pipelineId: "historical_research_pipeline",
+        input: { subject: "Telephone" },
+        actor: "factory-test",
+        reason: "Reject evidence id as source id."
+      })),
+      /does not map to validated evidence/
+    );
+  });
+
+  it("rejects authority-grounded research output with missing evidenceRecordId lineage", async () => {
+    await assert.rejects(
+      withMockedFactoryPipeline({
+        sources: [{ sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }],
+        evidence: [{ claim: "Evidence lineage is missing.", citations: [{ sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }] }],
+        candidates: [{
+          title: "Telephone Source",
+          objectType: "candidate_source",
+          payload: { sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json", publisher: "Wikidata", credibility: "authoritative", citationNote: "Retrieved Source Authority snapshot.", evidenceSourceRefs: ["evidence-1"] },
+          evidence: [{ claim: "Evidence lineage is missing.", citations: [{ sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }] }],
+          sources: [{ sourceId: "source-record-1", title: "Authoritative Telephone Evidence", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }]
+        }]
+      }, async () => factoryService.startPipeline({
+        pipelineId: "historical_research_pipeline",
+        input: { subject: "Telephone" },
+        actor: "factory-test",
+        reason: "Reject missing evidence lineage."
+      })),
+      /passed evidence record/
     );
   });
 
@@ -1175,7 +1270,70 @@ describe("factory production memory foundation", () => {
       );
       assert.deepEqual(state.pipelineStatuses, ["running", "failed"]);
       assert.deepEqual(state.stepStatuses, ["running", "failed"]);
+      const failureAudit = state.auditRecords.find((record) => record.action === "fail_pipeline_step");
+      assert.equal(failureAudit.afterState.failure.originalMessage, "Source provider URL must use HTTPS.");
+      assert.match(failureAudit.afterState.failure.originalStack, /Source provider URL must use HTTPS/);
+      assert.equal(failureAudit.afterState.failure.stage, "authority_orchestration");
     }, { failRetrieval: true });
+  });
+
+  it("preserves original pipeline failure when cleanup persistence fails", async () => {
+    await withMockedFactoryPipeline({}, async (state) => {
+      await assert.rejects(
+        factoryService.startPipeline({
+          pipelineId: "historical_research_pipeline",
+          input: { subject: "Telephone" },
+          actor: "factory-test",
+          reason: "Fail authority retrieval with cleanup failures."
+        }),
+        (error: unknown) => {
+          assert.equal(error instanceof ApiError, true);
+          const apiError = error as ApiError;
+          assert.equal(apiError.code, "FACTORY_PIPELINE_FAILED");
+          assert.match(apiError.message, /Source provider URL must use HTTPS/);
+          const failure = (apiError.details as any).failure;
+          assert.equal(failure.originalMessage, "Source provider URL must use HTTPS.");
+          assert.match(failure.originalStack, /Source provider URL must use HTTPS/);
+          assert.deepEqual(
+            failure.cleanupDiagnostics.map((diagnostic: any) => diagnostic.operation),
+            ["transitionPipelineStep", "transitionPipelineRun", "createRuntimeAuditRecord"]
+          );
+          return true;
+        }
+      );
+      assert.deepEqual(state.stepStatuses, ["running", "failed"]);
+      assert.deepEqual(state.pipelineStatuses, ["running", "failed"]);
+      assert.equal(state.auditRecords.some((record) => record.action === "fail_pipeline_step"), true);
+    }, {
+      failRetrieval: true,
+      failStepFailureTransition: true,
+      failRunFailureTransition: true,
+      failFailureAudit: true
+    });
+  });
+
+  it("preserves worker retry history in structured pipeline failures", async () => {
+    await withMockedFactoryPipeline({
+      sources: [{ sourceId: "fabricated-source", title: "Fabricated", url: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json" }]
+    }, async () => {
+      await assert.rejects(
+        factoryService.startPipeline({
+          pipelineId: "historical_research_pipeline",
+          input: { subject: "Telephone" },
+          actor: "factory-test",
+          reason: "Preserve retry history."
+        }),
+        (error: unknown) => {
+          assert.equal(error instanceof ApiError, true);
+          const failure = ((error as ApiError).details as any).failure;
+          assert.equal(failure.stage, "worker_execution");
+          assert.equal(failure.retryHistory.length, 2);
+          assert.deepEqual(failure.retryHistory.map((attempt: any) => attempt.attempt), [1, 2]);
+          assert.match(failure.originalMessage, /unknown sourceId|does not map to validated evidence/);
+          return true;
+        }
+      );
+    });
   });
 
   it("gates historical extraction on passed validated evidence", async () => {
@@ -1207,6 +1365,30 @@ describe("factory production memory foundation", () => {
       });
       assert.equal(state.verifierCalls.length, 1);
       assert.ok(state.objects.length >= 1);
+    });
+  });
+
+  it("completes publication candidate assembly with passed validated evidence", async () => {
+    await withMockedFactoryPipeline({}, async (state) => {
+      await factoryService.startPipeline({
+        pipelineId: "publication_candidate_pipeline",
+        input: {
+          subject: "Telephone",
+          validatedEvidenceRefs: [{
+            evidenceId: "validation-1",
+            evidenceType: "validated_evidence",
+            evidenceRecordId: "evidence-1",
+            validationRecordId: "validation-1",
+            authoritySafe: true
+          }]
+        },
+        actor: "factory-test",
+        reason: "Evidence-backed publication candidate assembly."
+      });
+
+      assert.deepEqual(state.pipelineStatuses, ["running", "completed"]);
+      assert.equal(state.packageDrafts.length, 1);
+      assert.equal(state.packageDrafts[0].validatedEvidenceRefs[0].evidenceRecordId, "evidence-1");
     });
   });
 
