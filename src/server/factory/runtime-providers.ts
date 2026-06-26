@@ -26,24 +26,34 @@ const defaultOllamaBaseUrl = "http://127.0.0.1:11434";
 const defaultQwen14Model = "qwen2.5:14b";
 const defaultFactoryQwenTimeoutMs = 120000;
 
-export class FactoryRuntimeProviderTimeoutError extends Error {
+export class FactoryRuntimeProviderError extends Error {
   diagnostics: Record<string, unknown>;
+  override cause?: unknown;
 
-  constructor(message: string, diagnostics: Record<string, unknown>) {
+  constructor(message: string, diagnostics: Record<string, unknown>, cause?: unknown) {
     super(message);
-    this.name = "FactoryRuntimeProviderTimeoutError";
+    this.name = "FactoryRuntimeProviderError";
     this.diagnostics = diagnostics;
+    this.cause = cause;
+    if (cause instanceof Error && cause.stack && !this.stack?.includes("Caused by:")) {
+      this.stack = `${this.stack}\nCaused by: ${cause.stack}`;
+    }
   }
 }
 
-export class FactoryRuntimeProviderOutputTruncatedError extends Error {
-  diagnostics: Record<string, unknown>;
+export class FactoryRuntimeProviderTimeoutError extends FactoryRuntimeProviderError {
+  constructor(message: string, diagnostics: Record<string, unknown>, cause?: unknown) {
+    super(message, diagnostics, cause);
+    this.name = "FactoryRuntimeProviderTimeoutError";
+  }
+}
+
+export class FactoryRuntimeProviderOutputTruncatedError extends FactoryRuntimeProviderError {
   code = "MODEL_OUTPUT_TRUNCATED";
 
-  constructor(message: string, diagnostics: Record<string, unknown>) {
-    super(message);
+  constructor(message: string, diagnostics: Record<string, unknown>, cause?: unknown) {
+    super(message, diagnostics, cause);
     this.name = "FactoryRuntimeProviderOutputTruncatedError";
-    this.diagnostics = diagnostics;
   }
 }
 
@@ -84,10 +94,59 @@ function extractJsonObject(raw: string): Record<string, unknown> {
   return object;
 }
 
+function errorProperty(error: unknown, property: string): unknown {
+  return error && typeof error === "object" && property in error
+    ? (error as Record<string, unknown>)[property]
+    : undefined;
+}
+
+function serializeCause(error: unknown, depth = 0): Record<string, unknown> | null {
+  if (!error || depth > 6) return null;
+  if (error instanceof Error || typeof error === "object") {
+    const cause = errorProperty(error, "cause");
+    return {
+      name: error instanceof Error ? error.name : errorProperty(error, "name") ?? null,
+      message: error instanceof Error ? error.message : errorProperty(error, "message") ?? String(error),
+      code: errorProperty(error, "code") ?? null,
+      errno: errorProperty(error, "errno") ?? null,
+      syscall: errorProperty(error, "syscall") ?? null,
+      hostname: errorProperty(error, "hostname") ?? null,
+      address: errorProperty(error, "address") ?? null,
+      port: errorProperty(error, "port") ?? null,
+      cause: serializeCause(cause, depth + 1)
+    };
+  }
+  return { name: null, message: String(error), cause: null };
+}
+
+function firstCauseValue(error: unknown, property: string): unknown {
+  let current: unknown = error;
+  for (let depth = 0; current && depth <= 6; depth += 1) {
+    const value = errorProperty(current, property);
+    if (value !== undefined && value !== null) return value;
+    current = errorProperty(current, "cause");
+  }
+  return null;
+}
+
+function headersObject(headers?: Headers): Record<string, string> | null {
+  if (!headers) return null;
+  return Object.fromEntries(headers.entries());
+}
+
+function preview(raw: string | null | undefined, length = 500): string | null {
+  if (typeof raw !== "string") return null;
+  return raw.slice(0, length);
+}
+
+function promptTokenEstimate(prompt: string): number {
+  return Math.ceil(prompt.length / 4);
+}
+
 function compactSchemaInstruction(schema: Record<string, unknown> | undefined): string {
   const workerKey = typeof schema?.workerKey === "string" ? schema.workerKey : "factory_worker";
   if (workerKey === "research_worker_compact") {
-    return "research_worker compact output required keys: summary, confidence, boundary, claims, candidates. Claims and candidates must reference supporting evidenceRecordIds only. Do not emit sources, citations, URLs, quotes, publishers, provenance, source IDs, snapshot IDs, or validation IDs.";
+    return "research_worker compact output required keys: summary, confidence, boundary, claims, candidates. Claims and candidates must reference supporting evidenceRecordIds only. Do not emit authority metadata, citation metadata, lineage metadata, or retrieval metadata.";
   }
   return `${workerKey} output object required keys: summary, confidence, boundary, sources, evidence, candidates. Arrays sources/evidence/candidates must be non-empty unless worker is validation-only. Evidence items require claim and citations[]. Candidate items require title, objectType, payload, evidence, sources.`;
 }
@@ -157,6 +216,8 @@ const qwen14Provider: FactoryRuntimeProvider = {
   async execute(request) {
     const startedAt = Date.now();
     const baseUrl = process.env.OLLAMA_BASE_URL || defaultOllamaBaseUrl;
+    const requestUrl = `${baseUrl}/api/generate`;
+    const method = "POST";
     const controller = new AbortController();
     const timeoutMs = resolveFactoryQwenTimeoutMs(request.timeoutMs);
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -174,27 +235,61 @@ ${JSON.stringify(request.input)}
 
 Schema contract:
 ${compactSchemaInstruction((request.outputSchema || request.configuration.outputSchema) as Record<string, unknown> | undefined)}`;
+    const maxOutputTokens = typeof request.configuration.maxOutputTokens === "number" ? request.configuration.maxOutputTokens : undefined;
+    const requestBody = JSON.stringify({
+      model: this.modelName,
+      prompt,
+      stream: false,
+      options: {
+        temperature: typeof request.configuration.temperature === "number" ? request.configuration.temperature : 0.1,
+        num_predict: maxOutputTokens
+      }
+    });
+    const baseDiagnostics = (failureClass: string, extra: Record<string, unknown> = {}) => diagnostics(startedAt, {
+      providerKey: "qwen14",
+      modelName: this.modelName,
+      requestUrl,
+      method,
+      bodyBytes: Buffer.byteLength(requestBody, "utf8"),
+      promptChars: prompt.length,
+      estimatedPromptTokens: promptTokenEstimate(prompt),
+      maxOutputTokens: maxOutputTokens ?? null,
+      timeoutMs,
+      durationMs: Date.now() - startedAt,
+      failureClass,
+      transportCause: null,
+      systemErrorCode: null,
+      errno: null,
+      syscall: null,
+      hostname: null,
+      address: null,
+      port: null,
+      httpStatus: null,
+      contentType: null,
+      responsePreview: null,
+      ...extra
+    });
 
     try {
-      const response = await fetch(`${baseUrl}/api/generate`, {
-        method: "POST",
+      const response = await fetch(requestUrl, {
+        method,
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: this.modelName,
-          prompt,
-          stream: false,
-          options: {
-            temperature: typeof request.configuration.temperature === "number" ? request.configuration.temperature : 0.1,
-            num_predict: typeof request.configuration.maxOutputTokens === "number" ? request.configuration.maxOutputTokens : undefined
-          }
-        }),
+        body: requestBody,
         signal: controller.signal
       });
+      const responseText = await response.text();
+      const responsePreview = preview(responseText);
+      const responseDiagnostics = {
+        httpStatus: response.status,
+        headers: headersObject(response.headers),
+        contentType: response.headers.get("content-type"),
+        responsePreview
+      };
       if (!response.ok) {
-        throw new Error(`Ollama Qwen14 request failed with status ${response.status}.`);
+        throw new FactoryRuntimeProviderError(`Ollama Qwen14 request failed with status ${response.status}.`, baseDiagnostics("HTTP_FAILURE", responseDiagnostics));
       }
       fetchReachedResponseParsing = true;
-      const payload = (await response.json()) as {
+      let payload: {
         response?: string;
         done_reason?: string;
         prompt_eval_count?: number;
@@ -204,27 +299,46 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
         prompt_eval_duration?: number;
         eval_duration?: number;
       };
+      try {
+        payload = JSON.parse(responseText) as typeof payload;
+      } catch (error) {
+        throw new FactoryRuntimeProviderError("Ollama Qwen14 response could not be parsed as JSON.", baseDiagnostics("PARSE_FAILURE", responseDiagnostics), error);
+      }
       if (typeof payload.response !== "string" || payload.response.trim().length === 0) {
-        throw new Error("Ollama Qwen14 returned an empty response.");
+        throw new FactoryRuntimeProviderError("Ollama Qwen14 returned an empty response.", baseDiagnostics("PARSE_FAILURE", responseDiagnostics));
       }
       if (payload.done_reason === "length") {
-        throw new FactoryRuntimeProviderOutputTruncatedError("MODEL_OUTPUT_TRUNCATED: Ollama stopped generation because the output token limit was reached.", diagnostics(startedAt, {
-          failureClass: "model_output_truncated",
+        throw new FactoryRuntimeProviderOutputTruncatedError("MODEL_OUTPUT_TRUNCATED: Ollama stopped generation because the output token limit was reached.", baseDiagnostics("MODEL_OUTPUT_TRUNCATED", {
           code: "MODEL_OUTPUT_TRUNCATED",
-          providerKey: "qwen14",
-          modelName: this.modelName,
           promptTokens: payload.prompt_eval_count ?? null,
           completionTokens: payload.eval_count ?? null,
           totalTokens: (payload.prompt_eval_count ?? 0) + (payload.eval_count ?? 0),
-          rawResponsePreview: payload.response.slice(0, 2000)
+          rawResponsePreview: payload.response.slice(0, 2000),
+          ...responseDiagnostics
         }));
       }
-      const output = extractJsonObject(payload.response);
+      let output: Record<string, unknown>;
+      try {
+        output = extractJsonObject(payload.response);
+      } catch (error) {
+        throw new FactoryRuntimeProviderError("Ollama Qwen14 response JSON object could not be parsed.", baseDiagnostics("PARSE_FAILURE", {
+          ...responseDiagnostics,
+          rawResponsePreview: payload.response.slice(0, 2000)
+        }), error);
+      }
       return {
         providerKey: "qwen14",
         modelName: this.modelName,
         output,
         diagnostics: diagnostics(startedAt, {
+          providerKey: "qwen14",
+          modelName: this.modelName,
+          requestUrl,
+          method,
+          bodyBytes: Buffer.byteLength(requestBody, "utf8"),
+          promptChars: prompt.length,
+          estimatedPromptTokens: promptTokenEstimate(prompt),
+          maxOutputTokens: maxOutputTokens ?? null,
           promptTokens: payload.prompt_eval_count ?? null,
           completionTokens: payload.eval_count ?? null,
           totalTokens: (payload.prompt_eval_count ?? 0) + (payload.eval_count ?? 0),
@@ -236,9 +350,21 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
         })
       };
     } catch (error) {
+      if (error instanceof FactoryRuntimeProviderError) {
+        throw error;
+      }
       if (isAbortError(error)) {
         throw new FactoryRuntimeProviderTimeoutError("Ollama Qwen14 request timed out.", diagnostics(startedAt, {
-          failureClass: "provider_timeout_failed",
+          ...baseDiagnostics("TRANSPORT_FAILURE", {
+            legacyFailureClass: "provider_timeout_failed",
+            transportCause: serializeCause(error),
+            systemErrorCode: firstCauseValue(error, "code"),
+            errno: firstCauseValue(error, "errno"),
+            syscall: firstCauseValue(error, "syscall"),
+            hostname: firstCauseValue(error, "hostname"),
+            address: firstCauseValue(error, "address"),
+            port: firstCauseValue(error, "port")
+          }),
           providerKey: "qwen14",
           modelName: this.modelName,
           baseUrlHost: hostOnly(baseUrl),
@@ -246,9 +372,18 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
           elapsedMs: Date.now() - startedAt,
           attempt: typeof request.configuration.attempt === "number" ? request.configuration.attempt : null,
           fetchReachedResponseParsing
-        }));
+        }), error);
       }
-      throw error;
+      throw new FactoryRuntimeProviderError("Ollama Qwen14 transport request failed.", baseDiagnostics("TRANSPORT_FAILURE", {
+        transportCause: serializeCause(error),
+        systemErrorCode: firstCauseValue(error, "code"),
+        errno: firstCauseValue(error, "errno"),
+        syscall: firstCauseValue(error, "syscall"),
+        hostname: firstCauseValue(error, "hostname"),
+        address: firstCauseValue(error, "address"),
+        port: firstCauseValue(error, "port"),
+        fetchReachedResponseParsing
+      }), error);
     } finally {
       clearTimeout(timeout);
     }

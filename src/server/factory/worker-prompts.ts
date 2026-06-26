@@ -12,11 +12,17 @@ Use conservative historical claims and stable source titles/URLs only.
 `;
 
 export const factoryWorkerPromptTemplates: Record<string, string> = {
-  research_worker: `${sharedContract}
+  research_worker: `
+Return one compact JSON object only.
+Required top-level keys: summary, confidence, boundary, claims, candidates.
+confidence must be a number such as 0.82, never "high", "medium", or text.
+boundary must be {"factoryOwned":true,"publicationAllowed":false,"governanceSubmissionAllowed":false}.
+claims must be non-empty and use evidenceRecordIds only.
+Each candidate must include title, objectType, payload, and evidenceRecordIds.
 Task: Produce bounded research notes and context candidates for the requested historical topic.
 Candidate object types allowed: candidate_source, candidate_context_record.
 Context payload must include topic, scope, chronologyNotes, keyActors, keyPlaces, and openQuestions.
-Source payload must include sourceId, title, url, publisher, credibility, citationNote, evidenceSourceRefs, coveragePeriod, relevance, and sourceLimitations.
+Source payload must include coveragePeriod, relevance, and sourceLimitations only when supported by the reasoning context.
 Generate at least one source candidate and one context record when enough information is available.`,
 
   source_discovery_worker: `${sharedContract}

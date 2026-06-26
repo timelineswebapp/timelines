@@ -314,7 +314,15 @@ type ValidatedEvidenceContext = {
   allowedSourceIds: Set<string>;
   allowedEvidenceRecordIds: Set<string>;
   allowedUrls: Set<string>;
-  promptContext: Array<Record<string, unknown>>;
+};
+
+type ResearchReasoningContext = {
+  subject: string;
+  evidence: Array<{
+    evidenceRecordId: string;
+    normalizedHistoricalClaim: string;
+    excerpt?: string;
+  }>;
 };
 
 type PipelineEvidenceVerifier = (refs: EvidenceRef[], context: string) => Promise<void>;
@@ -411,12 +419,12 @@ function authorityGroundedResearchPrompt(template: string): string {
   return `${template}
 
 Authority-grounded execution requirement:
-- Use only the provided validatedEvidenceContext.
+- Use only the provided ResearchReasoningContext.
 - Emit compact research only: summary, confidence, boundary, claims, candidates.
 - claims must contain claim and supporting evidenceRecordIds only.
 - candidates must contain title, objectType, payload, and supporting evidenceRecordIds only.
-- Do not emit sources, citations, URLs, quotes, publishers, source IDs, snapshot IDs, validation IDs, or provenance.
-- Factory will hydrate citations, source metadata, URLs, quotes, and provenance from stored Source Authority and evidence records.`;
+- Do not emit authority metadata, citation metadata, lineage metadata, or retrieval metadata.
+- Factory will hydrate all authority and citation details from stored Source Authority and evidence records.`;
 }
 
 function stringArrayField(input: Record<string, unknown>, field: string): string[] {
@@ -501,8 +509,7 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
   const allowedSourceIds = new Set<string>();
   const allowedUrls = new Set<string>();
   const allowedEvidenceRecordIds = new Set<string>();
-  const promptContext = passedEvidence.map((record) => {
-    const validation = validationByEvidence.get(record.evidenceRecordId)!;
+  for (const record of passedEvidence) {
     const source = sourceById.get(record.sourceRecordId)!;
     const snapshot = snapshotById.get(record.sourceSnapshotId);
     allowedSourceIds.add(record.sourceRecordId);
@@ -510,20 +517,7 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
     for (const url of sourceUrls(source, snapshot)) {
       allowedUrls.add(url);
     }
-    return {
-      evidenceRecordId: record.evidenceRecordId,
-      corpusDocumentId: record.corpusDocumentId,
-      validationRecordId: validation.validationRecordId,
-      sourceSnapshotId: record.sourceSnapshotId,
-      sourceAuthorityRecordId: record.sourceRecordId,
-      provider: record.provider,
-      title: source.title,
-      urls: sourceUrls(source, snapshot),
-      quoteText: record.quoteText,
-      normalizedClaim: record.normalizedClaim,
-      retrievalTimestamp: record.retrievalTimestamp
-    };
-  });
+  }
 
   return {
     sourceRecords,
@@ -534,8 +528,37 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
     validatedEvidenceRefs: passedEvidence.map((record) => evidenceRefFromValidation(record, validationByEvidence.get(record.evidenceRecordId)!)),
     allowedSourceIds,
     allowedEvidenceRecordIds,
-    allowedUrls,
-    promptContext
+    allowedUrls
+  };
+}
+
+function boundedReasoningExcerpt(record: EvidenceRecord): string | undefined {
+  const quote = record.quoteText.trim();
+  const claim = record.normalizedClaim.trim();
+  if (!quote || quote === claim) return undefined;
+  return quote.length > 400 ? quote.slice(0, 400) : quote;
+}
+
+function buildResearchReasoningContext(input: StartFactoryPipelineInput, context: ValidatedEvidenceContext): ResearchReasoningContext {
+  const subject = typeof input.input.subject === "string" && input.input.subject.trim()
+    ? input.input.subject.trim()
+    : typeof input.input.query === "string" && input.input.query.trim()
+      ? input.input.query.trim()
+      : "";
+
+  return {
+    subject,
+    evidence: context.evidenceRecords.map((record) => {
+      const item: ResearchReasoningContext["evidence"][number] = {
+        evidenceRecordId: record.evidenceRecordId,
+        normalizedHistoricalClaim: record.normalizedClaim
+      };
+      const excerpt = boundedReasoningExcerpt(record);
+      if (excerpt) {
+        item.excerpt = excerpt;
+      }
+      return item;
+    })
   };
 }
 
@@ -1111,6 +1134,14 @@ export const factoryService = {
       const retryHistory: Array<Record<string, unknown>> = [];
       const compactAuthorityResearch = Boolean(validatedEvidenceContext && pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker");
       const outputSchema = compactAuthorityResearch ? compactResearchWorkerOutputContractSchema() : contract.output_schema;
+      const workerInput = compactAuthorityResearch
+        ? { researchReasoningContext: buildResearchReasoningContext(input, validatedEvidenceContext!) }
+        : {
+          pipelineInput: input.input,
+          artifactRefs,
+          factoryObjectRefs,
+          validatedEvidenceRefs: evidenceRefsFromPipelineInput(input.input)
+        };
       try {
         const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -1122,22 +1153,10 @@ export const factoryService = {
                   : getFactoryWorkerPromptTemplate(workerKey)}
 
 Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory artifact and object references as context only.`,
-                {
-                  pipelineInput: input.input,
-                  artifactRefs,
-                  factoryObjectRefs,
-                  validatedEvidenceContext: validatedEvidenceContext?.promptContext || null,
-                  validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
-                },
+                workerInput,
                 outputSchema
               ),
-              input: {
-                pipelineInput: input.input,
-                artifactRefs,
-                factoryObjectRefs,
-                validatedEvidenceContext: validatedEvidenceContext?.promptContext || null,
-                validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
-              },
+              input: workerInput,
               outputSchema,
               configuration: {
                 maxOutputTokens: contract.max_output_tokens,

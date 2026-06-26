@@ -411,10 +411,174 @@ describe("factory production memory foundation", () => {
           assert.equal(error instanceof Error, true);
           assert.match((error as Error).message, /MODEL_OUTPUT_TRUNCATED/);
           assert.equal((error as any).code, "MODEL_OUTPUT_TRUNCATED");
-          assert.equal((error as any).diagnostics.failureClass, "model_output_truncated");
+          assert.equal((error as any).diagnostics.failureClass, "MODEL_OUTPUT_TRUNCATED");
+          assert.equal((error as any).diagnostics.requestUrl.endsWith("/api/generate"), true);
+          assert.equal((error as any).diagnostics.method, "POST");
+          assert.equal(typeof (error as any).diagnostics.bodyBytes, "number");
+          assert.equal(typeof (error as any).diagnostics.promptChars, "number");
+          assert.equal(typeof (error as any).diagnostics.estimatedPromptTokens, "number");
           return true;
         }
       );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("captures Ollama transport diagnostics for Node system failures", async () => {
+    const originalFetch = globalThis.fetch;
+    const provider = getFactoryRuntimeProvider("qwen14");
+    const cases = [
+      { code: "ECONNREFUSED", errno: -61, syscall: "connect", address: "127.0.0.1", port: 11434 },
+      { code: "ETIMEDOUT", errno: -60, syscall: "connect", hostname: "localhost", port: 11434 },
+      { code: "ECONNRESET", errno: -54, syscall: "read", address: "127.0.0.1", port: 11434 }
+    ];
+
+    try {
+      for (const failure of cases) {
+        globalThis.fetch = (async () => {
+          const error = new TypeError("fetch failed") as TypeError & { cause: Record<string, unknown> };
+          error.cause = { ...failure, message: failure.code };
+          throw error;
+        }) as typeof fetch;
+
+        await assert.rejects(
+          provider.execute({
+            prompt: "Return compact JSON.",
+            input: {},
+            configuration: { maxOutputTokens: 2000 },
+            outputSchema: { workerKey: "research_worker_compact" },
+            timeoutMs: 120000
+          }),
+          (error: unknown) => {
+            assert.equal(error instanceof Error, true);
+            const diagnostics = (error as any).diagnostics;
+            assert.equal(diagnostics.failureClass, "TRANSPORT_FAILURE");
+            assert.equal(diagnostics.systemErrorCode, failure.code);
+            assert.equal(diagnostics.errno, failure.errno);
+            assert.equal(diagnostics.syscall, failure.syscall);
+            assert.equal(diagnostics.port, failure.port);
+            assert.equal(diagnostics.requestUrl.endsWith("/api/generate"), true);
+            assert.equal(diagnostics.method, "POST");
+            assert.equal(diagnostics.httpStatus, null);
+            assert.equal(diagnostics.transportCause.cause.code, failure.code);
+            assert.equal(typeof diagnostics.durationMs, "number");
+            assert.equal(typeof diagnostics.bodyBytes, "number");
+            assert.equal(typeof diagnostics.promptChars, "number");
+            assert.equal(typeof diagnostics.estimatedPromptTokens, "number");
+            assert.equal(diagnostics.maxOutputTokens, 2000);
+            return true;
+          }
+        );
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("classifies Ollama HTTP failures with response diagnostics", async () => {
+    const originalFetch = globalThis.fetch;
+    const provider = getFactoryRuntimeProvider("qwen14");
+    const statuses = [500, 404];
+
+    try {
+      for (const status of statuses) {
+        globalThis.fetch = (async () => new Response(`ollama failure ${status}`, {
+          status,
+          headers: { "content-type": "text/plain", "x-ollama-test": String(status) }
+        })) as typeof fetch;
+
+        await assert.rejects(
+          provider.execute({
+            prompt: "Return compact JSON.",
+            input: {},
+            configuration: { maxOutputTokens: 2000 },
+            outputSchema: { workerKey: "research_worker_compact" },
+            timeoutMs: 120000
+          }),
+          (error: unknown) => {
+            assert.equal(error instanceof Error, true);
+            const diagnostics = (error as any).diagnostics;
+            assert.equal(diagnostics.failureClass, "HTTP_FAILURE");
+            assert.equal(diagnostics.httpStatus, status);
+            assert.equal(diagnostics.contentType, "text/plain");
+            assert.equal(diagnostics.responsePreview, `ollama failure ${status}`);
+            assert.equal(diagnostics.headers["x-ollama-test"], String(status));
+            return true;
+          }
+        );
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("classifies malformed Ollama response bodies as parse failures", async () => {
+    const originalFetch = globalThis.fetch;
+    const provider = getFactoryRuntimeProvider("qwen14");
+    globalThis.fetch = (async () => new Response("{not json", {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    })) as typeof fetch;
+
+    try {
+      await assert.rejects(
+        provider.execute({
+          prompt: "Return compact JSON.",
+          input: {},
+          configuration: { maxOutputTokens: 2000 },
+          outputSchema: { workerKey: "research_worker_compact" },
+          timeoutMs: 120000
+        }),
+        (error: unknown) => {
+          assert.equal(error instanceof Error, true);
+          const diagnostics = (error as any).diagnostics;
+          assert.equal(diagnostics.failureClass, "PARSE_FAILURE");
+          assert.equal(diagnostics.httpStatus, 200);
+          assert.equal(diagnostics.contentType, "application/json");
+          assert.equal(diagnostics.responsePreview, "{not json");
+          assert.match((error as Error).stack || "", /Caused by:/);
+          return true;
+        }
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("keeps successful Ollama execution output unchanged while adding diagnostics", async () => {
+    const originalFetch = globalThis.fetch;
+    const provider = getFactoryRuntimeProvider("qwen14");
+    const output = {
+      summary: "Compact research output.",
+      confidence: 0.9,
+      boundary: { factoryOwned: true, publicationAllowed: false, governanceSubmissionAllowed: false },
+      claims: [{ claim: "Telephone claim.", evidenceRecordIds: ["evidence-1"] }],
+      candidates: [{ title: "Telephone context", objectType: "candidate_context_record", payload: {}, evidenceRecordIds: ["evidence-1"] }]
+    };
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      response: JSON.stringify(output),
+      prompt_eval_count: 12,
+      eval_count: 24,
+      total_duration: 100,
+      load_duration: 10,
+      prompt_eval_duration: 20,
+      eval_duration: 70
+    }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
+
+    try {
+      const result = await provider.execute({
+        prompt: "Return compact JSON.",
+        input: {},
+        configuration: { maxOutputTokens: 2000 },
+        outputSchema: { workerKey: "research_worker_compact" },
+        timeoutMs: 120000
+      });
+      assert.deepEqual(result.output, output);
+      assert.equal(result.diagnostics.providerKey, "qwen14");
+      assert.equal(result.diagnostics.maxOutputTokens, 2000);
+      assert.equal(typeof result.diagnostics.bodyBytes, "number");
+      assert.equal(typeof result.diagnostics.estimatedPromptTokens, "number");
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -1229,19 +1393,36 @@ describe("factory production memory foundation", () => {
       assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.evidenceRecords?.length === 1));
       assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.evidenceValidationRecords?.length === 1));
       assert.ok(state.artifacts.some((artifact) => artifact.payload.validatedEvidenceRefs?.[0]?.validationRecordId === "validation-1"));
-      const researchPrompt = state.providerPrompts.find((prompt) => prompt.includes("validatedEvidenceContext"));
+      const researchPrompt = state.providerPrompts.find((prompt) => prompt.includes("researchReasoningContext"));
       assert.ok(researchPrompt);
-      assert.match(researchPrompt, /"sourceAuthorityRecordId":"source-record-1"/);
+      assert.match(researchPrompt, /"researchReasoningContext"/);
       assert.match(researchPrompt, /"evidenceRecordId":"evidence-1"/);
+      assert.match(researchPrompt, /"normalizedHistoricalClaim":"The telephone is a telecommunications device supported by source authority evidence."/);
+      assert.doesNotMatch(researchPrompt, /validatedEvidenceContext/);
+      assert.doesNotMatch(researchPrompt, /artifactRefs/);
+      assert.doesNotMatch(researchPrompt, /factoryObjectRefs/);
+      assert.doesNotMatch(researchPrompt, /sourceAuthorityRecordId/);
+      assert.doesNotMatch(researchPrompt, /sourceSnapshotId/);
+      assert.doesNotMatch(researchPrompt, /validationRecordId/);
       assert.doesNotMatch(researchPrompt, /"sourceRecordId":"source-record-1"/);
+      assert.doesNotMatch(researchPrompt, /source-record-1/);
+      assert.doesNotMatch(researchPrompt, /snapshot-1/);
+      assert.doesNotMatch(researchPrompt, /validation-1/);
+      assert.doesNotMatch(researchPrompt, /https?:\/\//);
+      assert.doesNotMatch(researchPrompt, /publisher/i);
+      assert.doesNotMatch(researchPrompt, /provenance/i);
       assert.match(researchPrompt, /claims, candidates/);
-      assert.match(researchPrompt, /Do not emit sources, citations, URLs, quotes, publishers/);
+      assert.match(researchPrompt, /Do not emit authority metadata/);
       const researchArtifact = state.artifacts.find((artifact) => artifact.title === "Research Worker output");
       assert.equal(researchArtifact.payload.generated.sources[0].sourceId, "source-record-1");
       assert.equal(researchArtifact.payload.generated.sources[0].evidenceRecordId, "evidence-1");
       assert.equal(researchArtifact.payload.generated.sources[0].title, "Authoritative Telephone Evidence");
+      assert.equal(researchArtifact.payload.generated.sources[0].url, "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json");
+      assert.equal(researchArtifact.payload.validatedEvidenceRefs[0].validationRecordId, "validation-1");
       assert.equal(researchArtifact.payload.generated.candidates[0].payload.publisher, "Wikidata");
+      assert.equal(researchArtifact.payload.generated.candidates[0].payload.sourceId, "source-record-1");
       assert.equal(state.objects[0].payload.sources[0].sourceId, "source-record-1");
+      assert.equal(state.objects[0].provenance.validatedEvidenceRefs[0].validationRecordId, "validation-1");
     });
   });
 
