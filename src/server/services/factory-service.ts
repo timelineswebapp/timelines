@@ -725,6 +725,21 @@ function evidenceRefsFromPipelineInput(input: Record<string, unknown>): Evidence
   );
 }
 
+function evidenceRefsFromArtifactPayload(payload: Record<string, unknown>): EvidenceRef[] {
+  const refs = payload.validatedEvidenceRefs;
+  if (!Array.isArray(refs)) return [];
+  return refs.filter((ref): ref is EvidenceRef =>
+    Boolean(
+      ref &&
+      typeof ref === "object" &&
+      (ref as EvidenceRef).evidenceType === "validated_evidence" &&
+      (ref as EvidenceRef).authoritySafe === true &&
+      typeof (ref as EvidenceRef).evidenceRecordId === "string" &&
+      typeof (ref as EvidenceRef).validationRecordId === "string"
+    )
+  );
+}
+
 async function assertExtractionEvidenceGate(input: StartFactoryPipelineInput): Promise<void> {
   if (input.pipelineId !== "historical_extraction_pipeline") return;
   const refs = evidenceRefsFromPipelineInput(input.input);
@@ -732,6 +747,75 @@ async function assertExtractionEvidenceGate(input: StartFactoryPipelineInput): P
     throw new ApiError(409, "VALIDATED_EVIDENCE_REQUIRED", "Historical extraction requires passed validated evidence from authority-grounded research.");
   }
   await pipelineEvidenceVerifier(refs, "Historical extraction pipeline");
+}
+
+const clientLineageFields = [
+  "artifactRefs",
+  "factoryObjectRefs",
+  "validatedEvidenceRefs",
+  "priorResearchPipelineRunId",
+  "priorExtractionPipelineRunId"
+] as const;
+
+type PublicationLineage = {
+  artifactRefs: string[];
+  factoryObjectRefs: string[];
+  validatedEvidenceRefs: EvidenceRef[];
+  predecessorRunIds: {
+    researchPipelineRunId: string;
+    extractionPipelineRunId: string;
+  };
+};
+
+async function resolvePublicationLineage(input: StartFactoryPipelineInput): Promise<PublicationLineage | null> {
+  if (input.pipelineId !== "publication_candidate_pipeline") return null;
+  for (const field of clientLineageFields) {
+    if (field in input.input) {
+      throw new ApiError(400, "FACTORY_LINEAGE_INPUT_FORBIDDEN", `Publication lineage field ${field} is Factory-owned.`);
+    }
+  }
+  const subject = typeof input.input.subject === "string" ? input.input.subject.trim() : "";
+  if (subject.length < 2 || subject.length > 300) {
+    throw new ApiError(400, "PUBLICATION_INTENT_SUBJECT_REQUIRED", "Publication candidate intent requires a valid subject.");
+  }
+  const [researchRun, extractionRun] = await Promise.all([
+    factoryRepository.getLatestCompletedPipelineRun("historical_research_pipeline", subject),
+    factoryRepository.getLatestCompletedPipelineRun("historical_extraction_pipeline", subject)
+  ]);
+  if (!researchRun) {
+    throw new ApiError(409, "PUBLICATION_RESEARCH_PREDECESSOR_REQUIRED", "Publication requires a completed research pipeline run for the requested subject.");
+  }
+  if (!extractionRun) {
+    throw new ApiError(409, "PUBLICATION_EXTRACTION_PREDECESSOR_REQUIRED", "Publication requires a completed extraction pipeline run for the requested subject.");
+  }
+  const artifactRefs = Array.from(new Set([...researchRun.artifactRefs, ...extractionRun.artifactRefs]));
+  const artifacts = await factoryRepository.getArtifactsByIds(artifactRefs);
+  if (artifacts.length !== artifactRefs.length) {
+    throw new ApiError(409, "PUBLICATION_ARTIFACT_LINEAGE_INCOMPLETE", "Publication predecessor artifact lineage could not be fully reconstructed.");
+  }
+  const evidenceByLineage = new Map<string, EvidenceRef>();
+  for (const artifact of artifacts) {
+    for (const ref of evidenceRefsFromArtifactPayload(artifact.payload)) {
+      evidenceByLineage.set(`${ref.evidenceRecordId}:${ref.validationRecordId}`, ref);
+    }
+  }
+  const validatedEvidenceRefs = Array.from(evidenceByLineage.values());
+  if (validatedEvidenceRefs.length === 0) {
+    throw new ApiError(409, "PUBLICATION_VALIDATED_EVIDENCE_REQUIRED", "Publication predecessor lineage contains no validated evidence.");
+  }
+  if (extractionRun.factoryObjectRefs.length === 0) {
+    throw new ApiError(409, "PUBLICATION_FACTORY_OBJECTS_REQUIRED", "Publication predecessor lineage contains no Factory objects.");
+  }
+  await pipelineEvidenceVerifier(validatedEvidenceRefs, "Publication candidate pipeline");
+  return {
+    artifactRefs,
+    factoryObjectRefs: Array.from(new Set([...researchRun.factoryObjectRefs, ...extractionRun.factoryObjectRefs])),
+    validatedEvidenceRefs,
+    predecessorRunIds: {
+      researchPipelineRunId: researchRun.pipelineRunId,
+      extractionPipelineRunId: extractionRun.pipelineRunId
+    }
+  };
 }
 
 const deterministicResearchSteps = new Set([
@@ -1032,6 +1116,7 @@ export const factoryService = {
       throw new ApiError(404, "FACTORY_PIPELINE_NOT_FOUND", "Factory pipeline definition not found.");
     }
     await assertExtractionEvidenceGate(input);
+    const publicationLineage = await resolvePublicationLineage(input);
     const missingWorker = pipeline.steps.find((workerKey) => !deterministicResearchSteps.has(workerKey) && !getCanonicalFactoryWorker(workerKey));
     if (missingWorker) {
       throw new ApiError(409, "FACTORY_PIPELINE_WORKER_MISSING", `Pipeline worker ${missingWorker} is not registered in the canonical worker registry.`);
@@ -1039,11 +1124,13 @@ export const factoryService = {
 
     const run = await factoryRepository.createPipelineRun({
       pipelineId: pipeline.pipelineId,
-      input: input.input,
+      input: publicationLineage
+        ? { ...input.input, factoryResolvedLineage: publicationLineage.predecessorRunIds }
+        : input.input,
       actor: input.actor
     });
-    const artifactRefs: string[] = [];
-    const factoryObjectRefs: string[] = [];
+    const artifactRefs: string[] = [...(publicationLineage?.artifactRefs || [])];
+    const factoryObjectRefs: string[] = [...(publicationLineage?.factoryObjectRefs || [])];
     let packageDraftId: string | null = null;
     let validatedEvidenceContext: ValidatedEvidenceContext | null = null;
 
@@ -1140,7 +1227,7 @@ export const factoryService = {
           pipelineInput: input.input,
           artifactRefs,
           factoryObjectRefs,
-          validatedEvidenceRefs: evidenceRefsFromPipelineInput(input.input)
+          validatedEvidenceRefs: publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
         };
       try {
         const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
@@ -1241,7 +1328,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
         }),
         generated: validated,
         diagnostics: result.diagnostics,
-        validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
+        validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
       };
       const objectType = candidateObjectTypeForWorker(workerKey);
 
@@ -1264,7 +1351,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
             provider: result.providerKey,
             modelName: result.modelName,
             sources: candidate.sources,
-            validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
+            validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
           },
           actor: input.actor
         });
@@ -1289,7 +1376,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
           packageType: "mixed_authority_publication",
           factoryObjectRefs,
           artifactRefs,
-          validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input),
+          validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input),
           riskSummary: {
             unresolvedAuthorityRisks: [],
             validationWarnings: ["Generated by Factory pipeline and requires human review."],
@@ -1431,6 +1518,21 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
     const handoff = await factoryRepository.getGovernanceHandoff(input.handoffId);
     if (!handoff) {
       throw new ApiError(404, "FACTORY_HANDOFF_NOT_FOUND", "Factory Governance handoff not found.");
+    }
+    if (
+      handoff.status === "submitted_to_governance" &&
+      handoff.factoryPackageVersionId &&
+      handoff.governancePublicationPackageId
+    ) {
+      const [factoryPackageVersion, governancePackage, submission] = await Promise.all([
+        factoryRepository.getPackageVersion(handoff.factoryPackageVersionId),
+        governanceRepository.getPublicationPackage(handoff.governancePublicationPackageId),
+        factoryRepository.getGovernanceSubmissionByVersion(handoff.factoryPackageVersionId)
+      ]);
+      if (!factoryPackageVersion || !governancePackage || !submission) {
+        throw new ApiError(409, "FACTORY_HANDOFF_LINEAGE_INCOMPLETE", "Submitted Factory handoff has incomplete persisted Governance lineage.");
+      }
+      return { handoff, submission, governancePackage, factoryPackageVersion };
     }
     if (handoff.status !== "prepared") {
       throw new ApiError(409, "FACTORY_HANDOFF_NOT_PREPARED", "Only prepared handoffs can be submitted to Governance.");

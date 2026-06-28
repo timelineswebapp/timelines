@@ -480,6 +480,22 @@ export const governanceRepository = {
     return row!;
   },
 
+  async appendDecisionApprovalRef(decisionId: string, approvalId: string): Promise<void> {
+    const sql = getWriteSql("linking Governance approval to decision");
+    const [row] = await sql<Array<{ decisionId: string }>>`
+      UPDATE governance_decisions
+      SET approval_refs = CASE
+        WHEN approval_refs @> ${sql.json([approvalId] as any)} THEN approval_refs
+        ELSE approval_refs || ${sql.json([approvalId] as any)}
+      END
+      WHERE id = ${decisionId}
+      RETURNING id::text AS "decisionId"
+    `;
+    if (!row) {
+      throw new ApiError(404, "GOVERNANCE_DECISION_NOT_FOUND", "GovernanceDecision not found for approval linkage.");
+    }
+  },
+
   async createQueue(input: GovernanceQueue): Promise<GovernanceQueue> {
     const sql = getWriteSql("creating governance queue");
     const [row] = await sql<GovernanceQueue[]>`

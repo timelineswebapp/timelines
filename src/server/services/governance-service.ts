@@ -85,12 +85,21 @@ export const governanceService = {
     return governanceRepository.createDecision(input);
   },
 
-  createApproval(input: Approval) {
+  async createApproval(input: Approval) {
     if (input.steps.length === 0) {
       throw new ApiError(400, "APPROVAL_STEPS_REQUIRED", "Approval requires at least one step.");
     }
     assertInitialLifecycle(input.lifecycle, ["requested", "pending"], "Approval");
-    return governanceRepository.createApproval(input);
+    const decision = await loadDecision(input.decisionId);
+    if (
+      decision.targetAuthority.authorityType !== input.request.targetAuthority.authorityType ||
+      decision.targetAuthority.authorityId !== input.request.targetAuthority.authorityId
+    ) {
+      throw new ApiError(409, "APPROVAL_TARGET_MISMATCH", "Approval target must match its GovernanceDecision target.");
+    }
+    const approval = await governanceRepository.createApproval(input);
+    await governanceRepository.appendDecisionApprovalRef(input.decisionId, approval.approvalId);
+    return approval;
   },
 
   createQueue(input: GovernanceQueue) {
@@ -347,10 +356,16 @@ export const governanceService = {
   },
 
   async rejectPackage(input: TransitionInput) {
+    if (!input.governanceDecisionId) {
+      throw new ApiError(409, "GOVERNANCE_DECISION_REQUIRED", "Package rejection requires a GovernanceDecision.");
+    }
     return transitionPublicationPackage(input, "rejected");
   },
 
   async returnPackage(input: TransitionInput) {
+    if (!input.governanceDecisionId) {
+      throw new ApiError(409, "GOVERNANCE_DECISION_REQUIRED", "Returning a package for revision requires a GovernanceDecision.");
+    }
     return transitionPublicationPackage(input, "returned_for_revision");
   },
 
@@ -488,6 +503,13 @@ async function transitionPublicationPackage(
   if (lifecycle === "readiness_certified") {
     if (!input.governanceDecisionId) {
       throw new ApiError(409, "GOVERNANCE_DECISION_REQUIRED", "Readiness certification requires a GovernanceDecision.");
+    }
+    if (
+      publicationPackage.riskSummary.publicationBlockers.length > 0 ||
+      publicationPackage.riskSummary.unresolvedAuthorityRisks.length > 0 ||
+      publicationPackage.riskSummary.disputeRefs.length > 0
+    ) {
+      throw new ApiError(409, "PUBLICATION_PACKAGE_BLOCKED", "Governance readiness cannot certify a package with unresolved blockers, authority risks, or disputes.");
     }
     await verifyValidatedEvidenceRefs(publicationPackage.validationArtifacts, "PublicationPackage readiness certification");
     next = {

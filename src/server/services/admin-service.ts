@@ -52,6 +52,7 @@ export const adminService = {
   completeGovernanceApprovalChain: governanceService.completeApprovalChain,
   advanceGovernanceQueue: governanceService.advanceQueue,
   escalateGovernanceQueue: governanceService.escalateQueue,
+  submitPublicationPackageToGovernanceReview: governanceService.submitPackage,
   certifyPublicationReadiness: governanceService.certifyReadiness,
   submitPublicationPackageToLibraryReview: governanceService.submitPackageToLibraryReview,
   acceptPublicationPackage: governanceService.acceptPackage,

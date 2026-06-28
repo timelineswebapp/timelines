@@ -1,6 +1,28 @@
 import { z } from "zod";
 import type { FactoryObjectType } from "@/src/server/factory/contracts";
 
+const workerObjectTypes: Record<string, FactoryObjectType[]> = {
+  research_worker: ["candidate_source", "candidate_context_record"],
+  source_discovery_worker: ["candidate_source"],
+  source_validation_worker: ["candidate_source"],
+  object_extraction_worker: ["candidate_historical_object"],
+  milestone_extraction_worker: ["candidate_milestone"],
+  participation_extraction_worker: ["candidate_participation"],
+  relationship_extraction_worker: ["candidate_relationship"],
+  context_enrichment_worker: ["candidate_context_record"],
+  package_assembly_worker: [],
+  validation_worker: [
+    "candidate_historical_object",
+    "candidate_milestone",
+    "candidate_participation",
+    "candidate_relationship",
+    "candidate_source",
+    "candidate_context_record"
+  ]
+};
+
+const artifactOnlyWorkers = new Set(["package_assembly_worker", "validation_worker"]);
+
 const citationSchema = z.object({
   sourceId: z.string().min(1).optional(),
   evidenceRecordId: z.string().min(1).optional(),
@@ -213,6 +235,7 @@ function assertCandidatePayloadQuality(workerKey: string, candidate: ValidatedFa
 }
 
 export function factoryWorkerOutputContractSchema(workerKey: string): Record<string, unknown> {
+  const allowedObjectTypes = workerObjectTypes[workerKey] || [];
   const citation = {
     type: "object",
     required: ["sourceId", "title"],
@@ -252,12 +275,13 @@ export function factoryWorkerOutputContractSchema(workerKey: string): Record<str
       sources: { type: "array", minItems: 1, items: citation },
       candidates: {
         type: "array",
+        ...(artifactOnlyWorkers.has(workerKey) ? { maxItems: 0 } : { minItems: 1 }),
         items: {
           type: "object",
           required: ["title", "objectType", "payload", "evidence", "sources"],
           properties: {
             title: { type: "string", minLength: 1 },
-            objectType: { type: "string" },
+            objectType: { enum: allowedObjectTypes },
             payload: { type: "object" },
             evidence: { type: "array", minItems: 1, items: evidence },
             sources: { type: "array", minItems: 1, items: citation }
@@ -344,8 +368,11 @@ export function validateFactoryWorkerOutput(input: {
     throw new FactoryWorkerOutputValidationError("Generated output failed schema validation.", { validationErrors });
   }
   const allowed = new Set(input.allowedObjectTypes);
-  if (input.allowedObjectTypes.length > 0 && parsed.candidates.length === 0) {
+  if (!artifactOnlyWorkers.has(input.workerKey) && input.allowedObjectTypes.length > 0 && parsed.candidates.length === 0) {
     throw new FactoryWorkerOutputValidationError(`Worker ${input.workerKey} emitted no candidates.`);
+  }
+  if (artifactOnlyWorkers.has(input.workerKey) && parsed.candidates.length > 0) {
+    throw new FactoryWorkerOutputValidationError(`Artifact-only worker ${input.workerKey} may not emit Factory object candidates.`);
   }
   assertSourceTraceability(parsed);
   const normalizedFields: string[] = [];

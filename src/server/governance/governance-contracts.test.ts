@@ -342,6 +342,33 @@ describe("governance contracts implementation", () => {
     assert.match(repository, /transitionDispute/);
   });
 
+  it("exposes the sanctioned Factory-ready to Governance-review transition", () => {
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+    const route = readFileSync("app/api/admin/governance/publication-packages/[id]/submit/route.ts", "utf8");
+    assert.match(adminService, /submitPublicationPackageToGovernanceReview: governanceService\.submitPackage/);
+    assert.match(route, /submitPublicationPackageToGovernanceReview/);
+    assert.match(route, /roles: \["governance_operator"\]/);
+  });
+
+  it("requires decisions for rejection and revision return and blocks unsafe readiness", () => {
+    const service = readFileSync("src/server/services/governance-service.ts", "utf8");
+    assert.match(service, /Package rejection requires a GovernanceDecision/);
+    assert.match(service, /Returning a package for revision requires a GovernanceDecision/);
+    assert.match(service, /PUBLICATION_PACKAGE_BLOCKED/);
+    assert.match(service, /riskSummary\.publicationBlockers\.length > 0/);
+    assert.match(service, /riskSummary\.unresolvedAuthorityRisks\.length > 0/);
+    assert.match(service, /riskSummary\.disputeRefs\.length > 0/);
+  });
+
+  it("persists approval references on their GovernanceDecision", () => {
+    const service = readFileSync("src/server/services/governance-service.ts", "utf8");
+    const repository = readFileSync("src/server/repositories/governance-repository.ts", "utf8");
+    assert.match(service, /appendDecisionApprovalRef/);
+    assert.match(service, /APPROVAL_TARGET_MISMATCH/);
+    assert.match(repository, /async appendDecisionApprovalRef/);
+    assert.match(repository, /SET approval_refs = CASE/);
+  });
+
   it("exposes transition APIs through adminService and routes without repository imports", () => {
     const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
     const routeFiles = listFiles("app/api/admin/governance").filter((file) => file.endsWith("route.ts"));

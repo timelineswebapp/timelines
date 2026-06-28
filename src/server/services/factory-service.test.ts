@@ -12,7 +12,9 @@ import {
   factoryService,
   setFactoryPipelineEvidenceVerifierForTests
 } from "@/src/server/services/factory-service";
-import { validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
+import { factoryWorkerOutputContractSchema, validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
+import { canonicalFactoryWorkers } from "@/src/server/factory/worker-registry";
+import { getFactoryWorkerPromptTemplate } from "@/src/server/factory/worker-prompts";
 import { getFactoryRuntimeProvider, resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
@@ -62,6 +64,8 @@ function factoryOutputForPrompt(prompt: string, override: Record<string, unknown
     candidate = { ...candidateBase, title: "Telephone relationship", objectType: "candidate_relationship", payload: { sourceAuthorityRef: "telephone", targetAuthorityRef: "telegraph", relationshipType: "related_to", summary: "Relationship.", sourceRefs: ["evidence-1"] } };
   } else if (prompt.includes("context_enrichment_worker")) {
     candidate = { ...candidateBase, title: "Telephone context", objectType: "candidate_context_record", payload: { contextType: "summary", summary: "Context.", chronologyScope: "telephone", relatedCandidateRefs: ["telephone"], sourceRefs: ["evidence-1"] } };
+  } else if (prompt.includes("validation_worker")) {
+    candidate = null;
   } else if (prompt.includes("package_assembly_worker")) {
     candidate = null;
   }
@@ -245,6 +249,14 @@ describe("factory production memory foundation", () => {
     assert.match(route, /factoryGovernanceSubmissionSchema\.parse/);
     assert.doesNotMatch(repository, /historical_library_admissions|historical_library_published_snapshots|governance_publication_packages\s*\(/);
     assert.doesNotMatch(service, /certifyReadiness\(input|approveDecision|rejectDecision|admitPublicationPackage/);
+  });
+
+  it("returns persisted Governance linkage for idempotent handoff submission retries", () => {
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    assert.match(service, /handoff\.status === "submitted_to_governance"/);
+    assert.match(service, /getGovernanceSubmissionByVersion/);
+    assert.match(service, /getPublicationPackage/);
+    assert.match(service, /FACTORY_HANDOFF_LINEAGE_INCOMPLETE/);
   });
 
   it("assembles Governance packages with passed validated evidence and supplemental Factory validation", () => {
@@ -723,6 +735,93 @@ describe("factory production memory foundation", () => {
     );
   });
 
+  it("accepts validation artifacts without candidates and rejects invented validation object types", () => {
+    const baseOutput = {
+      summary: "Factory candidate validation completed.",
+      confidence: 0.9,
+      boundary: {
+        factoryOwned: true as const,
+        publicationAllowed: false as const,
+        governanceSubmissionAllowed: false as const
+      },
+      sources: [{ sourceId: "source_1", title: "Authority source" }],
+      evidence: [{
+        claim: "Candidate lineage is supported.",
+        citations: [{ sourceId: "source_1", title: "Authority source" }]
+      }]
+    };
+    const validated = validateFactoryWorkerOutput({
+      workerKey: "validation_worker",
+      allowedObjectTypes: ["candidate_historical_object", "candidate_milestone"],
+      output: { ...baseOutput, candidates: [] }
+    });
+    assert.deepEqual(validated.candidates, []);
+
+    for (const objectType of ["validation_candidate", "factory_candidate"]) {
+      assert.throws(
+        () => validateFactoryWorkerOutput({
+          workerKey: "validation_worker",
+          allowedObjectTypes: ["candidate_historical_object", "candidate_milestone"],
+          output: {
+            ...baseOutput,
+            candidates: [{
+              title: "Invalid validation pseudo-candidate",
+              objectType,
+              payload: {},
+              sources: baseOutput.sources,
+              evidence: baseOutput.evidence
+            }]
+          }
+        }),
+        /schema validation/
+      );
+    }
+  });
+
+  it("aligns every Factory worker prompt and provider schema with its registered object contract", () => {
+    const artifactOnlyWorkers = new Set(["validation_worker", "package_assembly_worker"]);
+    for (const worker of canonicalFactoryWorkers) {
+      const schema = factoryWorkerOutputContractSchema(worker.worker_id) as any;
+      const candidates = schema.properties.candidates;
+      const objectType = candidates.items.properties.objectType;
+      const prompt = getFactoryWorkerPromptTemplate(worker.worker_id);
+
+      if (artifactOnlyWorkers.has(worker.worker_id)) {
+        assert.equal(candidates.maxItems, 0, `${worker.worker_id} must prohibit candidates`);
+        assert.match(prompt, /candidates must be exactly \[\]/);
+      } else {
+        assert.equal(candidates.minItems, 1, `${worker.worker_id} must require candidates`);
+        assert.deepEqual(objectType.enum, worker.allowed_object_types);
+        for (const allowedType of worker.allowed_object_types) {
+          assert.match(prompt, new RegExp(allowedType));
+        }
+      }
+    }
+  });
+
+  it("rejects object candidates from every artifact-only Factory worker", () => {
+    const output = {
+      summary: "Artifact output.",
+      confidence: 0.9,
+      boundary: { factoryOwned: true as const, publicationAllowed: false as const, governanceSubmissionAllowed: false as const },
+      sources: [{ sourceId: "source_1", title: "Authority source" }],
+      evidence: [{ claim: "Artifact claim.", citations: [{ sourceId: "source_1", title: "Authority source" }] }],
+      candidates: [{
+        title: "Pseudo object",
+        objectType: "candidate_context_record",
+        payload: { contextType: "invalid artifact candidate" },
+        sources: [{ sourceId: "source_1", title: "Authority source" }],
+        evidence: [{ claim: "Artifact claim.", citations: [{ sourceId: "source_1", title: "Authority source" }] }]
+      }]
+    };
+    for (const workerKey of ["validation_worker", "package_assembly_worker"]) {
+      assert.throws(
+        () => validateFactoryWorkerOutput({ workerKey, allowedObjectTypes: [], output }),
+        /Artifact-only worker/
+      );
+    }
+  });
+
   it("keeps Factory runtime persistence repository-isolated and service-mediated", () => {
     const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
     const service = readFileSync("src/server/services/factory-service.ts", "utf8");
@@ -1197,6 +1296,9 @@ describe("factory production memory foundation", () => {
       failStepFailureTransition?: boolean;
       failRunFailureTransition?: boolean;
       failFailureAudit?: boolean;
+      missingResearchPredecessor?: boolean;
+      missingExtractionPredecessor?: boolean;
+      missingArtifactEvidence?: boolean;
     } = {}
   ): Promise<T> {
     const originals = {
@@ -1206,6 +1308,8 @@ describe("factory production memory foundation", () => {
       extract: evidenceExtractionService.extractFromCorpusDocument,
       validate: evidenceValidationService.validateEvidence,
       createPipelineRun: factoryRepository.createPipelineRun,
+      getLatestCompletedPipelineRun: factoryRepository.getLatestCompletedPipelineRun,
+      getArtifactsByIds: factoryRepository.getArtifactsByIds,
       transitionPipelineRun: factoryRepository.transitionPipelineRun,
       createPipelineStep: factoryRepository.createPipelineStep,
       transitionPipelineStep: factoryRepository.transitionPipelineStep,
@@ -1311,6 +1415,61 @@ describe("factory production memory foundation", () => {
         provenance: { validationType: "structural_evidence_validation", evidenceRecordId: "evidence-1", corpusDocumentId: "corpus-1", sourceSnapshotId: "snapshot-1", sourceRecordId: "source-record-1", provider: "wikidata", validatedAt: "2026-06-24T00:00:00.000Z", validator: "factory-test", authorityDecision: false, publicationReadinessDecision: false },
         createdBy: "factory-test"
       });
+      (factoryRepository as any).getLatestCompletedPipelineRun = async (pipelineId: string) => {
+        if (pipelineId === "historical_research_pipeline") {
+          if (options.missingResearchPredecessor) return null;
+          return {
+            pipelineRunId: "research-run-1",
+            pipelineId,
+            status: "completed",
+            input: { subject: "Telephone" },
+            artifactRefs: ["research-artifact-1"],
+            factoryObjectRefs: ["research-object-1"]
+          };
+        }
+        if (options.missingExtractionPredecessor) return null;
+        return {
+          pipelineRunId: "extraction-run-1",
+          pipelineId,
+          status: "completed",
+          input: { subject: "Telephone" },
+          artifactRefs: ["extraction-artifact-1"],
+          factoryObjectRefs: ["extraction-object-1"]
+        };
+      };
+      (factoryRepository as any).getArtifactsByIds = async (artifactIds: string[]) => artifactIds.map((artifactId) => ({
+        artifactId,
+        factoryObjectId: null,
+        artifactType: "generation",
+        title: `${artifactId} output`,
+        payload: options.missingArtifactEvidence ? {} : {
+          validatedEvidenceRefs: artifactId.startsWith("research")
+            ? [{
+              evidenceId: "validation-1",
+              evidenceType: "validated_evidence",
+              evidenceRecordId: "evidence-1",
+              validationRecordId: "validation-1",
+              authoritySafe: true
+            }, {
+              evidenceId: "validation-1",
+              evidenceType: "validated_evidence",
+              evidenceRecordId: "evidence-1",
+              validationRecordId: "validation-1",
+              authoritySafe: true
+            }]
+            : [{
+              evidenceId: "validation-2",
+              evidenceType: "validated_evidence",
+              evidenceRecordId: "evidence-2",
+              validationRecordId: "validation-2",
+              authoritySafe: true
+            }]
+        },
+        authoritySafe: false,
+        modelProvider: "qwen14_local",
+        modelName: "qwen3:14b",
+        createdBy: "factory-test"
+      }));
       (factoryRepository as any).createPipelineRun = async (input: any) => ({ pipelineRunId: "run-1", pipelineId: input.pipelineId, status: "queued", input: input.input, artifactRefs: [], factoryObjectRefs: [], packageDraftId: null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
       (factoryRepository as any).transitionPipelineRun = async (input: any) => {
         state.pipelineStatuses.push(input.status);
@@ -1366,6 +1525,8 @@ describe("factory production memory foundation", () => {
       (evidenceExtractionService as any).extractFromCorpusDocument = originals.extract;
       (evidenceValidationService as any).validateEvidence = originals.validate;
       (factoryRepository as any).createPipelineRun = originals.createPipelineRun;
+      (factoryRepository as any).getLatestCompletedPipelineRun = originals.getLatestCompletedPipelineRun;
+      (factoryRepository as any).getArtifactsByIds = originals.getArtifactsByIds;
       (factoryRepository as any).transitionPipelineRun = originals.transitionPipelineRun;
       (factoryRepository as any).createPipelineStep = originals.createPipelineStep;
       (factoryRepository as any).transitionPipelineStep = originals.transitionPipelineStep;
@@ -1601,20 +1762,11 @@ describe("factory production memory foundation", () => {
     });
   });
 
-  it("completes publication candidate assembly with passed validated evidence", async () => {
+  it("reconstructs publication candidate lineage from completed Factory predecessors", async () => {
     await withMockedFactoryPipeline({}, async (state) => {
       await factoryService.startPipeline({
         pipelineId: "publication_candidate_pipeline",
-        input: {
-          subject: "Telephone",
-          validatedEvidenceRefs: [{
-            evidenceId: "validation-1",
-            evidenceType: "validated_evidence",
-            evidenceRecordId: "evidence-1",
-            validationRecordId: "validation-1",
-            authoritySafe: true
-          }]
-        },
+        input: { subject: "Telephone" },
         actor: "factory-test",
         reason: "Evidence-backed publication candidate assembly."
       });
@@ -1622,7 +1774,54 @@ describe("factory production memory foundation", () => {
       assert.deepEqual(state.pipelineStatuses, ["running", "completed"]);
       assert.equal(state.packageDrafts.length, 1);
       assert.equal(state.packageDrafts[0].validatedEvidenceRefs[0].evidenceRecordId, "evidence-1");
+      assert.deepEqual(
+        state.packageDrafts[0].validatedEvidenceRefs.map((ref: any) => ref.evidenceRecordId),
+        ["evidence-1", "evidence-2"]
+      );
+      assert.deepEqual(state.packageDrafts[0].factoryObjectRefs.slice(0, 2), ["research-object-1", "extraction-object-1"]);
+      assert.deepEqual(state.packageDrafts[0].artifactRefs.slice(0, 2), ["research-artifact-1", "extraction-artifact-1"]);
+      assert.equal(state.verifierCalls.at(-1).context, "Publication candidate pipeline");
     });
+  });
+
+  it("rejects client-supplied publication lineage", async () => {
+    await assert.rejects(
+      factoryService.startPipeline({
+        pipelineId: "publication_candidate_pipeline",
+        input: { subject: "Telephone", artifactRefs: ["forged-artifact"] },
+        actor: "factory-test",
+        reason: "Reject forged publication lineage."
+      }),
+      (error: unknown) => error instanceof ApiError && error.code === "FACTORY_LINEAGE_INPUT_FORBIDDEN"
+    );
+  });
+
+  it("fails publication deterministically when a completed predecessor is missing", async () => {
+    await withMockedFactoryPipeline({}, async () => {
+      await assert.rejects(
+        factoryService.startPipeline({
+          pipelineId: "publication_candidate_pipeline",
+          input: { subject: "Telephone" },
+          actor: "factory-test",
+          reason: "Require certified predecessors."
+        }),
+        (error: unknown) => error instanceof ApiError && error.code === "PUBLICATION_RESEARCH_PREDECESSOR_REQUIRED"
+      );
+    }, { missingResearchPredecessor: true });
+  });
+
+  it("fails publication deterministically when persisted artifacts contain no validated evidence", async () => {
+    await withMockedFactoryPipeline({}, async () => {
+      await assert.rejects(
+        factoryService.startPipeline({
+          pipelineId: "publication_candidate_pipeline",
+          input: { subject: "Telephone" },
+          actor: "factory-test",
+          reason: "Require persisted artifact evidence."
+        }),
+        (error: unknown) => error instanceof ApiError && error.code === "PUBLICATION_VALIDATED_EVIDENCE_REQUIRED"
+      );
+    }, { missingArtifactEvidence: true });
   });
 
   it("defines Factory editorial gates, confidence assessments, authority preparation, and review metrics", () => {

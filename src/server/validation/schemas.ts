@@ -810,11 +810,38 @@ export const factoryWorkerRegistrySyncSchema = z.object({
   reason: trimmedString(3, 1000)
 });
 
+const forbiddenPublicationLineageFields = [
+  "artifactRefs",
+  "factoryObjectRefs",
+  "validatedEvidenceRefs",
+  "priorResearchPipelineRunId",
+  "priorExtractionPipelineRunId"
+] as const;
+
 export const factoryPipelineStartSchema = z.object({
   pipelineId: z.enum(["historical_research_pipeline", "historical_extraction_pipeline", "publication_candidate_pipeline"]),
   input: z.record(z.unknown()).default({}),
   actor: actorSchema,
   reason: trimmedString(3, 1000)
+}).superRefine((value, context) => {
+  if (value.pipelineId !== "publication_candidate_pipeline") return;
+  const subject = value.input.subject;
+  if (typeof subject !== "string" || subject.trim().length < 2 || subject.trim().length > 300) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["input", "subject"],
+      message: "Publication candidate intent requires a subject between 2 and 300 characters."
+    });
+  }
+  for (const field of forbiddenPublicationLineageFields) {
+    if (field in value.input) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["input", field],
+        message: `Publication lineage field ${field} is Factory-owned and cannot be supplied by clients.`
+      });
+    }
+  }
 });
 
 export const factoryPipelineCancellationSchema = z.object({

@@ -67,13 +67,19 @@ Payload must include contextType, summary, chronologyScope, relatedCandidateRefs
 
   package_assembly_worker: `${sharedContract}
 Task: Assemble a Factory-only package summary from prior artifacts.
-Candidates may be empty only if no new authority candidate is created.
-Payload must include packageSummary, includedCandidateRefs, evidenceGaps, sourceGaps, and publicationBlockers.`,
+This worker produces a package assembly artifact, not a new Factory authority candidate.
+candidates must be exactly [].
+Never invent package, package_summary, factory_candidate, or any other objectType.
+Keep summary under 500 characters and state material evidence gaps, source gaps, and publication blockers there.
+Use no more than three concise top-level evidence claims and three concise top-level sources.`,
 
   validation_worker: `${sharedContract}
 Task: Validate Factory candidates for evidence sufficiency, source attribution, chronology consistency, relationship consistency, and object identity consistency.
-Candidates may be empty only if the output is a validation artifact.
-Payload must include validationPassed, blockers, warnings, evidenceReviewed, sourcesReviewed, and confidenceRecommendation.`
+This worker produces a validation artifact, not a new Factory authority candidate.
+candidates must be exactly [].
+Never invent validation_candidate, factory_candidate, or any other objectType.
+Keep summary under 500 characters and state validation outcome, blockers, warnings, and confidence recommendation there.
+Use no more than three concise top-level evidence claims and three concise top-level sources.`
 };
 
 export function getFactoryWorkerPromptTemplate(workerKey: string): string {

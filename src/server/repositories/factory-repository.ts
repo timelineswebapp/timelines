@@ -482,6 +482,33 @@ export const factoryRepository = {
     return row || null;
   },
 
+  async getLatestCompletedPipelineRun(pipelineId: string, subject: string): Promise<FactoryPipelineRun | null> {
+    const sql = getWriteSql("loading latest completed Factory pipeline run");
+    const [row] = await sql<FactoryPipelineRun[]>`
+      SELECT
+        id::text AS "pipelineRunId",
+        pipeline_id AS "pipelineId",
+        status,
+        input,
+        artifact_refs AS "artifactRefs",
+        factory_object_refs AS "factoryObjectRefs",
+        package_draft_id::text AS "packageDraftId",
+        started_at::text AS "startedAt",
+        completed_at::text AS "completedAt",
+        created_by AS "createdBy",
+        updated_by AS "updatedBy",
+        created_at::text AS "createdAt",
+        updated_at::text AS "updatedAt"
+      FROM factory_pipeline_runs
+      WHERE pipeline_id = ${pipelineId}
+        AND status = 'completed'
+        AND lower(input->>'subject') = lower(${subject})
+      ORDER BY completed_at DESC, created_at DESC
+      LIMIT 1
+    `;
+    return row || null;
+  },
+
   async listPipelineRuns(status?: FactoryPipelineRunStatus, limit = 100): Promise<FactoryPipelineRun[]> {
     const sql = getWriteSql("listing factory pipeline runs");
     return sql<FactoryPipelineRun[]>`
@@ -1550,6 +1577,27 @@ export const factoryRepository = {
         created_at::text AS "createdAt"
     `;
     return row!;
+  },
+
+  async getArtifactsByIds(artifactIds: string[]): Promise<FactoryArtifact[]> {
+    if (artifactIds.length === 0) return [];
+    const sql = getWriteSql("loading Factory artifacts by lineage");
+    return sql<FactoryArtifact[]>`
+      SELECT
+        id::text AS "artifactId",
+        factory_object_id::text AS "factoryObjectId",
+        artifact_type AS "artifactType",
+        title,
+        payload,
+        authority_safe AS "authoritySafe",
+        model_provider AS "modelProvider",
+        model_name AS "modelName",
+        created_by AS "createdBy",
+        created_at::text AS "createdAt"
+      FROM factory_artifacts
+      WHERE id = ANY(${artifactIds}::uuid[])
+      ORDER BY created_at, id
+    `;
   },
 
   async createPackageDraft(input: CreateFactoryPackageDraftInput): Promise<FactoryPackageDraft> {
