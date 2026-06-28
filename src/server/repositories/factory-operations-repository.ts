@@ -42,6 +42,32 @@ export const factoryOperationsRepository = {
     return sql.unsafe<TopicWorkItem[]>(`SELECT ${topicColumns} FROM factory_topic_work_items ORDER BY priority DESC, created_at LIMIT $1`, [limit]);
   },
 
+  async listActionableWaitingTopics(limit: number) {
+    const sql = getWriteSql("listing actionable waiting workflows");
+    return sql.unsafe<TopicWorkItem[]>(
+      `SELECT ${topicColumns.replaceAll("id::text", "t.id::text")}
+       FROM factory_topic_work_items t
+       WHERE t.status='waiting' AND (
+         (
+           t.current_stage='founder_review' AND EXISTS (
+             SELECT 1 FROM factory_editorial_reviews r
+             WHERE r.factory_package_draft_id=(t.stage_context->>'factoryPackageDraftId')::uuid
+               AND r.lifecycle='governance_ready'
+           )
+         ) OR (
+           t.current_stage='governance' AND EXISTS (
+             SELECT 1 FROM governance_publication_packages p
+             WHERE p.id=(t.stage_context->>'governancePublicationPackageId')::uuid
+               AND p.lifecycle IN ('accepted','published')
+               AND p.readiness_certification IS NOT NULL
+           )
+         )
+       )
+       ORDER BY t.updated_at,t.id LIMIT $1`,
+      [Math.max(1, Math.min(100, limit))]
+    );
+  },
+
   async setControl(mode: OperationsControl["mode"], actor: string) {
     const sql = getWriteSql("updating Factory automation control");
     const [row] = await sql<OperationsControl[]>`

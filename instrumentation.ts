@@ -1,7 +1,3 @@
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  if (process.env.NEXT_PHASE === "phase-production-build") return;
-  const { FactoryDispatcher } = await import("@/src/server/services/factory-dispatcher");
-  const dispatcher = new FactoryDispatcher();
-  dispatcher.start();
+  // Runtime execution is invoked exclusively by the durable authenticated cron route.
 }

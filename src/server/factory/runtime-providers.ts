@@ -75,7 +75,7 @@ function positiveInteger(value: string | undefined, fallback: number, maximum: n
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback;
 }
 
-const qwenLimiter = new ProviderExecutionLimiter(
+const localDevelopmentQwenLimiter = new ProviderExecutionLimiter(
   positiveInteger(process.env.QWEN14_MAX_CONCURRENCY, 2, 16),
   positiveInteger(process.env.QWEN14_REQUESTS_PER_MINUTE, 30, 600),
   positiveInteger(process.env.QWEN14_MAX_QUEUE, 100, 1000)
@@ -269,13 +269,24 @@ const qwen14Provider: FactoryRuntimeProvider = {
   },
 
   async execute(request) {
-    const lease = await qwenLimiter.acquire();
+    const timeoutMs = resolveFactoryQwenTimeoutMs(request.timeoutMs);
+    const ownerId = `qwen14-${randomUUID()}`;
+    const durableCoordination = Boolean(process.env.DATABASE_URL);
+    const lease = durableCoordination
+      ? await providerCoordinationRepository.acquire({
+          providerKey: "qwen14",
+          ownerId,
+          maxConcurrency: positiveInteger(process.env.QWEN14_MAX_CONCURRENCY, 2, 16),
+          requestsPerMinute: positiveInteger(process.env.QWEN14_REQUESTS_PER_MINUTE, 30, 600),
+          leaseSeconds: Math.ceil(timeoutMs / 1000) + 30,
+          waitTimeoutMs: Math.min(timeoutMs, 60_000)
+        })
+      : await localDevelopmentQwenLimiter.acquire();
     const startedAt = Date.now();
     const baseUrl = process.env.OLLAMA_BASE_URL || defaultOllamaBaseUrl;
     const requestUrl = `${baseUrl}/api/generate`;
     const method = "POST";
     const controller = new AbortController();
-    const timeoutMs = resolveFactoryQwenTimeoutMs(request.timeoutMs);
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     let fetchReachedResponseParsing = false;
     const prompt = `/no_think
@@ -443,7 +454,19 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
       }), error);
     } finally {
       clearTimeout(timeout);
-      lease.release();
+      if (durableCoordination && "leaseId" in lease) {
+        try {
+          await providerCoordinationRepository.release(lease.leaseId, ownerId);
+        } catch (error) {
+          console.error(JSON.stringify({
+            level: "error", component: "provider_coordination", event: "lease_release_failed",
+            providerKey: "qwen14", leaseId: lease.leaseId,
+            message: error instanceof Error ? error.message : "Unknown provider lease release failure"
+          }));
+        }
+      } else if ("release" in lease) {
+        lease.release();
+      }
     }
   }
 };
@@ -463,3 +486,5 @@ export function getFactoryRuntimeProvider(providerKey: string): FactoryRuntimePr
 export function listFactoryRuntimeProviders(): FactoryRuntimeProvider[] {
   return Object.values(providers);
 }
+import { randomUUID } from "node:crypto";
+import { providerCoordinationRepository } from "@/src/server/repositories/provider-coordination-repository";

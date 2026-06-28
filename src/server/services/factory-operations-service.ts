@@ -192,7 +192,7 @@ export const factoryOperationsService = {
     if (!input.force && control.mode !== "running" && control.mode !== "pause_after_current") {
       return { leased: 0, completed: 0, mode: control.mode };
     }
-    const waiting = (await repository.listTopics(control.concurrency * 4)).filter((topic) => topic.status === "waiting");
+    const waiting = await repository.listActionableWaitingTopics(control.concurrency * 4);
     for (const topic of waiting) {
       try {
         await this.mutateTopic({ topicId: topic.id, action: "resume", actor: "factory-operations" });

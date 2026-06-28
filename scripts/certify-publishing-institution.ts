@@ -6,8 +6,9 @@ import { buildGovernancePublicationPackage } from "@/src/server/services/factory
 import { governanceService } from "@/src/server/services/governance-service";
 import { historicalLibraryService } from "@/src/server/services/historical-library-service";
 import { publishedMemoryProjectionService } from "@/src/server/services/published-memory-projection-service";
+import { getWriteSql } from "@/src/server/db/client";
 
-const PACKAGE_VERSION_ID = "dbd74f2b-1cd7-4fe8-b85a-23f40d993d3b";
+const DEFAULT_PACKAGE_VERSION_ID = "dbd74f2b-1cd7-4fe8-b85a-23f40d993d3b";
 const FACTORY_ACTOR = { actorId: "publishing-certification", role: "factory_editor" as const, institutionId: "factory" };
 const REVIEWER = { actorId: "publishing-certification", role: "senior_governance_reviewer" as const, institutionId: "governance" };
 const LIBRARIAN = { actorId: "publishing-certification", role: "library_editor" as const, institutionId: "historical_library" };
@@ -58,7 +59,24 @@ async function approvedDecision(
 }
 
 async function main() {
-  const version = await factoryRepository.getPackageVersion(PACKAGE_VERSION_ID);
+  let packageVersionId = process.env.CERTIFICATION_PACKAGE_VERSION_ID || DEFAULT_PACKAGE_VERSION_ID;
+  let version = process.env.SYNTHETIC_CERTIFICATION === "true"
+    ? null
+    : await factoryRepository.getPackageVersion(packageVersionId);
+  if (process.env.SYNTHETIC_CERTIFICATION === "true") {
+    const sql = getWriteSql("selecting isolated certification package");
+    const [candidate] = await sql<{ id: string }[]>`
+      SELECT v.id::text AS id FROM factory_package_versions v
+      JOIN factory_package_drafts d ON d.id=v.draft_id
+      WHERE v.lifecycle='draft' AND d.lifecycle='ready_for_governance'
+        AND v.governance_publication_package_id IS NULL
+        AND jsonb_array_length(v.validated_evidence_refs) > 0
+      ORDER BY v.created_at DESC LIMIT 1`;
+    if (candidate) {
+      packageVersionId = candidate.id;
+      version = await factoryRepository.getPackageVersion(packageVersionId);
+    }
+  }
   if (!version) throw new Error("Certified Factory package version not found.");
   const draft = await factoryRepository.getPackageDraft(version.draftId);
   if (!draft) throw new Error("Certified Factory package draft not found.");
@@ -73,7 +91,7 @@ async function main() {
     objects.filter((object): object is NonNullable<typeof object> => Boolean(object))
   );
   const existingPackage = (await governanceRepository.listPublicationPackages(1000)).find(
-    (candidate) => candidate.factorySubmission?.factoryPackageVersionId === PACKAGE_VERSION_ID
+    (candidate) => candidate.factorySubmission?.factoryPackageVersionId === packageVersionId
   );
   if (existingPackage) {
     const publicationPackage = await governanceRepository.attachCanonicalAuthority(

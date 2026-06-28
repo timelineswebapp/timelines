@@ -104,15 +104,8 @@ async function executeOperation(key: ScheduledOperationKey, timeoutMs: number): 
     if (failures.length) throw new Error(`SEO validation failed: ${JSON.stringify(failures)}`);
     return { checked: projections.length, failures: [] };
   }
-  const [synthetic] = await sql<Record<string, number>[]>`
-    SELECT
-      (SELECT COUNT(*)::int FROM factory_pipeline_runs) AS factory,
-      (SELECT COUNT(*)::int FROM governance_publication_packages) AS governance,
-      (SELECT COUNT(*)::int FROM historical_library_admissions) AS library,
-      (SELECT COUNT(*)::int FROM historical_library_published_snapshots) AS memory,
-      (SELECT COUNT(*)::int FROM published_memory_projections WHERE lifecycle='active') AS projection`;
-  if (!synthetic) throw new Error("Synthetic institutional read traversal returned no result.");
-  return { mode: "read_only_non_canonical", institutions: synthetic };
+  if (!process.env.SYNTHETIC_DATABASE_URL) throw new Error("SYNTHETIC_DATABASE_URL is required for isolated publication certification.");
+  return runCommand("npm", ["run", "ops:synthetic:publication"], timeoutMs);
 }
 
 export const scheduledOperationsService = {

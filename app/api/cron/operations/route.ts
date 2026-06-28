@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { fail, ok } from "@/src/server/api/responses";
 import { scheduledOperationsService } from "@/src/server/services/scheduled-operations-service";
+import { FactoryDispatcher } from "@/src/server/services/factory-dispatcher";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,5 +15,10 @@ function authorized(request: Request): boolean {
 
 export async function GET(request: Request) {
   if (!authorized(request)) return fail(401, "Scheduled operations authentication failed.");
-  return ok(await scheduledOperationsService.runDue(), { headers: { "Cache-Control": "no-store" } });
+  const dispatcher = new FactoryDispatcher();
+  const [factory, scheduled] = await Promise.all([
+    dispatcher.runCycle(),
+    scheduledOperationsService.runDue()
+  ]);
+  return ok({ factory, scheduled }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -38,10 +38,13 @@ test("scheduled backup and isolated restore verification reuse certified operati
   assert.match(script, /requiredRecoveryValidationQueries/);
 });
 
-test("synthetic publication verification is read-only and spans the institutional chain", async () => {
+test("synthetic publication verification executes against an isolated database", async () => {
   const source = await readFile("src/server/services/scheduled-operations-service.ts", "utf8");
-  assert.match(source, /mode: "read_only_non_canonical"/);
-  for (const table of ["factory_pipeline_runs", "governance_publication_packages", "historical_library_admissions", "historical_library_published_snapshots", "published_memory_projections"]) assert.match(source, new RegExp(table));
+  const script = await readFile("scripts/run-synthetic-publication-certification.ts", "utf8");
+  assert.match(source, /ops:synthetic:publication/);
+  assert.match(script, /SYNTHETIC_DATABASE_URL/);
+  assert.match(script, /refuses to use the canonical production database/);
+  assert.match(script, /ops:publication:certify/);
 });
 
 test("scheduler failures generate durable operational alerts", async () => {
