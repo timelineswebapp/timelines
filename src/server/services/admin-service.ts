@@ -16,6 +16,7 @@ import { relationshipRecoveryService } from "@/src/server/services/relationship-
 import { factoryOperationsService } from "@/src/server/services/factory-operations-service";
 import { reliabilityService } from "@/src/server/services/reliability-service";
 import { scheduledOperationsService } from "@/src/server/services/scheduled-operations-service";
+import { performanceAnalyticsService } from "@/src/server/services/performance-analytics-service";
 
 export const adminService = {
   getFactoryOperationsSnapshot: factoryOperationsService.getSnapshot,
@@ -24,6 +25,7 @@ export const adminService = {
   transitionOperationalAlert: reliabilityService.transitionAlert,
   runDueScheduledOperations: scheduledOperationsService.runDue,
   listScheduledOperations: scheduledOperationsService.listRuns,
+  getPerformanceAnalytics: performanceAnalyticsService.getReport,
   getFounderInbox: factoryOperationsService.getFounderInbox,
   getFactoryTopicDetail: factoryOperationsService.getTopicDetail,
   addFactoryOperationsTopic: factoryOperationsService.addTopic,

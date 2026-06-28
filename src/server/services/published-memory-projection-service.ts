@@ -663,10 +663,13 @@ export const publishedMemoryProjectionService = {
     return publishedMemoryProjectionRepository.getCoverageMetrics(publishedSnapshotCount);
   },
 
-  async rebuildAll(input?: { batchSize?: number }) {
+  async rebuildAll(input?: { batchSize?: number; incremental?: boolean }) {
     const startedAt = new Date();
     const batchSize = input?.batchSize || DEFAULT_REBUILD_BATCH_SIZE;
-    const totalSnapshots = await historicalLibraryRepository.countPublishedSnapshots();
+    const incremental = input?.incremental === true;
+    const totalSnapshots = incremental
+      ? await historicalLibraryRepository.countUnprojectedPublishedSnapshots()
+      : await historicalLibraryRepository.countPublishedSnapshots();
     let totalProcessed = 0;
     let generated = 0;
     let updated = 0;
@@ -677,7 +680,9 @@ export const publishedMemoryProjectionService = {
     const rebuiltAdmissionTimelines = new Set<string>();
 
     for (let offset = 0; offset < totalSnapshots; offset += batchSize) {
-      const snapshots = await historicalLibraryRepository.listPublishedSnapshots(batchSize, offset);
+      const snapshots = incremental
+        ? await historicalLibraryRepository.listUnprojectedPublishedSnapshots(batchSize, 0)
+        : await historicalLibraryRepository.listPublishedSnapshots(batchSize, offset);
       for (const snapshot of snapshots) {
         totalProcessed += 1;
         if (!["historical_object", "milestone", "relationship"].includes(snapshot.authorityRef.authorityType)) {
@@ -788,6 +793,7 @@ export const publishedMemoryProjectionService = {
 
     return {
       rebuiltAt: completedAt.toISOString(),
+      mode: incremental ? "incremental" : "full",
       report,
       reconciliation
     };

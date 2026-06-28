@@ -50,6 +50,15 @@ export const factoryOperationsRepository = {
     return row;
   },
 
+  async configureControl(input: { concurrency: number; pollIntervalMs: number; actor: string }) {
+    const sql = getWriteSql("configuring Factory operations concurrency");
+    const [row] = await sql<OperationsControl[]>`
+      UPDATE factory_operations_control SET concurrency=${input.concurrency},poll_interval_ms=${input.pollIntervalMs},
+        updated_by=${input.actor},updated_at=NOW() WHERE singleton=TRUE
+      RETURNING mode,concurrency,poll_interval_ms AS "pollIntervalMs",updated_at::text AS "updatedAt",updated_by AS "updatedBy"`;
+    return row;
+  },
+
   async getControl() {
     const sql = getWriteSql("reading Factory automation control");
     const [row] = await sql<OperationsControl[]>`
@@ -74,7 +83,10 @@ export const factoryOperationsRepository = {
            SELECT id FROM factory_topic_work_items
            WHERE ((status IN ('queued','failed') AND next_attempt_at <= NOW())
              OR (status='running' AND lease_expires_at < NOW()))
-           ORDER BY priority DESC, created_at FOR UPDATE SKIP LOCKED LIMIT 1
+           ORDER BY
+             (priority + LEAST(1000, FLOOR(EXTRACT(EPOCH FROM (NOW()-created_at))/60))) DESC,
+             created_at
+           FOR UPDATE SKIP LOCKED LIMIT 1
          )
          UPDATE factory_topic_work_items t SET status='running', lease_owner=$1,
            lease_expires_at=NOW()+($2 * INTERVAL '1 second'), heartbeat_at=NOW(),

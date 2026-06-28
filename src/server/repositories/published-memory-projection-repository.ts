@@ -391,6 +391,35 @@ export const publishedMemoryProjectionRepository = {
     `;
   },
 
+  async searchActiveProjections(query: string, limit: number, offset: number): Promise<Array<PublishedMemoryProjection & { rank: number; total: number }>> {
+    const sql = getSql();
+    if (!sql) return [];
+    return sql<Array<PublishedMemoryProjection & { rank: number; total: number }>>`
+      WITH ranked AS (
+        SELECT p.*,
+          ts_rank_cd(to_tsvector('simple'::regconfig, COALESCE(p.payload->>'searchableText', p.payload::text)),
+            websearch_to_tsquery('simple'::regconfig, ${query}), 32)::float AS rank
+        FROM published_memory_projections p
+        WHERE p.projection_type='search' AND p.lifecycle='active'
+          AND (
+            to_tsvector('simple'::regconfig, COALESCE(p.payload->>'searchableText', p.payload::text))
+              @@ websearch_to_tsquery('simple'::regconfig, ${query})
+            OR LOWER(COALESCE(p.payload->>'searchableText', p.payload::text)) LIKE '%' || LOWER(${query}) || '%'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM published_memory_continuity_projections c
+            WHERE c.source_published_snapshot_id=p.published_snapshot_id
+              AND c.continuity_type IN ('retired','merged')
+          )
+      )
+      SELECT id::text AS "projectionId",published_snapshot_id::text AS "publishedSnapshotId",
+        projection_type AS "projectionType",slug,payload,projection_version::int AS "projectionVersion",
+        projection_hash AS "projectionHash",lifecycle,source_event_type AS "sourceEventType",
+        source_event_id::text AS "sourceEventId",audit_record_id::text AS "auditRecordId",
+        created_at::text AS "createdAt",rank,COUNT(*) OVER()::int AS total
+      FROM ranked ORDER BY rank DESC,created_at DESC,id LIMIT ${limit} OFFSET ${offset}`;
+  },
+
   async getActiveProjectionBySlug(type: PublishedReadModelType, slug: string): Promise<PublishedMemoryProjection | null> {
     const sql = getSql();
     if (!sql) {

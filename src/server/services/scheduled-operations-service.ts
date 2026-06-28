@@ -13,7 +13,8 @@ export const scheduledOperationDefinitions: Definition[] = [
   { key: "health_verification", cadenceMs: 60_000, timeoutMs: 60_000 },
   { key: "backup_execution", cadenceMs: 24 * 60 * 60_000, timeoutMs: 30 * 60_000 },
   { key: "restore_verification", cadenceMs: 7 * 24 * 60 * 60_000, timeoutMs: 30 * 60_000 },
-  { key: "synthetic_publication_verification", cadenceMs: 60 * 60_000, timeoutMs: 120_000 }
+  { key: "synthetic_publication_verification", cadenceMs: 60 * 60_000, timeoutMs: 120_000 },
+  { key: "seo_validation", cadenceMs: 60 * 60_000, timeoutMs: 120_000 }
 ];
 
 function scheduleBucket(now: number, cadenceMs: number): string {
@@ -78,6 +79,30 @@ async function executeOperation(key: ScheduledOperationKey, timeoutMs: number): 
   if (key === "restore_verification") {
     if (!process.env.RESTORE_DATABASE_URL) throw new Error("RESTORE_DATABASE_URL is required for isolated scheduled restore verification.");
     return runCommand("npm", ["run", "ops:restore:scheduled"], timeoutMs);
+  }
+  if (key === "seo_validation") {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    if (!siteUrl) throw new Error("NEXT_PUBLIC_SITE_URL is required for SEO validation.");
+    const projections = await sql<Array<{ slug: string; payload: Record<string, unknown> }>>`
+      SELECT slug,payload FROM published_memory_projections
+      WHERE projection_type='timeline' AND lifecycle='active' AND slug IS NOT NULL
+      ORDER BY created_at DESC LIMIT 5`;
+    const failures: Array<{ slug: string; checks: string[] }> = [];
+    for (const projection of projections) {
+      const metadata = projection.payload.seo_metadata as Record<string, unknown> | undefined;
+      const og = projection.payload.og_metadata as Record<string, unknown> | undefined;
+      const checks: string[] = [];
+      if (!metadata?.title || !metadata.description) checks.push("metadata_incomplete");
+      if (!og?.title || !og.description) checks.push("open_graph_incomplete");
+      const response = await fetch(new URL(`/timeline/${projection.slug}`, siteUrl), { signal: AbortSignal.timeout(10_000) });
+      const html = await response.text();
+      if (!response.ok || !html.includes('rel="canonical"')) checks.push("canonical_url_missing");
+      if (!html.includes("application/ld+json")) checks.push("structured_data_missing");
+      if (!html.includes('property="og:')) checks.push("open_graph_markup_missing");
+      if (checks.length) failures.push({ slug: projection.slug, checks });
+    }
+    if (failures.length) throw new Error(`SEO validation failed: ${JSON.stringify(failures)}`);
+    return { checked: projections.length, failures: [] };
   }
   const [synthetic] = await sql<Record<string, number>[]>`
     SELECT

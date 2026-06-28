@@ -190,7 +190,8 @@ export const requestStatusUpdateSchema = z.object({
 
 export const searchQuerySchema = z.object({
   q: trimmedString(1, 120),
-  limit: z.coerce.number().int().min(1).max(20).default(12)
+  limit: z.coerce.number().int().min(1).max(50).default(12),
+  offset: z.coerce.number().int().min(0).max(10000).default(0)
 });
 
 export const timelineViewTelemetrySchema = z.object({
@@ -963,8 +964,14 @@ export const factoryOperationsTopicSchema = z.object({
 });
 
 export const factoryOperationsControlSchema = z.object({
-  action: z.enum(["start", "stop", "pause_after_current", "resume", "run_one_cycle"]),
+  action: z.enum(["start", "stop", "pause_after_current", "resume", "run_one_cycle", "configure"]),
+  concurrency: z.coerce.number().int().min(1).max(16).optional(),
+  pollIntervalMs: z.coerce.number().int().min(250).max(60000).optional(),
   actor: actorSchema
+}).superRefine((value, ctx) => {
+  if (value.action === "configure" && (!value.concurrency || !value.pollIntervalMs)) {
+    ctx.addIssue({ code: "custom", message: "Configure requires concurrency and pollIntervalMs." });
+  }
 });
 
 export const factoryOperationsMutationSchema = z.object({

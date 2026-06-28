@@ -27,9 +27,13 @@ export const factoryOperationsService = {
   getFounderInbox: repository.listInbox.bind(repository),
   getTopicDetail: repository.getTopicDetail.bind(repository),
 
-  async control(input: { action: "start" | "stop" | "pause_after_current" | "resume" | "run_one_cycle"; actor: string }) {
+  async control(input: { action: "start" | "stop" | "pause_after_current" | "resume" | "run_one_cycle" | "configure"; actor: string; concurrency?: number; pollIntervalMs?: number }) {
     const modes = { start: "running", stop: "stopped", pause_after_current: "pause_after_current", resume: "running" } as const;
     if (input.action === "run_one_cycle") return this.runCycle({ actor: input.actor, force: true });
+    if (input.action === "configure") {
+      if (!input.concurrency || !input.pollIntervalMs) throw new ApiError(400, "OPERATIONS_CONFIGURATION_REQUIRED", "Concurrency and polling interval are required.");
+      return repository.configureControl({ concurrency: input.concurrency, pollIntervalMs: input.pollIntervalMs, actor: input.actor });
+    }
     return repository.setControl(modes[input.action], input.actor);
   },
 

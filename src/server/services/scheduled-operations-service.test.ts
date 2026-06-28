@@ -6,7 +6,7 @@ import { scheduledOperationDefinitions } from "@/src/server/services/scheduled-o
 test("PE-003A registers every required scheduled operation", () => {
   assert.deepEqual(new Set(scheduledOperationDefinitions.map((item) => item.key)), new Set([
     "workflow_maintenance", "projection_verification", "publication_verification", "health_verification",
-    "backup_execution", "restore_verification", "synthetic_publication_verification"
+    "backup_execution", "restore_verification", "synthetic_publication_verification", "seo_validation"
   ]));
   assert.equal(scheduledOperationDefinitions.every((item) => item.cadenceMs > 0 && item.timeoutMs > 0), true);
 });

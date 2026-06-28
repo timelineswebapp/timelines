@@ -29,18 +29,6 @@ function payloadAs<T>(snapshot: PublishedReadModelSnapshot | null): T | null {
   return snapshot ? (snapshot.payload as T) : null;
 }
 
-function matchesQuery(value: string, normalizedQuery: string) {
-  return value.toLowerCase().includes(normalizedQuery);
-}
-
-function searchText(payload: Record<string, unknown>) {
-  const directText = payload.searchableText;
-  if (typeof directText === "string") {
-    return directText;
-  }
-  return JSON.stringify(payload);
-}
-
 function clampRelationshipLimit(limit: number) {
   if (!Number.isFinite(limit)) {
     return 25;
@@ -347,31 +335,22 @@ export const platformReadModelService = {
     return null;
   },
 
-  async searchKnowledge(query: string, limit = 12): Promise<SearchResult> {
+  async searchKnowledge(query: string, limit = 12, offset = 0): Promise<SearchResult> {
     const normalized = normalizeQuery(query);
     if (!normalized) {
       return { query: "", total: 0, items: [] };
     }
-    const searchSnapshots = await platformReadModelRepository.listPublishedReadModels("search", 5000);
-    const projectedItems = searchSnapshots
-      .filter((snapshot) => matchesQuery(searchText(snapshot.payload), normalized))
-      .map((snapshot, index) => projectionToSearchItem(snapshot.payload, limit - index))
+    const boundedLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
+    const boundedOffset = Math.max(0, Math.min(10_000, Math.trunc(offset)));
+    const matches = await platformReadModelRepository.searchPublishedReadModels(normalized, boundedLimit, boundedOffset);
+    const projectedItems = matches
+      .map(({ snapshot, rank }) => projectionToSearchItem(snapshot.payload, rank))
       .filter((item): item is SearchResultItem => Boolean(item))
-      .slice(0, limit);
+      .slice(0, boundedLimit);
     if (projectedItems.length > 0) {
-      return { query: normalized, total: projectedItems.length, items: projectedItems };
+      return { query: normalized, total: matches[0]?.total || projectedItems.length, items: projectedItems };
     }
-
-    const timelines = (await platformReadModelService.listFeaturedTimelines(5000)).filter((timeline) =>
-      matchesQuery(`${timeline.title} ${timeline.description} ${timeline.category}`, normalized)
-    );
-    const items = timelines.slice(0, limit).map((timeline, index) => ({
-      type: "timeline" as const,
-      id: timeline.id,
-      rank: limit - index,
-      timeline
-    }));
-    return { query: normalized, total: items.length, items };
+    return { query: normalized, total: 0, items: [] };
   },
 
   async resolveContinuity(publishedSnapshotId: string): Promise<ContinuityResolution> {

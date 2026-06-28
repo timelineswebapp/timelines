@@ -71,7 +71,7 @@ describe("platform read models and publication boundary", () => {
     assert.match(readModelService, /resolutionType: "retired"/);
     assert.match(readModelService, /listPublishedReadModels\("timeline"/);
     assert.match(readModelService, /listPublishedReadModels\("milestone"/);
-    assert.match(readModelService, /listPublishedReadModels\("search"/);
+    assert.match(readModelService, /searchPublishedReadModels/);
     assert.match(readModelService, /listPublishedReadModels\("sitemap"/);
     assert.match(readModelService, /getRelationshipById/);
     assert.match(readModelService, /listRelationshipsForAuthorityRef/);

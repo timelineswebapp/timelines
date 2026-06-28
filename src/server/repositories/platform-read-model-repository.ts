@@ -27,6 +27,11 @@ async function listPublishedReadModels(type: PublishedReadModelType, limit: numb
 export const platformReadModelRepository = {
   listPublishedReadModels,
 
+  async searchPublishedReadModels(query: string, limit: number, offset: number) {
+    const projections = await publishedMemoryProjectionRepository.searchActiveProjections(query, limit, offset);
+    return projections.map((projection) => ({ snapshot: projectionToReadModel(projection), rank: projection.rank, total: projection.total }));
+  },
+
   async getPublishedReadModelBySlug(type: PublishedReadModelType, slug: string): Promise<PublishedReadModelSnapshot | null> {
     const projection = await publishedMemoryProjectionRepository.getActiveProjectionBySlug(type, slug);
     return projection ? projectionToReadModel(projection) : null;

@@ -104,7 +104,7 @@ export const contentService = {
     return platformReadModelService.searchKnowledge(query, limit);
   },
 
-  searchKnowledge(query: string, limit = 12): Promise<SearchResult> {
-    return platformReadModelService.searchKnowledge(query, limit);
+  searchKnowledge(query: string, limit = 12, offset = 0): Promise<SearchResult> {
+    return platformReadModelService.searchKnowledge(query, limit, offset);
   }
 };

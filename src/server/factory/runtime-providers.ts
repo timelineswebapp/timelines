@@ -26,6 +26,61 @@ const defaultOllamaBaseUrl = "http://127.0.0.1:11434";
 const defaultQwen14Model = "qwen2.5:14b";
 const defaultFactoryQwenTimeoutMs = 120000;
 
+type ProviderLease = { queueWaitMs: number; release(): void };
+
+export class ProviderExecutionLimiter {
+  private active = 0;
+  private starts: number[] = [];
+  private queue: Array<{ queuedAt: number; resolve: (lease: ProviderLease) => void; reject: (error: Error) => void }> = [];
+  private timer: NodeJS.Timeout | null = null;
+
+  constructor(private readonly concurrency: number, private readonly requestsPerMinute: number, private readonly maxQueue = 100) {}
+
+  acquire(): Promise<ProviderLease> {
+    if (this.queue.length >= this.maxQueue) return Promise.reject(new Error("PROVIDER_THROTTLED: provider execution queue is full."));
+    return new Promise((resolve, reject) => {
+      this.queue.push({ queuedAt: Date.now(), resolve, reject });
+      this.drain();
+    });
+  }
+
+  private drain() {
+    const now = Date.now();
+    this.starts = this.starts.filter((value) => value > now - 60_000);
+    while (this.active < this.concurrency && this.starts.length < this.requestsPerMinute && this.queue.length) {
+      const next = this.queue.shift()!;
+      this.active += 1;
+      this.starts.push(Date.now());
+      let released = false;
+      next.resolve({
+        queueWaitMs: Date.now() - next.queuedAt,
+        release: () => {
+          if (released) return;
+          released = true;
+          this.active -= 1;
+          this.drain();
+        }
+      });
+    }
+    if (this.queue.length && !this.timer) {
+      const delay = Math.max(10, (this.starts[0] || now) + 60_000 - now);
+      this.timer = setTimeout(() => { this.timer = null; this.drain(); }, delay);
+      this.timer.unref();
+    }
+  }
+}
+
+function positiveInteger(value: string | undefined, fallback: number, maximum: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : fallback;
+}
+
+const qwenLimiter = new ProviderExecutionLimiter(
+  positiveInteger(process.env.QWEN14_MAX_CONCURRENCY, 2, 16),
+  positiveInteger(process.env.QWEN14_REQUESTS_PER_MINUTE, 30, 600),
+  positiveInteger(process.env.QWEN14_MAX_QUEUE, 100, 1000)
+);
+
 export class FactoryRuntimeProviderError extends Error {
   diagnostics: Record<string, unknown>;
   override cause?: unknown;
@@ -214,6 +269,7 @@ const qwen14Provider: FactoryRuntimeProvider = {
   },
 
   async execute(request) {
+    const lease = await qwenLimiter.acquire();
     const startedAt = Date.now();
     const baseUrl = process.env.OLLAMA_BASE_URL || defaultOllamaBaseUrl;
     const requestUrl = `${baseUrl}/api/generate`;
@@ -369,6 +425,7 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
           modelName: this.modelName,
           baseUrlHost: hostOnly(baseUrl),
           timeoutMs,
+          providerQueueWaitMs: lease.queueWaitMs,
           elapsedMs: Date.now() - startedAt,
           attempt: typeof request.configuration.attempt === "number" ? request.configuration.attempt : null,
           fetchReachedResponseParsing
@@ -386,6 +443,7 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
       }), error);
     } finally {
       clearTimeout(timeout);
+      lease.release();
     }
   }
 };

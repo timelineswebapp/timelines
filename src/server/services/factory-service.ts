@@ -1974,6 +1974,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
     });
 
     const provider = getFactoryRuntimeProvider(current.providerKey);
+    const providerStartedAt = Date.now();
     try {
       let result = null;
       let validated = null;
@@ -2083,6 +2084,20 @@ ${prompt.template}`, current.input, prompt.outputSchema || contract.output_schem
         actor: input.actor
       });
       const completedJob = await factoryRepository.transitionRuntimeJob(current.jobId, "completed", input.actor);
+      const inputTokens = Number(result.diagnostics.promptTokens || result.diagnostics.estimatedPromptTokens || 0);
+      const outputTokens = Number(result.diagnostics.completionTokens || 0);
+      const inputRate = Number(process.env.QWEN14_INPUT_COST_PER_MILLION_USD || 0);
+      const outputRate = Number(process.env.QWEN14_OUTPUT_COST_PER_MILLION_USD || 0);
+      try {
+        await factoryRepository.recordProviderExecutionMetric({
+          providerKey: result.providerKey, modelName: result.modelName, status: "completed",
+          latencyMs: Date.now() - providerStartedAt, estimatedInputTokens: inputTokens,
+          maxOutputTokens: contract.max_output_tokens,
+          estimatedCostUsd: (inputTokens * inputRate + outputTokens * outputRate) / 1_000_000
+        });
+      } catch (metricError) {
+        console.error(JSON.stringify({ level: "error", component: "provider_metrics", event: "metric_persistence_failed", message: metricError instanceof Error ? metricError.message : "Unknown metric persistence failure" }));
+      }
       await factoryRepository.createRuntimeAuditRecord({
         targetRef: { authorityType: "factory_runtime_execution", authorityId: execution.executionId },
         action: "complete_execution",
@@ -2094,6 +2109,16 @@ ${prompt.template}`, current.input, prompt.outputSchema || contract.output_schem
       return { job: completedJob, execution: completedExecution };
     } catch (error) {
       const failure = classifyRuntimeFailure(error);
+      try {
+        await factoryRepository.recordProviderExecutionMetric({
+          providerKey: provider.providerKey, modelName: provider.modelName,
+          status: error instanceof Error && error.message.includes("PROVIDER_THROTTLED") ? "throttled" : "failed",
+          latencyMs: Date.now() - providerStartedAt, estimatedInputTokens: 0,
+          maxOutputTokens: contract.max_output_tokens, estimatedCostUsd: 0
+        });
+      } catch (metricError) {
+        console.error(JSON.stringify({ level: "error", component: "provider_metrics", event: "metric_persistence_failed", message: metricError instanceof Error ? metricError.message : "Unknown metric persistence failure" }));
+      }
       assertTransitionAllowed("FactoryRuntimeExecution", runtimeExecutionTransitions, startedExecution.status, "failed");
       const failedExecution = await factoryRepository.transitionRuntimeExecution({
         executionId: execution.executionId,

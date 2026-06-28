@@ -1451,6 +1451,17 @@ export const factoryRepository = {
     return row!.auditRecordId;
   },
 
+  async recordProviderExecutionMetric(input: {
+    providerKey: string; modelName: string; status: "completed" | "failed" | "throttled";
+    latencyMs: number; estimatedInputTokens: number; maxOutputTokens?: number | null; estimatedCostUsd: number;
+  }) {
+    const sql = getWriteSql("recording provider performance metric");
+    await sql`INSERT INTO provider_execution_metrics
+      (provider_key,model_name,status,latency_ms,estimated_input_tokens,max_output_tokens,estimated_cost_usd)
+      VALUES (${input.providerKey},${input.modelName},${input.status},${input.latencyMs},
+        ${input.estimatedInputTokens},${input.maxOutputTokens || null},${input.estimatedCostUsd})`;
+  },
+
   async getRuntimeMetrics(): Promise<FactoryRuntimeMetrics> {
     const sql = getWriteSql("loading factory runtime metrics");
     const [row] = await sql<Array<FactoryRuntimeMetrics>>`

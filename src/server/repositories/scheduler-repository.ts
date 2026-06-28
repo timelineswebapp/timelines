@@ -7,7 +7,8 @@ export type ScheduledOperationKey =
   | "health_verification"
   | "backup_execution"
   | "restore_verification"
-  | "synthetic_publication_verification";
+  | "synthetic_publication_verification"
+  | "seo_validation";
 
 export type ScheduledRun = {
   id: string; operationKey: ScheduledOperationKey; scheduledFor: string; status: "running" | "completed" | "failed";

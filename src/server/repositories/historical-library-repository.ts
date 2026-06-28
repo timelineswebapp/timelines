@@ -197,6 +197,33 @@ export const historicalLibraryRepository = {
     `;
   },
 
+  async listUnprojectedPublishedSnapshots(limit = 1000, offset = 0): Promise<PublishedMemorySnapshot[]> {
+    const sql = getWriteSql("listing unprojected published snapshots");
+    return sql<PublishedMemorySnapshot[]>`
+      SELECT s.id::text AS "snapshotId",s.admission_id::text AS "admissionId",s.authority_ref AS "authorityRef",
+        s.snapshot,s.snapshot_hash AS "snapshotHash",s.lifecycle,s.created_at::text AS "createdAt"
+      FROM historical_library_published_snapshots s
+      WHERE s.lifecycle='active'
+        AND s.authority_ref->>'authorityType' IN ('historical_object','milestone','relationship')
+        AND NOT EXISTS (
+        SELECT 1 FROM published_memory_projections p
+        WHERE p.published_snapshot_id=s.id AND p.lifecycle='active'
+      )
+      ORDER BY s.created_at,s.id LIMIT ${limit} OFFSET ${offset}`;
+  },
+
+  async countUnprojectedPublishedSnapshots(): Promise<number> {
+    const sql = getWriteSql("counting unprojected published snapshots");
+    const [row] = await sql<{ count: number }[]>`
+      SELECT COUNT(*)::int AS count FROM historical_library_published_snapshots s
+      WHERE s.lifecycle='active'
+        AND s.authority_ref->>'authorityType' IN ('historical_object','milestone','relationship')
+        AND NOT EXISTS (
+        SELECT 1 FROM published_memory_projections p WHERE p.published_snapshot_id=s.id AND p.lifecycle='active'
+      )`;
+    return row?.count || 0;
+  },
+
   async countPublishedSnapshots(): Promise<number> {
     const sql = getWriteSql("counting historical library published snapshots");
     const [row] = await sql<Array<{ count: number }>>`

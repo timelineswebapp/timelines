@@ -9,10 +9,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const input = searchQuerySchema.parse({
       q: searchParams.get("q") || "",
-      limit: searchParams.get("limit") || 12
+      limit: searchParams.get("limit") || 12,
+      offset: searchParams.get("offset") || 0
     });
 
-    const result = await contentService.searchKnowledge(input.q, input.limit);
+    const result = await contentService.searchKnowledge(input.q, input.limit, input.offset);
     return ok(result);
   } catch (error) {
     return fromError(error);
