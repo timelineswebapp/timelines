@@ -1,6 +1,6 @@
 import { ApiError } from "@/src/server/api/responses";
 import { getWriteSql } from "@/src/server/db/client";
-import type { OperationsControl, OperationsSnapshot, TopicHistoryRecord, TopicSource, TopicWorkItem, WorkflowStage } from "@/src/server/factory-operations/contracts";
+import type { OperationalNotification, OperationsControl, OperationsSnapshot, TopicHistoryRecord, TopicOperationsDetail, TopicSource, TopicWorkItem, WorkflowStage } from "@/src/server/factory-operations/contracts";
 
 const topicColumns = `
   id::text AS "id", title, source, source_reference AS "sourceReference", status, priority,
@@ -131,10 +131,84 @@ export const factoryOperationsRepository = {
     return row;
   },
 
+  async mergeTopicContext(id: string, context: Record<string, unknown>) {
+    const sql = getWriteSql("persisting topic institutional lineage");
+    await sql`UPDATE factory_topic_work_items SET stage_context=stage_context || ${sql.json(context as never)}, updated_at=NOW() WHERE id=${id}`;
+  },
+
+  async appendInstitutionalEvent(input: { topic: TopicWorkItem; institution: string; eventType: string; boundaryStage: WorkflowStage; authorityRefs?: unknown[]; payload?: Record<string, unknown>; idempotencyKey: string }) {
+    const sql = getWriteSql("appending institutional event");
+    await sql`INSERT INTO factory_institutional_events
+      (topic_id,workflow_id,institution,event_type,boundary_stage,authority_refs,payload,idempotency_key)
+      VALUES (${input.topic.id},${input.topic.workflowId},${input.institution},${input.eventType},${input.boundaryStage},
+        ${sql.json((input.authorityRefs || []) as never)},${sql.json((input.payload || {}) as never)},${input.idempotencyKey})
+      ON CONFLICT (idempotency_key) DO NOTHING`;
+  },
+
+  async notify(input: { topicId: string; category: string; severity: OperationalNotification["severity"]; title: string; message: string; deduplicationKey: string; details?: Record<string, unknown> }) {
+    const sql = getWriteSql("creating operational notification");
+    await sql`INSERT INTO factory_operational_notifications
+      (topic_id,category,severity,title,message,deduplication_key,details)
+      VALUES (${input.topicId},${input.category},${input.severity},${input.title},${input.message},${input.deduplicationKey},${sql.json((input.details || {}) as never)})
+      ON CONFLICT (deduplication_key,status) DO NOTHING`;
+  },
+
+  async resolveNotifications(topicId: string, category: string) {
+    const sql = getWriteSql("resolving operational notifications");
+    await sql`UPDATE factory_operational_notifications SET status='resolved', resolved_at=NOW()
+      WHERE topic_id=${topicId} AND category=${category} AND status='open'`;
+  },
+
+  async listInbox(limit = 200) {
+    const sql = getWriteSql("listing Founder Inbox");
+    return sql<OperationalNotification[]>`SELECT id::text AS id, topic_id::text AS "topicId", category, severity, title, message,
+      status, details, created_at::text AS "createdAt" FROM factory_operational_notifications
+      WHERE status='open' ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END, created_at LIMIT ${limit}`;
+  },
+
+  async recordVerification(input: { topicId: string; packageId: string; checks: Record<string, boolean>; failures: string[] }) {
+    const sql = getWriteSql("recording publication verification");
+    const [row] = await sql<{ id: string }[]>`INSERT INTO factory_publication_verifications
+      (topic_id,publication_package_id,checks,status,failure_details)
+      VALUES (${input.topicId},${input.packageId},${sql.json(input.checks as never)},${input.failures.length ? "failed" : "passed"},${sql.json(input.failures as never)})
+      RETURNING id::text AS id`;
+    return row;
+  },
+
+  async getTopicDetail(id: string): Promise<TopicOperationsDetail> {
+    const topic = await this.getTopic(id);
+    const sql = getWriteSql("reading topic operations detail");
+    const [history, events, notifications, verifications] = await Promise.all([
+      sql<TopicHistoryRecord[]>`SELECT id::text AS id,topic_id::text AS "topicId",action,from_stage AS "fromStage",to_stage AS "toStage",
+        outcome,attempt,details,created_at::text AS "createdAt" FROM factory_topic_execution_history WHERE topic_id=${id} ORDER BY created_at DESC LIMIT 500`,
+      sql<TopicOperationsDetail["events"]>`SELECT id::text AS id,institution,event_type AS "eventType",boundary_stage AS "boundaryStage",
+        authority_refs AS "authorityRefs",payload,created_at::text AS "createdAt" FROM factory_institutional_events WHERE topic_id=${id} ORDER BY created_at DESC LIMIT 500`,
+      sql<OperationalNotification[]>`SELECT id::text AS id,topic_id::text AS "topicId",category,severity,title,message,status,details,
+        created_at::text AS "createdAt" FROM factory_operational_notifications WHERE topic_id=${id} ORDER BY created_at DESC LIMIT 200`,
+      sql<TopicOperationsDetail["verifications"]>`SELECT id::text AS id,status,checks,failure_details AS "failureDetails",created_at::text AS "createdAt"
+        FROM factory_publication_verifications WHERE topic_id=${id} ORDER BY created_at DESC LIMIT 100`
+    ]);
+    return { topic, history, events, notifications, verifications };
+  },
+
   async appendHistory(topicId: string, action: string, fromStage: WorkflowStage | null, toStage: WorkflowStage | null, outcome: TopicHistoryRecord["outcome"], attempt: number, details: Record<string, unknown>) {
     const sql = getWriteSql("appending Factory topic history");
     await sql`INSERT INTO factory_topic_execution_history (topic_id,action,from_stage,to_stage,outcome,attempt,details)
       VALUES (${topicId},${action},${fromStage},${toStage},${outcome},${attempt},${sql.json(details as never)})`;
+  },
+
+  async requestReplay(input: { topic: TopicWorkItem; boundary: WorkflowStage; actor: string }) {
+    const sql = getWriteSql("persisting replay request");
+    const institution = input.boundary === "governance" ? "governance" :
+      ["library_admission", "published", "completed"].includes(input.boundary) ? "historical_library" : "factory";
+    const key = `${input.topic.workflowId}:${institution}:${input.boundary}:${input.topic.lastCertifiedStage}`;
+    const [row] = await sql<{ id: string; status: string }[]>`
+      INSERT INTO operational_replay_requests (topic_id,workflow_id,institution,certified_boundary,status,requested_by,idempotency_key)
+      VALUES (${input.topic.id},${input.topic.workflowId},${institution},${input.boundary},'requested',${input.actor},${key})
+      ON CONFLICT (idempotency_key) DO NOTHING
+      RETURNING id::text AS id,status`;
+    if (!row) throw new ApiError(409, "DUPLICATE_REPLAY", "This certified boundary replay was already requested.");
+    return row;
   },
 
   async getSnapshot(): Promise<OperationsSnapshot> {

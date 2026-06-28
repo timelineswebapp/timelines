@@ -1,0 +1,6 @@
+DROP TRIGGER IF EXISTS prevent_factory_publication_verifications_mutation ON factory_publication_verifications;
+DROP TRIGGER IF EXISTS prevent_factory_institutional_events_mutation ON factory_institutional_events;
+DROP FUNCTION IF EXISTS prevent_factory_continuation_history_mutation();
+DROP TABLE IF EXISTS factory_publication_verifications;
+DROP TABLE IF EXISTS factory_operational_notifications;
+DROP TABLE IF EXISTS factory_institutional_events;

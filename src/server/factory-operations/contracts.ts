@@ -65,3 +65,16 @@ export type OperationsSnapshot = {
     throughputPerHour: number;
   };
 };
+
+export type OperationalNotification = {
+  id: string; topicId: string; category: string; severity: "info" | "warning" | "critical";
+  title: string; message: string; status: "open" | "resolved"; details: Record<string, unknown>; createdAt: string;
+};
+
+export type TopicOperationsDetail = {
+  topic: TopicWorkItem;
+  history: TopicHistoryRecord[];
+  events: Array<{ id: string; institution: string; eventType: string; boundaryStage: string; authorityRefs: unknown[]; payload: Record<string, unknown>; createdAt: string }>;
+  notifications: OperationalNotification[];
+  verifications: Array<{ id: string; status: "passed" | "failed"; checks: Record<string, boolean>; failureDetails: unknown[]; createdAt: string }>;
+};

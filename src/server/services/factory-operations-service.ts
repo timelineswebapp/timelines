@@ -3,6 +3,9 @@ import { ApiError } from "@/src/server/api/responses";
 import { workflowStages, type TopicWorkItem, type WorkflowStage } from "@/src/server/factory-operations/contracts";
 import { factoryOperationsRepository as repository } from "@/src/server/repositories/factory-operations-repository";
 import { factoryService } from "@/src/server/services/factory-service";
+import { governanceService } from "@/src/server/services/governance-service";
+import { historicalLibraryService } from "@/src/server/services/historical-library-service";
+import { publicationVerificationService } from "@/src/server/services/publication-verification-service";
 
 const nextStage: Record<WorkflowStage, WorkflowStage> = {
   queued: "research", research: "extraction", extraction: "publication_candidate",
@@ -21,6 +24,8 @@ function assertReplayBoundary(stage: WorkflowStage, topic: TopicWorkItem) {
 export const factoryOperationsService = {
   addTopic: repository.addTopic.bind(repository),
   getSnapshot: repository.getSnapshot.bind(repository),
+  getFounderInbox: repository.listInbox.bind(repository),
+  getTopicDetail: repository.getTopicDetail.bind(repository),
 
   async control(input: { action: "start" | "stop" | "pause_after_current" | "resume" | "run_one_cycle"; actor: string }) {
     const modes = { start: "running", stop: "stopped", pause_after_current: "pause_after_current", resume: "running" } as const;
@@ -39,7 +44,70 @@ export const factoryOperationsService = {
         const draftId = topic.stageContext.factoryPackageDraftId;
         if (typeof draftId !== "string") throw new ApiError(409, "PACKAGE_LINEAGE_REQUIRED", "Founder review requires persisted package lineage.");
         await factoryService.assertEditorialBoundaryCompleted(draftId);
+        await factoryService.continueEditorialPackageToGovernanceReady(draftId);
+        const publicationRunId = topic.stageContext.publicationPipelineRunId;
+        const handoff = (await factoryService.getGovernanceHandoffByDraft(draftId)) || await factoryService.prepareGovernanceHandoff({
+          factoryPackageDraftId: draftId, pipelineRunId: typeof publicationRunId === "string" ? publicationRunId : null,
+          actor: "factory-operations", reason: "PE-002 automatic Governance handoff"
+        });
+        const submitted = await factoryService.submitToGovernance({
+          handoffId: handoff.handoffId,
+          actor: { actorId: "factory-operations", role: "factory_editor", institutionId: "factory" },
+          reason: "PE-002 automatic package submission"
+        });
+        await repository.mergeTopicContext(topic.id, {
+          governanceHandoffId: handoff.handoffId,
+          governancePublicationPackageId: submitted.governancePackage.packageId
+        });
+        await repository.appendInstitutionalEvent({
+          topic, institution: "governance", eventType: "package_submitted", boundaryStage: "governance",
+          authorityRefs: [{ authorityType: "publication_package", authorityId: submitted.governancePackage.packageId }],
+          idempotencyKey: `${topic.workflowId}:governance:submitted`
+        });
+        await repository.resolveNotifications(topic.id, "editorial_review_required");
+        await repository.notify({
+          topicId: topic.id, category: "governance_approval_required", severity: "info",
+          title: `Governance decision required: ${topic.title}`, message: "The package is submitted and awaits a certified Governance decision.",
+          deduplicationKey: `${topic.workflowId}:governance-required`
+        });
         patch = { status: "waiting", stage: "governance", actor: input.actor };
+      } else if (input.action === "resume" && topic.status === "waiting" && topic.currentStage === "governance") {
+        const packageId = topic.stageContext.governancePublicationPackageId;
+        if (typeof packageId !== "string") throw new ApiError(409, "GOVERNANCE_LINEAGE_REQUIRED", "Governance continuation requires persisted package lineage.");
+        const publicationPackage = await factoryService.getGovernancePublicationPackage(packageId);
+        if (!publicationPackage || !["accepted", "published"].includes(publicationPackage.lifecycle) || !publicationPackage.readinessCertification) {
+          throw new ApiError(409, "GOVERNANCE_DECISION_INCOMPLETE", "A certified accepted Governance package is required.");
+        }
+        const decisionId = publicationPackage.decisionRefs.at(-1);
+        if (!decisionId) throw new ApiError(409, "GOVERNANCE_DECISION_REQUIRED", "Accepted package has no Governance decision lineage.");
+        const admission = await historicalLibraryService.admitPublicationPackage({
+          packageId, governanceDecisionId: decisionId,
+          actor: { actorId: "factory-operations", role: "library_editor", institutionId: "historical_library" },
+          reason: "PE-002 automatic admission", requestedByService: "historical_library"
+        });
+        if (publicationPackage.lifecycle === "accepted") {
+          await governanceService.publishPackage({
+            id: packageId, governanceDecisionId: decisionId,
+            actor: { actorId: "factory-operations", role: "library_editor", institutionId: "historical_library" },
+            reason: "PE-002 publication after admission"
+          });
+        }
+        const verification = await publicationVerificationService.verify(packageId);
+        await repository.recordVerification({ topicId: topic.id, packageId, checks: verification.checks, failures: verification.failures });
+        if (verification.failures.length) {
+          await repository.notify({
+            topicId: topic.id, category: "publication_verification_failure", severity: "critical",
+            title: `Publication verification failed: ${topic.title}`, message: verification.failures.join(", "),
+            deduplicationKey: `${topic.workflowId}:verification-failed`, details: verification
+          });
+          throw new ApiError(409, "PUBLICATION_VERIFICATION_FAILED", "Automatic publication verification failed.", verification);
+        }
+        await repository.mergeTopicContext(topic.id, { historicalLibraryAdmissionId: admission.admission.admissionId });
+        for (const [institution, eventType] of [["historical_library", "admitted"], ["published_memory", "snapshots_created"], ["projection", "generated"], ["verification", "passed"]] as const) {
+          await repository.appendInstitutionalEvent({ topic, institution, eventType, boundaryStage: "completed", idempotencyKey: `${topic.workflowId}:${institution}:${eventType}` });
+        }
+        await repository.resolveNotifications(topic.id, "governance_approval_required");
+        patch = { status: "queued", stage: "published", actor: input.actor };
       } else {
         patch = { status: "queued", retryCount: input.action === "retry" ? 0 : undefined, actor: input.actor };
       }
@@ -47,10 +115,14 @@ export const factoryOperationsService = {
     else {
       if (!input.replayStage) throw new ApiError(400, "REPLAY_STAGE_REQUIRED", "A certified replay stage is required.");
       assertReplayBoundary(input.replayStage, topic);
+      await repository.requestReplay({ topic, boundary: input.replayStage, actor: input.actor });
       patch = { status: "queued", stage: input.replayStage, retryCount: 0, actor: input.actor };
     }
     const updated = await repository.updateTopic(input.topicId, patch);
     await repository.appendHistory(topic.id, input.action, topic.currentStage, updated.currentStage, "control", topic.retryCount, { actor: input.actor });
+    if (input.action === "replay") {
+      await repository.notify({ topicId: topic.id, category: "replay_request", severity: "warning", title: `Replay requested: ${topic.title}`, message: `Replay scheduled from ${input.replayStage}.`, deduplicationKey: `${topic.workflowId}:replay:${input.replayStage}:${topic.retryCount}` });
+    }
     return updated;
   },
 
@@ -85,11 +157,27 @@ export const factoryOperationsService = {
       const status = to === "completed" ? "completed" : waitingStages.has(to) ? "waiting" : "queued";
       const updated = await repository.advance(topic.id, workerId, from, to, status, context);
       await repository.appendHistory(topic.id, "stage_execute", from, to, waitingStages.has(to) ? "waiting" : "succeeded", topic.retryCount + 1, { workerId, ...context });
+      await repository.appendInstitutionalEvent({
+        topic, institution: to === "governance" ? "governance" : "factory", eventType: "stage_completed",
+        boundaryStage: to, payload: context, idempotencyKey: `${topic.workflowId}:stage:${to}:${topic.retryCount}`
+      });
+      if (to === "founder_review") {
+        await repository.notify({
+          topicId: topic.id, category: "editorial_review_required", severity: "info",
+          title: `Editorial review required: ${topic.title}`, message: "Factory candidate generation completed and awaits editorial review.",
+          deduplicationKey: `${topic.workflowId}:editorial-required`
+        });
+      }
       return updated;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown workflow stage failure";
       const status = await repository.fail(topic, workerId, message);
       await repository.appendHistory(topic.id, "stage_execute", from, from, "failed", topic.retryCount + 1, { workerId, status, message });
+      await repository.notify({
+        topicId: topic.id, category: from === "research" || from === "extraction" ? "evidence_problem" : "failed_factory_run",
+        severity: status === "dead_letter" ? "critical" : "warning", title: `Factory stage failed: ${topic.title}`,
+        message, deduplicationKey: `${topic.workflowId}:failure:${from}:${topic.retryCount + 1}`
+      });
       console.error(JSON.stringify({ level: "error", component: "factory_operations", event: "topic_stage_failed", topicId: topic.id, workflowId: topic.workflowId, stage: from, message }));
       return null;
     }
@@ -99,6 +187,14 @@ export const factoryOperationsService = {
     const control = await repository.getControl();
     if (!input.force && control.mode !== "running" && control.mode !== "pause_after_current") {
       return { leased: 0, completed: 0, mode: control.mode };
+    }
+    const waiting = (await repository.listTopics(control.concurrency * 4)).filter((topic) => topic.status === "waiting");
+    for (const topic of waiting) {
+      try {
+        await this.mutateTopic({ topicId: topic.id, action: "resume", actor: "factory-operations" });
+      } catch (error) {
+        if (!(error instanceof ApiError) || !["FOUNDER_REVIEW_INCOMPLETE", "GOVERNANCE_DECISION_INCOMPLETE"].includes(error.code)) throw error;
+      }
     }
     const workerPrefix = `dispatcher-${randomUUID()}`;
     const topics = (await Promise.all(Array.from({ length: control.concurrency }, (_, index) =>

@@ -237,6 +237,18 @@ function hashSnapshot(snapshot: Record<string, unknown>): string {
 }
 
 export const factoryRepository = {
+  async getGovernanceHandoffByDraft(factoryPackageDraftId: string): Promise<FactoryGovernanceHandoff | null> {
+    const sql = getWriteSql("reading Factory Governance handoff by package");
+    const [row] = await sql<FactoryGovernanceHandoff[]>`
+      SELECT id::text AS "handoffId", pipeline_run_id::text AS "pipelineRunId",
+        factory_package_draft_id::text AS "factoryPackageDraftId", factory_package_version_id::text AS "factoryPackageVersionId",
+        governance_publication_package_id::text AS "governancePublicationPackageId", lineage,
+        validation_artifact_refs AS "validationArtifactRefs", submission_reason AS "submissionReason",
+        status, created_by AS "createdBy", updated_by AS "updatedBy", created_at::text AS "createdAt", updated_at::text AS "updatedAt"
+      FROM factory_governance_handoffs WHERE factory_package_draft_id=${factoryPackageDraftId}
+      ORDER BY created_at DESC LIMIT 1`;
+    return row || null;
+  },
   async createGovernanceHandoff(input: CreateFactoryGovernanceHandoffInput): Promise<FactoryGovernanceHandoff> {
     const sql = getWriteSql("creating factory governance handoff");
     const [row] = await sql<FactoryGovernanceHandoff[]>`

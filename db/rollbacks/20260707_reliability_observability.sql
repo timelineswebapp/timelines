@@ -1,0 +1,11 @@
+DROP TRIGGER IF EXISTS prevent_operational_alert_history_mutation ON operational_alert_history;
+DROP TRIGGER IF EXISTS prevent_operational_health_delete ON operational_health_assessments;
+DROP TRIGGER IF EXISTS prevent_operational_metrics_delete ON operational_metric_measurements;
+DROP TRIGGER IF EXISTS prevent_operational_replay_delete ON operational_replay_requests;
+DROP FUNCTION IF EXISTS prevent_operational_observation_delete();
+DROP TABLE IF EXISTS operational_scheduled_runs;
+DROP TABLE IF EXISTS operational_replay_requests;
+DROP TABLE IF EXISTS operational_alert_history;
+DROP TABLE IF EXISTS operational_alerts;
+DROP TABLE IF EXISTS operational_health_assessments;
+DROP TABLE IF EXISTS operational_metric_measurements;

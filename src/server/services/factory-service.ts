@@ -1126,6 +1126,26 @@ export const factoryService = {
     }
   },
 
+  async continueEditorialPackageToGovernanceReady(factoryPackageDraftId: string): Promise<void> {
+    const draft = await factoryRepository.getPackageDraft(factoryPackageDraftId);
+    if (!draft) throw new ApiError(404, "FACTORY_PACKAGE_DRAFT_NOT_FOUND", "Factory package draft not found.");
+    if (draft.lifecycle === "ready_for_governance" || draft.lifecycle === "submitted_to_governance") return;
+    if (draft.lifecycle === "draft") {
+      await factoryService.transitionPackageDraft({ packageDraftId: factoryPackageDraftId, lifecycle: "validating", actor: "factory-operations", reason: "PE-002 certified editorial continuation" });
+    } else if (draft.lifecycle !== "validating") {
+      throw new ApiError(409, "FACTORY_PACKAGE_CONTINUATION_BLOCKED", `Package lifecycle ${draft.lifecycle} cannot continue to Governance.`);
+    }
+    await factoryService.transitionPackageDraft({ packageDraftId: factoryPackageDraftId, lifecycle: "ready_for_governance", actor: "factory-operations", reason: "PE-002 certified editorial continuation" });
+  },
+
+  async getGovernancePublicationPackage(packageId: string) {
+    return governanceRepository.getPublicationPackage(packageId);
+  },
+
+  async getGovernanceHandoffByDraft(factoryPackageDraftId: string) {
+    return factoryRepository.getGovernanceHandoffByDraft(factoryPackageDraftId);
+  },
+
   async listPipelineRuns(status?: FactoryPipelineRunStatus, limit = 100) {
     return factoryRepository.listPipelineRuns(status, limit);
   },

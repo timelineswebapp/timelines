@@ -14,9 +14,18 @@ import { taxonomyRepository } from "@/src/server/repositories/taxonomy-repositor
 import { timelineRepository } from "@/src/server/repositories/timeline-repository";
 import { relationshipRecoveryService } from "@/src/server/services/relationship-recovery-service";
 import { factoryOperationsService } from "@/src/server/services/factory-operations-service";
+import { reliabilityService } from "@/src/server/services/reliability-service";
+import { scheduledOperationsService } from "@/src/server/services/scheduled-operations-service";
 
 export const adminService = {
   getFactoryOperationsSnapshot: factoryOperationsService.getSnapshot,
+  getReliabilityDashboard: reliabilityService.dashboard,
+  runReliabilityAssessment: reliabilityService.collectAndEvaluate,
+  transitionOperationalAlert: reliabilityService.transitionAlert,
+  runDueScheduledOperations: scheduledOperationsService.runDue,
+  listScheduledOperations: scheduledOperationsService.listRuns,
+  getFounderInbox: factoryOperationsService.getFounderInbox,
+  getFactoryTopicDetail: factoryOperationsService.getTopicDetail,
   addFactoryOperationsTopic: factoryOperationsService.addTopic,
   controlFactoryOperations: factoryOperationsService.control.bind(factoryOperationsService),
   mutateFactoryOperationsTopic: factoryOperationsService.mutateTopic.bind(factoryOperationsService),

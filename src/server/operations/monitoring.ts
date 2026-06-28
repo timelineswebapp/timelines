@@ -14,6 +14,19 @@ export type AlertDefinition = {
 };
 
 export const operationalMetrics: OperationalMetric[] = [
+  { key: "factory.queue.depth", severity: "warning", description: "Durable topic queue depth." },
+  { key: "factory.queue.oldest_age_seconds", severity: "warning", description: "Age of the oldest dispatchable topic." },
+  { key: "workflow.active", severity: "info", description: "Active durable workflows." },
+  { key: "workflow.completed", severity: "info", description: "Completed durable workflows." },
+  { key: "factory.worker.utilization", severity: "warning", description: "Active execution to registered worker ratio." },
+  { key: "publication.throughput_hour", severity: "info", description: "Completed publications in the last hour." },
+  { key: "publication.latency_ms", severity: "warning", description: "Mean topic-to-publication latency." },
+  { key: "governance.latency_ms", severity: "warning", description: "Mean Governance wait latency." },
+  { key: "workflow.retry_count", severity: "warning", description: "Cumulative retry count." },
+  { key: "workflow.replay_count", severity: "info", description: "Persisted replay count." },
+  { key: "factory.dead_letter.depth", severity: "critical", description: "Dead-letter topic count." },
+  { key: "projection.duration_ms", severity: "warning", description: "Mean projection rebuild duration." },
+  { key: "projection.failures", severity: "critical", description: "Projection failures in the observation window." },
   { key: "platform.health.ok", severity: "critical", targetMs: 500, description: "API health endpoint returns 200 with database connectivity." },
   { key: "database.probe.latency_ms", severity: "warning", targetMs: 250, description: "Database SELECT 1 latency remains inside operational target." },
   { key: "source_authority.provider.cooldown_active", severity: "warning", description: "Source provider has active persisted cooldown." },
@@ -31,6 +44,10 @@ export const operationalMetrics: OperationalMetric[] = [
 ];
 
 export const alertDefinitions: AlertDefinition[] = [
+  { key: "factory-stale-queue", metric: "factory.queue.oldest_age_seconds", threshold: "> 1800 seconds", severity: "warning", owner: "publication_pipeline" },
+  { key: "factory-dead-letter", metric: "factory.dead_letter.depth", threshold: "> 0", severity: "critical", owner: "publication_pipeline" },
+  { key: "workflow-retry-volume", metric: "workflow.retry_count", threshold: "> 20", severity: "warning", owner: "publication_pipeline" },
+  { key: "projection-runtime-failure", metric: "projection.failures", threshold: "> 0 in 24 hours", severity: "critical", owner: "projection" },
   { key: "platform-health-unavailable", metric: "platform.health.ok", threshold: "ok != true for 2 consecutive checks", severity: "critical", owner: "platform" },
   { key: "database-latency-high", metric: "database.probe.latency_ms", threshold: "> 250ms for 5 minutes", severity: "warning", owner: "database" },
   { key: "source-provider-cooldown", metric: "source_authority.provider.cooldown_active", threshold: "cooldown_active == true for any provider", severity: "warning", owner: "source_authority" },
