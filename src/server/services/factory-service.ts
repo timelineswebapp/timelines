@@ -1107,6 +1107,25 @@ export const factoryService = {
     return canonicalFactoryPipelines;
   },
 
+  async getPipelineValidatedEvidence(pipelineRunId: string): Promise<EvidenceRef[]> {
+    const run = await factoryRepository.getPipelineRun(pipelineRunId);
+    if (!run || run.status !== "completed") {
+      throw new ApiError(409, "FACTORY_PIPELINE_NOT_COMPLETED", "Validated evidence is available only from a completed Factory pipeline.");
+    }
+    const artifacts = await factoryRepository.getArtifactsByIds(run.artifactRefs);
+    const refs = artifacts.flatMap((artifact) => evidenceRefsFromArtifactPayload(artifact.payload));
+    const unique = Array.from(new Map(refs.map((ref) => [`${ref.evidenceRecordId}:${ref.validationRecordId}`, ref])).values());
+    await pipelineEvidenceVerifier(unique, "Factory operations extraction handoff");
+    return unique;
+  },
+
+  async assertEditorialBoundaryCompleted(factoryPackageDraftId: string): Promise<void> {
+    const review = await factoryRepository.getLatestEditorialReviewForPackage(factoryPackageDraftId);
+    if (!review || review.lifecycle !== "governance_ready") {
+      throw new ApiError(409, "FOUNDER_REVIEW_INCOMPLETE", "The certified Factory editorial workflow has not reached governance readiness.");
+    }
+  },
+
   async listPipelineRuns(status?: FactoryPipelineRunStatus, limit = 100) {
     return factoryRepository.listPipelineRuns(status, limit);
   },

@@ -13,8 +13,13 @@ import { tagRepository } from "@/src/server/repositories/tag-repository";
 import { taxonomyRepository } from "@/src/server/repositories/taxonomy-repository";
 import { timelineRepository } from "@/src/server/repositories/timeline-repository";
 import { relationshipRecoveryService } from "@/src/server/services/relationship-recovery-service";
+import { factoryOperationsService } from "@/src/server/services/factory-operations-service";
 
 export const adminService = {
+  getFactoryOperationsSnapshot: factoryOperationsService.getSnapshot,
+  addFactoryOperationsTopic: factoryOperationsService.addTopic,
+  controlFactoryOperations: factoryOperationsService.control.bind(factoryOperationsService),
+  mutateFactoryOperationsTopic: factoryOperationsService.mutateTopic.bind(factoryOperationsService),
   getDashboardOverview: analyticsRepository.getDashboardOverview,
   getAnalyticsSnapshot: analyticsRepository.getAnalyticsSnapshot,
   getAnalyticsReport: analyticsRepository.getAnalyticsReport,

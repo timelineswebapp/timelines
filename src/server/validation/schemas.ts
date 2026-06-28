@@ -948,3 +948,28 @@ export const disputeResolutionTransitionSchema = governanceTransitionSchema.exte
   outcome: z.enum(["upheld", "rejected", "amended", "merged", "retired", "returned_for_revision"]),
   governanceDecisionId: governanceDecisionIdSchema
 });
+
+export const factoryOperationsTopicSchema = z.object({
+  title: trimmedString(3, 240),
+  source: z.enum(["founder", "public_request", "automatic_discovery"]),
+  sourceReference: z.string().trim().max(240).nullish().transform((value) => value || null),
+  priority: z.coerce.number().int().min(0).max(1000).default(100),
+  maxRetries: z.coerce.number().int().min(0).max(20).default(3),
+  actor: actorSchema
+}).superRefine((value, ctx) => {
+  if (value.source === "public_request" && !value.sourceReference) {
+    ctx.addIssue({ code: "custom", path: ["sourceReference"], message: "Public request topics require a source reference." });
+  }
+});
+
+export const factoryOperationsControlSchema = z.object({
+  action: z.enum(["start", "stop", "pause_after_current", "resume", "run_one_cycle"]),
+  actor: actorSchema
+});
+
+export const factoryOperationsMutationSchema = z.object({
+  action: z.enum(["remove", "reprioritize", "retry", "cancel", "pause", "resume", "replay"]),
+  priority: z.coerce.number().int().min(0).max(1000).optional(),
+  replayStage: z.enum(["queued", "research", "extraction", "publication_candidate", "founder_review", "governance", "library_admission", "published", "completed"]).optional(),
+  actor: actorSchema
+});

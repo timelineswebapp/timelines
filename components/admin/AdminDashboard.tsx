@@ -7,6 +7,7 @@ import { AdminContent } from "@/components/admin/AdminContent";
 import { AdminGovernance } from "@/components/admin/AdminGovernance";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { AdminPublicationPath } from "@/components/admin/AdminPublicationPath";
+import { AdminFactoryOperations } from "@/components/admin/AdminFactoryOperations";
 import type { AnalyticsSnapshot } from "@/src/lib/types";
 import type { ContentSection, TopTab } from "@/components/admin/admin-shared";
 
@@ -142,6 +143,9 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
       error={error}
       showLockedNotice={!token && !isLoaded}
     >
+      {activeTab === "operations" ? (
+        <AdminFactoryOperations token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
+      ) : null}
       {activeTab === "content" ? (
         <AdminContent
           token={token}
