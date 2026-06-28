@@ -150,7 +150,10 @@ export const historicalLibraryService = {
 
     const existingAdmission = await historicalLibraryRepository.getAdmissionByPackageId(input.packageId);
     if (existingAdmission) {
-      throw new ApiError(409, "HISTORICAL_LIBRARY_DUPLICATE_ADMISSION", "PublicationPackage has already been admitted to Published Memory.");
+      return {
+        admission: existingAdmission,
+        snapshots: await historicalLibraryRepository.getPublishedSnapshotsByAdmissionId(existingAdmission.admissionId)
+      };
     }
 
     await verifyApprovedGovernanceDecision({

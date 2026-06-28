@@ -507,6 +507,7 @@ CREATE TABLE IF NOT EXISTS governance_publication_packages (
   id UUID PRIMARY KEY,
   scope JSONB NOT NULL,
   included_authority JSONB NOT NULL,
+  canonical_authority JSONB NOT NULL DEFAULT '[]'::jsonb,
   validation_artifacts JSONB NOT NULL DEFAULT '[]'::jsonb,
   decision_refs JSONB NOT NULL DEFAULT '[]'::jsonb,
   risk_summary JSONB NOT NULL,

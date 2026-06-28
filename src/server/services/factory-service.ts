@@ -10,6 +10,7 @@ import type {
   FactoryFeedbackLifecycle,
   FactoryGovernanceHandoffStatus,
   FactoryObjectLifecycle,
+  FactoryObject,
   FactoryObjectType,
   FactoryPackageDraft,
   FactoryPackageDraftLifecycle,
@@ -36,7 +37,7 @@ import {
   canonicalFactoryWorkers,
   getCanonicalFactoryWorker
 } from "@/src/server/factory/worker-registry";
-import type { EvidenceRef, GovernanceActorRef, PublicationPackage } from "@/src/server/governance/contracts";
+import type { AuthorityRef, EvidenceRef, GovernanceActorRef, PublicationPackage } from "@/src/server/governance/contracts";
 import type { CorpusDocument, EvidenceRecord } from "@/src/server/research-corpus/contracts";
 import type { SourceAuthorityRegistryRecord, SourceAuthoritySnapshot } from "@/src/server/source-authority/contracts";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
@@ -2265,7 +2266,17 @@ ${prompt.template}`, current.input, prompt.outputSchema || contract.output_schem
       }
     });
 
-    const governancePackageInput = buildGovernancePublicationPackage(packageVersion, draft, input.actor, auditRecordId);
+    const factoryObjects = await Promise.all(draft.factoryObjectRefs.map((objectId) => factoryRepository.getObject(objectId)));
+    if (factoryObjects.some((object) => !object)) {
+      throw new ApiError(409, "FACTORY_PUBLICATION_AUTHORITY_MISSING", "Every packaged Factory object must exist before Governance submission.");
+    }
+    const governancePackageInput = buildGovernancePublicationPackage(
+      packageVersion,
+      draft,
+      input.actor,
+      auditRecordId,
+      factoryObjects as FactoryObject[]
+    );
     const governancePackage = await governanceService.createPublicationPackage(governancePackageInput);
     const submittedVersion = await factoryRepository.markPackageVersionSubmitted(
       input.packageVersionId,
@@ -2596,7 +2607,8 @@ export function buildGovernancePublicationPackage(
   packageVersion: FactoryPackageVersion,
   draft: FactoryPackageDraft,
   actor: GovernanceActorRef,
-  auditRecordId: string
+  auditRecordId: string,
+  factoryObjects: FactoryObject[] = []
 ): PublicationPackage {
   const factoryValidationRefs: EvidenceRef[] = draft.artifactRefs.map((artifactId) => ({
     evidenceId: artifactId,
@@ -2607,18 +2619,33 @@ export function buildGovernancePublicationPackage(
     ? packageVersion.validatedEvidenceRefs
     : draft.validatedEvidenceRefs;
 
+  const authorityTypeByFactoryType: Record<FactoryObjectType, AuthorityRef["authorityType"]> = {
+    candidate_historical_object: "historical_object",
+    candidate_milestone: "milestone",
+    candidate_participation: "participation",
+    candidate_relationship: "relationship",
+    candidate_context_record: "context_record",
+    candidate_source: "source"
+  };
+  const canonicalAuthority = factoryObjects.map((object) => ({
+    authorityRef: {
+      authorityType: authorityTypeByFactoryType[object.objectType],
+      authorityId: object.objectId
+    },
+    title: object.title,
+    payload: object.payload,
+    provenance: object.provenance,
+    factoryObjectId: object.objectId
+  }));
+
   return {
     packageId: randomUUID(),
     scope: {
       packageType: draft.packageType,
       description: draft.description
     },
-    includedAuthority: [
-      {
-        authorityType: "publication_package",
-        authorityId: packageVersion.packageVersionId
-      }
-    ],
+    includedAuthority: canonicalAuthority.map((authority) => authority.authorityRef),
+    canonicalAuthority,
     validationArtifacts: [...validatedEvidenceRefs, ...factoryValidationRefs],
     decisionRefs: [],
     riskSummary: {

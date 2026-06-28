@@ -77,6 +77,9 @@ function inferProjectionType(snapshot: PublishedMemorySnapshot, payload: Record<
   if (snapshot.authorityRef.authorityType === "participation") {
     return "milestone";
   }
+  if (snapshot.authorityRef.authorityType === "milestone") {
+    return "milestone";
+  }
   if (snapshot.authorityRef.authorityType === "historical_object") {
     return "historical_object";
   }
@@ -210,6 +213,34 @@ function buildTimelineDto(payload: Record<string, unknown>, snapshot: PublishedM
 }
 
 function buildMilestoneDto(payload: Record<string, unknown>, snapshot: PublishedMemorySnapshot): Record<string, unknown> {
+  if (snapshot.authorityRef.authorityType === "milestone" && !isMilestonePayload(payload)) {
+    const title = typeof payload.title === "string" ? payload.title : "Historical milestone";
+    const description =
+      typeof payload.description === "string"
+        ? payload.description
+        : typeof payload.summary === "string"
+          ? payload.summary
+          : title;
+    const date = typeof payload.date === "string" ? payload.date : typeof payload.startDate === "string" ? payload.startDate : "";
+    const id = stableTimelineId(snapshot.authorityRef.authorityId);
+    const slug = `${id}`;
+    return {
+      ...payload,
+      ...projectionDtoMetadata("milestone"),
+      id,
+      slug,
+      title,
+      description,
+      date,
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      timelineLinks: [],
+      date_precision: typeof payload.datePrecision === "string" ? payload.datePrecision : "day",
+      timeline_context: [],
+      seo_metadata: seoMetadata(title, description, slug),
+      og_metadata: ogMetadata(title, description),
+      published_state: publishedState(snapshot)
+    };
+  }
   if (!isMilestonePayload(payload)) {
     return payload;
   }
@@ -228,6 +259,39 @@ function buildMilestoneDto(payload: Record<string, unknown>, snapshot: Published
 }
 
 function buildHistoricalObjectDto(payload: Record<string, unknown>, snapshot: PublishedMemorySnapshot): Record<string, unknown> {
+  if (snapshot.authorityRef.authorityType === "historical_object" && !isHistoricalObjectPayload(payload)) {
+    const title =
+      typeof payload.canonicalName === "string"
+        ? payload.canonicalName
+        : typeof payload.name === "string"
+          ? payload.name
+          : typeof payload.title === "string"
+            ? payload.title
+            : "Historical object";
+    const description =
+      typeof payload.description === "string"
+        ? payload.description
+        : typeof payload.summary === "string"
+          ? payload.summary
+          : title;
+    const slug =
+      typeof payload.canonicalSlug === "string" ? payload.canonicalSlug : slugifyProjection(title);
+    return {
+      ...payload,
+      ...projectionDtoMetadata("historical_object"),
+      id: snapshot.authorityRef.authorityId,
+      slug,
+      title,
+      description,
+      object_type: typeof payload.primaryType === "string" ? payload.primaryType : "entity",
+      relationship_summary: {
+        participations: 0,
+        related_milestones: 0,
+        related_timelines: 0
+      },
+      published_state: publishedState(snapshot)
+    };
+  }
   if (!isHistoricalObjectPayload(payload)) {
     return payload;
   }
@@ -428,10 +492,90 @@ async function generateProjectionBundleFromSnapshot(input: {
   };
 }
 
+async function generateAdmissionTimeline(input: {
+  admissionId: string;
+  snapshots: PublishedMemorySnapshot[];
+  auditRecordId?: string | null;
+  sourceEventType?: "admission" | "rebuild";
+}) {
+  const milestoneSnapshots = input.snapshots
+    .filter((snapshot) => snapshot.authorityRef.authorityType === "milestone")
+    .sort((left, right) => left.authorityRef.authorityId.localeCompare(right.authorityRef.authorityId));
+  if (milestoneSnapshots.length === 0) {
+    return null;
+  }
+  const anchor = milestoneSnapshots[0]!;
+  await publishedMemoryProjectionRepository.supersedeOtherAdmissionTimelines(input.admissionId, anchor.snapshotId);
+  const events = milestoneSnapshots
+    .map((snapshot) => buildMilestoneDto(projectionPayload(snapshot.snapshot), snapshot))
+    .sort((left, right) => String(left.date).localeCompare(String(right.date)) || String(left.title).localeCompare(String(right.title)));
+  const title = publicationPackageTitle(anchor.snapshot);
+  const description = packageDescription(anchor.snapshot);
+  const slug = slugifyProjection(title);
+  const timelinePayload = buildTimelineDto(
+    {
+      id: stableTimelineId(input.admissionId),
+      slug,
+      title,
+      description,
+      category: "Technology",
+      orderingMode: "chronology",
+      createdAt: anchor.createdAt || new Date(0).toISOString(),
+      updatedAt: anchor.createdAt || new Date(0).toISOString(),
+      tags: [],
+      events,
+      relatedTimelines: [],
+      eventCount: events.length,
+      highlightedEventTitles: events.slice(0, 3).map((event) => String(event.title))
+    },
+    anchor
+  );
+  validateProjectionDto("timeline", timelinePayload);
+  const primaryProjection = await publishedMemoryProjectionRepository.upsertProjection({
+    publishedSnapshotId: anchor.snapshotId,
+    projectionType: "timeline",
+    slug,
+    payload: timelinePayload,
+    sourceEventType: input.sourceEventType || "admission",
+    sourceEventId: input.admissionId,
+    auditRecordId: input.auditRecordId
+  });
+  const searchPayload = buildSearchPayload("timeline", timelinePayload);
+  const sitemapPayload = buildSitemapPayload("timeline", slug, timelinePayload, anchor.createdAt);
+  const companionProjections = await Promise.all([
+    searchPayload
+      ? publishedMemoryProjectionRepository.upsertProjection({
+          publishedSnapshotId: anchor.snapshotId,
+          projectionType: "search",
+          slug,
+          payload: searchPayload,
+          sourceEventType: input.sourceEventType || "admission",
+          sourceEventId: input.admissionId,
+          auditRecordId: input.auditRecordId
+        })
+      : null,
+    sitemapPayload
+      ? publishedMemoryProjectionRepository.upsertProjection({
+          publishedSnapshotId: anchor.snapshotId,
+          projectionType: "sitemap",
+          slug,
+          payload: sitemapPayload,
+          sourceEventType: input.sourceEventType || "admission",
+          sourceEventId: input.admissionId,
+          auditRecordId: input.auditRecordId
+        })
+      : null
+  ]);
+  return { primaryProjection, companionProjections: companionProjections.filter(Boolean) };
+}
+
 export const publishedMemoryProjectionService = {
   async generateForAdmission(input: { admissionId: string; snapshots: PublishedMemorySnapshot[]; auditRecordId?: string | null }) {
-    return Promise.all(
-      input.snapshots.map((snapshot) =>
+    const projectableSnapshots = input.snapshots.filter((snapshot) =>
+      ["historical_object", "milestone", "relationship"].includes(snapshot.authorityRef.authorityType)
+    );
+    const authorityProjections = await Promise.all(
+      projectableSnapshots.map((snapshot) =>
         generateProjectionBundleFromSnapshot({
           snapshot,
           sourceEventType: "admission",
@@ -440,6 +584,8 @@ export const publishedMemoryProjectionService = {
         })
       )
     );
+    const timelineProjection = await generateAdmissionTimeline(input);
+    return { authorityProjections, timelineProjection };
   },
 
   async generateForRevision(revision: HistoricalLibraryRevision) {
@@ -528,11 +674,16 @@ export const publishedMemoryProjectionService = {
     let skipped = 0;
     const dtoValidationFailures: Array<Record<string, unknown>> = [];
     const rebuildFailures: Array<Record<string, unknown>> = [];
+    const rebuiltAdmissionTimelines = new Set<string>();
 
     for (let offset = 0; offset < totalSnapshots; offset += batchSize) {
       const snapshots = await historicalLibraryRepository.listPublishedSnapshots(batchSize, offset);
       for (const snapshot of snapshots) {
         totalProcessed += 1;
+        if (!["historical_object", "milestone", "relationship"].includes(snapshot.authorityRef.authorityType)) {
+          skipped += 1;
+          continue;
+        }
         try {
           const bundle = await generateProjectionBundleFromSnapshot({
             snapshot,
@@ -544,6 +695,15 @@ export const publishedMemoryProjectionService = {
             updated += 1;
           } else {
             unchanged += 1;
+          }
+          if (snapshot.authorityRef.authorityType === "milestone" && !rebuiltAdmissionTimelines.has(snapshot.admissionId)) {
+            const admissionSnapshots = await historicalLibraryRepository.getPublishedSnapshotsByAdmissionId(snapshot.admissionId);
+            await generateAdmissionTimeline({
+              admissionId: snapshot.admissionId,
+              snapshots: admissionSnapshots,
+              sourceEventType: "rebuild"
+            });
+            rebuiltAdmissionTimelines.add(snapshot.admissionId);
           }
         } catch (error) {
           skipped += 1;

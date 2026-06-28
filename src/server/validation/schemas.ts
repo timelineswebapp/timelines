@@ -489,6 +489,13 @@ export const publicationPackageSchema = z.object({
     description: trimmedString(3, 1000)
   }),
   includedAuthority: z.array(authorityRefSchema).min(1).max(100),
+  canonicalAuthority: z.array(z.object({
+    authorityRef: authorityRefSchema,
+    title: trimmedString(1, 500),
+    payload: z.record(z.string(), z.unknown()),
+    provenance: z.record(z.string(), z.unknown()),
+    factoryObjectId: governanceDecisionIdSchema
+  })).max(100).optional(),
   validationArtifacts: z.array(evidenceRefSchema).max(100).default([]),
   decisionRefs: z.array(governanceDecisionIdSchema).max(50).default([]),
   riskSummary: z.object({

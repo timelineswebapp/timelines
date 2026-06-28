@@ -156,6 +156,43 @@ export async function verifyApprovedGovernanceDecision(input: DecisionVerificati
 }
 
 export const governanceRepository = {
+  async attachCanonicalAuthority(
+    packageId: string,
+    canonicalAuthority: NonNullable<PublicationPackage["canonicalAuthority"]>
+  ): Promise<PublicationPackage> {
+    const sql = getWriteSql("attaching canonical authority to historical publication package");
+    const [row] = await sql<PublicationPackage[]>`
+      UPDATE governance_publication_packages
+      SET canonical_authority = ${sql.json(canonicalAuthority as any)},
+          included_authority = ${sql.json(canonicalAuthority.map((authority) => authority.authorityRef) as any)}
+      WHERE id = ${packageId}
+        AND canonical_authority = '[]'::jsonb
+      RETURNING
+        id::text AS "packageId", scope,
+        included_authority AS "includedAuthority",
+        canonical_authority AS "canonicalAuthority",
+        validation_artifacts AS "validationArtifacts",
+        decision_refs AS "decisionRefs", risk_summary AS "riskSummary",
+        readiness_certification AS "readinessCertification",
+        acceptance_outcome AS "acceptanceOutcome",
+        CASE WHEN factory_package_version_id IS NULL THEN NULL ELSE json_build_object(
+          'factoryPackageVersionId', factory_package_version_id::text,
+          'factoryPackageDraftId', factory_package_draft_id::text,
+          'factoryLineageRootId', factory_lineage_root_id::text,
+          'submittedBy', submitted_by,
+          'submittedAt', submitted_at::text,
+          'submissionAuditRecordId', submission_audit_record_id::text
+        ) END AS "factorySubmission",
+        lifecycle
+    `;
+    if (!row) {
+      const existing = await this.getPublicationPackage(packageId);
+      if (!existing) throw new ApiError(404, "PUBLICATION_PACKAGE_NOT_FOUND", "PublicationPackage not found.");
+      return existing;
+    }
+    return row;
+  },
+
   async listPublicationPackages(limit = 100): Promise<PublicationPackage[]> {
     const sql = getWriteSql("listing governance publication packages");
     return sql<PublicationPackage[]>`
@@ -163,6 +200,7 @@ export const governanceRepository = {
         id::text AS "packageId",
         scope,
         included_authority AS "includedAuthority",
+        canonical_authority AS "canonicalAuthority",
         validation_artifacts AS "validationArtifacts",
         decision_refs AS "decisionRefs",
         risk_summary AS "riskSummary",
@@ -542,6 +580,7 @@ export const governanceRepository = {
         id,
         scope,
         included_authority,
+        canonical_authority,
         validation_artifacts,
         decision_refs,
         risk_summary,
@@ -559,6 +598,7 @@ export const governanceRepository = {
         ${input.packageId},
         ${sql.json(input.scope as any)},
         ${sql.json(input.includedAuthority as any)},
+        ${sql.json((input.canonicalAuthority || []) as any)},
         ${sql.json(input.validationArtifacts as any)},
         ${sql.json(input.decisionRefs as any)},
         ${sql.json(input.riskSummary as any)},
@@ -576,6 +616,7 @@ export const governanceRepository = {
         id::text AS "packageId",
         scope,
         included_authority AS "includedAuthority",
+        canonical_authority AS "canonicalAuthority",
         validation_artifacts AS "validationArtifacts",
         decision_refs AS "decisionRefs",
         risk_summary AS "riskSummary",
@@ -601,6 +642,7 @@ export const governanceRepository = {
         id::text AS "packageId",
         scope,
         included_authority AS "includedAuthority",
+        canonical_authority AS "canonicalAuthority",
         validation_artifacts AS "validationArtifacts",
         decision_refs AS "decisionRefs",
         risk_summary AS "riskSummary",
@@ -635,6 +677,7 @@ export const governanceRepository = {
         id::text AS "packageId",
         scope,
         included_authority AS "includedAuthority",
+        canonical_authority AS "canonicalAuthority",
         validation_artifacts AS "validationArtifacts",
         decision_refs AS "decisionRefs",
         risk_summary AS "riskSummary",

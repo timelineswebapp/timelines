@@ -3,7 +3,6 @@ import type { Sql } from "postgres";
 import type { AuthorityRef, EvidenceRef, GovernanceActorRef, PublicationPackage } from "@/src/server/governance/contracts";
 import { ApiError } from "@/src/server/api/responses";
 import { getWriteSql } from "@/src/server/db/client";
-import { historicalRelationshipRepository } from "@/src/server/repositories/historical-relationship-repository";
 
 export type HistoricalLibraryAdmission = {
   admissionId: string;
@@ -144,23 +143,41 @@ async function buildPublishedMemorySnapshotPayload(input: {
     admittedAtPackageLifecycle: input.publicationPackage.lifecycle
   };
 
-  if (input.authorityRef.authorityType !== "relationship") {
-    return base;
+  const canonicalAuthority = (input.publicationPackage.canonicalAuthority || []).find(
+    (authority) =>
+      authority.authorityRef.authorityType === input.authorityRef.authorityType &&
+      authority.authorityRef.authorityId === input.authorityRef.authorityId
+  );
+  if (!canonicalAuthority) {
+    throw new ApiError(409, "CANONICAL_AUTHORITY_PAYLOAD_MISSING", "Historical Library admission requires a Governance-approved canonical authority payload.");
   }
 
-  const relationshipPayload = await historicalRelationshipRepository.getPublicationPayload(input.authorityRef.authorityId);
-  if (!relationshipPayload) {
-    throw new ApiError(409, "RELATIONSHIP_PUBLICATION_PAYLOAD_MISSING", "Relationship publication requires an existing relationship authority record.");
-  }
-
-  return {
+  const canonicalPayload = {
     ...base,
-    ...relationshipPayload,
-    published_memory_payload_type: "relationship"
+    title: canonicalAuthority.title,
+    payload: canonicalAuthority.payload,
+    provenance: canonicalAuthority.provenance,
+    factoryObjectId: canonicalAuthority.factoryObjectId,
+    governanceDecisionRefs: input.publicationPackage.decisionRefs,
+    validationArtifacts: input.publicationPackage.validationArtifacts
   };
+
+  return canonicalPayload;
 }
 
 export const historicalLibraryRepository = {
+  async getPublishedSnapshotsByAdmissionId(admissionId: string): Promise<PublishedMemorySnapshot[]> {
+    const sql = getWriteSql("loading published snapshots for admission");
+    return sql<PublishedMemorySnapshot[]>`
+      SELECT id::text AS "snapshotId", admission_id::text AS "admissionId",
+        authority_ref AS "authorityRef", snapshot, snapshot_hash AS "snapshotHash",
+        lifecycle, created_at::text AS "createdAt"
+      FROM historical_library_published_snapshots
+      WHERE admission_id = ${admissionId}
+      ORDER BY created_at, id
+    `;
+  },
+
   async listPublishedSnapshots(limit = 1000, offset = 0): Promise<PublishedMemorySnapshot[]> {
     const sql = getWriteSql("listing historical library published snapshots");
     return sql<PublishedMemorySnapshot[]>`

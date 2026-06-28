@@ -119,6 +119,22 @@ async function nextProjectionVersion(sql: Sql, publishedSnapshotId: string, proj
 }
 
 export const publishedMemoryProjectionRepository = {
+  async supersedeOtherAdmissionTimelines(admissionId: string, anchorSnapshotId: string): Promise<number> {
+    const sql = getWriteSql("reconciling deterministic admission timeline projection");
+    const rows = await sql<Array<{ projectionId: string }>>`
+      UPDATE published_memory_projections AS projection
+      SET lifecycle = 'superseded'
+      FROM historical_library_published_snapshots AS snapshot
+      WHERE projection.published_snapshot_id = snapshot.id
+        AND snapshot.admission_id = ${admissionId}
+        AND projection.published_snapshot_id <> ${anchorSnapshotId}
+        AND projection.projection_type = 'timeline'
+        AND projection.lifecycle = 'active'
+      RETURNING projection.id::text AS "projectionId"
+    `;
+    return rows.length;
+  },
+
   async upsertProjection(input: UpsertProjectionInput): Promise<PublishedMemoryProjection> {
     const sql = getWriteSql("upserting published memory projection");
     const projectionHash = hashProjection(input.payload);

@@ -1,0 +1,2 @@
+-- Irreversible institutional authority migration.
+-- Historical Publication Package canonical authority must remain preserved.

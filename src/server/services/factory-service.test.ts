@@ -308,9 +308,24 @@ describe("factory production memory foundation", () => {
       version,
       draft,
       { actorId: "factory-editor", role: "factory_editor", institutionId: "timelines-governance" },
-      "123e4567-e89b-12d3-a456-426614174030"
+      "123e4567-e89b-12d3-a456-426614174030",
+      [{
+        objectId: "123e4567-e89b-12d3-a456-426614174040",
+        objectType: "candidate_milestone",
+        title: "Telephone patented",
+        payload: { date: "1876-03-10", summary: "Telephone patent granted." },
+        lifecycle: "packaged",
+        provenance: { pipelineRunId: "run-1" },
+        createdBy: "factory-editor",
+        updatedBy: "factory-editor"
+      }]
     );
 
+    assert.deepEqual(publicationPackage.includedAuthority, [{
+      authorityType: "milestone",
+      authorityId: "123e4567-e89b-12d3-a456-426614174040"
+    }]);
+    assert.equal(publicationPackage.canonicalAuthority?.[0]?.payload.date, "1876-03-10");
     assert.equal(publicationPackage.validationArtifacts[0], validatedEvidenceRef);
     const factoryValidationRef = publicationPackage.validationArtifacts[1];
     assert.ok(factoryValidationRef);

@@ -10,8 +10,11 @@ export type GovernanceRole =
 
 export type AuthorityType =
   | "historical_object"
+  | "milestone"
   | "participation"
   | "relationship"
+  | "context_record"
+  | "source"
   | "publication_package"
   | "feedback_package"
   | "dispute";
@@ -205,6 +208,13 @@ export type PublicationPackage = {
     description: string;
   };
   includedAuthority: AuthorityRef[];
+  canonicalAuthority?: Array<{
+    authorityRef: AuthorityRef;
+    title: string;
+    payload: Record<string, unknown>;
+    provenance: Record<string, unknown>;
+    factoryObjectId: string;
+  }>;
   validationArtifacts: EvidenceRef[];
   decisionRefs: string[];
   riskSummary: {

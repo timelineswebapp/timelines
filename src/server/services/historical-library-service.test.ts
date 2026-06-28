@@ -49,8 +49,8 @@ describe("historical library backend foundation", () => {
 
     assert.match(repository, /getWriteSql\("creating historical library admission"\)/);
     assert.match(repository, /buildPublishedMemorySnapshotPayload/);
-    assert.match(repository, /historicalRelationshipRepository\.getPublicationPayload/);
-    assert.match(repository, /RELATIONSHIP_PUBLICATION_PAYLOAD_MISSING/);
+    assert.match(repository, /publicationPackage\.canonicalAuthority/);
+    assert.match(repository, /CANONICAL_AUTHORITY_PAYLOAD_MISSING/);
     assert.match(repository, /INSERT INTO historical_library_admissions/);
     assert.match(repository, /INSERT INTO historical_library_published_snapshots/);
     assert.match(repository, /INSERT INTO historical_library_published_revisions/);
@@ -75,27 +75,14 @@ describe("historical library backend foundation", () => {
     assert.match(service, /expectedAuthorityId: input\.packageId/);
   });
 
-  it("hydrates relationship authority payloads into Published Memory snapshots", () => {
+  it("hydrates every canonical authority payload from the approved publication package", () => {
     const repository = readFileSync("src/server/repositories/historical-library-repository.ts", "utf8");
-    const relationshipRepository = readFileSync("src/server/repositories/historical-relationship-repository.ts", "utf8");
 
-    assert.match(repository, /authorityRef\.authorityType !== "relationship"/);
-    assert.match(repository, /published_memory_payload_type: "relationship"/);
+    assert.match(repository, /canonicalAuthority = \(input\.publicationPackage\.canonicalAuthority \|\| \[\]\)\.find/);
+    assert.match(repository, /factoryObjectId: canonicalAuthority\.factoryObjectId/);
+    assert.match(repository, /governanceDecisionRefs: input\.publicationPackage\.decisionRefs/);
+    assert.match(repository, /validationArtifacts: input\.publicationPackage\.validationArtifacts/);
     assert.match(repository, /snapshotHash: hashSnapshot\(snapshot\)/);
-    assert.match(relationshipRepository, /getPublicationPayload/);
-    for (const field of [
-      "relationship_id",
-      "relationship_type",
-      "source_authority_ref",
-      "target_authority_ref",
-      "summary",
-      "evidence_refs",
-      "provenance",
-      "authority_state",
-      "continuity_metadata"
-    ]) {
-      assert.match(relationshipRepository, new RegExp(field));
-    }
   });
 
   it("blocks Factory and Platform admission paths", async () => {
