@@ -258,6 +258,22 @@ The Platform shall never bypass Governance or the Historical Library.
 
 ⸻
 
+Canonical Equivalence
+
+Milestone is the constitutional domain concept.
+
+Event is the current persistence implementation.
+
+Throughout TiMELiNES, Milestone and Event refer to the same canonical chronological authority.
+
+Milestone is the domain language.
+
+Event is the implementation language.
+
+Future implementations may rename persistence from Event to Milestone without changing constitutional semantics.
+
+⸻
+
 Constitutional Laws
 
 Law 1
@@ -280,15 +296,21 @@ Only canonical historical authority may enter the Historical Library.
 
 Law 4
 
-Milestones are derived.
+Milestones are canonical chronological authority.
 
-They are never canonical authority.
+In the current implementation, Milestones are persisted as Events.
+
+Governance approves Milestone authority together with its chronology, evidence, participations, version, and audit lineage.
+
+Historical Library admits approved Milestones.
+
+Projection derives Timeline Membership and Timeline Views from admitted Milestones.
 
 ⸻
 
 Law 5
 
-Timeline membership is derived.
+Timeline Membership is derived.
 
 It is never canonical authority.
 
@@ -304,7 +326,7 @@ They are never canonical authority.
 
 Law 7
 
-Published Memory preserves admitted knowledge only.
+Published Memory preserves admitted canonical authority only.
 
 ⸻
 
