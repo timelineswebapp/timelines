@@ -25,12 +25,12 @@ export default async function AdminPage({ params }: { params: Promise<{ adminRou
   return (
     <div className="content-grid">
       <GlassPanel>
-        <span className="eyebrow">Admin dashboard</span>
+        <span className="eyebrow">Founder Home</span>
         <h1 className="page-title" style={{ fontFamily: "var(--font-serif)" }}>
-          Editorial operations
+          What requires your attention today?
         </h1>
         <p className="section-copy">
-          Content, analytics, ad inventory, and import controls are isolated behind authenticated API routes.
+          Monitor production, review exceptions, and confirm what TiMELiNES has published.
         </p>
       </GlassPanel>
       <AdminDashboard initialDatabaseConnected={Boolean(config.databaseUrl)} />

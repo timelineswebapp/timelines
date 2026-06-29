@@ -33,10 +33,10 @@ function csrfHeadersFor(init?: RequestInit): Record<string, string> {
 
 export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseConnected: boolean }) {
   const [token, setToken] = useState("");
-  const [status, setStatus] = useState("Provide the admin token to unlock dashboard actions.");
+  const [status, setStatus] = useState("Enter the Founder access key to begin.");
   const [error, setError] = useState("");
   const [databaseConnected, setDatabaseConnected] = useState(initialDatabaseConnected);
-  const [activeTab, setActiveTab] = useState<TopTab>("publication");
+  const [activeTab, setActiveTab] = useState<TopTab>("home");
   const [contentSection, setContentSection] = useState<ContentSection>("snapshot");
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -109,7 +109,7 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
       };
 
       if (!response.ok || !payload.ok || payload.data === undefined) {
-        const error = new Error(payload.error?.message || `Request failed for ${url}`) as Error & {
+        const error = new Error(payload.error?.message || "The institution could not complete this request.") as Error & {
           code?: string;
         };
         error.code = payload.error?.code;
@@ -143,10 +143,10 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
       error={error}
       showLockedNotice={!token && !isLoaded}
     >
-      {activeTab === "operations" ? (
-        <AdminFactoryOperations token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
+      {activeTab === "home" || activeTab === "queue" || activeTab === "settings" ? (
+        <AdminFactoryOperations token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} view={activeTab} />
       ) : null}
-      {activeTab === "content" ? (
+      {activeTab === "library" ? (
         <AdminContent
           token={token}
           fetchAdmin={fetchAdmin}
@@ -155,20 +155,16 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
         />
       ) : null}
 
-      {activeTab === "publication" ? (
-        <AdminPublicationPath token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
-      ) : null}
-
       {activeTab === "analytics" ? (
         <AdminAnalytics token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
       ) : null}
 
-      {activeTab === "governance" ? (
-        <AdminGovernance token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
-      ) : null}
-
-      {activeTab === "ads" ? (
-        <AdminAds token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
+      {activeTab === "diagnostics" ? (
+        <div className="stack">
+          <AdminPublicationPath token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
+          <AdminGovernance token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
+          <AdminAds token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} />
+        </div>
       ) : null}
     </AdminLayout>
   );

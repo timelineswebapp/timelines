@@ -25,7 +25,26 @@ test("dispatcher leasing is globally bounded and isolates locked work", async ()
   assert.match(source, /lease_expires_at < NOW\(\)/);
 });
 
-test("Operations Center exposes required controls", async () => {
+test("Founder Operating System exposes operational controls without implementation language", async () => {
   const source = await readFile("components/admin/AdminFactoryOperations.tsx", "utf8");
-  for (const label of ["Start Automation", "Stop Automation", "Pause After Current", "Resume", "Run One Cycle", "Queue Status", "Active workers", "Dead letters", "Replay Boundary"]) assert.match(source, new RegExp(label));
+  for (const label of ["Add Topics", "Queue Topics", "Production Queue", "Founder Inbox", "Operational Health", "Factory Mode"]) {
+    assert.match(source, new RegExp(label));
+  }
+  assert.doesNotMatch(source, />Replay Boundary</);
+  assert.doesNotMatch(source, />Run One Cycle</);
+});
+
+test("FOS-002A uses one Home read model and preserves certified workflow services", async () => {
+  const [ui, service, repository, visitorRoute] = await Promise.all([
+    readFile("components/admin/AdminFactoryOperations.tsx", "utf8"),
+    readFile("src/server/services/founder-operations-service.ts", "utf8"),
+    readFile("src/server/repositories/factory-operations-repository.ts", "utf8"),
+    readFile("app/api/admin/founder/visitor-requests/approve/route.ts", "utf8")
+  ]);
+  assert.match(ui, /fetchAdmin<FounderHomeReadModel>\(\"\/api\/admin\/founder\/home\"\)/);
+  assert.match(service, /factoryOperationsService\.mutateTopic/);
+  assert.match(service, /getTopicBySourceReference\("public_request", sourceReference\)/);
+  assert.match(repository, /source_reference=\$2/);
+  assert.match(repository, /LIMIT \$\{Math\.max\(1, Math\.min\(50, limit\)\)\}/);
+  assert.match(visitorRoute, /withAdminAuth/);
 });

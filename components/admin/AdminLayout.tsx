@@ -31,10 +31,10 @@ export function AdminLayout({
     <div className="admin-grid">
       <aside className="glass section-card admin-sidebar stack">
         <div className="stack" style={{ gap: 10 }}>
-          <span className="eyebrow">Admin</span>
-          <strong>Editorial control surface</strong>
+          <span className="eyebrow">TiMELiNES</span>
+          <strong>Founder Operating System</strong>
           <p className="muted" style={{ margin: 0 }}>
-            Content operations, analytics aggregation, and ad inventory remain behind authenticated admin APIs.
+            Operate the publishing institution and review work requiring human judgment.
           </p>
         </div>
 
@@ -42,16 +42,17 @@ export function AdminLayout({
           className="input"
           value={token}
           onChange={(event) => onTokenChange(event.target.value)}
-          placeholder="Admin API token"
+          placeholder="Founder access key"
+          aria-label="Founder access key"
         />
 
         <div className={`pill admin-db-indicator ${databaseConnected ? "admin-db-indicator-connected" : "admin-db-indicator-disconnected"}`}>
-          {databaseConnected ? "Database Connected" : "Database Not Connected"}
+          {databaseConnected ? "Institution Ready" : "Institution Unavailable"}
         </div>
 
         <AdminTabs activeTab={activeTab} onTabChange={onTabChange} />
 
-        {activeTab === "content" && contentSection && onContentSectionChange ? (
+        {activeTab === "library" && contentSection && onContentSectionChange ? (
           <div className="admin-subnav">
             {(["snapshot", "timelines", "events", "taxonomy", "import_data", "data_health", "requests"] as const).map((section) => (
               <button
@@ -82,7 +83,7 @@ export function AdminLayout({
         {showLockedNotice ? (
           <section className="glass section-card">
             <p className="muted" style={{ margin: 0 }}>
-              `ADMIN_API_TOKEN` is now mandatory in every environment. The dashboard will not fetch any admin dataset until you provide a valid token.
+              Enter the Founder access key to view and operate the institution.
             </p>
           </section>
         ) : null}

@@ -17,8 +17,12 @@ import { factoryOperationsService } from "@/src/server/services/factory-operatio
 import { reliabilityService } from "@/src/server/services/reliability-service";
 import { scheduledOperationsService } from "@/src/server/services/scheduled-operations-service";
 import { performanceAnalyticsService } from "@/src/server/services/performance-analytics-service";
+import { founderOperationsService } from "@/src/server/services/founder-operations-service";
 
 export const adminService = {
+  getFounderHome: founderOperationsService.getHome,
+  actOnFounderInbox: founderOperationsService.actOnInbox,
+  approveFounderVisitorRequest: founderOperationsService.approveVisitorRequest,
   getFactoryOperationsSnapshot: factoryOperationsService.getSnapshot,
   getReliabilityDashboard: reliabilityService.dashboard,
   runReliabilityAssessment: reliabilityService.collectAndEvaluate,

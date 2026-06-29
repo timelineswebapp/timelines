@@ -57,6 +57,16 @@ function mapTimelineRequest(row: TimelineRequestRow): TimelineRequestRecord {
 export const requestRepository = {
   hashIp,
 
+  async getById(id: number): Promise<TimelineRequestRecord | null> {
+    const sql = getSql();
+    if (!sql) return memoryStore.getRequests().find((request) => request.id === id) || null;
+    const [row] = await sql<TimelineRequestRow[]>`
+      SELECT id,query,normalized_query,ip_hash,language,request_type,email,message,target_timeline,
+        sources_scope,metadata,status,created_at::text
+      FROM timeline_requests WHERE id=${id}`;
+    return row ? mapTimelineRequest(row) : null;
+  },
+
   async list(): Promise<TimelineRequestRecord[]> {
     const sql = getSql();
     if (!sql) {

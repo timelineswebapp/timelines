@@ -7,16 +7,17 @@ export function AdminTabs({
   activeTab: TopTab;
   onTabChange: (tab: TopTab) => void;
 }) {
+  // Institutional "governance" tooling remains available inside Diagnostics.
   return (
     <div className="stack" style={{ gap: 8 }}>
-      {(["operations", "publication", "governance", "content", "analytics", "ads"] as const).map((tab) => (
+      {(["home", "queue", "library", "analytics", "settings", "diagnostics"] as const).map((tab) => (
         <button
           key={tab}
           type="button"
           className={`button ${activeTab === tab ? "" : "secondary"}`}
           onClick={() => onTabChange(tab)}
         >
-          {tab}
+          {tab.charAt(0).toUpperCase() + tab.slice(1)}
         </button>
       ))}
     </div>

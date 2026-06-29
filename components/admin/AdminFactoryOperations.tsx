@@ -2,11 +2,41 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AdminFetcher } from "@/components/admin/admin-shared";
 import type { OperationalNotification, OperationsSnapshot, TopicOperationsDetail, TopicWorkItem } from "@/src/server/factory-operations/contracts";
+import type { FounderAction, FounderHomeReadModel } from "@/src/server/founder/contracts";
 
-export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers }: {
+function founderActionLabel(action: FounderAction) {
+  if (action === "return_for_revision") return "Return for Revision";
+  return action.charAt(0).toUpperCase() + action.slice(1);
+}
+
+function founderErrorMessage(error: unknown, action: FounderAction | "approve") {
+  const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  if (code === "FOUNDER_REVIEW_INCOMPLETE") return "This review is not ready for approval yet. Review the evidence summary and try again.";
+  if (code === "GOVERNANCE_DECISION_INCOMPLETE") return "The review decision is not complete yet. Complete the requested judgment and try again.";
+  if (code === "INBOX_ITEM_NOT_ACTIONABLE") return "This item has already been completed. Refresh Home to see the latest work.";
+  if (code === "TOPIC_NOT_MUTABLE") return "This Topic is currently processing. Wait for the current work to finish, then try again.";
+  return action === "approve"
+    ? "The Topic could not be approved. Review its current status and try again."
+    : "The action could not be completed. Refresh Home and try again.";
+}
+
+function formatOperationalTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function operationalHealthName(value: string) {
+  const normalized = value.replaceAll("_", " ").toLowerCase();
+  if (normalized.includes("published")) return "Published knowledge";
+  if (normalized.includes("projection")) return "Public experience";
+  if (normalized.includes("library")) return "Historical library";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view }: {
   token: string;
   fetchAdmin: AdminFetcher;
   statusHandlers: { setStatus: (value: string) => void; setError: (value: string) => void; onLoaded: () => void };
+  view: "home" | "queue" | "settings";
 }) {
   const [snapshot, setSnapshot] = useState<OperationsSnapshot | null>(null);
   const [title, setTitle] = useState("");
@@ -17,9 +47,17 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers }: {
     health: Array<{ institution: string; status: string; reasons: string[] }>;
     alerts: Array<{ id: string; severity: string; status: string; message: string }>;
   } | null>(null);
+  const [home, setHome] = useState<FounderHomeReadModel | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!token) return;
     try {
+      if (view === "home") {
+        setHome(await fetchAdmin<FounderHomeReadModel>("/api/admin/founder/home"));
+        statusHandlers.onLoaded();
+        statusHandlers.setError("");
+        return;
+      }
       const [operations, notifications, reliabilityDashboard] = await Promise.all([
         fetchAdmin<OperationsSnapshot>("/api/admin/factory/operations"),
         fetchAdmin<OperationalNotification[]>("/api/admin/factory/operations/inbox"),
@@ -31,7 +69,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers }: {
       statusHandlers.onLoaded();
       statusHandlers.setError("");
     } catch (error) { statusHandlers.setError(error instanceof Error ? error.message : "Operations load failed."); }
-  }, [fetchAdmin, statusHandlers, token]);
+  }, [fetchAdmin, statusHandlers, token, view]);
   useEffect(() => { void load(); }, [load]);
 
   async function command(action: string) {
@@ -44,8 +82,11 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers }: {
     await load();
   }
   async function addTopic() {
-    await fetchAdmin("/api/admin/factory/operations", { method: "POST", body: JSON.stringify({ title, source: "founder", priority: 100, maxRetries: 3, actor: "founder" }) });
+    const topics = [...new Set(title.split(/[,\n]+/).map((item) => item.trim()).filter((item) => item.length >= 3))].slice(0, 50);
+    if (!topics.length) return;
+    await Promise.all(topics.map((topic) => fetchAdmin("/api/admin/factory/operations", { method: "POST", body: JSON.stringify({ title: topic, source: "founder", priority: 100, maxRetries: 3, actor: "founder" }) })));
     setTitle("");
+    statusHandlers.setStatus(`${topics.length} ${topics.length === 1 ? "topic" : "topics"} queued.`);
     await load();
   }
   async function openTopic(topicId: string) {
@@ -55,14 +96,103 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers }: {
     await fetchAdmin(`/api/admin/operations/alerts/${id}`, { method: "PATCH", body: JSON.stringify({ action, actor: "founder" }) });
     await load();
   }
+  async function inboxAction(notificationId: string, topicId: string, action: FounderAction) {
+    setPendingAction(`${notificationId}:${action}`);
+    try {
+      await fetchAdmin("/api/admin/founder/inbox", {
+        method: "POST", body: JSON.stringify({ notificationId, topicId, action, actor: "founder" })
+      });
+      statusHandlers.setStatus(action === "return_for_revision" ? "Revision requested." : `${action.charAt(0).toUpperCase()}${action.slice(1)} completed.`);
+      statusHandlers.setError("");
+      await load();
+    } catch (error) {
+      statusHandlers.setError(founderErrorMessage(error, action));
+    } finally {
+      setPendingAction(null);
+    }
+  }
+  async function approveVisitorRequest(requestId: number) {
+    setPendingAction(`visitor:${requestId}`);
+    try {
+      await fetchAdmin("/api/admin/founder/visitor-requests/approve", {
+        method: "POST", body: JSON.stringify({ requestId, actor: "founder" })
+      });
+      statusHandlers.setStatus("Visitor Topic approved and queued.");
+      statusHandlers.setError("");
+      await load();
+    } catch (error) {
+      statusHandlers.setError(founderErrorMessage(error, "approve"));
+    } finally {
+      setPendingAction(null);
+    }
+  }
+  const sourceLabel = (source: TopicWorkItem["source"]) => source === "founder" ? "Founder" : source === "public_request" ? "Visitor" : "Factory";
+  const stageLabel = (stage: TopicWorkItem["currentStage"]) => ({
+    queued: "Queued", research: "Research", extraction: "Preparing", publication_candidate: "Preparing",
+    founder_review: "Waiting Review", governance: "Waiting Review", library_admission: "Publishing",
+    published: "Published", completed: "Published"
+  })[stage];
+  const progress = (topic: TopicWorkItem) => Math.round((["queued", "research", "extraction", "publication_candidate", "founder_review", "governance", "library_admission", "published", "completed"].indexOf(topic.currentStage) / 8) * 100);
+  if (view === "settings") return <div className="stack"><section className="glass section-card">
+    <span className="eyebrow">Factory Mode</span><h2>{snapshot?.control.mode === "running" ? "Autonomous" : snapshot?.control.mode === "pause_after_current" ? "Maintenance" : "Conservative"}</h2>
+    <p className="muted">Choose how the institution processes new Topics. Current work remains isolated when review is required.</p>
+    <div className="admin-action-row"><button className="button" onClick={() => void command("start")}>Autonomous</button><button className="button secondary" onClick={() => void command("pause_after_current")}>Maintenance</button><button className="button secondary" onClick={() => void command("stop")}>Conservative</button></div>
+  </section></div>;
+
+  if (view === "home") return <div className="stack">
+    <section className="glass section-card">
+      <span className="eyebrow">Institution Summary</span>
+      <div className="fos-stat-grid fos-stat-grid-wide">
+        {[
+          ["Institution", home?.summary.institutionStatus || "—"],
+          ["Factory", home?.summary.factoryStatus || "—"],
+          ["Mode", home?.summary.factoryMode || "—"],
+          ["Published Today", home?.summary.publishedToday ?? "—"],
+          ["Processing", home?.summary.processing ?? "—"],
+          ["Queue Depth", home?.summary.queueDepth ?? "—"],
+          ["Founder Inbox", home?.summary.inboxCount ?? "—"],
+          ["Failed Topics", home?.summary.failedTopics ?? "—"]
+        ].map(([label, value]) => <div key={label}><span className="small muted">{label}</span><strong className="fos-stat">{value}</strong></div>)}
+      </div>
+    </section>
+    <section className="glass section-card">
+      <span className="eyebrow">Founder Inbox</span><h2>What requires your attention</h2>
+      {home?.inbox.length ? home.inbox.map((item) => <article className="fos-list-card" key={item.id}>
+        <div><strong>{item.topic}</strong><p className="small muted">{item.reason}</p></div>
+        <div className="admin-action-row">{item.actions.map((action) => <button className={action === "approve" || action === "retry" ? "button" : "button secondary"} disabled={pendingAction !== null} key={action} onClick={() => void inboxAction(item.id, item.topicId, action)}>{founderActionLabel(action)}</button>)}</div>
+      </article>) : <p className="muted">No review items require your attention.</p>}
+    </section>
+    <section className="glass section-card stack">
+      <span className="eyebrow">Add Topics</span><h2 style={{ margin: 0 }}>What should TiMELiNES publish next?</h2>
+      <p className="muted">Enter one Topic, or separate multiple Topics with commas or new lines.</p>
+      <div className="admin-action-row"><textarea className="input" value={title} maxLength={4000} rows={3} onChange={(event) => setTitle(event.target.value)} placeholder={"Telephone\nSteam Engine\nApollo Program"} /><button className="button" disabled={title.trim().length < 3} onClick={() => void addTopic()}>Queue Topics</button></div>
+    </section>
+    <section className="glass section-card">
+      <span className="eyebrow">Visitor Requests</span><h2>Topics requested by visitors</h2>
+      {home?.visitorRequests.length ? home.visitorRequests.map((request) => <article className="fos-list-card" key={request.id}><div><strong>{request.topic}</strong><p className="small muted">Requested {formatOperationalTime(request.submittedAt)}</p></div><button className="button" disabled={pendingAction !== null} onClick={() => void approveVisitorRequest(request.id)}>Approve</button></article>) : <p className="muted">No Visitor Requests require review.</p>}
+    </section>
+    <section className="glass section-card">
+      <span className="eyebrow">Recent Publications</span><h2>Recently published</h2>
+      {home?.recentPublications.length ? home.recentPublications.map((publication) => <article className="fos-list-card" key={`${publication.topic}:${publication.publishedAt}`}><div><strong>{publication.topic}</strong><p className="small muted">{formatOperationalTime(publication.publishedAt)} · Verification {publication.verification}</p></div>{publication.publicPath ? <a className="button secondary" href={publication.publicPath} target="_blank" rel="noreferrer">View Publication</a> : <span className="small muted">Public link preparing</span>}</article>) : <p className="muted">No Topics have been published yet.</p>}
+    </section>
+    <section className="glass section-card">
+      <span className="eyebrow">Activity Feed</span><h2>Latest activity</h2>
+      <div className="fos-activity">{home?.activity.length ? home.activity.map((item) => <div className="fos-activity-row" key={item.id}><span className={`fos-activity-dot fos-${item.severity}`} /><div><strong>{item.topic}</strong><p className="small muted">{item.message} · {formatOperationalTime(item.occurredAt)}</p></div></div>) : <p className="muted">No operational activity yet.</p>}</div>
+    </section>
+    <section className="glass section-card">
+      <span className="eyebrow">Operational Health</span><h2>Institutional services</h2>
+      <div className="admin-action-row">{home?.health.map((item) => <span className="pill" key={item.name}>{operationalHealthName(item.name)}: {item.status}</span>)}</div>
+    </section>
+  </div>;
+
   return <div className="stack">
     <section className="glass section-card">
-      <span className="eyebrow">System Health</span>
+      <span className="eyebrow">Operational Health</span>
       <h2>Institution Health</h2>
       <div className="admin-action-row">
         {reliability?.health.map((item) => <span className="pill" key={item.institution}>{item.institution}: {item.status}</span>)}
       </div>
-      <p className="muted">Throughput {reliability?.metrics.find((item) => item.metricKey === "publication.throughput_hour")?.value || 0}/hour · Publication latency {Math.round(reliability?.metrics.find((item) => item.metricKey === "publication.latency_ms")?.value || 0)}ms · Replay queue {reliability?.metrics.find((item) => item.metricKey === "workflow.replay_count")?.value || 0}</p>
+      <p className="muted">Publishing {reliability?.metrics.find((item) => item.metricKey === "publication.throughput_hour")?.value || 0} Topics per hour · {snapshot?.metrics.activeCount || 0} currently processing</p>
       <h3>Alerts</h3>
       {reliability?.alerts.length ? reliability.alerts.map((alert) => <div className="admin-action-row" key={alert.id}>
         <span>{alert.severity} · {alert.message}</span>
@@ -80,34 +210,19 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers }: {
           </button>)}
       </div>
     </section>
-    <section className="glass section-card stack">
-      <span className="eyebrow">Factory Operations Center</span>
-      <h2 style={{ margin: 0 }}>Automation: {snapshot?.control.mode || "unavailable"}</h2>
-      <div className="admin-action-row">
-        <button className="button" onClick={() => void command("start")}>Start Automation</button>
-        <button className="button secondary" onClick={() => void command("stop")}>Stop Automation</button>
-        <button className="button secondary" onClick={() => void command("pause_after_current")}>Pause After Current</button>
-        <button className="button secondary" onClick={() => void command("resume")}>Resume</button>
-        <button className="button secondary" onClick={() => void command("run_one_cycle")}>Run One Cycle</button>
-      </div>
-      <div className="admin-action-row">
-        <input className="input" value={title} maxLength={240} onChange={(event) => setTitle(event.target.value)} placeholder="Founder-entered topic" />
-        <button className="button" disabled={title.trim().length < 3} onClick={() => void addTopic()}>Add Topic</button>
-      </div>
-    </section>
     <section className="glass section-card">
-      <h2>Queue Status</h2>
-      <p className="muted">Depth {snapshot?.metrics.queueDepth || 0} · Active workers {snapshot?.metrics.activeCount || 0} · Throughput {snapshot?.metrics.throughputPerHour || 0}/hour · Failures {snapshot?.failures.length || 0} · Dead letters {snapshot?.deadLetters.length || 0}</p>
+      <span className="eyebrow">{view === "queue" ? "Production Queue" : "Queue Summary"}</span>
+      <h2>What the institution is producing</h2>
       <div className="stack">
         {snapshot?.queue.map((topic) => <article className="glass section-card" key={topic.id}>
           <button className="button secondary" onClick={() => void openTopic(topic.id)}><strong>{topic.title}</strong></button>
-          <p className="small muted">{topic.status} · {topic.currentStage} · priority {topic.priority} · retries {topic.retryCount}/{topic.maxRetries}</p>
-          <p className="small muted">Worker health: {topic.status === "running" ? `heartbeat ${topic.heartbeatAt || "pending"}` : "idle"} · ETA: {topic.status === "completed" ? "complete" : "stage dependent"}</p>
+          <p className="small muted">{sourceLabel(topic.source)} · {stageLabel(topic.currentStage)} · Priority {topic.priority}</p>
+          <div className="fos-progress"><span style={{ width: `${progress(topic)}%` }} /></div>
+          <p className="small muted">{progress(topic)}% complete · {topic.status === "completed" ? "Completed" : "Completion time updates as work progresses"}</p>
           <div className="admin-action-row">
             {topic.status === "waiting" ? <button className="button" onClick={() => void mutate(topic, "resume")}>Verify Decision & Continue</button> : null}
             {topic.status === "failed" || topic.status === "dead_letter" ? <button className="button" onClick={() => void mutate(topic, "retry")}>Retry</button> : null}
             <button className="button secondary" onClick={() => void mutate(topic, "reprioritize", { priority: Math.min(1000, topic.priority + 10) })}>Raise Priority</button>
-            <button className="button secondary" onClick={() => void mutate(topic, "replay", { replayStage: topic.lastCertifiedStage })}>Replay Boundary</button>
             {!["completed", "cancelled"].includes(topic.status) ? <button className="button secondary" onClick={() => void mutate(topic, "cancel")}>Cancel</button> : null}
           </div>
         </article>)}

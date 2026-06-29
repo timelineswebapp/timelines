@@ -980,3 +980,15 @@ export const factoryOperationsMutationSchema = z.object({
   replayStage: z.enum(["queued", "research", "extraction", "publication_candidate", "founder_review", "governance", "library_admission", "published", "completed"]).optional(),
   actor: actorSchema
 });
+
+export const founderInboxActionSchema = z.object({
+  notificationId: uuidParamSchema,
+  topicId: uuidParamSchema,
+  action: z.enum(["approve", "return_for_revision", "reject", "retry", "dismiss"]),
+  actor: actorSchema
+});
+
+export const founderVisitorApprovalSchema = z.object({
+  requestId: z.coerce.number().int().positive(),
+  actor: actorSchema
+});

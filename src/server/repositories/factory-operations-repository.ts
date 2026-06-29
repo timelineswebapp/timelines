@@ -37,6 +37,15 @@ export const factoryOperationsRepository = {
     return row;
   },
 
+  async getTopicBySourceReference(source: TopicSource, sourceReference: string) {
+    const sql = getWriteSql("reading Topic origin lineage");
+    const [row] = await sql.unsafe<TopicWorkItem[]>(
+      `SELECT ${topicColumns} FROM factory_topic_work_items WHERE source=$1 AND source_reference=$2 LIMIT 1`,
+      [source, sourceReference]
+    );
+    return row || null;
+  },
+
   async listTopics(limit = 200) {
     const sql = getWriteSql("listing Factory topics");
     return sql.unsafe<TopicWorkItem[]>(`SELECT ${topicColumns} FROM factory_topic_work_items ORDER BY priority DESC, created_at LIMIT $1`, [limit]);
@@ -195,6 +204,51 @@ export const factoryOperationsRepository = {
     const sql = getWriteSql("resolving operational notifications");
     await sql`UPDATE factory_operational_notifications SET status='resolved', resolved_at=NOW()
       WHERE topic_id=${topicId} AND category=${category} AND status='open'`;
+  },
+
+  async resolveNotification(id: string) {
+    const sql = getWriteSql("resolving Founder Inbox item");
+    const result = await sql`UPDATE factory_operational_notifications SET status='resolved', resolved_at=NOW()
+      WHERE id=${id} AND status='open'`;
+    if (result.count !== 1) throw new ApiError(409, "INBOX_ITEM_NOT_ACTIONABLE", "This review item has already been completed.");
+  },
+
+  async listRecentPublications(limit = 20) {
+    const sql = getWriteSql("listing recent publications");
+    return sql<{ topic: string; publishedAt: string; verification: "Passed" | "Failed" | "Pending"; publicPath: string | null }[]>`
+      SELECT t.title AS topic, t.completed_at::text AS "publishedAt",
+        CASE v.status WHEN 'passed' THEN 'Passed' WHEN 'failed' THEN 'Failed' ELSE 'Pending' END AS verification,
+        CASE WHEN p.slug IS NOT NULL THEN '/timeline/' || p.slug ELSE NULL END AS "publicPath"
+      FROM factory_topic_work_items t
+      LEFT JOIN LATERAL (
+        SELECT status FROM factory_publication_verifications WHERE topic_id=t.id ORDER BY created_at DESC LIMIT 1
+      ) v ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT slug FROM published_memory_projections
+        WHERE projection_type='timeline' AND lifecycle='active'
+          AND lower(COALESCE(payload->'timeline'->>'title',payload->>'title',''))=lower(t.title)
+        ORDER BY created_at DESC LIMIT 1
+      ) p ON TRUE
+      WHERE t.status='completed' AND t.completed_at IS NOT NULL
+      ORDER BY t.completed_at DESC LIMIT ${Math.max(1, Math.min(50, limit))}`;
+  },
+
+  async listGlobalActivity(limit = 50) {
+    const sql = getWriteSql("listing Founder activity");
+    return sql<Array<{ id: string; topic: string; eventType: string; stage: string; category?: string; occurredAt: string; severity: "info" | "warning" | "critical" }>>`
+      SELECT * FROM (
+        SELECT e.id::text AS id,t.title AS topic,e.event_type AS "eventType",e.boundary_stage AS stage,
+          NULL::text AS category,e.created_at::text AS "occurredAt",'info'::text AS severity
+        FROM factory_institutional_events e JOIN factory_topic_work_items t ON t.id=e.topic_id
+        UNION ALL
+        SELECT n.id::text,t.title,'notification',t.current_stage,n.category,n.created_at::text,n.severity
+        FROM factory_operational_notifications n JOIN factory_topic_work_items t ON t.id=n.topic_id
+        UNION ALL
+        SELECT h.id::text,t.title,h.action,COALESCE(h.to_stage,h.from_stage,'queued'),NULL::text,h.created_at::text,
+          CASE WHEN h.outcome='failed' THEN 'warning' ELSE 'info' END
+        FROM factory_topic_execution_history h JOIN factory_topic_work_items t ON t.id=h.topic_id
+        WHERE h.action IN ('topic_added','retry','replay')
+      ) activity ORDER BY "occurredAt" DESC LIMIT ${Math.max(1, Math.min(50, limit))}`;
   },
 
   async listInbox(limit = 200) {

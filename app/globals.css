@@ -19,6 +19,90 @@
   --radius-md: 18px;
 }
 
+.fos-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fos-stat {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1;
+}
+
+.fos-progress {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(19, 34, 54, 0.09);
+}
+
+.fos-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--highlight-strong), var(--highlight));
+}
+
+.fos-stat-grid-wide {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.fos-list-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.fos-list-card:last-child {
+  border-bottom: 0;
+}
+
+.fos-list-card p,
+.fos-activity-row p {
+  margin: 5px 0 0;
+}
+
+.fos-activity {
+  display: grid;
+}
+
+.fos-activity-row {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.fos-activity-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--highlight-strong);
+}
+
+.fos-warning { background: var(--warning); }
+.fos-critical { background: var(--danger); }
+
+@media (max-width: 760px) {
+  .fos-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fos-list-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

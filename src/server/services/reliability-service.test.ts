@@ -33,7 +33,9 @@ test("alert runtime supports durable acknowledgement, resolution, and audit hist
   assert.match(source, /deduplication_key/);
 });
 
-test("founder dashboard exposes health, alerts, throughput, latency, replay, and queue operations", async () => {
+test("founder dashboard exposes operational health, alerts, production, and inbox", async () => {
   const source = await readFile("components/admin/AdminFactoryOperations.tsx", "utf8");
-  for (const label of ["System Health", "Institution Health", "Alerts", "Throughput", "Publication latency", "Replay queue", "Queue Status", "Founder Inbox"]) assert.match(source, new RegExp(label));
+  for (const label of ["Operational Health", "Institution Health", "Alerts", "Publishing", "Production Queue", "Founder Inbox"]) {
+    assert.match(source, new RegExp(label));
+  }
 });
