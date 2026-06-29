@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE INDEX IF NOT EXISTS idx_published_memory_search_fts
   ON published_memory_projections USING GIN (
     to_tsvector('simple'::regconfig, COALESCE(payload->>'searchableText', payload::text))
@@ -30,4 +32,3 @@ CREATE TABLE IF NOT EXISTS provider_execution_metrics (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_provider_execution_metrics_trend ON provider_execution_metrics(provider_key, created_at DESC);
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
