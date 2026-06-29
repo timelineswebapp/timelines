@@ -32,11 +32,12 @@ function operationalHealthName(value: string) {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
-export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view }: {
+export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view, onFounderStatus }: {
   token: string;
   fetchAdmin: AdminFetcher;
   statusHandlers: { setStatus: (value: string) => void; setError: (value: string) => void; onLoaded: () => void };
   view: "home" | "queue" | "settings";
+  onFounderStatus: (status: { institution: string; factory: string; mode: string }) => void;
 }) {
   const [snapshot, setSnapshot] = useState<OperationsSnapshot | null>(null);
   const [title, setTitle] = useState("");
@@ -53,7 +54,14 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     if (!token) return;
     try {
       if (view === "home") {
-        setHome(await fetchAdmin<FounderHomeReadModel>("/api/admin/founder/home"));
+        const briefing = await fetchAdmin<FounderHomeReadModel>("/api/admin/founder/home");
+        setHome(briefing);
+        onFounderStatus({
+          institution: briefing.summary.institutionStatus,
+          factory: briefing.summary.processing > 0 ? "Processing" : briefing.summary.factoryStatus,
+          mode: briefing.summary.factoryMode
+        });
+        statusHandlers.setStatus("Founder authenticated");
         statusHandlers.onLoaded();
         statusHandlers.setError("");
         return;
@@ -69,13 +77,21 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       statusHandlers.onLoaded();
       statusHandlers.setError("");
     } catch (error) { statusHandlers.setError(error instanceof Error ? error.message : "Operations load failed."); }
-  }, [fetchAdmin, statusHandlers, token, view]);
+  }, [fetchAdmin, onFounderStatus, statusHandlers, token, view]);
   useEffect(() => { void load(); }, [load]);
 
   async function command(action: string) {
-    await fetchAdmin("/api/admin/factory/operations/control", { method: "POST", body: JSON.stringify({ action, actor: "founder" }) });
-    statusHandlers.setStatus(`Factory operation '${action}' completed.`);
-    await load();
+    setPendingAction(`factory:${action}`);
+    try {
+      await fetchAdmin("/api/admin/factory/operations/control", { method: "POST", body: JSON.stringify({ action, actor: "founder" }) });
+      statusHandlers.setStatus("Operational session active");
+      statusHandlers.setError("");
+      await load();
+    } catch {
+      statusHandlers.setError("The Factory state could not be changed. Refresh Home and try again.");
+    } finally {
+      setPendingAction(null);
+    }
   }
   async function mutate(topic: TopicWorkItem, action: string, extra: Record<string, unknown> = {}) {
     await fetchAdmin(`/api/admin/factory/operations/topics/${topic.id}`, { method: "PATCH", body: JSON.stringify({ action, actor: "founder", ...extra }) });
@@ -140,48 +156,64 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   </section></div>;
 
   if (view === "home") return <div className="stack">
-    <section className="glass section-card">
-      <span className="eyebrow">Institution Summary</span>
+    <section className="glass section-card fos-command-card" aria-labelledby="institution-summary-title">
+      <div className="fos-command-heading">
+        <div>
+          <span className="eyebrow">Institution Summary</span>
+          <h2 id="institution-summary-title">Is everything operating?</h2>
+          <p className="muted">Publishing health, current workload, and Factory control.</p>
+        </div>
+        <div className="fos-factory-control" aria-label="Factory control">
+          <span className={`fos-state-indicator fos-state-${home?.summary.factoryStatus.toLowerCase() || "stopped"}`} />
+          <div>
+            <span className="small muted">Factory</span>
+            <strong>{(home?.summary.processing || 0) > 0 ? "Processing" : home?.summary.factoryStatus || "Unavailable"}</strong>
+          </div>
+          {home?.summary.factoryStatus === "Stopped" ? <button className="button" disabled={pendingAction !== null} onClick={() => void command("start")}>Start Factory</button> : null}
+          {home?.summary.factoryStatus === "Paused" ? <button className="button" disabled={pendingAction !== null} onClick={() => void command("resume")}>Resume Factory</button> : null}
+          {home?.summary.factoryStatus === "Running" ? <button className="button secondary" disabled={pendingAction !== null} onClick={() => void command("pause_after_current")}>{(home?.summary.processing || 0) > 0 ? "Pause After Current Topic" : "Pause Factory"}</button> : null}
+        </div>
+      </div>
       <div className="fos-stat-grid fos-stat-grid-wide">
         {[
           ["Institution", home?.summary.institutionStatus || "—"],
-          ["Factory", home?.summary.factoryStatus || "—"],
-          ["Mode", home?.summary.factoryMode || "—"],
           ["Published Today", home?.summary.publishedToday ?? "—"],
           ["Processing", home?.summary.processing ?? "—"],
-          ["Queue Depth", home?.summary.queueDepth ?? "—"],
-          ["Founder Inbox", home?.summary.inboxCount ?? "—"],
-          ["Failed Topics", home?.summary.failedTopics ?? "—"]
-        ].map(([label, value]) => <div key={label}><span className="small muted">{label}</span><strong className="fos-stat">{value}</strong></div>)}
+          ["Queue", home?.summary.queueDepth ?? "—"],
+          ["Inbox", home?.summary.inboxCount ?? "—"],
+          ["Failed", home?.summary.failedTopics ?? "—"]
+        ].map(([label, value]) => <div className="fos-metric" key={label}><strong className={`fos-stat ${value === "Healthy" ? "fos-status-success" : value === "Critical" ? "fos-status-danger" : ""}`}>{value}</strong><span className="small muted">{label}</span></div>)}
       </div>
+      <div className="fos-mode-summary"><span className="small muted">Mode</span><strong>{home?.summary.factoryMode || "—"}</strong><span className="small muted">{home?.summary.factoryMode === "Autonomous" ? "Processes Topics continuously." : home?.summary.factoryMode === "Maintenance" ? "Finishes current work before pausing." : "Processes Topics under Founder supervision."}</span></div>
+    </section>
+    <section className="glass section-card stack fos-add-topics">
+      <span className="eyebrow">Add Topics</span><h2 style={{ margin: 0 }}>What should TiMELiNES publish next?</h2>
+      <p className="muted">Enter one Topic, or separate multiple Topics with commas or new lines.</p>
+      <div className="fos-topic-entry"><textarea aria-label="Topics to publish" className="input fos-topic-textarea" value={title} maxLength={4000} rows={4} onChange={(event) => setTitle(event.target.value)} placeholder={"Telephone\nSteam Engine\nApollo Program"} /><button className="button fos-queue-button" disabled={title.trim().length < 3} onClick={() => void addTopic()}>Queue Topics</button></div>
     </section>
     <section className="glass section-card">
       <span className="eyebrow">Founder Inbox</span><h2>What requires your attention</h2>
       {home?.inbox.length ? home.inbox.map((item) => <article className="fos-list-card" key={item.id}>
         <div><strong>{item.topic}</strong><p className="small muted">{item.reason}</p></div>
         <div className="admin-action-row">{item.actions.map((action) => <button className={action === "approve" || action === "retry" ? "button" : "button secondary"} disabled={pendingAction !== null} key={action} onClick={() => void inboxAction(item.id, item.topicId, action)}>{founderActionLabel(action)}</button>)}</div>
-      </article>) : <p className="muted">No review items require your attention.</p>}
-    </section>
-    <section className="glass section-card stack">
-      <span className="eyebrow">Add Topics</span><h2 style={{ margin: 0 }}>What should TiMELiNES publish next?</h2>
-      <p className="muted">Enter one Topic, or separate multiple Topics with commas or new lines.</p>
-      <div className="admin-action-row"><textarea className="input" value={title} maxLength={4000} rows={3} onChange={(event) => setTitle(event.target.value)} placeholder={"Telephone\nSteam Engine\nApollo Program"} /><button className="button" disabled={title.trim().length < 3} onClick={() => void addTopic()}>Queue Topics</button></div>
+      </article>) : <div className="fos-empty-state"><strong>Everything is progressing automatically.</strong><p className="muted">No Founder decisions are currently required.</p></div>}
     </section>
     <section className="glass section-card">
       <span className="eyebrow">Visitor Requests</span><h2>Topics requested by visitors</h2>
-      {home?.visitorRequests.length ? home.visitorRequests.map((request) => <article className="fos-list-card" key={request.id}><div><strong>{request.topic}</strong><p className="small muted">Requested {formatOperationalTime(request.submittedAt)}</p></div><button className="button" disabled={pendingAction !== null} onClick={() => void approveVisitorRequest(request.id)}>Approve</button></article>) : <p className="muted">No Visitor Requests require review.</p>}
+      {home?.visitorRequests.length ? home.visitorRequests.map((request) => <article className="fos-list-card" key={request.id}><div><strong>{request.topic}</strong><p className="small muted">Requested {formatOperationalTime(request.submittedAt)}</p></div><button className="button" disabled={pendingAction !== null} onClick={() => void approveVisitorRequest(request.id)}>Approve</button></article>) : <div className="fos-empty-state"><strong>Visitor demand is clear.</strong><p className="muted">No Visitor Requests are waiting for approval.</p></div>}
     </section>
     <section className="glass section-card">
       <span className="eyebrow">Recent Publications</span><h2>Recently published</h2>
-      {home?.recentPublications.length ? home.recentPublications.map((publication) => <article className="fos-list-card" key={`${publication.topic}:${publication.publishedAt}`}><div><strong>{publication.topic}</strong><p className="small muted">{formatOperationalTime(publication.publishedAt)} · Verification {publication.verification}</p></div>{publication.publicPath ? <a className="button secondary" href={publication.publicPath} target="_blank" rel="noreferrer">View Publication</a> : <span className="small muted">Public link preparing</span>}</article>) : <p className="muted">No Topics have been published yet.</p>}
+      {home?.recentPublications.length ? home.recentPublications.map((publication) => <article className="fos-list-card" key={`${publication.topic}:${publication.publishedAt}`}><div><strong>{publication.topic}</strong><p className="small muted">{formatOperationalTime(publication.publishedAt)} · <span className={`fos-inline-status ${publication.verification === "Passed" ? "fos-inline-success" : publication.verification === "Failed" ? "fos-inline-danger" : "fos-inline-waiting"}`}>Verification {publication.verification}</span></p></div>{publication.publicPath ? <a className="button secondary" href={publication.publicPath} target="_blank" rel="noreferrer">View Publication</a> : <span className="small muted">Public link preparing</span>}</article>) : <div className="fos-empty-state"><strong>Publications will appear after verification.</strong><p className="muted">No verified Topics have been published yet.</p></div>}
     </section>
     <section className="glass section-card">
       <span className="eyebrow">Activity Feed</span><h2>Latest activity</h2>
-      <div className="fos-activity">{home?.activity.length ? home.activity.map((item) => <div className="fos-activity-row" key={item.id}><span className={`fos-activity-dot fos-${item.severity}`} /><div><strong>{item.topic}</strong><p className="small muted">{item.message} · {formatOperationalTime(item.occurredAt)}</p></div></div>) : <p className="muted">No operational activity yet.</p>}</div>
+      <div className="fos-activity">{home?.activity.length ? home.activity.map((item) => <div className="fos-activity-row" key={item.id}><span className={`fos-activity-dot fos-${item.severity}`} /><div><strong>{item.topic}</strong><p className="small muted">{item.message} · {formatOperationalTime(item.occurredAt)}</p></div></div>) : <div className="fos-empty-state"><strong>The Factory is ready.</strong><p className="muted">Factory activity will appear here as Topics progress.</p></div>}</div>
     </section>
     <section className="glass section-card">
       <span className="eyebrow">Operational Health</span><h2>Institutional services</h2>
       <div className="admin-action-row">{home?.health.map((item) => <span className="pill" key={item.name}>{operationalHealthName(item.name)}: {item.status}</span>)}</div>
+      {home?.summary.institutionStatus === "Healthy" ? <p className="small fos-health-message">All publishing services are operating normally.</p> : <p className="small muted">One or more publishing services require attention.</p>}
     </section>
   </div>;
 

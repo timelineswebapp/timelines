@@ -13,6 +13,7 @@ export function AdminLayout({
   status,
   error,
   showLockedNotice,
+  founderStatus,
   children
 }: {
   token: string;
@@ -25,6 +26,7 @@ export function AdminLayout({
   status: string;
   error: string;
   showLockedNotice: boolean;
+  founderStatus: { institution: string; factory: string; mode: string } | null;
   children: ReactNode;
 }) {
   return (
@@ -70,6 +72,13 @@ export function AdminLayout({
         <p className="small muted" style={{ margin: 0 }}>
           {status}
         </p>
+        {founderStatus ? (
+          <div className="fos-sidebar-status" aria-label="Current operating status">
+            <div><span className="small muted">Institution</span><strong>{founderStatus.institution}</strong></div>
+            <div><span className="small muted">Factory</span><strong>{founderStatus.factory}</strong></div>
+            <div><span className="small muted">Mode</span><strong>{founderStatus.mode}</strong></div>
+          </div>
+        ) : null}
         {error ? (
           <p className="small" style={{ color: "var(--danger)", margin: 0 }}>
             {error}

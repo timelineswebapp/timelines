@@ -39,6 +39,11 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
   const [activeTab, setActiveTab] = useState<TopTab>("home");
   const [contentSection, setContentSection] = useState<ContentSection>("snapshot");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [founderStatus, setFounderStatus] = useState<{
+    institution: string;
+    factory: string;
+    mode: string;
+  } | null>(null);
 
   const adminHeaders = useMemo(
     () => ({
@@ -142,9 +147,10 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
       status={status}
       error={error}
       showLockedNotice={!token && !isLoaded}
+      founderStatus={founderStatus}
     >
       {activeTab === "home" || activeTab === "queue" || activeTab === "settings" ? (
-        <AdminFactoryOperations token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} view={activeTab} />
+        <AdminFactoryOperations token={token} fetchAdmin={fetchAdmin} statusHandlers={statusHandlers} view={activeTab} onFounderStatus={setFounderStatus} />
       ) : null}
       {activeTab === "library" ? (
         <AdminContent
