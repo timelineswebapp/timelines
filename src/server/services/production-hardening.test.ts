@@ -11,20 +11,25 @@ test("Factory execution is exclusively cron-driven and leader-safe", async () =>
   assert.match(dispatcher, /factoryOperationsService\.runCycle/);
 });
 
-test("institution schedulers have independent request lifecycles", async () => {
+test("institution schedulers preserve independent routes under GitHub orchestration", async () => {
   const factory = await readFile("app/api/cron/factory/route.ts", "utf8");
   const governance = await readFile("app/api/cron/governance/route.ts", "utf8");
   const maintenance = await readFile("app/api/cron/maintenance/route.ts", "utf8");
-  const schedule = await readFile("vercel.json", "utf8");
+  const workflow = await readFile(".github/workflows/factory-scheduler.yml", "utf8");
+  const vercelConfig = JSON.parse(await readFile("vercel.json", "utf8")) as { crons?: unknown };
   assert.match(factory, /FactoryDispatcher/);
   assert.doesNotMatch(factory, /governanceExecutionService|scheduledOperationsService/);
   assert.match(governance, /governanceExecutionService/);
   assert.doesNotMatch(governance, /FactoryDispatcher|scheduledOperationsService/);
   assert.match(maintenance, /scheduledOperationsService/);
   assert.doesNotMatch(maintenance, /FactoryDispatcher|governanceExecutionService/);
-  assert.match(schedule, /api\/cron\/factory/);
-  assert.match(schedule, /api\/cron\/governance/);
-  assert.match(schedule, /api\/cron\/maintenance/);
+  assert.match(workflow, /cron: "\*\/15 \* \* \* \*"/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /secrets\.TIMELINES_BASE_URL/);
+  assert.match(workflow, /secrets\.CRON_SECRET/);
+  assert.ok(workflow.indexOf("/api/cron/factory") < workflow.indexOf("/api/cron/governance"));
+  assert.ok(workflow.indexOf("/api/cron/governance") < workflow.indexOf("/api/cron/maintenance"));
+  assert.equal(vercelConfig.crons, undefined);
 });
 
 test("provider coordination uses shared PostgreSQL leases and rate windows", async () => {

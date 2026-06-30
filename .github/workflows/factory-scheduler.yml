@@ -1,0 +1,94 @@
+name: Factory Scheduler
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-scheduler
+  cancel-in-progress: false
+
+jobs:
+  run-institutions:
+    name: Run Factory, Governance, and Maintenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    env:
+      TIMELINES_BASE_URL: ${{ secrets.TIMELINES_BASE_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Invoke institutions in certified order
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          if [[ -z "${TIMELINES_BASE_URL}" || -z "${CRON_SECRET}" ]]; then
+            echo "::error::TIMELINES_BASE_URL and CRON_SECRET repository secrets are required."
+            exit 1
+          fi
+
+          if [[ ! "${TIMELINES_BASE_URL}" =~ ^https://[^/]+(/.*)?$ ]]; then
+            echo "::error::TIMELINES_BASE_URL must be an HTTPS URL."
+            exit 1
+          fi
+
+          base_url="${TIMELINES_BASE_URL%/}"
+
+          invoke_institution() {
+            local institution="$1"
+            local path="$2"
+            local response_file
+            local http_status
+            local curl_exit
+            local started_at
+            local finished_at
+            local elapsed_ms
+
+            response_file="$(mktemp)"
+            started_at="$(date +%s%3N)"
+
+            set +e
+            http_status="$(
+              curl \
+                --silent \
+                --show-error \
+                --connect-timeout 10 \
+                --max-time 240 \
+                --output "${response_file}" \
+                --write-out "%{http_code}" \
+                --header "Authorization: Bearer ${CRON_SECRET}" \
+                --header "Accept: application/json" \
+                "${base_url}${path}"
+            )"
+            curl_exit=$?
+            set -e
+
+            finished_at="$(date +%s%3N)"
+            elapsed_ms="$((finished_at - started_at))"
+
+            echo "::group::${institution} response"
+            cat "${response_file}"
+            echo
+            echo "::endgroup::"
+            rm -f "${response_file}"
+
+            echo "${institution}: HTTP ${http_status:-000}, elapsed ${elapsed_ms} ms"
+
+            if [[ ${curl_exit} -ne 0 ]]; then
+              echo "::error::${institution} request failed with curl exit code ${curl_exit}."
+              return 1
+            fi
+
+            if [[ "${http_status}" != "200" ]]; then
+              echo "::error::${institution} returned HTTP ${http_status}; dependent institutions will not run."
+              return 1
+            fi
+          }
+
+          invoke_institution "Factory" "/api/cron/factory"
+          invoke_institution "Governance" "/api/cron/governance"
+          invoke_institution "Maintenance" "/api/cron/maintenance"
