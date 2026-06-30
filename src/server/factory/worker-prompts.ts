@@ -41,13 +41,18 @@ Only mark a source high-confidence when source quality and relevance are clear.`
 Task: Extract candidate historical objects from the research context.
 Candidate object type allowed: candidate_historical_object.
 Payload must include name, type, summary, aliases, chronologyRole, and sourceRefs.
-Generate people, institutions, places, technologies, publications, conflicts, movements, or periods only when supported by evidence.`,
+Generate people, institutions, places, technologies, publications, conflicts, movements, or periods only when supported by evidence.
+Never emit placeholder, unknown, unnamed, generic, or inferred identities.
+If the evidence does not support a specific canonical identity, return candidates as exactly [] and state the evidence gap in summary.`,
 
   milestone_extraction_worker: `${sharedContract}
 Task: Extract chronology-rich candidate milestones.
 Candidate object type allowed: candidate_milestone.
 Payload must include title, date, datePrecision, summary, location, chronologyPosition, and sourceRefs.
-Dates must be internally consistent. Use ISO-like years or dates where possible.`,
+Dates must be internally consistent. Use ISO-like years or dates where possible.
+Dates, titles, events, ordering, and temporal relationships must be directly supported by validated evidence.
+Never infer or invent chronology, events, titles, descriptions, or historical significance.
+If the evidence does not support a complete milestone and explicit date, return candidates as exactly [] and state the grounding gap in summary.`,
 
   participation_extraction_worker: `${sharedContract}
 Task: Extract candidate participations connecting historical objects to milestones.

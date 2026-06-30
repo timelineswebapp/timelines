@@ -245,6 +245,28 @@ describe("published memory projection system", () => {
     assert.deepEqual([...migrations].sort(), migrations);
   });
 
+  it("verifies primary projection coverage per Platform-projectable snapshot", () => {
+    const verification = readFileSync("src/server/services/publication-verification-service.ts", "utf8");
+    assert.match(verification, /projectableSnapshotCount/);
+    assert.match(verification, /projectedSnapshotCount/);
+    assert.match(verification, /historical_object','milestone','relationship/);
+    assert.match(verification, /projectedSnapshotCount === counts\.projectableSnapshotCount/);
+    assert.doesNotMatch(verification, /projectionCount >= counts\.snapshotCount/);
+  });
+
+  it("keeps public projection content and navigation free of Factory leakage", () => {
+    const service = readFileSync("src/server/services/published-memory-projection-service.ts", "utf8");
+    const operationsRepository = readFileSync("src/server/repositories/factory-operations-repository.ts", "utf8");
+    const analyticsRepository = readFileSync("src/server/repositories/analytics-events-repository.ts", "utf8");
+    assert.match(service, /candidate\|factory\|pipeline\|draft\|governance\|not submitted/);
+    assert.match(service, /timelineLinks: \[timelineLink\]/);
+    assert.match(operationsRepository, /governancePublicationPackageId/);
+    assert.doesNotMatch(operationsRepository, /lower\(COALESCE\(payload->'timeline'->>'title'/);
+    assert.match(analyticsRepository, /published_projection_id/);
+    assert.match(analyticsRepository, /published_memory_projections/);
+    assert.match(analyticsRepository, /LEFT JOIN timelines/);
+  });
+
   it("documents cutover, rebuild, validation, and rollback operations", () => {
     const runbook = readFileSync("docs/operations/PROJECTION_CUTOVER_RUNBOOK.md", "utf8");
 

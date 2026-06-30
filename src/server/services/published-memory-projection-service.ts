@@ -36,7 +36,8 @@ function packageDescription(payload: Record<string, unknown>): string {
   const packageScope = payload.packageScope;
   if (packageScope && typeof packageScope === "object" && !Array.isArray(packageScope)) {
     const description = (packageScope as Record<string, unknown>).description;
-    if (typeof description === "string" && description.trim()) {
+    if (typeof description === "string" && description.trim() &&
+        !/\b(?:candidate|factory|pipeline|draft|governance|not submitted)\b/i.test(description)) {
       return description.trim();
     }
   }
@@ -540,6 +541,30 @@ async function generateAdmissionTimeline(input: {
     sourceEventId: input.admissionId,
     auditRecordId: input.auditRecordId
   });
+  const timelineLink = {
+    id: timelinePayload.id,
+    slug,
+    title,
+    description,
+    category: timelinePayload.category,
+    eventCount: events.length
+  };
+  await Promise.all(milestoneSnapshots.map((snapshot) => {
+    const milestonePayload = buildMilestoneDto(projectionPayload(snapshot.snapshot), snapshot);
+    return publishedMemoryProjectionRepository.upsertProjection({
+      publishedSnapshotId: snapshot.snapshotId,
+      projectionType: "milestone",
+      slug: projectionSlug(snapshot.snapshot, milestonePayload),
+      payload: {
+        ...milestonePayload,
+        timelineLinks: [timelineLink],
+        timeline_context: [timelineLink]
+      },
+      sourceEventType: input.sourceEventType || "admission",
+      sourceEventId: input.admissionId,
+      auditRecordId: input.auditRecordId
+    });
+  }));
   const searchPayload = buildSearchPayload("timeline", timelinePayload);
   const sitemapPayload = buildSitemapPayload("timeline", slug, timelinePayload, anchor.createdAt);
   const companionProjections = await Promise.all([

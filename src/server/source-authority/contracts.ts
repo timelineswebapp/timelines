@@ -67,6 +67,31 @@ export type SourceDiscoveryInput = {
   actor: string;
 };
 
+export type SourceRelevanceAssessment = {
+  accepted: boolean;
+  relevanceScore: number;
+  topicalRelevance: number;
+  historicalRelevance: number;
+  semanticRelevance: number;
+  authorityRelevance: number;
+  publicationSuitability: number;
+  rejectionReasons: string[];
+  semanticMismatch: string | null;
+};
+
+export type SourceRelevanceDiagnostic = {
+  diagnosticId: string;
+  provider: SourceAuthorityProvider;
+  providerRecordId: string;
+  canonicalUrl: string;
+  title: string;
+  discoveryQuery: string;
+  assessment: SourceRelevanceAssessment;
+  repositoryEvidence: Record<string, unknown>;
+  evaluatedBy: string;
+  createdAt?: string;
+};
+
 export type SourceRetrievalInput = {
   sourceRecordId: string;
   actor: string;

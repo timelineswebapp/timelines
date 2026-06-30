@@ -24,6 +24,7 @@ export const analyticsEventsRepository = {
       INSERT INTO analytics_events (
         event_type,
         timeline_id,
+        published_projection_id,
         slug,
         session_id,
         user_id,
@@ -34,7 +35,8 @@ export const analyticsEventsRepository = {
       )
       SELECT
         ${TIMELINE_VIEW_EVENT},
-        ${input.timelineId},
+        legacy.id,
+        projection.id,
         ${input.slug},
         ${input.sessionId || null},
         ${input.userId || null},
@@ -42,7 +44,16 @@ export const analyticsEventsRepository = {
         ${input.device || null},
         ${input.referrer || null},
         CAST(${JSON.stringify(input.metadata || {})} AS jsonb)
-      WHERE NOT EXISTS (
+      FROM (SELECT ${input.slug}::text AS slug) requested
+      LEFT JOIN LATERAL (
+        SELECT id FROM timelines WHERE id=${input.timelineId} LIMIT 1
+      ) legacy ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT id FROM published_memory_projections
+        WHERE projection_type='timeline' AND lifecycle='active' AND slug=requested.slug
+        ORDER BY projection_version DESC LIMIT 1
+      ) projection ON TRUE
+      WHERE (legacy.id IS NOT NULL OR projection.id IS NOT NULL) AND NOT EXISTS (
         SELECT 1
         FROM analytics_events
         WHERE event_type = ${TIMELINE_VIEW_EVENT}
@@ -104,16 +115,20 @@ export const analyticsEventsRepository = {
 
     const rows = await sql<TopTimelineViewRow[]>`
       SELECT
-        timelines.id::int AS timeline_id,
-        timelines.title,
-        timelines.slug,
+        COALESCE(timelines.id::int,(projection.payload->>'id')::int) AS timeline_id,
+        COALESCE(timelines.title,projection.payload->>'title') AS title,
+        COALESCE(timelines.slug,projection.slug) AS slug,
         COUNT(*)::int AS views
       FROM analytics_events
-      INNER JOIN timelines ON timelines.id = analytics_events.timeline_id
+      LEFT JOIN timelines ON timelines.id = analytics_events.timeline_id
+      LEFT JOIN published_memory_projections projection ON projection.id=analytics_events.published_projection_id
+        AND projection.projection_type='timeline' AND projection.lifecycle='active'
       WHERE analytics_events.event_type = ${TIMELINE_VIEW_EVENT}
         AND analytics_events.created_at >= CURRENT_DATE - INTERVAL '29 days'
-      GROUP BY timelines.id, timelines.title, timelines.slug, timelines.updated_at
-      ORDER BY views DESC, timelines.updated_at DESC, timelines.id DESC
+      GROUP BY timelines.id, timelines.title, timelines.slug, timelines.updated_at,
+        projection.id, projection.payload, projection.slug, projection.updated_at
+      ORDER BY views DESC, COALESCE(timelines.updated_at,projection.updated_at) DESC,
+        COALESCE(timelines.id::text,projection.id::text) DESC
       LIMIT ${limit}
     `;
 

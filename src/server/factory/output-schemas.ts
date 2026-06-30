@@ -22,6 +22,7 @@ const workerObjectTypes: Record<string, FactoryObjectType[]> = {
 };
 
 const artifactOnlyWorkers = new Set(["package_assembly_worker", "validation_worker"]);
+const evidenceOptionalCandidateWorkers = new Set(["object_extraction_worker", "milestone_extraction_worker"]);
 
 const citationSchema = z.object({
   sourceId: z.string().min(1).optional(),
@@ -275,7 +276,9 @@ export function factoryWorkerOutputContractSchema(workerKey: string): Record<str
       sources: { type: "array", minItems: 1, items: citation },
       candidates: {
         type: "array",
-        ...(artifactOnlyWorkers.has(workerKey) ? { maxItems: 0 } : { minItems: 1 }),
+        ...(artifactOnlyWorkers.has(workerKey)
+          ? { maxItems: 0 }
+          : evidenceOptionalCandidateWorkers.has(workerKey) ? {} : { minItems: 1 }),
         items: {
           type: "object",
           required: ["title", "objectType", "payload", "evidence", "sources"],
@@ -368,7 +371,8 @@ export function validateFactoryWorkerOutput(input: {
     throw new FactoryWorkerOutputValidationError("Generated output failed schema validation.", { validationErrors });
   }
   const allowed = new Set(input.allowedObjectTypes);
-  if (!artifactOnlyWorkers.has(input.workerKey) && input.allowedObjectTypes.length > 0 && parsed.candidates.length === 0) {
+  if (!artifactOnlyWorkers.has(input.workerKey) && !evidenceOptionalCandidateWorkers.has(input.workerKey) &&
+      input.allowedObjectTypes.length > 0 && parsed.candidates.length === 0) {
     throw new FactoryWorkerOutputValidationError(`Worker ${input.workerKey} emitted no candidates.`);
   }
   if (artifactOnlyWorkers.has(input.workerKey) && parsed.candidates.length > 0) {

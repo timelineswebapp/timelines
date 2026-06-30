@@ -457,6 +457,25 @@ export const governanceRepository = {
     return row || null;
   },
 
+  async listQueues(limit = 100): Promise<GovernanceQueue[]> {
+    const sql = getWriteSql("listing governance queues");
+    return sql<GovernanceQueue[]>`
+      SELECT
+        id::text AS "queueId",
+        queue_type AS "queueType",
+        owner_service AS "ownerService",
+        owner_role AS "ownerRole",
+        target_authority AS "targetAuthority",
+        allowed_actions AS "allowedActions",
+        decision_refs AS "decisionRefs",
+        audit_refs AS "auditRefs",
+        lifecycle
+      FROM governance_queues
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+  },
+
   async createDecision(input: GovernanceDecision): Promise<GovernanceDecision> {
     const sql = getWriteSql("creating governance decision");
     const [row] = await sql<GovernanceDecision[]>`

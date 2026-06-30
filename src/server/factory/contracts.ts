@@ -446,6 +446,24 @@ export type FactoryPackageRiskSummary = {
   unresolvedAuthorityRisks: string[];
   validationWarnings: string[];
   publicationBlockers: string[];
+  qualityMetrics?: FactoryPublicationQualityMetrics;
+};
+
+export type FactoryPublicationQualityMetrics = {
+  publicationQualityScore: number;
+  researchQuality: number;
+  evidenceQuality: number;
+  groundingQuality: number;
+  authorityCompleteness: number;
+  chronologyCompleteness: number;
+  citationCompleteness: number;
+  sourceDiversity: number;
+  confidence: number;
+  unsupportedFields: string[];
+  unsupportedClaims: string[];
+  unsupportedChronology: string[];
+  unsupportedRelationships: string[];
+  unsupportedCitations: string[];
 };
 
 export type FactoryPackageDraft = {

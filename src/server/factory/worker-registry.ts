@@ -158,7 +158,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_context_record"],
     allowed_relationship_types: [],
     max_context_tokens: 12000,
-    max_output_tokens: 2000,
+    max_output_tokens: 3000,
     execution_timeout: 120
   }),
   worker({

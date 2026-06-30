@@ -1,13 +1,87 @@
 import type {
   SourceAuthorityProvider,
   SourceDiscoveryInput,
-  SourceDiscoveryResult
+  SourceDiscoveryResult,
+  SourceRelevanceAssessment
 } from "@/src/server/source-authority/contracts";
 import { ApiError } from "@/src/server/api/responses";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
 import { providerInCooldown, resilientFetch } from "@/src/server/source-authority/resilience";
 
 const approvedProviders: SourceAuthorityProvider[] = ["wikidata", "dbpedia", "library_of_congress", "nara"];
+const QUERY_STOP_WORDS = new Set(["a", "an", "and", "of", "the", "to", "in", "on", "for", "history"]);
+const MIN_RELEVANT_SOURCES = 2;
+
+function relevanceTerms(value: string): string[] {
+  return [...new Set(value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(
+    (term) => term.length > 2 && !QUERY_STOP_WORDS.has(term)
+  ))];
+}
+
+export function buildHistoricalDiscoveryQueries(query: string): string[] {
+  const normalized = query.trim().replace(/\s+/g, " ");
+  const subject = normalized
+    .replace(/^the\s+history\s+of\s+/i, "")
+    .replace(/^history\s+of\s+/i, "")
+    .trim();
+  const singular = subject.endsWith("ies")
+    ? `${subject.slice(0, -3)}y`
+    : subject.endsWith("s") && !subject.endsWith("ss")
+      ? subject.slice(0, -1)
+      : subject;
+  return [...new Set([
+    normalized,
+    subject,
+    singular,
+    `${singular} history`
+  ].filter((candidate) => candidate.length >= 2))].slice(0, 4);
+}
+
+export function assessSourceRelevance(query: string, source: SourceDiscoveryResult): SourceRelevanceAssessment {
+  const queryTerms = relevanceTerms(query);
+  const titleTerms = relevanceTerms(source.title);
+  const descriptionTerms = relevanceTerms(source.description || "");
+  const candidateTerms = new Set([...titleTerms, ...descriptionTerms]);
+  const matches = queryTerms.filter((term) =>
+    [...candidateTerms].some((candidate) => candidate === term || candidate.startsWith(term) || term.startsWith(candidate))
+  );
+  const topicalRelevance = queryTerms.length ? matches.length / queryTerms.length : 0;
+  const titleMatches = queryTerms.filter((term) =>
+    titleTerms.some((candidate) => candidate === term || candidate.startsWith(term) || term.startsWith(candidate))
+  );
+  const semanticRelevance = queryTerms.length ? titleMatches.length / queryTerms.length : 0;
+  const historicalRelevance = topicalRelevance > 0 && [
+    "knowledge_base_entity", "archive_record", "library_record"
+  ].some((type) => source.sourceType.toLowerCase().includes(type.replace("_record", ""))) ? 1 : topicalRelevance;
+  const authorityRelevance = source.provider === "library_of_congress" || source.provider === "nara" ? 1 : 0.8;
+  const publicationSuitability = topicalRelevance > 0 && Boolean(source.description || source.title) ? 1 : 0;
+  const relevanceScore = Number((
+    topicalRelevance * 0.35 +
+    historicalRelevance * 0.15 +
+    semanticRelevance * 0.25 +
+    authorityRelevance * 0.15 +
+    publicationSuitability * 0.1
+  ).toFixed(3));
+  const rejectionReasons: string[] = [];
+  if (topicalRelevance === 0) rejectionReasons.push("Source does not concern the discovery Topic.");
+  if (semanticRelevance === 0) rejectionReasons.push("Source entity is semantically misaligned with the discovery Topic.");
+  if (historicalRelevance === 0) rejectionReasons.push("Source does not materially contribute historical understanding of the Topic.");
+  if (publicationSuitability === 0) rejectionReasons.push("Source would not improve publication quality.");
+  if (relevanceScore < 0.55) rejectionReasons.push("Source relevance score is below the institutional acceptance threshold.");
+  return {
+    accepted: topicalRelevance > 0 && semanticRelevance > 0 && relevanceScore >= 0.55,
+    relevanceScore,
+    topicalRelevance: Number(topicalRelevance.toFixed(3)),
+    historicalRelevance: Number(historicalRelevance.toFixed(3)),
+    semanticRelevance: Number(semanticRelevance.toFixed(3)),
+    authorityRelevance,
+    publicationSuitability,
+    rejectionReasons,
+    semanticMismatch: semanticRelevance === 0
+      ? `No Topic terms (${queryTerms.join(", ")}) matched the source entity title.`
+      : null
+  };
+}
 
 function clampLimit(limit?: number): number {
   return Math.min(Math.max(limit || 10, 1), 25);
@@ -271,8 +345,16 @@ export const sourceDiscoveryService = {
       ...approvedProviders.filter((provider) => !requestedProviders.includes(provider))
     ];
     const limit = clampLimit(input.limit);
-    const discovered = (await Promise.all(
-      providers.map(async (provider) => {
+    const queryVariants = buildHistoricalDiscoveryQueries(query);
+    const evaluated: Array<{
+      discovery: SourceDiscoveryResult;
+      discoveryQuery: string;
+      assessment: SourceRelevanceAssessment;
+    }> = [];
+    const seen = new Set<string>();
+
+    for (const discoveryQuery of queryVariants) {
+      const wave = (await Promise.all(providers.map(async (provider) => {
         if (await providerInCooldown(provider)) {
           console.warn(JSON.stringify({
             level: "warn",
@@ -283,7 +365,7 @@ export const sourceDiscoveryService = {
           return [];
         }
         try {
-          return await discoverProvider(provider, query, limit);
+          return await discoverProvider(provider, discoveryQuery, limit);
         } catch (error) {
           console.warn(JSON.stringify({
             level: "warn",
@@ -294,17 +376,42 @@ export const sourceDiscoveryService = {
           }));
           return [];
         }
-      })
-    )).flat().slice(0, limit * providers.length);
+      }))).flat();
+      for (const discovery of wave) {
+        const key = `${discovery.provider}:${discovery.providerRecordId}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        evaluated.push({
+          discovery,
+          discoveryQuery,
+          assessment: assessSourceRelevance(query, discovery)
+        });
+      }
+      if (evaluated.filter((candidate) => candidate.assessment.accepted).length >= MIN_RELEVANT_SOURCES) break;
+    }
 
-    const records = await Promise.all(
-      discovered.map((discovery) => sourceAuthorityRepository.registerDiscoveredSource({
+    const accepted = evaluated.filter((candidate) => candidate.assessment.accepted);
+    const rejected = evaluated.filter((candidate) => !candidate.assessment.accepted);
+    const [records, diagnostics] = await Promise.all([
+      Promise.all(accepted.map(({ discovery, discoveryQuery, assessment }) => sourceAuthorityRepository.registerDiscoveredSource({
         discovery,
-        query,
-        actor: input.actor
-      }))
-    );
+        query: discoveryQuery,
+        actor: input.actor,
+        relevanceAssessment: assessment
+      }))),
+      Promise.all(rejected.map(({ discovery, discoveryQuery, assessment }) =>
+        sourceAuthorityRepository.recordRelevanceRejection({ discovery, query: discoveryQuery, assessment, actor: input.actor })
+      ))
+    ]);
 
-    return { query, providers, discovered, records };
+    return {
+      query,
+      queryVariants,
+      providers,
+      discovered: evaluated.map(({ discovery }) => discovery),
+      accepted: accepted.map(({ discovery }) => discovery),
+      records,
+      rejected: diagnostics
+    };
   }
 };

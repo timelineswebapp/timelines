@@ -23,6 +23,32 @@ test("dispatcher leasing is globally bounded and isolates locked work", async ()
   assert.match(source, /FOR UPDATE SKIP LOCKED/);
   assert.match(source, /active\.count >= control\.concurrency/);
   assert.match(source, /lease_expires_at < NOW\(\)/);
+  assert.doesNotMatch(source, /replaceAll\("id::text"/);
+});
+
+test("EXECUTION-001 renews ownership and makes terminal mutation lease-version safe", async () => {
+  const [service, repository] = await Promise.all([
+    readFile("src/server/services/factory-operations-service.ts", "utf8"),
+    readFile("src/server/repositories/factory-operations-repository.ts", "utf8")
+  ]);
+  assert.match(service, /WORKFLOW_HEARTBEAT_MS = 20_000/);
+  assert.match(service, /repository\.heartbeat\(topic\.id, workerId, WORKFLOW_LEASE_SECONDS\)/);
+  assert.match(service, /topic\.status !== "running" \|\| topic\.leaseOwner !== workerId/);
+  assert.match(repository, /lease_expires_at >= NOW\(\)/);
+  assert.match(repository, /AND status='running' AND current_stage=\$\{topic\.currentStage\}/);
+});
+
+test("EXECUTION-001 schedules replay atomically and retries failed stages only", async () => {
+  const [service, repository] = await Promise.all([
+    readFile("src/server/services/factory-operations-service.ts", "utf8"),
+    readFile("src/server/repositories/factory-operations-repository.ts", "utf8")
+  ]);
+  assert.match(service, /RETRY_NOT_FAILED/);
+  assert.match(service, /repository\.scheduleReplay/);
+  assert.match(repository, /atomically scheduling workflow replay/);
+  assert.match(repository, /FOR UPDATE/);
+  assert.match(repository, /REPLAY_STAGE_ACTIVE/);
+  assert.match(repository, /ON CONFLICT \(idempotency_key\) DO NOTHING/);
 });
 
 test("Founder Operating System exposes operational controls without implementation language", async () => {
@@ -47,4 +73,24 @@ test("FOS-002A uses one Home read model and preserves certified workflow service
   assert.match(repository, /source_reference=\$2/);
   assert.match(repository, /LIMIT \$\{Math\.max\(1, Math\.min\(50, limit\)\)\}/);
   assert.match(visitorRoute, /withAdminAuth/);
+});
+
+test("FOS-004 routine editorial policy preserves Governance authority", async () => {
+  const [factory, operations] = await Promise.all([
+    readFile("src/server/services/factory-service.ts", "utf8"),
+    readFile("src/server/services/factory-operations-service.ts", "utf8")
+  ]);
+  for (const operation of [
+    "validateCandidatePackage",
+    "reviewCandidatePackage",
+    "approveEditorialReview",
+    "prepareAuthorityRecords",
+    "assessGovernanceReadiness"
+  ]) {
+    assert.match(factory, new RegExp(`factoryService\\.${operation}`));
+  }
+  assert.match(operations, /applyEditorialReviewPolicy/);
+  assert.match(operations, /submitToGovernance/);
+  assert.match(operations, /governanceService\.submitPackage/);
+  assert.doesNotMatch(factory, /governanceService\.approveDecision/);
 });

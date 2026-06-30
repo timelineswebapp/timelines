@@ -4,6 +4,8 @@ import { getWriteSql } from "@/src/server/db/client";
 import type {
   SourceAuthorityProvider,
   SourceAuthorityRegistryRecord,
+  SourceRelevanceAssessment,
+  SourceRelevanceDiagnostic,
   SourceAuthoritySnapshot,
   SourceDiscoveryResult,
   SourceRetrievalProvenance
@@ -13,6 +15,7 @@ export type RegisterSourceInput = {
   discovery: SourceDiscoveryResult;
   query: string;
   actor: string;
+  relevanceAssessment?: SourceRelevanceAssessment;
 };
 
 export type CreateSourceSnapshotInput = {
@@ -25,11 +28,46 @@ export type CreateSourceSnapshotInput = {
   actor: string;
 };
 
+export type RecordSourceRelevanceRejectionInput = {
+  discovery: SourceDiscoveryResult;
+  query: string;
+  assessment: SourceRelevanceAssessment;
+  actor: string;
+};
+
 function hashContent(content: string): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
 export const sourceAuthorityRepository = {
+  async recordRelevanceRejection(input: RecordSourceRelevanceRejectionInput): Promise<SourceRelevanceDiagnostic> {
+    const sql = getWriteSql("recording source relevance rejection");
+    const [row] = await sql<SourceRelevanceDiagnostic[]>`
+      INSERT INTO source_relevance_diagnostics (
+        provider, provider_record_id, canonical_url, title, discovery_query,
+        assessment, repository_evidence, evaluated_by
+      )
+      VALUES (
+        ${input.discovery.provider}, ${input.discovery.providerRecordId},
+        ${input.discovery.canonicalUrl}, ${input.discovery.title}, ${input.query},
+        ${sql.json(input.assessment as any)},
+        ${sql.json({
+          sourceType: input.discovery.sourceType,
+          description: input.discovery.description,
+          originUrl: input.discovery.originUrl,
+          providerResult: input.discovery.raw
+        } as any)},
+        ${input.actor}
+      )
+      RETURNING
+        id::text AS "diagnosticId", provider, provider_record_id AS "providerRecordId",
+        canonical_url AS "canonicalUrl", title, discovery_query AS "discoveryQuery",
+        assessment, repository_evidence AS "repositoryEvidence",
+        evaluated_by AS "evaluatedBy", created_at::text AS "createdAt"
+    `;
+    return row!;
+  },
+
   async registerDiscoveredSource(input: RegisterSourceInput): Promise<SourceAuthorityRegistryRecord> {
     const sql = getWriteSql("registering discovered source authority record");
     const discoveredAt = new Date().toISOString();
@@ -61,7 +99,10 @@ export const sourceAuthorityRepository = {
         ${input.discovery.description},
         ${input.discovery.sourceType},
         ${sql.json(origin as any)},
-        ${sql.json({ discovery: input.discovery.raw } as any)},
+        ${sql.json({
+          discovery: input.discovery.raw,
+          relevanceAssessment: input.relevanceAssessment || null
+        } as any)},
         ${input.actor}
       )
       ON CONFLICT (provider, provider_record_id) DO UPDATE

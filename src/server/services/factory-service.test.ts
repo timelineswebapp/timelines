@@ -17,6 +17,7 @@ import { canonicalFactoryWorkers } from "@/src/server/factory/worker-registry";
 import { getFactoryWorkerPromptTemplate } from "@/src/server/factory/worker-prompts";
 import { getFactoryRuntimeProvider, resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
+import { evidenceValidationRepository } from "@/src/server/repositories/evidence-validation-repository";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
 import { corpusGenerationService } from "@/src/server/services/corpus-generation-service";
@@ -793,6 +794,30 @@ describe("factory production memory foundation", () => {
     }
   });
 
+  it("allows object extraction to explicitly produce no authority when canonical identity is unsupported", () => {
+    const output = factoryOutputForPrompt("object_extraction_worker", { candidates: [] });
+    const validated = validateFactoryWorkerOutput({
+      workerKey: "object_extraction_worker",
+      allowedObjectTypes: ["candidate_historical_object"],
+      output
+    });
+    assert.deepEqual(validated.candidates, []);
+    const schema = factoryWorkerOutputContractSchema("object_extraction_worker");
+    assert.doesNotMatch(JSON.stringify(schema), /"candidates":\\{[^}]*"minItems":1/);
+    assert.match(getFactoryWorkerPromptTemplate("object_extraction_worker"), /return candidates as exactly \[\]/);
+  });
+
+  it("allows milestone extraction to explicitly produce no milestone when chronology is unsupported", () => {
+    const output = factoryOutputForPrompt("milestone_extraction_worker", { candidates: [] });
+    const validated = validateFactoryWorkerOutput({
+      workerKey: "milestone_extraction_worker",
+      allowedObjectTypes: ["candidate_milestone"],
+      output
+    });
+    assert.deepEqual(validated.candidates, []);
+    assert.match(getFactoryWorkerPromptTemplate("milestone_extraction_worker"), /return candidates as exactly \[\]/);
+  });
+
   it("aligns every Factory worker prompt and provider schema with its registered object contract", () => {
     const artifactOnlyWorkers = new Set(["validation_worker", "package_assembly_worker"]);
     for (const worker of canonicalFactoryWorkers) {
@@ -804,6 +829,10 @@ describe("factory production memory foundation", () => {
       if (artifactOnlyWorkers.has(worker.worker_id)) {
         assert.equal(candidates.maxItems, 0, `${worker.worker_id} must prohibit candidates`);
         assert.match(prompt, /candidates must be exactly \[\]/);
+      } else if (["object_extraction_worker", "milestone_extraction_worker"].includes(worker.worker_id)) {
+        assert.equal(candidates.minItems, undefined, `${worker.worker_id} must permit explicit no-authority output`);
+        assert.match(prompt, /return candidates as exactly \[\]/);
+        assert.deepEqual(objectType.enum, worker.allowed_object_types);
       } else {
         assert.equal(candidates.minItems, 1, `${worker.worker_id} must require candidates`);
         assert.deepEqual(objectType.enum, worker.allowed_object_types);
@@ -1068,7 +1097,7 @@ describe("factory production memory foundation", () => {
     }
   });
 
-  it("implements structural evidence validation without authority, readiness, or publication decisions", () => {
+  it("implements structural and grounding evidence validation without authority or publication decisions", () => {
     const contracts = readFileSync("src/server/evidence-validation/contracts.ts", "utf8");
     const repository = readFileSync("src/server/repositories/evidence-validation-repository.ts", "utf8");
     const service = readFileSync("src/server/services/evidence-validation-service.ts", "utf8");
@@ -1093,7 +1122,7 @@ describe("factory production memory foundation", () => {
     assert.match(repository, /LEFT JOIN source_authority_snapshots/);
     assert.match(repository, /LEFT JOIN source_authority_records/);
     assert.match(repository, /INSERT INTO evidence_validation_records/);
-    assert.match(service, /structural_evidence_validation/);
+    assert.match(service, /structural_and_grounding_validation/);
     assert.match(service, /authorityDecision: false/);
     assert.match(service, /publicationReadinessDecision: false/);
     assert.match(factory, /validateEvidenceRecord: evidenceValidationService\.validateEvidence/);
@@ -1322,6 +1351,7 @@ describe("factory production memory foundation", () => {
       corpus: corpusGenerationService.generateFromSourceSnapshot,
       extract: evidenceExtractionService.extractFromCorpusDocument,
       validate: evidenceValidationService.validateEvidence,
+      requireEvidenceSubject: evidenceValidationRepository.requireEvidenceSubject,
       createPipelineRun: factoryRepository.createPipelineRun,
       getLatestCompletedPipelineRun: factoryRepository.getLatestCompletedPipelineRun,
       getArtifactsByIds: factoryRepository.getArtifactsByIds,
@@ -1429,6 +1459,27 @@ describe("factory production memory foundation", () => {
         checks: [],
         provenance: { validationType: "structural_evidence_validation", evidenceRecordId: "evidence-1", corpusDocumentId: "corpus-1", sourceSnapshotId: "snapshot-1", sourceRecordId: "source-record-1", provider: "wikidata", validatedAt: "2026-06-24T00:00:00.000Z", validator: "factory-test", authorityDecision: false, publicationReadinessDecision: false },
         createdBy: "factory-test"
+      });
+      (evidenceValidationRepository as any).requireEvidenceSubject = async () => ({
+        evidenceRecordId: "evidence-1",
+        corpusDocumentId: "corpus-1",
+        sourceSnapshotId: "snapshot-1",
+        sourceRecordId: "source-record-1",
+        provider: "wikidata",
+        retrievalTimestamp: "2026-06-24T00:00:00.000Z",
+        spanStart: 0,
+        spanEnd: 120,
+        quoteText: "The telephone was demonstrated in 1876; telephone milestones, relationships, participation, and context are supported by evidence.",
+        normalizedClaim: "The telephone was demonstrated in 1876; telephone milestones, relationships, participation, and context are supported by evidence.",
+        provenance: {},
+        createdBy: "factory-test",
+        corpusDocumentExists: true,
+        sourceSnapshotExists: true,
+        sourceRecordExists: true,
+        corpusTextLength: 150,
+        sourceTitle: "Authoritative Telephone Evidence",
+        sourceDescription: "Telephone history.",
+        sourceProvenance: { relevanceAssessment: { accepted: true, authorityRelevance: 0.8 } }
       });
       (factoryRepository as any).getLatestCompletedPipelineRun = async (pipelineId: string) => {
         if (pipelineId === "historical_research_pipeline") {
@@ -1539,6 +1590,7 @@ describe("factory production memory foundation", () => {
       (corpusGenerationService as any).generateFromSourceSnapshot = originals.corpus;
       (evidenceExtractionService as any).extractFromCorpusDocument = originals.extract;
       (evidenceValidationService as any).validateEvidence = originals.validate;
+      (evidenceValidationRepository as any).requireEvidenceSubject = originals.requireEvidenceSubject;
       (factoryRepository as any).createPipelineRun = originals.createPipelineRun;
       (factoryRepository as any).getLatestCompletedPipelineRun = originals.getLatestCompletedPipelineRun;
       (factoryRepository as any).getArtifactsByIds = originals.getArtifactsByIds;

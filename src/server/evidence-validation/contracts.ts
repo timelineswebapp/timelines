@@ -7,7 +7,12 @@ export type EvidenceValidationCheckKey =
   | "provenance_complete"
   | "lineage_complete"
   | "span_boundaries_valid"
-  | "content_non_empty";
+  | "content_non_empty"
+  | "topic_grounding"
+  | "claim_grounding"
+  | "citation_grounding"
+  | "authority_grounding"
+  | "publication_suitability";
 
 export type EvidenceValidationCheck = {
   checkKey: EvidenceValidationCheckKey;
@@ -16,7 +21,7 @@ export type EvidenceValidationCheck = {
 };
 
 export type EvidenceValidationProvenance = {
-  validationType: "structural_evidence_validation";
+  validationType: "structural_and_grounding_validation";
   evidenceRecordId: string;
   corpusDocumentId: string | null;
   sourceSnapshotId: string | null;
@@ -26,6 +31,18 @@ export type EvidenceValidationProvenance = {
   validator: string;
   authorityDecision: false;
   publicationReadinessDecision: false;
+  groundingAssessment: {
+    topic: string;
+    topicRelevance: number;
+    claimGrounded: boolean;
+    citationGrounded: boolean;
+    chronologySupported: boolean;
+    authorityGrounded: boolean;
+    publicationSuitable: boolean;
+    evidenceQualityScore: number;
+    unsupportedClaims: string[];
+    rejectionReasons: string[];
+  };
 };
 
 export type EvidenceValidationRecord = {
@@ -41,4 +58,5 @@ export type EvidenceValidationRecord = {
 export type ValidateEvidenceInput = {
   evidenceRecordId: string;
   actor: string;
+  topic: string;
 };

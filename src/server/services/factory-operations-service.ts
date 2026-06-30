@@ -14,6 +14,8 @@ const nextStage: Record<WorkflowStage, WorkflowStage> = {
   published: "completed", completed: "completed"
 };
 const waitingStages = new Set<WorkflowStage>(["founder_review", "governance"]);
+const WORKFLOW_LEASE_SECONDS = 60;
+const WORKFLOW_HEARTBEAT_MS = 20_000;
 
 function assertReplayBoundary(stage: WorkflowStage, topic: TopicWorkItem) {
   if (workflowStages.indexOf(stage) > workflowStages.indexOf(topic.lastCertifiedStage)) {
@@ -39,6 +41,20 @@ export const factoryOperationsService = {
 
   async mutateTopic(input: { topicId: string; action: "remove" | "reprioritize" | "retry" | "cancel" | "pause" | "resume" | "replay"; priority?: number; replayStage?: WorkflowStage; actor: string }) {
     const topic = await repository.getTopic(input.topicId);
+    if (input.action === "reprioritize" && (!Number.isInteger(input.priority) || input.priority! < 0 || input.priority! > 100)) {
+      throw new ApiError(400, "INVALID_TOPIC_PRIORITY", "Topic priority must be an integer from 0 through 100.");
+    }
+    if (input.action === "retry" && !["failed", "dead_letter"].includes(topic.status)) {
+      throw new ApiError(409, "RETRY_NOT_FAILED", "Only failed or dead-letter workflow stages may be retried.");
+    }
+    if (input.action === "replay") {
+      if (!input.replayStage) throw new ApiError(400, "REPLAY_STAGE_REQUIRED", "A certified replay stage is required.");
+      assertReplayBoundary(input.replayStage, topic);
+      const updated = await repository.scheduleReplay({ topicId: topic.id, boundary: input.replayStage, actor: input.actor });
+      await repository.appendHistory(topic.id, "replay", topic.currentStage, updated.currentStage, "control", topic.retryCount, { actor: input.actor });
+      await repository.notify({ topicId: topic.id, category: "replay_request", severity: "warning", title: `Replay requested: ${topic.title}`, message: `Replay scheduled from ${input.replayStage}.`, deduplicationKey: `${topic.workflowId}:replay:${input.replayStage}:${topic.retryCount}` });
+      return updated;
+    }
     let patch: Parameters<typeof repository.updateTopic>[1];
     if (input.action === "reprioritize") patch = { priority: input.priority, actor: input.actor };
     else if (input.action === "remove" || input.action === "cancel") patch = { status: "cancelled", actor: input.actor };
@@ -58,6 +74,11 @@ export const factoryOperationsService = {
           handoffId: handoff.handoffId,
           actor: { actorId: "factory-operations", role: "factory_editor", institutionId: "factory" },
           reason: "PE-002 automatic package submission"
+        });
+        await governanceService.submitPackage({
+          id: submitted.governancePackage.packageId,
+          actor: { actorId: "factory-operations", role: "governance_reviewer", institutionId: "governance" },
+          reason: "Certified Factory handoff entered Governance review"
         });
         await repository.mergeTopicContext(topic.id, {
           governanceHandoffId: handoff.handoffId,
@@ -116,23 +137,27 @@ export const factoryOperationsService = {
         patch = { status: "queued", retryCount: input.action === "retry" ? 0 : undefined, actor: input.actor };
       }
     }
-    else {
-      if (!input.replayStage) throw new ApiError(400, "REPLAY_STAGE_REQUIRED", "A certified replay stage is required.");
-      assertReplayBoundary(input.replayStage, topic);
-      await repository.requestReplay({ topic, boundary: input.replayStage, actor: input.actor });
-      patch = { status: "queued", stage: input.replayStage, retryCount: 0, actor: input.actor };
-    }
+    else throw new ApiError(400, "INVALID_TOPIC_ACTION", "Unsupported Topic action.");
     const updated = await repository.updateTopic(input.topicId, patch);
     await repository.appendHistory(topic.id, input.action, topic.currentStage, updated.currentStage, "control", topic.retryCount, { actor: input.actor });
-    if (input.action === "replay") {
-      await repository.notify({ topicId: topic.id, category: "replay_request", severity: "warning", title: `Replay requested: ${topic.title}`, message: `Replay scheduled from ${input.replayStage}.`, deduplicationKey: `${topic.workflowId}:replay:${input.replayStage}:${topic.retryCount}` });
-    }
     return updated;
   },
 
   async executeLeasedTopic(topic: TopicWorkItem, workerId: string) {
+    if (topic.status !== "running" || topic.leaseOwner !== workerId) {
+      throw new ApiError(409, "LEASE_REQUIRED", "Workflow stage execution requires the authoritative active lease.");
+    }
     const from = topic.currentStage;
-    const to = nextStage[from];
+    let to = nextStage[from];
+    let leaseFailure: unknown = null;
+    let heartbeatInFlight = false;
+    const heartbeat = setInterval(() => {
+      if (heartbeatInFlight || leaseFailure) return;
+      heartbeatInFlight = true;
+      void repository.heartbeat(topic.id, workerId, WORKFLOW_LEASE_SECONDS)
+        .catch((error) => { leaseFailure = error; })
+        .finally(() => { heartbeatInFlight = false; });
+    }, WORKFLOW_HEARTBEAT_MS);
     await repository.appendHistory(topic.id, "stage_execute", from, to, "started", topic.retryCount + 1, { workerId });
     try {
       const context: Record<string, unknown> = {};
@@ -157,7 +182,44 @@ export const factoryOperationsService = {
         if (!run) throw new ApiError(500, "FACTORY_PIPELINE_NO_RESULT", "Factory pipeline returned no persisted run.");
         context[`${from.replace("_candidate", "")}PipelineRunId`] = run.pipelineRunId;
         if (run.packageDraftId) context.factoryPackageDraftId = run.packageDraftId;
+        if (from === "publication_candidate" && run.packageDraftId) {
+          const researchPipelineRunId = topic.stageContext.researchPipelineRunId;
+          const extractionPipelineRunId = topic.stageContext.extractionPipelineRunId;
+          if (typeof researchPipelineRunId !== "string" || typeof extractionPipelineRunId !== "string") {
+            throw new ApiError(409, "EDITORIAL_POLICY_LINEAGE_REQUIRED", "Editorial policy requires certified Research and Extraction lineage.");
+          }
+          const policy = await factoryService.applyEditorialReviewPolicy({
+            factoryPackageDraftId: run.packageDraftId,
+            researchPipelineRunId,
+            extractionPipelineRunId,
+            actor: "factory-operations"
+          });
+          context.editorialReviewOutcome = policy.outcome;
+          context.editorialReviewReasons = policy.reasons;
+          if (policy.outcome === "routine") {
+            await factoryService.continueEditorialPackageToGovernanceReady(run.packageDraftId);
+            const handoff = await factoryService.prepareGovernanceHandoff({
+              factoryPackageDraftId: run.packageDraftId, pipelineRunId: run.pipelineRunId,
+              actor: "factory-operations", reason: "Routine editorial policy Governance handoff"
+            });
+            const submitted = await factoryService.submitToGovernance({
+              handoffId: handoff.handoffId,
+              actor: { actorId: "factory-operations", role: "factory_editor", institutionId: "factory" },
+              reason: "Routine editorial policy submission"
+            });
+            await governanceService.submitPackage({
+              id: submitted.governancePackage.packageId,
+              actor: { actorId: "factory-operations", role: "governance_reviewer", institutionId: "governance" },
+              reason: "Routine editorial policy entered Governance review"
+            });
+            context.governanceHandoffId = handoff.handoffId;
+            context.governancePublicationPackageId = submitted.governancePackage.packageId;
+            to = "governance";
+          }
+        }
       }
+      if (leaseFailure) throw leaseFailure;
+      await repository.heartbeat(topic.id, workerId, WORKFLOW_LEASE_SECONDS);
       const status = to === "completed" ? "completed" : waitingStages.has(to) ? "waiting" : "queued";
       const updated = await repository.advance(topic.id, workerId, from, to, status, context);
       await repository.appendHistory(topic.id, "stage_execute", from, to, waitingStages.has(to) ? "waiting" : "succeeded", topic.retryCount + 1, { workerId, ...context });
@@ -175,6 +237,10 @@ export const factoryOperationsService = {
       return updated;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown workflow stage failure";
+      if (error instanceof ApiError && ["LEASE_LOST", "WORKFLOW_STATE_CONFLICT"].includes(error.code)) {
+        console.warn(JSON.stringify({ level: "warn", component: "factory_operations", event: "stale_executor_terminated", topicId: topic.id, workerId, stage: from, message }));
+        return null;
+      }
       const status = await repository.fail(topic, workerId, message);
       await repository.appendHistory(topic.id, "stage_execute", from, from, "failed", topic.retryCount + 1, { workerId, status, message });
       await repository.notify({
@@ -184,6 +250,8 @@ export const factoryOperationsService = {
       });
       console.error(JSON.stringify({ level: "error", component: "factory_operations", event: "topic_stage_failed", topicId: topic.id, workflowId: topic.workflowId, stage: from, message }));
       return null;
+    } finally {
+      clearInterval(heartbeat);
     }
   },
 
@@ -202,7 +270,7 @@ export const factoryOperationsService = {
     }
     const workerPrefix = `dispatcher-${randomUUID()}`;
     const topics = (await Promise.all(Array.from({ length: control.concurrency }, (_, index) =>
-      repository.leaseNext(`${workerPrefix}-${index}`, 60, input.force)))).filter((topic): topic is TopicWorkItem => Boolean(topic));
+      repository.leaseNext(`${workerPrefix}-${index}`, WORKFLOW_LEASE_SECONDS, input.force)))).filter((topic): topic is TopicWorkItem => Boolean(topic));
     await Promise.allSettled(topics.map((topic, index) => this.executeLeasedTopic(topic, `${workerPrefix}-${index}`)));
     if (control.mode === "pause_after_current") await repository.setControl("paused", input.actor);
     return { leased: topics.length, completed: topics.length, mode: control.mode };

@@ -19,6 +19,7 @@ export type TopicWorkItem = {
   retryCount: number;
   maxRetries: number;
   workflowId: string;
+  executionGeneration: number;
   leaseOwner: string | null;
   leaseExpiresAt: string | null;
   heartbeatAt: string | null;

@@ -6,6 +6,7 @@ const topicColumns = `
   id::text AS "id", title, source, source_reference AS "sourceReference", status, priority,
   current_stage AS "currentStage", last_certified_stage AS "lastCertifiedStage",
   retry_count AS "retryCount", max_retries AS "maxRetries", workflow_id::text AS "workflowId",
+  execution_generation AS "executionGeneration",
   lease_owner AS "leaseOwner", lease_expires_at::text AS "leaseExpiresAt",
   heartbeat_at::text AS "heartbeatAt", next_attempt_at::text AS "nextAttemptAt",
   last_error AS "lastError", stage_context AS "stageContext", created_at::text AS "createdAt", updated_at::text AS "updatedAt",
@@ -54,7 +55,7 @@ export const factoryOperationsRepository = {
   async listActionableWaitingTopics(limit: number) {
     const sql = getWriteSql("listing actionable waiting workflows");
     return sql.unsafe<TopicWorkItem[]>(
-      `SELECT ${topicColumns.replaceAll("id::text", "t.id::text")}
+      `SELECT ${topicColumns.replace(/^  id::text/m, "  t.id::text")}
        FROM factory_topic_work_items t
        WHERE t.status='waiting' AND (
          (
@@ -126,7 +127,7 @@ export const factoryOperationsRepository = {
          UPDATE factory_topic_work_items t SET status='running', lease_owner=$1,
            lease_expires_at=NOW()+($2 * INTERVAL '1 second'), heartbeat_at=NOW(),
            started_at=COALESCE(started_at,NOW()), updated_at=NOW()
-         FROM candidate WHERE t.id=candidate.id RETURNING ${topicColumns.replaceAll("id::text", "t.id::text")}`,
+         FROM candidate WHERE t.id=candidate.id RETURNING ${topicColumns.replace(/^  id::text/m, "  t.id::text")}`,
         [workerId, leaseSeconds]
       );
       return rows[0] || null;
@@ -143,25 +144,27 @@ export const factoryOperationsRepository = {
 
   async advance(topicId: string, workerId: string, from: WorkflowStage, to: WorkflowStage, status: TopicWorkItem["status"], context: Record<string, unknown>) {
     const sql = getWriteSql("advancing Factory topic");
-    const [row] = await sql.unsafe<TopicWorkItem[]>(
-      `UPDATE factory_topic_work_items SET current_stage=$1, last_certified_stage=$1, status=$2,
-       stage_context=stage_context || $3::jsonb, lease_owner=NULL, lease_expires_at=NULL, heartbeat_at=NULL,
-       completed_at=CASE WHEN $1='completed' THEN NOW() ELSE completed_at END, updated_at=NOW()
-       WHERE id=$4 AND lease_owner=$5 AND current_stage=$6 RETURNING ${topicColumns}`,
-      [to, status, JSON.stringify(context), topicId, workerId, from]
-    );
-    if (!row) throw new ApiError(409, "WORKFLOW_STATE_CONFLICT", "Workflow state changed while the stage was executing.");
-    return row;
+    const result = await sql`
+      UPDATE factory_topic_work_items SET current_stage=${to}, last_certified_stage=${to}, status=${status},
+        stage_context=(CASE WHEN jsonb_typeof(stage_context)='object' THEN stage_context ELSE '{}'::jsonb END)
+          || ${sql.json(context as never)},
+        lease_owner=NULL, lease_expires_at=NULL, heartbeat_at=NULL,
+        completed_at=CASE WHEN ${to}='completed' THEN NOW() ELSE completed_at END, updated_at=NOW()
+      WHERE id=${topicId} AND lease_owner=${workerId} AND current_stage=${from}
+        AND status='running' AND lease_expires_at >= NOW()`;
+    if (result.count !== 1) throw new ApiError(409, "WORKFLOW_STATE_CONFLICT", "Workflow state changed while the stage was executing.");
+    return this.getTopic(topicId);
   },
 
   async fail(topic: TopicWorkItem, workerId: string, message: string) {
     const sql = getWriteSql("recording Factory topic failure");
     const retry = topic.retryCount + 1;
     const status = retry > topic.maxRetries ? "dead_letter" : "failed";
-    await sql`UPDATE factory_topic_work_items SET status=${status}, retry_count=${retry}, last_error=${message.slice(0, 4000)},
+    const result = await sql`UPDATE factory_topic_work_items SET status=${status}, retry_count=${retry}, last_error=${message.slice(0, 4000)},
       next_attempt_at=NOW()+(LEAST(300, POWER(2, ${retry})) * INTERVAL '1 second'),
       lease_owner=NULL, lease_expires_at=NULL, heartbeat_at=NULL, updated_at=NOW()
-      WHERE id=${topic.id} AND lease_owner=${workerId}`;
+      WHERE id=${topic.id} AND lease_owner=${workerId} AND status='running' AND current_stage=${topic.currentStage}`;
+    if (result.count !== 1) throw new ApiError(409, "LEASE_LOST", "Failed stage cannot mutate a workflow it no longer owns.");
     return status;
   },
 
@@ -180,7 +183,9 @@ export const factoryOperationsRepository = {
 
   async mergeTopicContext(id: string, context: Record<string, unknown>) {
     const sql = getWriteSql("persisting topic institutional lineage");
-    await sql`UPDATE factory_topic_work_items SET stage_context=stage_context || ${sql.json(context as never)}, updated_at=NOW() WHERE id=${id}`;
+    await sql`UPDATE factory_topic_work_items
+      SET stage_context=(CASE WHEN jsonb_typeof(stage_context)='object' THEN stage_context ELSE '{}'::jsonb END)
+        || ${sql.json(context as never)}, updated_at=NOW() WHERE id=${id}`;
   },
 
   async appendInstitutionalEvent(input: { topic: TopicWorkItem; institution: string; eventType: string; boundaryStage: WorkflowStage; authorityRefs?: unknown[]; payload?: Record<string, unknown>; idempotencyKey: string }) {
@@ -224,10 +229,12 @@ export const factoryOperationsRepository = {
         SELECT status FROM factory_publication_verifications WHERE topic_id=t.id ORDER BY created_at DESC LIMIT 1
       ) v ON TRUE
       LEFT JOIN LATERAL (
-        SELECT slug FROM published_memory_projections
-        WHERE projection_type='timeline' AND lifecycle='active'
-          AND lower(COALESCE(payload->'timeline'->>'title',payload->>'title',''))=lower(t.title)
-        ORDER BY created_at DESC LIMIT 1
+        SELECT p.slug FROM historical_library_admissions a
+        JOIN historical_library_published_snapshots s ON s.admission_id=a.id
+        JOIN published_memory_projections p ON p.published_snapshot_id=s.id
+          AND p.projection_type='timeline' AND p.lifecycle='active'
+        WHERE a.publication_package_id=(t.stage_context->>'governancePublicationPackageId')::uuid
+        ORDER BY p.created_at DESC LIMIT 1
       ) p ON TRUE
       WHERE t.status='completed' AND t.completed_at IS NOT NULL
       ORDER BY t.completed_at DESC LIMIT ${Math.max(1, Math.min(50, limit))}`;
@@ -301,6 +308,40 @@ export const factoryOperationsRepository = {
       RETURNING id::text AS id,status`;
     if (!row) throw new ApiError(409, "DUPLICATE_REPLAY", "This certified boundary replay was already requested.");
     return row;
+  },
+
+  async scheduleReplay(input: { topicId: string; boundary: WorkflowStage; actor: string }) {
+    const sql = getWriteSql("atomically scheduling workflow replay");
+    return sql.begin(async (tx) => {
+      const [topic] = await tx.unsafe<TopicWorkItem[]>(
+        `SELECT ${topicColumns} FROM factory_topic_work_items WHERE id=$1 FOR UPDATE`,
+        [input.topicId]
+      );
+      if (!topic) throw new ApiError(404, "TOPIC_NOT_FOUND", "Topic was not found.");
+      if (topic.status === "running" || (topic.leaseOwner && topic.leaseExpiresAt && new Date(topic.leaseExpiresAt) >= new Date())) {
+        throw new ApiError(409, "REPLAY_STAGE_ACTIVE", "Replay cannot replace an actively leased workflow stage.");
+      }
+      const institution = input.boundary === "governance" ? "governance" :
+        ["library_admission", "published", "completed"].includes(input.boundary) ? "historical_library" : "factory";
+      const nextGeneration = topic.executionGeneration + 1;
+      const key = `${topic.workflowId}:${institution}:${input.boundary}:${nextGeneration}`;
+      const replay = await tx.unsafe<{ id: string }[]>(
+        `INSERT INTO operational_replay_requests
+          (topic_id,workflow_id,institution,certified_boundary,status,requested_by,idempotency_key)
+         VALUES ($1,$2,$3,$4,'requested',$5,$6)
+         ON CONFLICT (idempotency_key) DO NOTHING RETURNING id::text AS id`,
+        [topic.id, topic.workflowId, institution, input.boundary, input.actor, key]
+      );
+      if (!replay[0]) throw new ApiError(409, "DUPLICATE_REPLAY", "This certified boundary replay was already requested.");
+      const [updated] = await tx.unsafe<TopicWorkItem[]>(
+        `UPDATE factory_topic_work_items SET status='queued',current_stage=$1,retry_count=0,execution_generation=$2,
+          lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,next_attempt_at=NOW(),updated_at=NOW()
+         WHERE id=$3 AND status <> 'running' AND execution_generation=$4 RETURNING ${topicColumns}`,
+        [input.boundary, nextGeneration, topic.id, topic.executionGeneration]
+      );
+      if (!updated) throw new ApiError(409, "REPLAY_STAGE_ACTIVE", "Replay lost workflow ownership before scheduling.");
+      return updated;
+    });
   },
 
   async getSnapshot(): Promise<OperationsSnapshot> {

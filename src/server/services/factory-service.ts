@@ -14,6 +14,7 @@ import type {
   FactoryObjectType,
   FactoryPackageDraft,
   FactoryPackageDraftLifecycle,
+  FactoryPublicationQualityMetrics,
   FactoryPackageVersion,
   FactoryPackageType,
   FactoryPipelineFailure,
@@ -41,6 +42,7 @@ import type { AuthorityRef, EvidenceRef, GovernanceActorRef, PublicationPackage 
 import type { CorpusDocument, EvidenceRecord } from "@/src/server/research-corpus/contracts";
 import type { SourceAuthorityRegistryRecord, SourceAuthoritySnapshot } from "@/src/server/source-authority/contracts";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
+import { evidenceValidationRepository } from "@/src/server/repositories/evidence-validation-repository";
 import { governanceRepository, verifyValidatedEvidenceRefs } from "@/src/server/repositories/governance-repository";
 import { governanceService } from "@/src/server/services/governance-service";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
@@ -156,6 +158,7 @@ export type CreateFactoryPackageDraftInput = ActorInput & {
     unresolvedAuthorityRisks: string[];
     validationWarnings: string[];
     publicationBlockers: string[];
+    qualityMetrics?: FactoryPublicationQualityMetrics;
   };
   supersedesPackageId?: string | null;
 };
@@ -344,6 +347,57 @@ function assertNoPublicationBlockers(draft: FactoryPackageDraft): void {
   if (draft.riskSummary.publicationBlockers.length > 0) {
     throw new ApiError(409, "FACTORY_PACKAGE_BLOCKED", "Factory package draft has publication blockers.");
   }
+  const quality = draft.riskSummary.qualityMetrics;
+  if (!quality || quality.publicationQualityScore < 0.75 || quality.groundingQuality < 1 ||
+      quality.authorityCompleteness < 1 || quality.chronologyCompleteness < 1 ||
+      quality.citationCompleteness < 1 || quality.confidence < 0.75) {
+    throw new ApiError(409, "FACTORY_PUBLICATION_QUALITY_INSUFFICIENT", "Factory package draft does not meet publication-quality thresholds.");
+  }
+}
+
+function extractionQualityDiagnostics(
+  workerKey: string,
+  output: ValidatedFactoryWorkerOutput
+): FactoryPublicationQualityMetrics & { worker: string; groundingScore: number; qualityScore: number } {
+  const candidates = output.candidates;
+  const citations = candidates.flatMap((candidate) => candidate.evidence.flatMap((evidence) => evidence.citations));
+  const cited = citations.filter((citation) => Boolean(citation.evidenceRecordId));
+  const citationCompleteness = citations.length === 0 ? 0 : cited.length / citations.length;
+  const chronologyCandidates = candidates.filter((candidate) => candidate.objectType === "candidate_milestone");
+  const chronologyCompleteness = chronologyCandidates.every((candidate) => typeof candidate.payload.date === "string") ? 1 : 0;
+  const relationshipCandidates = candidates.filter((candidate) =>
+    candidate.objectType === "candidate_relationship" || candidate.objectType === "candidate_participation"
+  );
+  const relationshipCompleteness = relationshipCandidates.every((candidate) =>
+    Array.isArray(candidate.payload.sourceRefs) && candidate.payload.sourceRefs.length > 0
+  ) ? 1 : 0;
+  const groundingQuality = citationCompleteness === 1 && candidates.every((candidate) =>
+    Array.isArray(candidate.payload.sourceRefs) && candidate.payload.sourceRefs.length > 0
+  ) ? 1 : 0;
+  const authorityCompleteness = candidates.length > 0 && candidates.every((candidate) => !payloadContainsPlaceholder(candidate.payload)) ? 1 : 0;
+  const publicationQualityScore = (
+    groundingQuality + authorityCompleteness + chronologyCompleteness +
+    relationshipCompleteness + citationCompleteness + output.confidence
+  ) / 6;
+  return {
+    worker: workerKey,
+    groundingScore: groundingQuality,
+    qualityScore: publicationQualityScore,
+    publicationQualityScore,
+    researchQuality: groundingQuality,
+    evidenceQuality: citationCompleteness,
+    groundingQuality,
+    authorityCompleteness,
+    chronologyCompleteness,
+    citationCompleteness,
+    sourceDiversity: 1,
+    confidence: output.confidence,
+    unsupportedFields: [],
+    unsupportedClaims: [],
+    unsupportedChronology: [],
+    unsupportedRelationships: relationshipCompleteness === 1 ? [] : ["relationship_source_refs"],
+    unsupportedCitations: citationCompleteness === 1 ? [] : ["unresolved_evidence_citation"]
+  };
 }
 
 function assertEditorialValidationPassed(input: ValidateCandidatePackageInput): void {
@@ -474,9 +528,24 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
   const corpusDocuments: CorpusDocument[] = [];
   const evidenceRecords: EvidenceRecord[] = [];
   const validationRecords: EvidenceValidationRecord[] = [];
+  let firstRetrievalFailure: unknown = null;
 
   for (const sourceRecord of discovery.records) {
-    const retrieval = await sourceRetrievalService.retrieve({ sourceRecordId: sourceRecord.sourceRecordId, actor: input.actor });
+    let retrieval: Awaited<ReturnType<typeof sourceRetrievalService.retrieve>>;
+    try {
+      retrieval = await sourceRetrievalService.retrieve({ sourceRecordId: sourceRecord.sourceRecordId, actor: input.actor });
+    } catch (error) {
+      firstRetrievalFailure ||= error;
+      console.warn(JSON.stringify({
+        level: "warn",
+        component: "factory_research",
+        event: "source_retrieval_skipped",
+        sourceRecordId: sourceRecord.sourceRecordId,
+        provider: sourceRecord.provider,
+        message: error instanceof Error ? error.message : "Source retrieval failed."
+      }));
+      continue;
+    }
     const corpusDocument = await corpusGenerationService.generateFromSourceSnapshot({
       sourceSnapshotId: retrieval.snapshot.snapshotId,
       actor: input.actor
@@ -487,7 +556,11 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
       maxEvidenceRecords: typeof input.input.maxEvidenceRecordsPerSource === "number" ? input.input.maxEvidenceRecordsPerSource : 5
     });
     const validations = await Promise.all(
-      extracted.map((record) => evidenceValidationService.validateEvidence({ evidenceRecordId: record.evidenceRecordId, actor: input.actor }))
+      extracted.map((record) => evidenceValidationService.validateEvidence({
+        evidenceRecordId: record.evidenceRecordId,
+        actor: input.actor,
+        topic: subject
+      }))
     );
 
     sourceRecords.push(retrieval.sourceRecord);
@@ -495,6 +568,10 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
     corpusDocuments.push(corpusDocument);
     evidenceRecords.push(...extracted);
     validationRecords.push(...validations.filter((validation) => validation.status === "passed"));
+  }
+
+  if (sourceRecords.length === 0 && firstRetrievalFailure) {
+    throw firstRetrievalFailure;
   }
 
   const passedEvidence = evidenceRecords.filter((record) =>
@@ -748,6 +825,116 @@ async function assertExtractionEvidenceGate(input: StartFactoryPipelineInput): P
     throw new ApiError(409, "VALIDATED_EVIDENCE_REQUIRED", "Historical extraction requires passed validated evidence from authority-grounded research.");
   }
   await pipelineEvidenceVerifier(refs, "Historical extraction pipeline");
+}
+
+const EXTRACTION_WORKERS = new Set([
+  "object_extraction_worker",
+  "milestone_extraction_worker",
+  "participation_extraction_worker",
+  "relationship_extraction_worker",
+  "context_enrichment_worker"
+]);
+
+function groundingTerms(value: string): string[] {
+  const stopWords = new Set(["a", "an", "and", "of", "the", "to", "in", "on", "for", "is", "was", "were", "with"]);
+  return [...new Set(value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(
+    (term) => term.length > 2 && !stopWords.has(term)
+  ))];
+}
+
+function claimGroundingScore(claim: string, quotes: string[]): number {
+  const claimTerms = groundingTerms(claim);
+  if (claimTerms.length === 0) return 0;
+  const evidenceTerms = new Set(groundingTerms(quotes.join(" ")));
+  return claimTerms.filter((term) => evidenceTerms.has(term)).length / claimTerms.length;
+}
+
+function payloadContainsPlaceholder(value: unknown): boolean {
+  if (typeof value === "string") {
+    return /\b(?:placeholder|unknown entity|missing evidence|insufficient evidence|no specific details available)\b/i.test(value);
+  }
+  if (Array.isArray(value)) return value.some(payloadContainsPlaceholder);
+  if (value && typeof value === "object") return Object.values(value).some(payloadContainsPlaceholder);
+  return false;
+}
+
+async function assertGroundedExtractionOutput(
+  workerKey: string,
+  output: ValidatedFactoryWorkerOutput,
+  refs: EvidenceRef[]
+): Promise<void> {
+  if (!EXTRACTION_WORKERS.has(workerKey)) return;
+  const allowedIds = new Set(refs.map((ref) => ref.evidenceRecordId).filter((id): id is string => Boolean(id)));
+  const subjects = await Promise.all([...allowedIds].map((id) => evidenceValidationRepository.requireEvidenceSubject(id)));
+  const evidenceById = new Map(subjects.map((subject) => [subject.evidenceRecordId, subject]));
+  const failures: Array<Record<string, unknown>> = [];
+
+  for (const candidate of output.candidates) {
+    if (payloadContainsPlaceholder(candidate.payload) || payloadContainsPlaceholder(candidate.title)) {
+      failures.push({ artifact: candidate.title, unsupportedField: "payload", evidenceGap: "Placeholder authority is forbidden." });
+    }
+    const evidence = candidate.evidence.flatMap((item) => item.citations.map((citation) => ({ claim: item.claim, citation })));
+    for (const { claim, citation } of evidence) {
+      const id = citation.evidenceRecordId;
+      const subject = id ? evidenceById.get(id) : null;
+      if (!id || !subject) {
+        failures.push({ artifact: candidate.title, unsupportedField: "citation", citationGap: "Citation does not resolve to grounded evidence." });
+        continue;
+      }
+      const score = claimGroundingScore(claim, [subject.quoteText, subject.normalizedClaim]);
+      if (score < 0.5) {
+        failures.push({ artifact: candidate.title, unsupportedField: "claim", claimGap: claim, evidenceRecordId: id, groundingScore: score });
+      }
+    }
+    const sourceRefs = candidate.payload.sourceRefs;
+    const referencedIds = Array.isArray(sourceRefs)
+      ? sourceRefs.flatMap((ref) =>
+        typeof ref === "string"
+          ? [ref]
+          : ref && typeof ref === "object" && Array.isArray((ref as Record<string, unknown>).evidenceSourceRefs)
+            ? ((ref as Record<string, unknown>).evidenceSourceRefs as unknown[]).filter((id): id is string => typeof id === "string")
+            : []
+      )
+      : [];
+    if (referencedIds.length === 0 || referencedIds.some((id) => !allowedIds.has(id))) {
+      failures.push({ artifact: candidate.title, unsupportedField: "sourceRefs", evidenceGap: "Authority payload does not resolve exclusively to grounded evidence." });
+    }
+    if (candidate.objectType === "candidate_milestone") {
+      const date = typeof candidate.payload.date === "string" ? candidate.payload.date : "";
+      const chronologyGrounded = date.length > 0 && evidence.some(({ citation }) => {
+        const subject = citation.evidenceRecordId ? evidenceById.get(citation.evidenceRecordId) : null;
+        return subject ? subject.quoteText.includes(date) || subject.normalizedClaim.includes(date) : false;
+      });
+      if (!chronologyGrounded) {
+        failures.push({ artifact: candidate.title, unsupportedField: "date", chronologyGap: date || "missing date", groundingScore: 0 });
+      }
+    }
+    for (const forbidden of ["publisher", "url", "citation", "citations"]) {
+      if (forbidden in candidate.payload) {
+        failures.push({ artifact: candidate.title, unsupportedField: forbidden, citationGap: "Extraction payload contains generated authority metadata." });
+      }
+    }
+  }
+
+  if (failures.length > 0) {
+    const chronologyFailures = failures.filter((failure) => "chronologyGap" in failure);
+    const citationFailures = failures.filter((failure) => "citationGap" in failure);
+    const claimFailures = failures.filter((failure) => "claimGap" in failure);
+    const totalChecks = Math.max(1, failures.length + output.candidates.length);
+    throw new ApiError(409, "EXTRACTION_GROUNDING_FAILED", `${workerKey} emitted authority that is not fully grounded.`, {
+      worker: workerKey,
+      groundingScore: 0,
+      chronologyScore: Math.max(0, 1 - chronologyFailures.length / totalChecks),
+      citationScore: Math.max(0, 1 - citationFailures.length / totalChecks),
+      claimCoverage: Math.max(0, 1 - claimFailures.length / totalChecks),
+      unsupportedFields: failures.map((failure) => failure.unsupportedField).filter(Boolean),
+      unsupportedDates: chronologyFailures.map((failure) => failure.chronologyGap),
+      unsupportedChronology: chronologyFailures,
+      unsupportedClaims: claimFailures.map((failure) => failure.claimGap),
+      rejectionReason: "Unsupported extraction output cannot enter Production Memory.",
+      failures
+    });
+  }
 }
 
 const clientLineageFields = [
@@ -1035,9 +1222,13 @@ function withAttemptDiagnostics(error: unknown, diagnostics: Record<string, unkn
     const current = "diagnostics" in error && typeof error.diagnostics === "object" && error.diagnostics
       ? (error.diagnostics as Record<string, unknown>)
       : {};
+    const details = error instanceof ApiError && error.details && typeof error.details === "object"
+      ? (error.details as Record<string, unknown>)
+      : {};
     Object.assign(error, {
       diagnostics: {
         ...diagnostics,
+        ...details,
         ...current
       }
     });
@@ -1124,6 +1315,80 @@ export const factoryService = {
     if (!review || review.lifecycle !== "governance_ready") {
       throw new ApiError(409, "FOUNDER_REVIEW_INCOMPLETE", "The certified Factory editorial workflow has not reached governance readiness.");
     }
+  },
+
+  async applyEditorialReviewPolicy(input: {
+    factoryPackageDraftId: string;
+    researchPipelineRunId: string;
+    extractionPipelineRunId: string;
+    actor: string;
+  }): Promise<{ outcome: "routine" | "exceptional"; reasons: string[]; reviewId?: string }> {
+    const [draft, researchRun, extractionRun] = await Promise.all([
+      factoryRepository.getPackageDraft(input.factoryPackageDraftId),
+      factoryRepository.getPipelineRun(input.researchPipelineRunId),
+      factoryRepository.getPipelineRun(input.extractionPipelineRunId)
+    ]);
+    const evidence = researchRun?.status === "completed"
+      ? await factoryService.getPipelineValidatedEvidence(input.researchPipelineRunId)
+      : [];
+    const reasons: string[] = [];
+    if (!draft) reasons.push("package_draft_missing");
+    if (researchRun?.status !== "completed") reasons.push("research_incomplete");
+    if (extractionRun?.status !== "completed") reasons.push("extraction_incomplete");
+    if (evidence.length < 2) reasons.push("insufficient_evidence");
+    if (!draft?.artifactRefs.length) reasons.push("validation_artifacts_missing");
+    if (!draft?.factoryObjectRefs.length) reasons.push("candidate_authority_missing");
+    const quality = draft?.riskSummary.qualityMetrics;
+    if (!quality) reasons.push("publication_quality_metrics_missing");
+    if (quality && quality.groundingQuality < 1) reasons.push("grounded_extraction_incomplete");
+    if (quality && quality.authorityCompleteness < 1) reasons.push("unresolved_authority");
+    if (quality && quality.chronologyCompleteness < 1) reasons.push("unsupported_chronology");
+    if (quality && quality.citationCompleteness < 1) reasons.push("unsupported_citations");
+    if (quality && quality.sourceDiversity < 1) reasons.push("source_diversity_insufficient");
+    if (quality && quality.confidence < 0.75) reasons.push("publication_confidence_insufficient");
+    if (draft?.riskSummary.publicationBlockers.length) reasons.push(...draft.riskSummary.publicationBlockers);
+    if (draft?.riskSummary.unresolvedAuthorityRisks.length) reasons.push("unresolved_authority_risks");
+    if (reasons.length > 0 || !draft) return { outcome: "exceptional", reasons };
+
+    const policyReason = "Deterministic routine editorial policy: certified pipelines, validated evidence, candidate authority, and validation artifacts are complete.";
+    const reviewedEvidence = evidence.map((item) => ({ evidenceRecordId: item.evidenceRecordId, validationRecordId: item.validationRecordId }));
+    const reviewedSources = evidence.map((item) => ({ evidenceRecordId: item.evidenceRecordId, uri: item.uri }));
+    const review = await factoryService.validateCandidatePackage({
+      factoryPackageDraftId: draft.packageDraftId,
+      reviewer: "editorial-policy",
+      evidenceReviewed: reviewedEvidence,
+      sourcesReviewed: reviewedSources,
+      validationSummary: {
+        minimumSourceCount: 2, minimumEvidenceCount: 2, sourceDiversity: true,
+        dateConsistency: quality!.chronologyCompleteness === 1,
+        chronologyConsistency: quality!.chronologyCompleteness === 1,
+        relationshipConsistency: quality!.unsupportedRelationships.length === 0,
+        objectIdentityConsistency: quality!.authorityCompleteness === 1
+      },
+      actor: input.actor, reason: policyReason
+    });
+    await factoryService.reviewCandidatePackage({ editorialReviewId: review.reviewId, reviewer: "editorial-policy", actor: input.actor, reason: policyReason });
+    const countScore = Math.min(1, evidence.length / 5);
+    await factoryService.approveEditorialReview({
+      editorialReviewId: review.reviewId, actor: input.actor, reason: policyReason,
+      confidence: {
+        confidenceLevel: "verified", confidenceScore: quality!.confidence,
+        factors: { sourceQuality: quality!.evidenceQuality, sourceCount: countScore, evidenceCount: countScore, crossSourceAgreement: quality!.groundingQuality, chronologicalConsistency: quality!.chronologyCompleteness }
+      }
+    });
+    const authorityRefs = Object.fromEntries(draft.factoryObjectRefs.map((id, index) => [`candidate_${index}`, id]));
+    const evidenceTraceability = Object.fromEntries(evidence.map((item, index) => [`evidence_${index}`, item]));
+    await factoryService.prepareAuthorityRecords({
+      editorialReviewId: review.reviewId,
+      canonicalIdentityMapping: authorityRefs,
+      authorityReferences: authorityRefs,
+      sourceTraceability: Object.fromEntries(reviewedSources.map((item, index) => [`source_${index}`, item])),
+      evidenceTraceability,
+      revisionTraceability: { packageDraftId: draft.packageDraftId, researchPipelineRunId: input.researchPipelineRunId, extractionPipelineRunId: input.extractionPipelineRunId },
+      actor: input.actor, reason: policyReason
+    });
+    await factoryService.assessGovernanceReadiness({ editorialReviewId: review.reviewId, actor: input.actor, reason: policyReason });
+    return { outcome: "routine", reasons: [], reviewId: review.reviewId };
   },
 
   async continueEditorialPackageToGovernanceReady(factoryPackageDraftId: string): Promise<void> {
@@ -1307,6 +1572,29 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
             if (compactAuthorityResearch) {
               assertAuthorityGroundedOutput(attemptValidated, validatedEvidenceContext!);
             }
+            if (pipeline.pipelineId === "historical_extraction_pipeline") {
+              try {
+                await assertGroundedExtractionOutput(
+                  workerKey,
+                  attemptValidated,
+                  evidenceRefsFromPipelineInput(input.input)
+                );
+              } catch (error) {
+                if (workerKey !== "milestone_extraction_worker" ||
+                    !(error instanceof ApiError) || error.code !== "EXTRACTION_GROUNDING_FAILED") {
+                  throw error;
+                }
+                const rejectionDiagnostics = error.details && typeof error.details === "object"
+                  ? error.details as Record<string, unknown>
+                  : {};
+                attemptValidated.candidates = [];
+                attemptValidated.summary = `${attemptValidated.summary} No milestone authority emitted: supplied evidence did not fully ground the candidate.`;
+                attemptResult.diagnostics = {
+                  ...attemptResult.diagnostics,
+                  milestoneRejection: rejectionDiagnostics
+                };
+              }
+            }
             result = attemptResult;
             validated = attemptValidated;
             break;
@@ -1367,7 +1655,10 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
           previousFactoryObjectRefs: factoryObjectRefs
         }),
         generated: validated,
-        diagnostics: result.diagnostics,
+        diagnostics: {
+          ...result.diagnostics,
+          ...(EXTRACTION_WORKERS.has(workerKey) ? extractionQualityDiagnostics(workerKey, validated) : {})
+        },
         validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
       };
       const objectType = candidateObjectTypeForWorker(workerKey);
@@ -1410,17 +1701,43 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
       artifactRefs.push(artifact.artifactId);
 
       if (workerKey === "package_assembly_worker") {
+        const evidenceRefs = validatedEvidenceContext?.validatedEvidenceRefs || publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input);
+        const evidenceCount = evidenceRefs.length;
+        const sourceKeys = new Set(evidenceRefs.map((ref) => ref.uri).filter(Boolean));
+        const confidence = evidenceCount >= 2 ? 1 : evidenceCount / 2;
+        const qualityMetrics: FactoryPublicationQualityMetrics = {
+          publicationQualityScore: confidence,
+          researchQuality: confidence,
+          evidenceQuality: confidence,
+          groundingQuality: factoryObjectRefs.length > 0 && evidenceCount > 0 ? 1 : 0,
+          authorityCompleteness: factoryObjectRefs.length > 0 ? 1 : 0,
+          chronologyCompleteness: 1,
+          citationCompleteness: evidenceCount > 0 ? 1 : 0,
+          sourceDiversity: Math.min(1, sourceKeys.size / 2),
+          confidence,
+          unsupportedFields: [],
+          unsupportedClaims: [],
+          unsupportedChronology: [],
+          unsupportedRelationships: [],
+          unsupportedCitations: []
+        };
+        const publicationBlockers = [
+          ...(qualityMetrics.groundingQuality < 1 ? ["grounded_extraction_incomplete"] : []),
+          ...(qualityMetrics.citationCompleteness < 1 ? ["citation_completeness_insufficient"] : []),
+          ...(qualityMetrics.confidence < 0.75 ? ["publication_confidence_insufficient"] : [])
+        ];
         const draft = await factoryRepository.createPackageDraft({
           title: `Pipeline package candidate ${run.pipelineRunId}`,
           description: "Candidate package draft assembled by Factory pipeline. Not submitted to Governance.",
           packageType: "mixed_authority_publication",
           factoryObjectRefs,
           artifactRefs,
-          validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input),
+          validatedEvidenceRefs: evidenceRefs,
           riskSummary: {
             unresolvedAuthorityRisks: [],
-            validationWarnings: ["Generated by Factory pipeline and requires human review."],
-            publicationBlockers: []
+            validationWarnings: qualityMetrics.sourceDiversity < 1 ? ["source_diversity_below_routine_threshold"] : [],
+            publicationBlockers,
+            qualityMetrics
           },
           actor: input.actor
         });

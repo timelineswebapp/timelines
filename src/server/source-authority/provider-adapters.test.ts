@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
-import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
+import {
+  assessSourceRelevance,
+  buildHistoricalDiscoveryQueries,
+  sourceDiscoveryService
+} from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
 import { resetSourceProviderHealth, setSourceProviderRuntimeStoreForTests } from "@/src/server/source-authority/resilience";
 import type { SourceAuthorityRegistryRecord } from "@/src/server/source-authority/contracts";
@@ -11,6 +15,61 @@ const originalRegister = sourceAuthorityRepository.registerDiscoveredSource;
 const originalRequire = sourceAuthorityRepository.requireSourceRecord;
 const originalCreateSnapshot = sourceAuthorityRepository.createSnapshot;
 const originalLatestSnapshot = sourceAuthorityRepository.getLatestSnapshot;
+
+test("historical discovery queries are deterministic, bounded, and subject-preserving", () => {
+  assert.deepEqual(buildHistoricalDiscoveryQueries("The History of Pandemics"), [
+    "The History of Pandemics",
+    "Pandemics",
+    "Pandemic",
+    "Pandemic history"
+  ]);
+});
+
+test("Source Relevance Authority rejects audited ontology drift and accepts Topic-aligned authority", () => {
+  const unrelated = assessSourceRelevance("The History of Pandemics", {
+    provider: "dbpedia",
+    providerRecordId: "United_States_National_Security_Council",
+    canonicalUrl: "https://dbpedia.org/data/United_States_National_Security_Council.json",
+    title: "United States National Security Council",
+    description: "The principal forum for United States national security and foreign policy.",
+    sourceType: "knowledge_base_entity",
+    originUrl: "https://dbpedia.org/resource/United_States_National_Security_Council",
+    raw: {}
+  });
+  const relevant = assessSourceRelevance("The History of Pandemics", {
+    provider: "library_of_congress",
+    providerRecordId: "pandemic-history",
+    canonicalUrl: "https://www.loc.gov/item/pandemic-history/",
+    title: "A history of pandemics and public health",
+    description: "Historical records documenting pandemic disease and public-health responses.",
+    sourceType: "library_record",
+    originUrl: "https://www.loc.gov/item/pandemic-history/",
+    raw: {}
+  });
+
+  assert.equal(unrelated.accepted, false);
+  assert.equal(unrelated.topicalRelevance, 0);
+  assert.match(unrelated.semanticMismatch || "", /pandemics/);
+  assert.equal(relevant.accepted, true);
+  assert.equal(relevant.relevanceScore, 1);
+});
+
+test("Source Relevance Authority rejects incidental Topic terms found only in an unrelated description", () => {
+  const result = assessSourceRelevance("The History of Pandemics", {
+    provider: "dbpedia",
+    providerRecordId: "Category:1947_establishments_in_the_United_States",
+    canonicalUrl: "https://dbpedia.org/data/Category:1947_establishments_in_the_United_States.json",
+    title: "1947 establishments in the United States",
+    description: "A category containing an organisation whose long description incidentally mentions pandemics.",
+    sourceType: "knowledge_base_entity",
+    originUrl: "https://dbpedia.org/resource/Category:1947_establishments_in_the_United_States",
+    raw: {}
+  });
+
+  assert.equal(result.topicalRelevance, 1);
+  assert.equal(result.semanticRelevance, 0);
+  assert.equal(result.accepted, false);
+});
 
 function restore() {
   globalThis.fetch = originalFetch;

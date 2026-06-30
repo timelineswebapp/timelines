@@ -13,6 +13,9 @@ export type EvidenceValidationSubject = EvidenceRecord & {
   sourceSnapshotExists: boolean;
   sourceRecordExists: boolean;
   corpusTextLength: number | null;
+  sourceTitle: string | null;
+  sourceDescription: string | null;
+  sourceProvenance: Record<string, unknown> | null;
 };
 
 export type CreateEvidenceValidationRecordInput = {
@@ -45,6 +48,9 @@ export const evidenceValidationRepository = {
         (source_authority_snapshots.id IS NOT NULL) AS "sourceSnapshotExists",
         (source_authority_records.id IS NOT NULL) AS "sourceRecordExists",
         length(corpus_documents.normalized_text)::int AS "corpusTextLength"
+        ,source_authority_records.title AS "sourceTitle"
+        ,source_authority_records.description AS "sourceDescription"
+        ,source_authority_records.provenance AS "sourceProvenance"
       FROM evidence_records
       LEFT JOIN corpus_documents
         ON corpus_documents.id = evidence_records.corpus_document_id
