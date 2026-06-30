@@ -26,13 +26,14 @@ test("dispatcher leasing is globally bounded and isolates locked work", async ()
   assert.doesNotMatch(source, /replaceAll\("id::text"/);
 });
 
-test("EXECUTION-001 renews ownership and makes terminal mutation lease-version safe", async () => {
+test("Runtime V2 uses worker-scoped leases without process-local heartbeats", async () => {
   const [service, repository] = await Promise.all([
     readFile("src/server/services/factory-operations-service.ts", "utf8"),
     readFile("src/server/repositories/factory-operations-repository.ts", "utf8")
   ]);
-  assert.match(service, /WORKFLOW_HEARTBEAT_MS = 20_000/);
-  assert.match(service, /repository\.heartbeat\(topic\.id, workerId, WORKFLOW_LEASE_SECONDS\)/);
+  assert.match(service, /WORKER_LEASE_SECONDS = 180/);
+  assert.doesNotMatch(service, /setInterval|WORKFLOW_HEARTBEAT_MS/);
+  assert.match(service, /maxWorkers: 1/);
   assert.match(service, /topic\.status !== "running" \|\| topic\.leaseOwner !== workerId/);
   assert.match(repository, /lease_expires_at >= NOW\(\)/);
   assert.match(repository, /AND status='running' AND current_stage=\$\{topic\.currentStage\}/);

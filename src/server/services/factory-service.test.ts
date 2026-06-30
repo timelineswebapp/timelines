@@ -1838,7 +1838,8 @@ describe("factory production memory foundation", () => {
         reason: "Evidence-backed publication candidate assembly."
       });
 
-      assert.deepEqual(state.pipelineStatuses, ["running", "completed"]);
+      assert.equal(state.pipelineStatuses.at(0), "running");
+      assert.equal(state.pipelineStatuses.at(-1), "completed");
       assert.equal(state.packageDrafts.length, 1);
       assert.equal(state.packageDrafts[0].validatedEvidenceRefs[0].evidenceRecordId, "evidence-1");
       assert.deepEqual(

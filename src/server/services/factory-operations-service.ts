@@ -14,8 +14,7 @@ const nextStage: Record<WorkflowStage, WorkflowStage> = {
   published: "completed", completed: "completed"
 };
 const waitingStages = new Set<WorkflowStage>(["founder_review", "governance"]);
-const WORKFLOW_LEASE_SECONDS = 60;
-const WORKFLOW_HEARTBEAT_MS = 20_000;
+const WORKER_LEASE_SECONDS = 180;
 
 function assertReplayBoundary(stage: WorkflowStage, topic: TopicWorkItem) {
   if (workflowStages.indexOf(stage) > workflowStages.indexOf(topic.lastCertifiedStage)) {
@@ -149,15 +148,6 @@ export const factoryOperationsService = {
     }
     const from = topic.currentStage;
     let to = nextStage[from];
-    let leaseFailure: unknown = null;
-    let heartbeatInFlight = false;
-    const heartbeat = setInterval(() => {
-      if (heartbeatInFlight || leaseFailure) return;
-      heartbeatInFlight = true;
-      void repository.heartbeat(topic.id, workerId, WORKFLOW_LEASE_SECONDS)
-        .catch((error) => { leaseFailure = error; })
-        .finally(() => { heartbeatInFlight = false; });
-    }, WORKFLOW_HEARTBEAT_MS);
     await repository.appendHistory(topic.id, "stage_execute", from, to, "started", topic.retryCount + 1, { workerId });
     try {
       const context: Record<string, unknown> = {};
@@ -176,11 +166,16 @@ export const factoryOperationsService = {
         const run = await factoryService.startPipeline({
           pipelineId: pipelineIds[from],
           input: pipelineInput,
+          pipelineRunId: typeof topic.stageContext[`${from.replace("_candidate", "")}PipelineRunId`] === "string"
+            ? topic.stageContext[`${from.replace("_candidate", "")}PipelineRunId`] as string
+            : undefined,
+          maxWorkers: 1,
           actor: "factory-operations",
           reason: `PE-001 workflow ${topic.workflowId}`
         });
         if (!run) throw new ApiError(500, "FACTORY_PIPELINE_NO_RESULT", "Factory pipeline returned no persisted run.");
         context[`${from.replace("_candidate", "")}PipelineRunId`] = run.pipelineRunId;
+        if (run.status === "running") to = from;
         if (run.packageDraftId) context.factoryPackageDraftId = run.packageDraftId;
         if (from === "publication_candidate" && run.packageDraftId) {
           const researchPipelineRunId = topic.stageContext.researchPipelineRunId;
@@ -218,8 +213,6 @@ export const factoryOperationsService = {
           }
         }
       }
-      if (leaseFailure) throw leaseFailure;
-      await repository.heartbeat(topic.id, workerId, WORKFLOW_LEASE_SECONDS);
       const status = to === "completed" ? "completed" : waitingStages.has(to) ? "waiting" : "queued";
       const updated = await repository.advance(topic.id, workerId, from, to, status, context);
       await repository.appendHistory(topic.id, "stage_execute", from, to, waitingStages.has(to) ? "waiting" : "succeeded", topic.retryCount + 1, { workerId, ...context });
@@ -250,8 +243,6 @@ export const factoryOperationsService = {
       });
       console.error(JSON.stringify({ level: "error", component: "factory_operations", event: "topic_stage_failed", topicId: topic.id, workflowId: topic.workflowId, stage: from, message }));
       return null;
-    } finally {
-      clearInterval(heartbeat);
     }
   },
 
@@ -270,7 +261,7 @@ export const factoryOperationsService = {
     }
     const workerPrefix = `dispatcher-${randomUUID()}`;
     const topics = (await Promise.all(Array.from({ length: control.concurrency }, (_, index) =>
-      repository.leaseNext(`${workerPrefix}-${index}`, WORKFLOW_LEASE_SECONDS, input.force)))).filter((topic): topic is TopicWorkItem => Boolean(topic));
+      repository.leaseNext(`${workerPrefix}-${index}`, WORKER_LEASE_SECONDS, input.force)))).filter((topic): topic is TopicWorkItem => Boolean(topic));
     await Promise.allSettled(topics.map((topic, index) => this.executeLeasedTopic(topic, `${workerPrefix}-${index}`)));
     if (control.mode === "pause_after_current") await repository.setControl("paused", input.actor);
     return { leased: topics.length, completed: topics.length, mode: control.mode };

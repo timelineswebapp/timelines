@@ -1,8 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/cron/operations",
-      "schedule": "0 0 * * *"
+      "path": "/api/cron/factory",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/governance",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/maintenance",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

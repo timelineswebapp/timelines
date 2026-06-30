@@ -596,6 +596,8 @@ export const factoryRepository = {
     const [row] = await sql<FactoryPipelineStep[]>`
       INSERT INTO factory_pipeline_steps (pipeline_run_id, step_index, worker_key, input)
       VALUES (${input.pipelineRunId}, ${input.stepIndex}, ${input.workerKey}, ${sql.json(input.input as any)})
+      ON CONFLICT (pipeline_run_id, step_index) DO UPDATE
+      SET worker_key = EXCLUDED.worker_key
       RETURNING
         id::text AS "pipelineStepId",
         pipeline_run_id::text AS "pipelineRunId",
@@ -612,6 +614,19 @@ export const factoryRepository = {
         updated_at::text AS "updatedAt"
     `;
     return row!;
+  },
+
+  async listPipelineSteps(pipelineRunId: string): Promise<FactoryPipelineStep[]> {
+    const sql = getWriteSql("listing factory pipeline checkpoints");
+    return sql<FactoryPipelineStep[]>`
+      SELECT id::text AS "pipelineStepId", pipeline_run_id::text AS "pipelineRunId",
+        step_index::int AS "stepIndex", worker_key AS "workerKey", status, input, output,
+        artifact_refs AS "artifactRefs", factory_object_refs AS "factoryObjectRefs",
+        started_at::text AS "startedAt", completed_at::text AS "completedAt",
+        created_at::text AS "createdAt", updated_at::text AS "updatedAt"
+      FROM factory_pipeline_steps
+      WHERE pipeline_run_id=${pipelineRunId}
+      ORDER BY step_index`;
   },
 
   async transitionPipelineStep(input: {

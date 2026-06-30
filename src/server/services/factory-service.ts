@@ -50,6 +50,7 @@ import { sourceRetrievalService } from "@/src/server/services/source-retrieval-s
 import { corpusGenerationService } from "@/src/server/services/corpus-generation-service";
 import { evidenceExtractionService } from "@/src/server/services/evidence-extraction-service";
 import { evidenceValidationService } from "@/src/server/services/evidence-validation-service";
+import { withWriteTransaction } from "@/src/server/db/client";
 
 type TransitionMap<T extends string> = Record<T, readonly T[]>;
 
@@ -234,6 +235,8 @@ export type ExecuteFactoryRuntimeJobInput = ActorInput & {
 export type StartFactoryPipelineInput = ActorInput & {
   pipelineId: string;
   input: Record<string, unknown>;
+  pipelineRunId?: string;
+  maxWorkers?: number;
 };
 
 export type CancelFactoryPipelineInput = ActorInput & {
@@ -1427,29 +1430,47 @@ export const factoryService = {
       throw new ApiError(409, "FACTORY_PIPELINE_WORKER_MISSING", `Pipeline worker ${missingWorker} is not registered in the canonical worker registry.`);
     }
 
-    const run = await factoryRepository.createPipelineRun({
+    const existingRun = input.pipelineRunId
+      ? await factoryRepository.getPipelineRun(input.pipelineRunId)
+      : null;
+    if (input.pipelineRunId && (!existingRun || existingRun.pipelineId !== pipeline.pipelineId)) {
+      throw new ApiError(409, "FACTORY_PIPELINE_RESUME_MISMATCH", "Pipeline resume requires the matching persisted run.");
+    }
+    if (existingRun?.status === "completed") {
+      return existingRun;
+    }
+    if (existingRun && existingRun.status !== "running") {
+      throw new ApiError(409, "FACTORY_PIPELINE_NOT_RESUMABLE", `Pipeline run in ${existingRun.status} state cannot resume.`);
+    }
+    const run = existingRun || await factoryRepository.createPipelineRun({
       pipelineId: pipeline.pipelineId,
       input: publicationLineage
         ? { ...input.input, factoryResolvedLineage: publicationLineage.predecessorRunIds }
         : input.input,
       actor: input.actor
     });
-    const artifactRefs: string[] = [...(publicationLineage?.artifactRefs || [])];
-    const factoryObjectRefs: string[] = [...(publicationLineage?.factoryObjectRefs || [])];
-    let packageDraftId: string | null = null;
+    const completedSteps = existingRun ? await factoryRepository.listPipelineSteps(run.pipelineRunId) : [];
+    const artifactRefs: string[] = existingRun ? [...run.artifactRefs] : [...(publicationLineage?.artifactRefs || [])];
+    const factoryObjectRefs: string[] = existingRun ? [...run.factoryObjectRefs] : [...(publicationLineage?.factoryObjectRefs || [])];
+    let packageDraftId: string | null = run.packageDraftId;
     let validatedEvidenceContext: ValidatedEvidenceContext | null = null;
 
     try {
-    await factoryRepository.createRuntimeAuditRecord({
+    if (!existingRun) await factoryRepository.createRuntimeAuditRecord({
       targetRef: { authorityType: "factory_runtime_execution", authorityId: run.pipelineRunId },
       action: "create_pipeline_run",
       actor: input.actor,
       reason: input.reason,
       afterState: run as unknown as Record<string, unknown>
     });
-    await factoryRepository.transitionPipelineRun({ pipelineRunId: run.pipelineRunId, status: "running", actor: input.actor });
+    if (!existingRun) await factoryRepository.transitionPipelineRun({ pipelineRunId: run.pipelineRunId, status: "running", actor: input.actor });
 
+    const nextStepIndex = completedSteps.filter((step) => step.status === "completed").length;
+    const workerLimit = Math.max(1, input.maxWorkers ?? pipeline.steps.length);
     for (const [stepIndex, workerKey] of pipeline.steps.entries()) {
+      if (stepIndex < nextStepIndex) continue;
+      if (stepIndex >= nextStepIndex + workerLimit) break;
+      const executionKey = `${run.pipelineRunId}:${stepIndex}:${workerKey}`;
       const step = await factoryRepository.createPipelineStep({
         pipelineRunId: run.pipelineRunId,
         stepIndex,
@@ -1457,7 +1478,8 @@ export const factoryService = {
         input: {
           pipelineInput: input.input,
           artifactRefs,
-          factoryObjectRefs
+          factoryObjectRefs,
+          executionKey
         }
       });
       await factoryRepository.transitionPipelineStep({ pipelineStepId: step.pipelineStepId, status: "running" });
@@ -1474,29 +1496,40 @@ export const factoryService = {
               previousArtifactRefs: artifactRefs,
               previousFactoryObjectRefs: factoryObjectRefs
             }),
+            executionKey,
             generated: deterministicStepOutput(workerKey, validatedEvidenceContext)
           };
-          const artifact = await factoryRepository.createArtifact({
-            artifactType: "evidence",
-            title: `${workerKey} output`,
-            payload: stepOutput,
-            authoritySafe: false,
-            actor: input.actor
-          });
-          artifactRefs.push(artifact.artifactId);
-          const completedStep = await factoryRepository.transitionPipelineStep({
-            pipelineStepId: step.pipelineStepId,
-            status: "completed",
-            output: stepOutput,
-            artifactRefs: [...artifactRefs],
-            factoryObjectRefs: [...factoryObjectRefs]
-          });
-          await factoryRepository.createRuntimeAuditRecord({
-            targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
-            action: "complete_pipeline_step",
-            actor: input.actor,
-            reason: input.reason,
-            afterState: completedStep as unknown as Record<string, unknown>
+          await withWriteTransaction("committing deterministic Factory worker checkpoint", async () => {
+            const artifact = await factoryRepository.createArtifact({
+              artifactType: "evidence",
+              title: `${workerKey} output`,
+              payload: stepOutput,
+              authoritySafe: false,
+              actor: input.actor
+            });
+            artifactRefs.push(artifact.artifactId);
+            const completedStep = await factoryRepository.transitionPipelineStep({
+              pipelineStepId: step.pipelineStepId,
+              status: "completed",
+              output: stepOutput,
+              artifactRefs: [...artifactRefs],
+              factoryObjectRefs: [...factoryObjectRefs]
+            });
+            await factoryRepository.createRuntimeAuditRecord({
+              targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
+              action: "complete_pipeline_step",
+              actor: input.actor,
+              reason: input.reason,
+              afterState: completedStep as unknown as Record<string, unknown>
+            });
+            await factoryRepository.transitionPipelineRun({
+              pipelineRunId: run.pipelineRunId,
+              status: stepIndex === pipeline.steps.length - 1 ? "completed" : "running",
+              actor: input.actor,
+              artifactRefs,
+              factoryObjectRefs,
+              packageDraftId
+            });
           });
         } catch (error) {
           await finalizePipelineFailure({
@@ -1654,6 +1687,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
           previousArtifactRefs: artifactRefs,
           previousFactoryObjectRefs: factoryObjectRefs
         }),
+        executionKey,
         generated: validated,
         diagnostics: {
           ...result.diagnostics,
@@ -1663,6 +1697,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
       };
       const objectType = candidateObjectTypeForWorker(workerKey);
 
+      await withWriteTransaction("committing Factory worker checkpoint", async () => {
       for (const candidate of validated.candidates) {
         const candidateType = candidate.objectType || objectType;
         if (!candidateType) continue;
@@ -1679,6 +1714,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
             pipelineId: pipeline.pipelineId,
             pipelineRunId: run.pipelineRunId,
             workerKey,
+            executionKey,
             provider: result.providerKey,
             modelName: result.modelName,
             sources: candidate.sources,
@@ -1758,8 +1794,20 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
         reason: input.reason,
         afterState: completedStep as unknown as Record<string, unknown>
       });
+      await factoryRepository.transitionPipelineRun({
+        pipelineRunId: run.pipelineRunId,
+        status: stepIndex === pipeline.steps.length - 1 ? "completed" : "running",
+        actor: input.actor,
+        artifactRefs,
+        factoryObjectRefs,
+        packageDraftId
+      });
+      });
     }
 
+    if (nextStepIndex + workerLimit < pipeline.steps.length) {
+      return (await factoryRepository.getPipelineRun(run.pipelineRunId))!;
+    }
     const completedRun = await factoryRepository.transitionPipelineRun({
       pipelineRunId: run.pipelineRunId,
       status: "completed",
