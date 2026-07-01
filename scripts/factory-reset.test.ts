@@ -3,14 +3,26 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import {
   assertNonProductionEnvironment,
-  assertResetArguments,
+  hasResetConfirmation,
+  resolveOperationsEnvironment,
   resetTables
 } from "./factory-reset-core";
 
-test("factory reset requires the exact explicit confirmation", () => {
-  assert.throws(() => assertResetArguments([]), /--confirm TIMELINES/);
-  assert.throws(() => assertResetArguments(["--confirm", "timelines"]), /--confirm TIMELINES/);
-  assert.doesNotThrow(() => assertResetArguments(["--confirm", "TIMELINES"]));
+test("factory reset preflight does not require confirmation", () => {
+  assert.equal(hasResetConfirmation([]), false);
+});
+
+test("factory reset execution requires the exact explicit confirmation", () => {
+  assert.throws(() => hasResetConfirmation(["--confirm", "timelines"]), /--confirm TIMELINES/);
+  assert.throws(() => hasResetConfirmation(["--confirm", "TIMELINES", "--confirm", "TIMELINES"]), /--confirm TIMELINES/);
+  assert.equal(hasResetConfirmation(["--confirm", "TIMELINES"]), true);
+});
+
+test("factory reset reports the canonical operational environment", () => {
+  assert.equal(resolveOperationsEnvironment({ NODE_ENV: "development" }), "development");
+  assert.equal(resolveOperationsEnvironment({ VERCEL_ENV: "development" }), "development");
+  assert.equal(resolveOperationsEnvironment({ VERCEL_ENV: "preview" }), "preview");
+  assert.equal(resolveOperationsEnvironment({ NODE_ENV: "test" }), "unknown");
 });
 
 test("factory reset refuses production runtime environments", () => {

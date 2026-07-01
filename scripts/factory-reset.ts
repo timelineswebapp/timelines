@@ -2,15 +2,29 @@ import "@/src/server/operations/environment";
 import postgres from "postgres";
 import {
   assertNonProductionEnvironment,
-  assertResetArguments,
+  hasResetConfirmation,
+  resolveOperationsEnvironment,
   runFactoryReset
 } from "./factory-reset-core";
 
 async function main(): Promise<void> {
-  assertResetArguments(process.argv.slice(2));
   const databaseUrl = process.env.DATABASE_URL || "";
   const database = assertNonProductionEnvironment(process.env, databaseUrl);
-  console.log(`Factory Reset\n\nTarget: ${database.hostname}${database.pathname}`);
+  const environment = resolveOperationsEnvironment(process.env);
+  const databaseName = decodeURIComponent(database.pathname.replace(/^\/+/, ""));
+  console.log(
+    `Factory Reset\n\nTarget Database:\n${database.hostname}/${databaseName}` +
+    `\n\nEnvironment:\n${environment}\n\nSafety Status:\nPASS`
+  );
+
+  const confirmed = hasResetConfirmation(process.argv.slice(2));
+  if (!confirmed) {
+    console.log(
+      "\n\nThis is a destructive operation.\n\nRun:\n\n" +
+      "npm run factory:reset -- --confirm TIMELINES"
+    );
+    return;
+  }
 
   const sql = postgres(databaseUrl, { max: 1, connect_timeout: 10, prepare: true });
   try {

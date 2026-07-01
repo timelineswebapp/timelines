@@ -107,16 +107,18 @@ export const resetTableGroups = {
 
 export const resetTables = [...new Set(Object.values(resetTableGroups).flat())];
 
-export function assertResetArguments(argv: string[]): void {
-  const confirmationIndex = argv.indexOf("--confirm");
-  if (confirmationIndex === -1 || argv[confirmationIndex + 1] !== RESET_CONFIRMATION) {
-    throw new Error(
-      "Factory Reset is destructive.\n\nRun:\n\nnpm run factory:reset -- --confirm TIMELINES"
-    );
-  }
-  if (argv.filter((argument) => argument === "--confirm").length !== 1) {
-    throw new Error("Factory Reset confirmation must be provided exactly once.");
-  }
+export function hasResetConfirmation(argv: string[]): boolean {
+  if (argv.length === 0) return false;
+  if (argv.length === 2 && argv[0] === "--confirm" && argv[1] === RESET_CONFIRMATION) return true;
+  throw new Error("Invalid Factory Reset confirmation. Use exactly: --confirm TIMELINES");
+}
+
+export function resolveOperationsEnvironment(
+  env: Record<string, string | undefined>
+): "development" | "preview" | "unknown" {
+  if (env.VERCEL_ENV === "preview") return "preview";
+  if (env.NODE_ENV === "development" || env.VERCEL_ENV === "development") return "development";
+  return "unknown";
 }
 
 export function assertNonProductionEnvironment(
