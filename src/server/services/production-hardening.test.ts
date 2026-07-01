@@ -8,6 +8,11 @@ test("Factory execution is exclusively cron-driven and leader-safe", async () =>
   const dispatcher = await readFile("src/server/services/factory-dispatcher.ts", "utf8");
   assert.doesNotMatch(instrumentation, /setInterval|dispatcher\.start/);
   assert.match(cron, /dispatcher\.runCycle/);
+  assert.match(cron, /factory_cron_started/);
+  assert.match(cron, /factory_cron_completed/);
+  assert.match(cron, /VERCEL_GIT_COMMIT_SHA/);
+  assert.match(cron, /databaseHostname/);
+  assert.match(cron, /leasedWorkItemIds/);
   assert.match(dispatcher, /factoryOperationsService\.runCycle/);
 });
 
