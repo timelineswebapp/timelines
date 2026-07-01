@@ -41,7 +41,7 @@ test("Runtime V2 uses worker-scoped leases without process-local heartbeats", as
   ]);
   assert.match(service, /WORKER_LEASE_SECONDS = 180/);
   assert.doesNotMatch(service, /setInterval|WORKFLOW_HEARTBEAT_MS/);
-  assert.match(service, /maxWorkers: 1/);
+  assert.match(service, /maxWorkers: from === "research" \? undefined : 1/);
   assert.match(service, /topic\.status !== "running" \|\| topic\.leaseOwner !== workerId/);
   assert.match(repository, /lease_expires_at >= NOW\(\)/);
   assert.match(repository, /AND status='running' AND current_stage=\$\{topic\.currentStage\}/);
