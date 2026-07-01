@@ -1,3 +1,4 @@
+import "@/src/server/operations/environment";
 import { closeSql, getSql } from "@/src/server/db/client";
 import { factoryOperationsService } from "@/src/server/services/factory-operations-service";
 import { assertNonProductionEnvironment } from "./factory-reset-core";

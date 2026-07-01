@@ -1,3 +1,4 @@
+import "@/src/server/operations/environment";
 import postgres from "postgres";
 import {
   assertNonProductionEnvironment,

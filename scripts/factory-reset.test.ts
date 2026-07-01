@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   assertNonProductionEnvironment,
   assertResetArguments,
@@ -49,5 +50,16 @@ test("factory reset allowlist excludes permanent institutional configuration", (
     "admin_session_revocations"
   ]) {
     assert.equal((resetTables as readonly string[]).includes(table), false, `${table} must be preserved`);
+  }
+});
+
+test("factory utilities use the shared operational environment loader", () => {
+  for (const script of ["scripts/factory-reset.ts", "scripts/factory-seed.ts"]) {
+    const source = readFileSync(script, "utf8");
+    assert.match(
+      source,
+      /^import "@\/src\/server\/operations\/environment";/,
+      `${script} must bootstrap the shared operations environment before other imports`
+    );
   }
 });
