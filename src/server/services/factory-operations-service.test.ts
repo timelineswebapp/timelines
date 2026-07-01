@@ -82,6 +82,9 @@ test("FOS-002A uses one Home read model and preserves certified workflow service
   assert.match(repository, /source_reference=\$2/);
   assert.match(repository, /LIMIT \$\{Math\.max\(1, Math\.min\(50, limit\)\)\}/);
   assert.match(visitorRoute, /withAdminAuth/);
+  assert.match(ui, /FOUNDER_HOME_REFRESH_MS = 5_000/);
+  assert.match(ui, /refreshTimer = setTimeout\(refresh, FOUNDER_HOME_REFRESH_MS\)/);
+  assert.match(ui, /clearTimeout\(refreshTimer\)/);
 });
 
 test("FOS-004 routine editorial policy preserves Governance authority", async () => {

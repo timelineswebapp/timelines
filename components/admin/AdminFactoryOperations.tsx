@@ -4,6 +4,8 @@ import type { AdminFetcher } from "@/components/admin/admin-shared";
 import type { OperationalNotification, OperationsSnapshot, TopicOperationsDetail, TopicWorkItem } from "@/src/server/factory-operations/contracts";
 import type { FounderAction, FounderHomeReadModel } from "@/src/server/founder/contracts";
 
+const FOUNDER_HOME_REFRESH_MS = 5_000;
+
 function founderActionLabel(action: FounderAction) {
   if (action === "return_for_revision") return "Return for Revision";
   return action.charAt(0).toUpperCase() + action.slice(1);
@@ -78,7 +80,23 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       statusHandlers.setError("");
     } catch (error) { statusHandlers.setError(error instanceof Error ? error.message : "Operations load failed."); }
   }, [fetchAdmin, onFounderStatus, statusHandlers, token, view]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    async function refresh() {
+      await load();
+      if (!cancelled) {
+        refreshTimer = setTimeout(refresh, FOUNDER_HOME_REFRESH_MS);
+      }
+    }
+
+    void refresh();
+    return () => {
+      cancelled = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
+    };
+  }, [load]);
 
   async function command(action: string) {
     setPendingAction(`factory:${action}`);
