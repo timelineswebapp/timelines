@@ -12,6 +12,7 @@
     "seed": "tsx scripts/seed.ts",
     "factory:reset": "tsx scripts/factory-reset.ts",
     "factory:seed": "tsx scripts/factory-seed.ts",
+    "factory:runtime": "tsx scripts/run-factory-runtime.ts",
     "test:factory-reset": "tsx --test scripts/factory-reset.test.ts",
     "data:audit": "tsx scripts/check-and-fix-data.ts",
     "data:repair": "tsx scripts/check-and-fix-data.ts --write",
