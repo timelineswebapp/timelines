@@ -13,6 +13,11 @@ const topicColumns = `
   started_at::text AS "startedAt", completed_at::text AS "completedAt"
 `;
 
+type LeasedTopic = TopicWorkItem & {
+  leasedPreviousStatus: TopicWorkItem["status"];
+  leasedPreviousStage: WorkflowStage;
+};
+
 export const factoryOperationsRepository = {
   async addTopic(input: { title: string; source: TopicSource; sourceReference?: string | null; priority: number; maxRetries: number; actor: string }) {
     const sql = getWriteSql("adding Factory topic");
@@ -114,9 +119,10 @@ export const factoryOperationsRepository = {
         "SELECT COUNT(*)::int AS count FROM factory_topic_work_items WHERE status='running' AND lease_expires_at >= NOW()");
       if (!active) return null;
       if (active.count >= control.concurrency) return null;
-      const rows = await tx.unsafe<TopicWorkItem[]>(
+      const rows = await tx.unsafe<LeasedTopic[]>(
         `WITH candidate AS (
-           SELECT id FROM factory_topic_work_items
+           SELECT id, status AS previous_status, current_stage AS previous_stage
+           FROM factory_topic_work_items
            WHERE ((status IN ('queued','failed') AND next_attempt_at <= NOW())
              OR (status='running' AND lease_expires_at < NOW()))
            ORDER BY
@@ -127,7 +133,9 @@ export const factoryOperationsRepository = {
          UPDATE factory_topic_work_items t SET status='running', lease_owner=$1,
            lease_expires_at=NOW()+($2 * INTERVAL '1 second'), heartbeat_at=NOW(),
            started_at=COALESCE(started_at,NOW()), updated_at=NOW()
-         FROM candidate WHERE t.id=candidate.id RETURNING ${topicColumns.replace(/^  id::text/m, "  t.id::text")}`,
+         FROM candidate WHERE t.id=candidate.id RETURNING ${topicColumns.replace(/^  id::text/m, "  t.id::text")},
+           candidate.previous_status AS "leasedPreviousStatus",
+           candidate.previous_stage AS "leasedPreviousStage"`,
         [workerId, leaseSeconds]
       );
       return rows[0] || null;

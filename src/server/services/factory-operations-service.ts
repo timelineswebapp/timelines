@@ -16,6 +16,15 @@ const nextStage: Record<WorkflowStage, WorkflowStage> = {
 const waitingStages = new Set<WorkflowStage>(["founder_review", "governance"]);
 const WORKER_LEASE_SECONDS = 180;
 
+type TopicExecutionOutcome = {
+  topicId: string;
+  leasedType: "factory_topic_work_item";
+  outcome: "advanced" | "requeued" | "failed" | "skipped";
+  previousState: { status: TopicWorkItem["status"]; stage: WorkflowStage };
+  nextState: { status: TopicWorkItem["status"]; stage: WorkflowStage };
+  reason: string;
+};
+
 function assertReplayBoundary(stage: WorkflowStage, topic: TopicWorkItem) {
   if (workflowStages.indexOf(stage) > workflowStages.indexOf(topic.lastCertifiedStage)) {
     throw new ApiError(409, "INVALID_REPLAY_BOUNDARY", "Replay cannot skip beyond the last certified boundary.");
@@ -142,13 +151,30 @@ export const factoryOperationsService = {
     return updated;
   },
 
-  async executeLeasedTopic(topic: TopicWorkItem, workerId: string) {
+  async executeLeasedTopic(topic: TopicWorkItem, workerId: string): Promise<TopicExecutionOutcome> {
     if (topic.status !== "running" || topic.leaseOwner !== workerId) {
-      throw new ApiError(409, "LEASE_REQUIRED", "Workflow stage execution requires the authoritative active lease.");
+      const reason = "authoritative_lease_not_owned";
+      await repository.notify({
+        topicId: topic.id, category: "factory_execution_skipped", severity: "warning",
+        title: `Factory execution skipped: ${topic.title}`,
+        message: "The leased Topic was not processed because the dispatcher did not own its authoritative lease.",
+        deduplicationKey: `${topic.workflowId}:execution-skipped:${topic.executionGeneration}:${topic.currentStage}`
+      });
+      console.warn(JSON.stringify({
+        level: "warn", component: "factory_operations", event: "topic_execution_skipped",
+        leasedId: topic.id, leasedType: "factory_topic_work_item", workerId,
+        previousState: { status: topic.status, stage: topic.currentStage },
+        nextState: { status: topic.status, stage: topic.currentStage }, reason
+      }));
+      return {
+        topicId: topic.id, leasedType: "factory_topic_work_item", outcome: "skipped",
+        previousState: { status: topic.status, stage: topic.currentStage },
+        nextState: { status: topic.status, stage: topic.currentStage }, reason
+      };
     }
     const from = topic.currentStage;
     let to = nextStage[from];
-    await repository.appendHistory(topic.id, "stage_execute", from, to, "started", topic.retryCount + 1, { workerId });
+    await repository.appendHistory(topic.id, "stage_execute", from, from, "started", topic.retryCount + 1, { workerId });
     try {
       const context: Record<string, unknown> = {};
       const pipelineInput: Record<string, unknown> = { subject: topic.title, topic: topic.title, workflowId: topic.workflowId };
@@ -227,12 +253,39 @@ export const factoryOperationsService = {
           deduplicationKey: `${topic.workflowId}:editorial-required`
         });
       }
-      return updated;
+      const reason = to === from ? "pipeline_stage_in_progress" : "workflow_stage_advanced";
+      const outcome = to === from ? "requeued" : "advanced";
+      console.info(JSON.stringify({
+        level: "info", component: "factory_operations", event: "topic_execution_completed",
+        leasedId: topic.id, leasedType: "factory_topic_work_item", workerId,
+        previousState: { status: topic.status, stage: from },
+        nextState: { status: updated.status, stage: updated.currentStage }, reason
+      }));
+      return {
+        topicId: topic.id, leasedType: "factory_topic_work_item", outcome,
+        previousState: { status: topic.status, stage: from },
+        nextState: { status: updated.status, stage: updated.currentStage }, reason
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown workflow stage failure";
       if (error instanceof ApiError && ["LEASE_LOST", "WORKFLOW_STATE_CONFLICT"].includes(error.code)) {
-        console.warn(JSON.stringify({ level: "warn", component: "factory_operations", event: "stale_executor_terminated", topicId: topic.id, workerId, stage: from, message }));
-        return null;
+        const reason = error.code.toLowerCase();
+        await repository.notify({
+          topicId: topic.id, category: "factory_execution_skipped", severity: "warning",
+          title: `Factory execution skipped: ${topic.title}`, message,
+          deduplicationKey: `${topic.workflowId}:execution-skipped:${topic.executionGeneration}:${from}`
+        });
+        console.warn(JSON.stringify({
+          level: "warn", component: "factory_operations", event: "stale_executor_terminated",
+          leasedId: topic.id, leasedType: "factory_topic_work_item", workerId,
+          previousState: { status: topic.status, stage: from },
+          nextState: { status: topic.status, stage: from }, reason, message
+        }));
+        return {
+          topicId: topic.id, leasedType: "factory_topic_work_item", outcome: "skipped",
+          previousState: { status: topic.status, stage: from },
+          nextState: { status: topic.status, stage: from }, reason
+        };
       }
       const status = await repository.fail(topic, workerId, message);
       await repository.appendHistory(topic.id, "stage_execute", from, from, "failed", topic.retryCount + 1, { workerId, status, message });
@@ -242,7 +295,11 @@ export const factoryOperationsService = {
         message, deduplicationKey: `${topic.workflowId}:failure:${from}:${topic.retryCount + 1}`
       });
       console.error(JSON.stringify({ level: "error", component: "factory_operations", event: "topic_stage_failed", topicId: topic.id, workflowId: topic.workflowId, stage: from, message }));
-      return null;
+      return {
+        topicId: topic.id, leasedType: "factory_topic_work_item", outcome: "failed",
+        previousState: { status: topic.status, stage: from },
+        nextState: { status, stage: from }, reason: message
+      };
     }
   },
 
@@ -260,10 +317,64 @@ export const factoryOperationsService = {
       }
     }
     const workerPrefix = `dispatcher-${randomUUID()}`;
-    const topics = (await Promise.all(Array.from({ length: control.concurrency }, (_, index) =>
-      repository.leaseNext(`${workerPrefix}-${index}`, WORKER_LEASE_SECONDS, input.force)))).filter((topic): topic is TopicWorkItem => Boolean(topic));
-    await Promise.allSettled(topics.map((topic, index) => this.executeLeasedTopic(topic, `${workerPrefix}-${index}`)));
+    const leases = (await Promise.all(Array.from({ length: control.concurrency }, async (_, index) => {
+      const workerId = `${workerPrefix}-${index}`;
+      const topic = await repository.leaseNext(workerId, WORKER_LEASE_SECONDS, input.force);
+      return topic ? { topic, workerId } : null;
+    }))).filter((lease): lease is {
+      topic: TopicWorkItem & {
+        leasedPreviousStatus: TopicWorkItem["status"];
+        leasedPreviousStage: WorkflowStage;
+      };
+      workerId: string;
+    } => Boolean(lease));
+    for (const { topic, workerId } of leases) {
+      console.info(JSON.stringify({
+        level: "info", component: "factory_operations", event: "topic_leased",
+        leasedId: topic.id, leasedType: "factory_topic_work_item", workerId,
+        previousState: { status: topic.leasedPreviousStatus, stage: topic.leasedPreviousStage },
+        nextState: { status: topic.status, stage: topic.currentStage }, reason: "scheduler_lease_acquired"
+      }));
+    }
+    const settled = await Promise.allSettled(
+      leases.map(({ topic, workerId }) => this.executeLeasedTopic(topic, workerId))
+    );
+    await Promise.all(settled.map(async (result, index) => {
+      if (result.status === "fulfilled") return;
+      const { topic } = leases[index]!;
+      const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      await repository.notify({
+        topicId: topic.id, category: "factory_execution_skipped", severity: "critical",
+        title: `Factory execution blocked: ${topic.title}`, message: reason,
+        deduplicationKey: `${topic.workflowId}:execution-blocked:${topic.executionGeneration}:${topic.currentStage}`
+      });
+    }));
+    const outcomes = settled.map((result, index): TopicExecutionOutcome => {
+      if (result.status === "fulfilled") return result.value;
+      const { topic } = leases[index]!;
+      const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      console.error(JSON.stringify({
+        level: "error", component: "factory_operations", event: "topic_execution_unhandled",
+        leasedId: topic.id, leasedType: "factory_topic_work_item",
+        previousState: { status: topic.status, stage: topic.currentStage },
+        nextState: { status: topic.status, stage: topic.currentStage }, reason
+      }));
+      return {
+        topicId: topic.id, leasedType: "factory_topic_work_item", outcome: "failed",
+        previousState: { status: topic.status, stage: topic.currentStage },
+        nextState: { status: topic.status, stage: topic.currentStage }, reason
+      };
+    });
     if (control.mode === "pause_after_current") await repository.setControl("paused", input.actor);
-    return { leased: topics.length, completed: topics.length, mode: control.mode };
+    return {
+      leased: leases.length,
+      completed: outcomes.filter((outcome) => outcome.outcome === "advanced").length,
+      advanced: outcomes.filter((outcome) => outcome.outcome === "advanced").length,
+      requeued: outcomes.filter((outcome) => outcome.outcome === "requeued").length,
+      failed: outcomes.filter((outcome) => outcome.outcome === "failed").length,
+      skipped: outcomes.filter((outcome) => outcome.outcome === "skipped").length,
+      outcomes,
+      mode: control.mode
+    };
   }
 };

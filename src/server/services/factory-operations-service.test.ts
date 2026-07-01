@@ -19,11 +19,19 @@ test("PE-001 schema provides durable recovery and immutable history", async () =
 });
 
 test("dispatcher leasing is globally bounded and isolates locked work", async () => {
-  const source = await readFile("src/server/repositories/factory-operations-repository.ts", "utf8");
-  assert.match(source, /FOR UPDATE SKIP LOCKED/);
-  assert.match(source, /active\.count >= control\.concurrency/);
-  assert.match(source, /lease_expires_at < NOW\(\)/);
-  assert.doesNotMatch(source, /replaceAll\("id::text"/);
+  const [repository, service] = await Promise.all([
+    readFile("src/server/repositories/factory-operations-repository.ts", "utf8"),
+    readFile("src/server/services/factory-operations-service.ts", "utf8")
+  ]);
+  assert.match(repository, /FOR UPDATE SKIP LOCKED/);
+  assert.match(repository, /active\.count >= control\.concurrency/);
+  assert.match(repository, /lease_expires_at < NOW\(\)/);
+  assert.doesNotMatch(repository, /replaceAll\("id::text"/);
+  assert.match(service, /return topic \? \{ topic, workerId \} : null/);
+  assert.match(service, /leasedType: "factory_topic_work_item"/);
+  assert.match(service, /factory_execution_skipped/);
+  assert.match(service, /outcome\.outcome === "skipped"/);
+  assert.doesNotMatch(service, /completed: topics\.length/);
 });
 
 test("Runtime V2 uses worker-scoped leases without process-local heartbeats", async () => {
