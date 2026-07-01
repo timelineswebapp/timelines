@@ -75,3 +75,9 @@ test("factory utilities use the shared operational environment loader", () => {
     );
   }
 });
+
+test("factory reset foreign-key query does not use PostgreSQL keywords as aliases", () => {
+  const source = readFileSync("scripts/factory-reset-core.ts", "utf8");
+  assert.doesNotMatch(source, /FROM pg_constraint constraint\b/);
+  assert.match(source, /FROM pg_constraint fk_constraint\b/);
+});

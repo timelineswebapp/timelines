@@ -173,12 +173,12 @@ export async function runFactoryReset(sql: Sql): Promise<Record<string, number>>
   }
 
   const externalReferences = await sql<ForeignKeyRow[]>`
-    SELECT source.relname AS source_table, target.relname AS target_table, constraint.conname AS constraint_name
-    FROM pg_constraint constraint
-    JOIN pg_class source ON source.oid = constraint.conrelid
-    JOIN pg_class target ON target.oid = constraint.confrelid
+    SELECT source.relname AS source_table, target.relname AS target_table, fk_constraint.conname AS constraint_name
+    FROM pg_constraint fk_constraint
+    JOIN pg_class source ON source.oid = fk_constraint.conrelid
+    JOIN pg_class target ON target.oid = fk_constraint.confrelid
     JOIN pg_namespace namespace ON namespace.oid = source.relnamespace
-    WHERE constraint.contype = 'f'
+    WHERE fk_constraint.contype = 'f'
       AND namespace.nspname = 'public'
       AND target.relname = ANY(${selectedTables})
       AND NOT (source.relname = ANY(${selectedTables}))
