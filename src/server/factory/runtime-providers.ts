@@ -203,6 +203,15 @@ function compactSchemaInstruction(schema: Record<string, unknown> | undefined): 
   if (workerKey === "research_worker_compact") {
     return "research_worker compact output required keys: summary, confidence, boundary, claims, candidates. Claims and candidates must reference supporting evidenceRecordIds only. Do not emit authority metadata, citation metadata, lineage metadata, or retrieval metadata.";
   }
+  if ([
+    "object_extraction_worker",
+    "milestone_extraction_worker",
+    "participation_extraction_worker",
+    "relationship_extraction_worker",
+    "context_enrichment_worker"
+  ].includes(workerKey)) {
+    return `${workerKey} compact output required keys: summary, confidence, boundary, candidates. Each candidate requires title, objectType, payload, evidenceRecordIds. Copy only supplied evidenceRecordIds verbatim. Do not emit sources, citations, URLs, publisher data, or provenance metadata.`;
+  }
   return `${workerKey} output object required keys: summary, confidence, boundary, sources, evidence, candidates. Arrays sources/evidence/candidates must be non-empty unless worker is validation-only. Evidence items require claim and citations[]. Candidate items require title, objectType, payload, evidence, sources.`;
 }
 
@@ -289,7 +298,9 @@ const qwen14Provider: FactoryRuntimeProvider = {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     let fetchReachedResponseParsing = false;
-    const prompt = `/no_think
+    const prompt = request.configuration.compilerPrompt === "object_extraction"
+      ? request.prompt
+      : `/no_think
 You are TiMELiNES Factory historical intelligence.
 Return one complete JSON object only. Do not return {}. Do not include markdown.
 The JSON object must contain all required fields and non-empty arrays requested by the schema.
@@ -303,10 +314,18 @@ ${JSON.stringify(request.input)}
 Schema contract:
 ${compactSchemaInstruction((request.outputSchema || request.configuration.outputSchema) as Record<string, unknown> | undefined)}`;
     const maxOutputTokens = typeof request.configuration.maxOutputTokens === "number" ? request.configuration.maxOutputTokens : undefined;
+    const structuredOutputSchema = request.outputSchema || (
+      request.configuration.outputSchema &&
+      typeof request.configuration.outputSchema === "object" &&
+      !Array.isArray(request.configuration.outputSchema)
+        ? request.configuration.outputSchema as Record<string, unknown>
+        : undefined
+    );
     const requestBody = JSON.stringify({
       model: this.modelName,
       prompt,
       stream: false,
+      ...(structuredOutputSchema ? { format: structuredOutputSchema } : {}),
       options: {
         temperature: typeof request.configuration.temperature === "number" ? request.configuration.temperature : 0.1,
         num_predict: maxOutputTokens

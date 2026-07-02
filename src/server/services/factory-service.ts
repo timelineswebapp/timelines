@@ -26,13 +26,17 @@ import type {
 import { canonicalFactoryPipelines, getCanonicalFactoryPipeline } from "@/src/server/factory/pipeline-registry";
 import { getFactoryRuntimeProvider, listFactoryRuntimeProviders } from "@/src/server/factory/runtime-providers";
 import {
+  compactExtractionWorkerOutputContractSchema,
   compactResearchWorkerOutputContractSchema,
+  specializeExtractionSchemaForEvidence,
+  validateCompactExtractionWorkerOutput,
   validateCompactResearchWorkerOutput,
   validateFactoryWorkerOutput,
+  type CompactExtractionWorkerOutput,
   type CompactResearchWorkerOutput,
   type ValidatedFactoryWorkerOutput
 } from "@/src/server/factory/output-schemas";
-import { getFactoryWorkerPromptTemplate } from "@/src/server/factory/worker-prompts";
+import { getFactoryWorkerPromptTemplate, renderObjectExtractionCompilerPrompt } from "@/src/server/factory/worker-prompts";
 import {
   allowedOperationsForWorker,
   canonicalFactoryWorkers,
@@ -44,6 +48,7 @@ import type { SourceAuthorityRegistryRecord, SourceAuthoritySnapshot } from "@/s
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { evidenceValidationRepository } from "@/src/server/repositories/evidence-validation-repository";
 import { governanceRepository, verifyValidatedEvidenceRefs } from "@/src/server/repositories/governance-repository";
+import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
 import { governanceService } from "@/src/server/services/governance-service";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
@@ -784,7 +789,11 @@ function hydrateResearchWorkerOutput(output: CompactResearchWorkerOutput, contex
   return {
     summary: output.summary,
     confidence: output.confidence,
-    boundary: output.boundary,
+    boundary: {
+      factoryOwned: true,
+      publicationAllowed: false,
+      governanceSubmissionAllowed: false
+    },
     evidence: hydratedEvidence,
     sources: Array.from(citationByEvidenceId.values()),
     candidates
@@ -837,6 +846,105 @@ const EXTRACTION_WORKERS = new Set([
   "relationship_extraction_worker",
   "context_enrichment_worker"
 ]);
+
+type ExtractionEvidenceContext = {
+  evidenceRecordId: string;
+  normalizedClaim: string;
+  excerpt?: string;
+};
+
+async function buildExtractionEvidenceContext(
+  refs: EvidenceRef[],
+  options: { boundForObjectCompiler?: boolean } = {}
+): Promise<ExtractionEvidenceContext[]> {
+  return Promise.all(refs.map(async (ref) => {
+    const subject = await evidenceValidationRepository.requireEvidenceSubject(ref.evidenceRecordId!);
+    const context: ExtractionEvidenceContext = {
+      evidenceRecordId: subject.evidenceRecordId,
+      normalizedClaim: options.boundForObjectCompiler
+        ? subject.normalizedClaim.slice(0, 500)
+        : subject.normalizedClaim
+    };
+    const excerpt = boundedReasoningExcerpt(subject);
+    if (excerpt) context.excerpt = excerpt;
+    return context;
+  }));
+}
+
+async function hydrateExtractionWorkerOutput(
+  output: CompactExtractionWorkerOutput,
+  refs: EvidenceRef[]
+): Promise<ValidatedFactoryWorkerOutput> {
+  const allowedIds = new Set(refs.map((ref) => ref.evidenceRecordId).filter((id): id is string => Boolean(id)));
+  const requestedIds = [...new Set(output.candidates.flatMap((candidate) => candidate.evidenceRecordIds))];
+  const unknownId = requestedIds.find((id) => !allowedIds.has(id));
+  if (unknownId) {
+    throw new ApiError(409, "EXTRACTION_EVIDENCE_NOT_AUTHORIZED", "Extraction output references evidence outside the supplied Historical Authority context.", {
+      evidenceRecordId: unknownId
+    });
+  }
+
+  const subjects = await Promise.all(requestedIds.map((id) => evidenceValidationRepository.requireEvidenceSubject(id)));
+  const evidenceById = new Map(subjects.map((subject) => [subject.evidenceRecordId, subject]));
+  const sourceRecordIds = [...new Set(subjects.map((subject) => subject.sourceRecordId))];
+  const sourceRecords = await Promise.all(sourceRecordIds.map((id) => sourceAuthorityRepository.requireSourceRecord(id)));
+  const sourceById = new Map(sourceRecords.map((source) => [source.sourceRecordId, source]));
+
+  const citationFor = (evidenceRecordId: string) => {
+    const subject = evidenceById.get(evidenceRecordId)!;
+    const source = sourceById.get(subject.sourceRecordId)!;
+    return {
+      sourceId: source.sourceRecordId,
+      evidenceRecordId,
+      title: source.title,
+      url: source.canonicalUrl
+    };
+  };
+  const evidenceFor = (evidenceRecordId: string) => {
+    const subject = evidenceById.get(evidenceRecordId)!;
+    return {
+      claim: subject.normalizedClaim,
+      citations: [citationFor(evidenceRecordId)]
+    };
+  };
+
+  return {
+    summary: output.summary,
+    confidence: output.confidence,
+    boundary: {
+      factoryOwned: true,
+      publicationAllowed: false,
+      governanceSubmissionAllowed: false
+    },
+    sources: sourceRecords.map((source) => ({
+      sourceId: source.sourceRecordId,
+      title: source.title,
+      url: source.canonicalUrl
+    })),
+    evidence: requestedIds.map(evidenceFor),
+    candidates: output.candidates.map((candidate) => ({
+      title: candidate.title,
+      objectType: candidate.objectType,
+      payload: {
+        ...candidate.payload,
+        sourceRefs: candidate.evidenceRecordIds.map((evidenceRecordId) => {
+          const subject = evidenceById.get(evidenceRecordId)!;
+          const source = sourceById.get(subject.sourceRecordId)!;
+          return {
+            evidenceSourceRefs: [evidenceRecordId],
+            sourceRecordId: source.sourceRecordId,
+            title: source.title,
+            canonicalUrl: source.canonicalUrl,
+            provider: source.provider,
+            provenance: source.provenance
+          };
+        })
+      },
+      evidence: candidate.evidenceRecordIds.map(evidenceFor),
+      sources: candidate.evidenceRecordIds.map(citationFor)
+    }))
+  };
+}
 
 function groundingTerms(value: string): string[] {
   const stopWords = new Set(["a", "an", "and", "of", "the", "to", "in", "on", "for", "is", "was", "were", "with"]);
@@ -1558,21 +1666,42 @@ export const factoryService = {
       let lastFailure: unknown = null;
       const retryHistory: Array<Record<string, unknown>> = [];
       const compactAuthorityResearch = Boolean(validatedEvidenceContext && pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker");
-      const outputSchema = compactAuthorityResearch ? compactResearchWorkerOutputContractSchema() : contract.output_schema;
+      const compactExtraction = pipeline.pipelineId === "historical_extraction_pipeline" && EXTRACTION_WORKERS.has(workerKey);
+      const extractionEvidenceRefs = compactExtraction ? evidenceRefsFromPipelineInput(input.input) : [];
+      const canonicalOutputSchema = compactAuthorityResearch
+        ? compactResearchWorkerOutputContractSchema()
+        : compactExtraction
+          ? compactExtractionWorkerOutputContractSchema(workerKey)
+          : contract.output_schema;
+      const outputSchema = compactExtraction
+        ? specializeExtractionSchemaForEvidence(
+          canonicalOutputSchema,
+          extractionEvidenceRefs.map((ref) => ref.evidenceRecordId!)
+        )
+        : canonicalOutputSchema;
       const workerInput = compactAuthorityResearch
         ? { researchReasoningContext: buildResearchReasoningContext(input, validatedEvidenceContext!) }
+        : compactExtraction
+          ? {
+            extractionEvidenceContext: await buildExtractionEvidenceContext(extractionEvidenceRefs, {
+              boundForObjectCompiler: workerKey === "object_extraction_worker"
+            })
+          }
         : {
           pipelineInput: input.input,
           artifactRefs,
           factoryObjectRefs,
           validatedEvidenceRefs: publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
         };
+      const objectExtractionCompiler = workerKey === "object_extraction_worker" && compactExtraction;
       try {
         const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           try {
             const attemptResult = await provider.execute({
-              prompt: renderPrompt(
+              prompt: objectExtractionCompiler
+                ? renderObjectExtractionCompilerPrompt(outputSchema, workerInput)
+                : renderPrompt(
                 `${pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker"
                   ? authorityGroundedResearchPrompt(getFactoryWorkerPromptTemplate(workerKey))
                   : getFactoryWorkerPromptTemplate(workerKey)}
@@ -1587,7 +1716,8 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
                 maxOutputTokens: contract.max_output_tokens,
                 pipelineId: pipeline.pipelineId,
                 stepIndex,
-                attempt
+                attempt,
+                ...(objectExtractionCompiler ? { compilerPrompt: "object_extraction", temperature: 0 } : {})
               },
               timeoutMs: contract.execution_timeout * 1000
             });
@@ -1597,11 +1727,17 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
                 allowedObjectTypes: contract.allowed_object_types,
                 output: hydrateResearchWorkerOutput(validateCompactResearchWorkerOutput(attemptResult.output), validatedEvidenceContext!)
               })
-              : validateFactoryWorkerOutput({
-                workerKey,
-                allowedObjectTypes: contract.allowed_object_types,
-                output: attemptResult.output
-              });
+              : compactExtraction
+                ? await hydrateExtractionWorkerOutput(validateCompactExtractionWorkerOutput({
+                  workerKey,
+                  allowedObjectTypes: contract.allowed_object_types,
+                  output: attemptResult.output
+                }), extractionEvidenceRefs)
+                : validateFactoryWorkerOutput({
+                  workerKey,
+                  allowedObjectTypes: contract.allowed_object_types,
+                  output: attemptResult.output
+                });
             if (compactAuthorityResearch) {
               assertAuthorityGroundedOutput(attemptValidated, validatedEvidenceContext!);
             }

@@ -12,19 +12,79 @@ import {
   factoryService,
   setFactoryPipelineEvidenceVerifierForTests
 } from "@/src/server/services/factory-service";
-import { factoryWorkerOutputContractSchema, validateFactoryWorkerOutput } from "@/src/server/factory/output-schemas";
+import {
+  compactExtractionWorkerOutputContractSchema,
+  factoryWorkerOutputContractSchema,
+  specializeExtractionSchemaForEvidence,
+  validateCompactExtractionWorkerOutput,
+  validateFactoryWorkerOutput
+} from "@/src/server/factory/output-schemas";
 import { canonicalFactoryWorkers } from "@/src/server/factory/worker-registry";
-import { getFactoryWorkerPromptTemplate } from "@/src/server/factory/worker-prompts";
+import { getFactoryWorkerPromptTemplate, renderObjectExtractionCompilerPrompt } from "@/src/server/factory/worker-prompts";
 import { getFactoryRuntimeProvider, resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { evidenceValidationRepository } from "@/src/server/repositories/evidence-validation-repository";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
+import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
 import { corpusGenerationService } from "@/src/server/services/corpus-generation-service";
 import { evidenceExtractionService } from "@/src/server/services/evidence-extraction-service";
 import { evidenceValidationService } from "@/src/server/services/evidence-validation-service";
 
 function factoryOutputForPrompt(prompt: string, override: Record<string, unknown> = {}) {
+  const extractionWorkerKey = [
+      "object_extraction_worker",
+      "milestone_extraction_worker",
+      "participation_extraction_worker",
+      "relationship_extraction_worker",
+      "context_enrichment_worker"
+    ].find((key) => prompt.includes(key));
+  if (extractionWorkerKey && (
+    prompt.includes("compact output required keys") ||
+    prompt.includes("Factory Object Extraction Compiler")
+  )) {
+    const workerKey = extractionWorkerKey;
+    const objectTypes: Record<string, string> = {
+      object_extraction_worker: "candidate_historical_object",
+      milestone_extraction_worker: "candidate_milestone",
+      participation_extraction_worker: "candidate_participation",
+      relationship_extraction_worker: "candidate_relationship",
+      context_enrichment_worker: "candidate_context_record"
+    };
+    return {
+      summary: "Compact Extraction output grounded in supplied evidence.",
+      confidence: 0.9,
+      boundary: { factoryOwned: true, publicationAllowed: false, governanceSubmissionAllowed: false },
+      candidates: [{
+        title: "Telephone",
+        objectType: objectTypes[workerKey],
+        payload: {
+          name: "Telephone",
+          type: "technology",
+          summary: "The telephone was demonstrated in 1876.",
+          aliases: [],
+          chronologyRole: "communication technology",
+          date: "1876",
+          datePrecision: "year",
+          location: "United States",
+          chronologyPosition: "invention",
+          historicalObjectRef: "object-1",
+          milestoneRef: "milestone-1",
+          role: "subject",
+          participationPriority: 1,
+          sourceAuthorityRef: "object-1",
+          targetAuthorityRef: "object-2",
+          relationshipType: "related_to",
+          directionality: "directed",
+          contextType: "historical_significance",
+          chronologyScope: "1876",
+          relatedCandidateRefs: []
+        },
+        evidenceRecordIds: ["evidence-1"]
+      }],
+      ...override
+    };
+  }
   if (prompt.includes("research_worker")) {
     return {
       summary: "Factory output grounded in validated evidence.",
@@ -453,6 +513,40 @@ describe("factory production memory foundation", () => {
     }
   });
 
+  it("passes the canonical worker schema to Ollama structured output", async () => {
+    const originalFetch = globalThis.fetch;
+    const provider = getFactoryRuntimeProvider("qwen14");
+    const schema = compactExtractionWorkerOutputContractSchema("object_extraction_worker");
+    let requestBody: Record<string, any> = {};
+    globalThis.fetch = (async (_url, init) => {
+      requestBody = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({
+        response: JSON.stringify({
+          summary: "Evidence is insufficient.",
+          confidence: 0.5,
+          candidates: []
+        }),
+        done_reason: "stop",
+        prompt_eval_count: 10,
+        eval_count: 12
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+
+    try {
+      await provider.execute({
+        prompt: "Compiler prompt.",
+        input: {},
+        configuration: { compilerPrompt: "object_extraction", maxOutputTokens: 4000 },
+        outputSchema: schema,
+        timeoutMs: 240000
+      });
+      assert.deepEqual(requestBody.format, schema);
+      assert.equal(requestBody.options.num_predict, 4000);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("captures Ollama transport diagnostics for Node system failures", async () => {
     const originalFetch = globalThis.fetch;
     const provider = getFactoryRuntimeProvider("qwen14");
@@ -805,6 +899,76 @@ describe("factory production memory foundation", () => {
     const schema = factoryWorkerOutputContractSchema("object_extraction_worker");
     assert.doesNotMatch(JSON.stringify(schema), /"candidates":\\{[^}]*"minItems":1/);
     assert.match(getFactoryWorkerPromptTemplate("object_extraction_worker"), /return candidates as exactly \[\]/);
+  });
+
+  it("requires compact Extraction evidence references and rejects model-generated provenance", () => {
+    const schema = compactExtractionWorkerOutputContractSchema("object_extraction_worker");
+    assert.match(JSON.stringify(schema), /evidenceRecordIds/);
+    assert.doesNotMatch(JSON.stringify(schema), /canonicalUrl|publisher|sourceRecordId/);
+    assert.throws(() => validateCompactExtractionWorkerOutput({
+      workerKey: "object_extraction_worker",
+      allowedObjectTypes: ["candidate_historical_object"],
+      output: {
+        summary: "Candidate.",
+        confidence: 0.9,
+        boundary: { factoryOwned: true, publicationAllowed: false, governanceSubmissionAllowed: false },
+        candidates: [{
+          title: "Telephone",
+          objectType: "candidate_historical_object",
+          payload: { name: "Telephone", url: "https://invented.example" },
+          evidenceRecordIds: ["evidence-1"]
+        }]
+      }
+    }), /Compact research output may not include output\.url/);
+  });
+
+  it("renders the canonical Object Extraction compiler prompt without model-owned boundary constants", () => {
+    const schema = compactExtractionWorkerOutputContractSchema("object_extraction_worker");
+    const prompt = renderObjectExtractionCompilerPrompt(schema, {
+      extractionEvidenceContext: [{
+        evidenceRecordId: "00000000-0000-0000-0000-000000000001",
+        normalizedClaim: "The telephone is a communication technology."
+      }]
+    });
+    const sections = [
+      "You are the TiMELiNES Factory Object Extraction Compiler.",
+      "Transform validated historical evidence into structured candidate historical objects.",
+      "Rules:",
+      "JSON Schema:",
+      "Minimal Example:",
+      "Input JSON:"
+    ];
+    for (let index = 1; index < sections.length; index += 1) {
+      assert.ok(prompt.indexOf(sections[index - 1]!) < prompt.indexOf(sections[index]!));
+    }
+    assert.doesNotMatch(JSON.stringify(schema), /factoryOwned|publicationAllowed|governanceSubmissionAllowed/);
+    assert.match(JSON.stringify(schema), /"maxItems":1/);
+    assert.match(JSON.stringify(schema), /"maxItems":5/);
+    assert.doesNotMatch(prompt, /historical intelligence|If a field is uncertain|Factory Runtime only/);
+    assert.match(prompt, /<evidenceRecordId-from-input>/);
+    assert.match(prompt, /Never invent, modify, shorten, or replace them/);
+    assert.doesNotMatch(prompt, /00000000-0000-0000-0000-000000000000/);
+  });
+
+  it("derives an invocation-only evidence enum without mutating the canonical Extraction schema", () => {
+    const canonical = compactExtractionWorkerOutputContractSchema("object_extraction_worker");
+    const canonicalSnapshot = structuredClone(canonical);
+    const evidenceRecordIds = [
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222"
+    ];
+    const derived = specializeExtractionSchemaForEvidence(canonical, evidenceRecordIds) as any;
+
+    assert.deepEqual(canonical, canonicalSnapshot);
+    assert.notEqual(derived, canonical);
+    assert.deepEqual(
+      derived.properties.candidates.items.properties.evidenceRecordIds.items,
+      { enum: evidenceRecordIds }
+    );
+    assert.deepEqual(
+      (canonical as any).properties.candidates.items.properties.evidenceRecordIds.items,
+      { type: "string", format: "uuid" }
+    );
   });
 
   it("allows milestone extraction to explicitly produce no milestone when chronology is unsupported", () => {
@@ -1186,6 +1350,12 @@ describe("factory production memory foundation", () => {
     assert.match(registry, /modify_projections/);
     assert.match(registry, /publish_content/);
     assert.match(registry, /mutate_public_platform_read_models/);
+
+    const objectExtractionWorker = canonicalFactoryWorkers.find(
+      (worker) => worker.worker_id === "object_extraction_worker"
+    );
+    assert.equal(objectExtractionWorker?.max_output_tokens, 4000);
+    assert.equal(objectExtractionWorker?.execution_timeout, 240);
   });
 
   it("persists worker capabilities, policies, versions, and permissions without deleting history", () => {
@@ -1333,6 +1503,7 @@ describe("factory production memory foundation", () => {
       pipelineStatuses: string[];
       stepStatuses: string[];
       providerPrompts: string[];
+      providerFormats: Array<Record<string, unknown> | undefined>;
       auditRecords: any[];
     }) => Promise<T>,
     options: {
@@ -1352,6 +1523,7 @@ describe("factory production memory foundation", () => {
       extract: evidenceExtractionService.extractFromCorpusDocument,
       validate: evidenceValidationService.validateEvidence,
       requireEvidenceSubject: evidenceValidationRepository.requireEvidenceSubject,
+      requireSourceRecord: sourceAuthorityRepository.requireSourceRecord,
       createPipelineRun: factoryRepository.createPipelineRun,
       getLatestCompletedPipelineRun: factoryRepository.getLatestCompletedPipelineRun,
       getArtifactsByIds: factoryRepository.getArtifactsByIds,
@@ -1372,6 +1544,7 @@ describe("factory production memory foundation", () => {
       pipelineStatuses: [] as string[],
       stepStatuses: [] as string[],
       providerPrompts: [] as string[],
+      providerFormats: [] as Array<Record<string, unknown> | undefined>,
       auditRecords: [] as any[]
     };
     let stepId = 0;
@@ -1481,6 +1654,24 @@ describe("factory production memory foundation", () => {
         sourceDescription: "Telephone history.",
         sourceProvenance: { relevanceAssessment: { accepted: true, authorityRelevance: 0.8 } }
       });
+      (sourceAuthorityRepository as any).requireSourceRecord = async () => ({
+        sourceRecordId: "source-record-1",
+        provider: "wikidata",
+        providerRecordId: "Q11035",
+        canonicalUrl: "https://www.wikidata.org/wiki/Special:EntityData/Q11035.json",
+        title: "Authoritative Telephone Evidence",
+        description: "Telephone source.",
+        sourceType: "entity",
+        origin: {
+          provider: "wikidata",
+          providerRecordId: "Q11035",
+          providerUrl: "https://www.wikidata.org/wiki/Q11035",
+          discoveredFromQuery: "Telephone",
+          discoveredAt: "2026-06-24T00:00:00.000Z"
+        },
+        provenance: { authority: "source_authority" },
+        createdBy: "factory-test"
+      });
       (factoryRepository as any).getLatestCompletedPipelineRun = async (pipelineId: string) => {
         if (pipelineId === "historical_research_pipeline") {
           if (options.missingResearchPredecessor) return null;
@@ -1578,6 +1769,7 @@ describe("factory production memory foundation", () => {
         const body = JSON.parse(init.body);
         const prompt = body.prompt as string;
         state.providerPrompts.push(prompt);
+        state.providerFormats.push(body.format);
         return new Response(JSON.stringify({ response: JSON.stringify(factoryOutputForPrompt(prompt, outputOverride)) }), { status: 200, headers: { "content-type": "application/json" } });
       };
       setFactoryPipelineEvidenceVerifierForTests(async (refs, context) => {
@@ -1591,6 +1783,7 @@ describe("factory production memory foundation", () => {
       (evidenceExtractionService as any).extractFromCorpusDocument = originals.extract;
       (evidenceValidationService as any).validateEvidence = originals.validate;
       (evidenceValidationRepository as any).requireEvidenceSubject = originals.requireEvidenceSubject;
+      (sourceAuthorityRepository as any).requireSourceRecord = originals.requireSourceRecord;
       (factoryRepository as any).createPipelineRun = originals.createPipelineRun;
       (factoryRepository as any).getLatestCompletedPipelineRun = originals.getLatestCompletedPipelineRun;
       (factoryRepository as any).getArtifactsByIds = originals.getArtifactsByIds;
@@ -1826,6 +2019,10 @@ describe("factory production memory foundation", () => {
       });
       assert.equal(state.verifierCalls.length, 1);
       assert.ok(state.objects.length >= 1);
+      assert.deepEqual(
+        (state.providerFormats[0] as any).properties.candidates.items.properties.evidenceRecordIds.items,
+        { enum: ["evidence-1"] }
+      );
     });
   });
 

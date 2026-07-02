@@ -11,6 +11,17 @@ candidate_source publisher must never be empty. If exact publisher is unknown, d
 Use conservative historical claims and stable source titles/URLs only.
 `;
 
+const extractionContract = `
+Return one compact JSON object only.
+Required top-level keys: summary, confidence, boundary, candidates.
+confidence must be a number from 0 through 1.
+boundary must be {"factoryOwned":true,"publicationAllowed":false,"governanceSubmissionAllowed":false}.
+Each candidate must include title, objectType, payload, and evidenceRecordIds.
+Only reference evidenceRecordIds supplied in the Extraction evidence context, copied verbatim.
+Never invent provenance. Never generate source identifiers, URLs, publisher information, citations, or provenance metadata.
+If the supplied evidence does not support a candidate, return candidates as exactly [].
+`;
+
 export const factoryWorkerPromptTemplates: Record<string, string> = {
   research_worker: `
 Return one compact JSON object only.
@@ -37,38 +48,38 @@ Candidate object type allowed: candidate_source.
 Payload must include sourceId, title, url, publisher, accepted, credibility, citationNote, evidenceSourceRefs, reliabilityReasons, limitations, and recommendedUse.
 Only mark a source high-confidence when source quality and relevance are clear.`,
 
-  object_extraction_worker: `${sharedContract}
+  object_extraction_worker: `${extractionContract}
 Task: Extract candidate historical objects from the research context.
 Candidate object type allowed: candidate_historical_object.
-Payload must include name, type, summary, aliases, chronologyRole, and sourceRefs.
+Payload must include name, type, summary, aliases, and chronologyRole.
 Generate people, institutions, places, technologies, publications, conflicts, movements, or periods only when supported by evidence.
 Never emit placeholder, unknown, unnamed, generic, or inferred identities.
 If the evidence does not support a specific canonical identity, return candidates as exactly [] and state the evidence gap in summary.`,
 
-  milestone_extraction_worker: `${sharedContract}
+  milestone_extraction_worker: `${extractionContract}
 Task: Extract chronology-rich candidate milestones.
 Candidate object type allowed: candidate_milestone.
-Payload must include title, date, datePrecision, summary, location, chronologyPosition, and sourceRefs.
+Payload must include title, date, datePrecision, summary, location, and chronologyPosition.
 Dates must be internally consistent. Use ISO-like years or dates where possible.
 Dates, titles, events, ordering, and temporal relationships must be directly supported by validated evidence.
 Never infer or invent chronology, events, titles, descriptions, or historical significance.
 If the evidence does not support a complete milestone and explicit date, return candidates as exactly [] and state the grounding gap in summary.`,
 
-  participation_extraction_worker: `${sharedContract}
+  participation_extraction_worker: `${extractionContract}
 Task: Extract candidate participations connecting historical objects to milestones.
 Candidate object type allowed: candidate_participation.
-Payload must include historicalObjectRef, milestoneRef, role, summary, participationPriority, and sourceRefs.`,
+Payload must include historicalObjectRef, milestoneRef, role, summary, and participationPriority.`,
 
-  relationship_extraction_worker: `${sharedContract}
+  relationship_extraction_worker: `${extractionContract}
 Task: Extract candidate relationships between historical objects, milestones, institutions, technologies, places, or movements.
 Candidate object type allowed: candidate_relationship.
-Payload must include sourceAuthorityRef, targetAuthorityRef, relationshipType, summary, directionality, and sourceRefs.
+Payload must include sourceAuthorityRef, targetAuthorityRef, relationshipType, summary, and directionality.
 Allowed relationship types: influences, influenced_by, member_of, contains, located_in, succeeds, preceded_by, owns, owned_by, related_to.`,
 
-  context_enrichment_worker: `${sharedContract}
+  context_enrichment_worker: `${extractionContract}
 Task: Produce candidate context records that explain historical significance without creating public authority.
 Candidate object type allowed: candidate_context_record.
-Payload must include contextType, summary, chronologyScope, relatedCandidateRefs, and sourceRefs.`,
+Payload must include contextType, summary, chronologyScope, and relatedCandidateRefs.`,
 
   package_assembly_worker: `${sharedContract}
 Task: Assemble a Factory-only package summary from prior artifacts.
@@ -89,4 +100,30 @@ Use no more than three concise top-level evidence claims and three concise top-l
 
 export function getFactoryWorkerPromptTemplate(workerKey: string): string {
   return factoryWorkerPromptTemplates[workerKey] || sharedContract;
+}
+
+export function renderObjectExtractionCompilerPrompt(
+  outputSchema: Record<string, unknown>,
+  input: Record<string, unknown>
+): string {
+  return `You are the TiMELiNES Factory Object Extraction Compiler.
+
+Transform validated historical evidence into structured candidate historical objects.
+
+Rules:
+- Return exactly one JSON object.
+- Return no markdown.
+- Never invent information.
+- Never invent provenance.
+- EvidenceRecordIds must be copied exactly from the supplied Input JSON. Never invent, modify, shorten, or replace them.
+- Return zero candidates when evidence is insufficient.
+
+JSON Schema:
+${JSON.stringify(outputSchema)}
+
+Minimal Example:
+{"summary":"Evidence supports one historical object.","confidence":0.9,"candidates":[{"title":"Telephone","objectType":"candidate_historical_object","payload":{"name":"Telephone","type":"technology","summary":"A device for transmitting speech over distance.","aliases":[],"chronologyRole":"communication technology"},"evidenceRecordIds":["<evidenceRecordId-from-input>"]}]}
+
+Input JSON:
+${JSON.stringify(input)}`;
 }

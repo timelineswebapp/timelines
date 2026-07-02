@@ -23,6 +23,13 @@ const workerObjectTypes: Record<string, FactoryObjectType[]> = {
 
 const artifactOnlyWorkers = new Set(["package_assembly_worker", "validation_worker"]);
 const evidenceOptionalCandidateWorkers = new Set(["object_extraction_worker", "milestone_extraction_worker"]);
+const extractionWorkers = new Set([
+  "object_extraction_worker",
+  "milestone_extraction_worker",
+  "participation_extraction_worker",
+  "relationship_extraction_worker",
+  "context_enrichment_worker"
+]);
 
 const citationSchema = z.object({
   sourceId: z.string().min(1).optional(),
@@ -98,6 +105,32 @@ const compactResearchOutputSchema = z.object({
 }).strict();
 
 export type CompactResearchWorkerOutput = z.infer<typeof compactResearchOutputSchema>;
+
+const compactExtractionCandidateSchema = z.object({
+  title: z.string().min(1),
+  objectType: z.enum([
+    "candidate_historical_object",
+    "candidate_milestone",
+    "candidate_participation",
+    "candidate_relationship",
+    "candidate_context_record"
+  ]),
+  payload: z.record(z.unknown()),
+  evidenceRecordIds: z.array(z.string().min(1)).min(1)
+}).strict();
+
+const compactExtractionOutputSchema = z.object({
+  summary: z.string().min(1).max(300),
+  confidence: z.number().min(0).max(1),
+  boundary: z.object({
+    factoryOwned: z.literal(true),
+    publicationAllowed: z.literal(false),
+    governanceSubmissionAllowed: z.literal(false)
+  }).optional(),
+  candidates: z.array(compactExtractionCandidateSchema)
+}).strict();
+
+export type CompactExtractionWorkerOutput = z.infer<typeof compactExtractionOutputSchema>;
 
 export class FactoryWorkerOutputValidationError extends Error {
   diagnostics: Record<string, unknown>;
@@ -344,6 +377,129 @@ export function compactResearchWorkerOutputContractSchema(): Record<string, unkn
     },
     workerKey: "research_worker_compact"
   };
+}
+
+export function compactExtractionWorkerOutputContractSchema(workerKey: string): Record<string, unknown> {
+  const allowedObjectTypes = workerObjectTypes[workerKey] || [];
+  const objectCompiler = workerKey === "object_extraction_worker";
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: objectCompiler
+      ? ["summary", "confidence", "candidates"]
+      : ["summary", "confidence", "boundary", "candidates"],
+    properties: {
+      summary: { type: "string", minLength: 1, maxLength: 300 },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+      ...(!objectCompiler ? { boundary: {
+        type: "object",
+        additionalProperties: false,
+        required: ["factoryOwned", "publicationAllowed", "governanceSubmissionAllowed"],
+        properties: {
+          factoryOwned: { const: true },
+          publicationAllowed: { const: false },
+          governanceSubmissionAllowed: { const: false }
+        }
+      } } : {}),
+      candidates: {
+        type: "array",
+        ...(objectCompiler ? { maxItems: 1 } : {}),
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "objectType", "payload", "evidenceRecordIds"],
+          properties: {
+            title: { type: "string", minLength: 1 },
+            objectType: { enum: allowedObjectTypes },
+            payload: objectCompiler ? {
+              type: "object",
+              additionalProperties: false,
+              required: ["name", "type", "summary", "aliases", "chronologyRole"],
+              properties: {
+                name: { type: "string", minLength: 1 },
+                type: { type: "string", minLength: 1 },
+                summary: { type: "string", minLength: 1, maxLength: 300 },
+                aliases: {
+                  type: "array",
+                  maxItems: 5,
+                  uniqueItems: true,
+                  items: { type: "string", minLength: 1 }
+                },
+                chronologyRole: { type: "string", minLength: 1, maxLength: 120 }
+              }
+            } : { type: "object" },
+            evidenceRecordIds: {
+              type: "array",
+              minItems: 1,
+              items: { type: "string", format: "uuid" }
+            }
+          }
+        }
+      }
+    },
+    workerKey
+  };
+}
+
+export function specializeExtractionSchemaForEvidence(
+  canonicalSchema: Record<string, unknown>,
+  evidenceRecordIds: string[]
+): Record<string, unknown> {
+  const uniqueEvidenceRecordIds = [...new Set(evidenceRecordIds)];
+  if (uniqueEvidenceRecordIds.length === 0) {
+    throw new FactoryWorkerOutputValidationError("Extraction schema specialization requires canonical evidenceRecordIds.");
+  }
+  const derivedSchema = structuredClone(canonicalSchema);
+  const properties = derivedSchema.properties as Record<string, any> | undefined;
+  const evidenceRecordIdsSchema = properties?.candidates?.items?.properties?.evidenceRecordIds;
+  if (!evidenceRecordIdsSchema || typeof evidenceRecordIdsSchema !== "object") {
+    throw new FactoryWorkerOutputValidationError("Canonical Extraction schema is missing evidenceRecordIds.");
+  }
+  evidenceRecordIdsSchema.items = { enum: uniqueEvidenceRecordIds };
+  return derivedSchema;
+}
+
+export function validateCompactExtractionWorkerOutput(input: {
+  workerKey: string;
+  allowedObjectTypes: FactoryObjectType[];
+  output: Record<string, unknown>;
+}): CompactExtractionWorkerOutput {
+  if (!extractionWorkers.has(input.workerKey)) {
+    throw new FactoryWorkerOutputValidationError(`Worker ${input.workerKey} is not an Extraction worker.`);
+  }
+  let parsed: CompactExtractionWorkerOutput;
+  try {
+    parsed = compactExtractionOutputSchema.parse(input.output);
+  } catch (error) {
+    const validationErrors = error instanceof z.ZodError
+      ? error.issues.map((issue) => issue.message)
+      : ["Generated compact Extraction output failed schema validation."];
+    throw new FactoryWorkerOutputValidationError("Generated compact Extraction output failed schema validation.", { validationErrors });
+  }
+  const allowed = new Set(input.allowedObjectTypes);
+  if (input.workerKey === "object_extraction_worker" && parsed.candidates.length > 1) {
+    throw new FactoryWorkerOutputValidationError("Object Extraction compiler emitted more than one candidate.");
+  }
+  for (const candidate of parsed.candidates) {
+    if (!allowed.has(candidate.objectType)) {
+      throw new FactoryWorkerOutputValidationError(
+        `Worker ${input.workerKey} emitted forbidden candidate object type ${candidate.objectType}.`
+      );
+    }
+    assertNoAuthorityMetadata(candidate.payload);
+    if (input.workerKey === "object_extraction_worker") {
+      const payload = candidate.payload;
+      const aliases = Array.isArray(payload.aliases)
+        ? payload.aliases.filter((alias): alias is string => typeof alias === "string")
+        : [];
+      if (typeof payload.summary !== "string" || payload.summary.length > 300 ||
+          typeof payload.chronologyRole !== "string" || payload.chronologyRole.length > 120 ||
+          aliases.length > 5 || new Set(aliases).size !== aliases.length) {
+        throw new FactoryWorkerOutputValidationError("Object Extraction compiler output exceeds worker-scoped bounds.");
+      }
+    }
+  }
+  return parsed;
 }
 
 export function validateCompactResearchWorkerOutput(output: Record<string, unknown>): CompactResearchWorkerOutput {
