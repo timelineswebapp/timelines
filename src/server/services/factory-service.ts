@@ -960,6 +960,37 @@ function claimGroundingScore(claim: string, quotes: string[]): number {
   return claimTerms.filter((term) => evidenceTerms.has(term)).length / claimTerms.length;
 }
 
+export function milestonePayloadGroundingFailures(input: {
+  title: string;
+  payload: Record<string, unknown>;
+  evidenceTexts: string[];
+}): Array<{ unsupportedField: string; chronologyGap?: string; claimGap?: string; groundingScore: number }> {
+  const failures: Array<{ unsupportedField: string; chronologyGap?: string; claimGap?: string; groundingScore: number }> = [];
+  const date = typeof input.payload.date === "string" ? input.payload.date.trim() : "";
+  if (!date || !input.evidenceTexts.some((text) => text.includes(date))) {
+    failures.push({ unsupportedField: "date", chronologyGap: date || "missing date", groundingScore: 0 });
+  }
+  const groundedFields: Array<[string, unknown, number]> = [
+    ["title", input.title, 0],
+    ["summary", input.payload.summary, 300],
+    ["location", input.payload.location, 200],
+    ["chronologyPosition", input.payload.chronologyPosition, 200]
+  ];
+  for (const [field, rawValue, maxLength] of groundedFields) {
+    if (rawValue === null || rawValue === undefined || rawValue === "") continue;
+    if (typeof rawValue !== "string") {
+      failures.push({ unsupportedField: field, claimGap: `${field} must be textual when supplied.`, groundingScore: 0 });
+      continue;
+    }
+    const value = rawValue.trim();
+    const score = claimGroundingScore(value, input.evidenceTexts);
+    if ((maxLength > 0 && value.length > maxLength) || score < 0.5) {
+      failures.push({ unsupportedField: field, claimGap: value, groundingScore: score });
+    }
+  }
+  return failures;
+}
+
 function payloadContainsPlaceholder(value: unknown): boolean {
   if (typeof value === "string") {
     return /\b(?:placeholder|unknown entity|missing evidence|insufficient evidence|no specific details available)\b/i.test(value);
@@ -1011,13 +1042,16 @@ async function assertGroundedExtractionOutput(
       failures.push({ artifact: candidate.title, unsupportedField: "sourceRefs", evidenceGap: "Authority payload does not resolve exclusively to grounded evidence." });
     }
     if (candidate.objectType === "candidate_milestone") {
-      const date = typeof candidate.payload.date === "string" ? candidate.payload.date : "";
-      const chronologyGrounded = date.length > 0 && evidence.some(({ citation }) => {
+      const evidenceTexts = evidence.flatMap(({ citation }) => {
         const subject = citation.evidenceRecordId ? evidenceById.get(citation.evidenceRecordId) : null;
-        return subject ? subject.quoteText.includes(date) || subject.normalizedClaim.includes(date) : false;
+        return subject ? [subject.quoteText, subject.normalizedClaim] : [];
       });
-      if (!chronologyGrounded) {
-        failures.push({ artifact: candidate.title, unsupportedField: "date", chronologyGap: date || "missing date", groundingScore: 0 });
+      for (const failure of milestonePayloadGroundingFailures({
+        title: candidate.title,
+        payload: candidate.payload,
+        evidenceTexts
+      })) {
+        failures.push({ artifact: candidate.title, ...failure });
       }
     }
     for (const forbidden of ["publisher", "url", "citation", "citations"]) {

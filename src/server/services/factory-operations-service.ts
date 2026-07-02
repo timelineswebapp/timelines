@@ -15,6 +15,48 @@ const nextStage: Record<WorkflowStage, WorkflowStage> = {
 };
 const waitingStages = new Set<WorkflowStage>(["founder_review", "governance"]);
 const WORKER_LEASE_SECONDS = 180;
+const WORKFLOW_HEARTBEAT_MS = 60_000;
+
+export function startLeaseHeartbeat(input: {
+  heartbeat: () => Promise<void>;
+  intervalMs?: number;
+  onRenewed?: () => void;
+}) {
+  const intervalMs = input.intervalMs ?? WORKFLOW_HEARTBEAT_MS;
+  let stopped = false;
+  let failure: unknown = null;
+  let inFlight: Promise<void> | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const schedule = () => {
+    if (stopped) return;
+    timer = setTimeout(() => {
+      if (stopped) return;
+      inFlight = input.heartbeat()
+        .then(() => input.onRenewed?.())
+        .catch((error) => {
+          failure = error;
+          stopped = true;
+        })
+        .finally(() => {
+          inFlight = null;
+          if (!stopped) schedule();
+        });
+    }, intervalMs);
+  };
+  schedule();
+
+  return {
+    async stop() {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      if (inFlight) await inFlight;
+    },
+    assertOwned() {
+      if (failure) throw failure;
+    }
+  };
+}
 
 type TopicExecutionOutcome = {
   topicId: string;
@@ -175,6 +217,20 @@ export const factoryOperationsService = {
     const from = topic.currentStage;
     let to = nextStage[from];
     await repository.appendHistory(topic.id, "stage_execute", from, from, "started", topic.retryCount + 1, { workerId });
+    const leaseHeartbeat = startLeaseHeartbeat({
+      heartbeat: () => repository.heartbeat(topic.id, workerId, WORKER_LEASE_SECONDS),
+      onRenewed: () => console.info(JSON.stringify({
+        level: "info",
+        component: "factory_operations",
+        event: "lease_heartbeat_renewed",
+        topicId: topic.id,
+        workerId,
+        executionGeneration: topic.executionGeneration,
+        heartbeatIntervalMs: WORKFLOW_HEARTBEAT_MS,
+        leaseSeconds: WORKER_LEASE_SECONDS,
+        timestamp: new Date().toISOString()
+      }))
+    });
     try {
       const context: Record<string, unknown> = {};
       const pipelineInput: Record<string, unknown> = { subject: topic.title, topic: topic.title, workflowId: topic.workflowId };
@@ -240,6 +296,8 @@ export const factoryOperationsService = {
         }
       }
       const status = to === "completed" ? "completed" : waitingStages.has(to) ? "waiting" : "queued";
+      await leaseHeartbeat.stop();
+      leaseHeartbeat.assertOwned();
       const updated = await repository.advance(topic.id, workerId, from, to, status, context);
       await repository.appendHistory(topic.id, "stage_execute", from, to, waitingStages.has(to) ? "waiting" : "succeeded", topic.retryCount + 1, { workerId, ...context });
       await repository.appendInstitutionalEvent({
@@ -267,6 +325,7 @@ export const factoryOperationsService = {
         nextState: { status: updated.status, stage: updated.currentStage }, reason
       };
     } catch (error) {
+      await leaseHeartbeat.stop();
       const message = error instanceof Error ? error.message : "Unknown workflow stage failure";
       if (error instanceof ApiError && ["LEASE_LOST", "WORKFLOW_STATE_CONFLICT"].includes(error.code)) {
         const reason = error.code.toLowerCase();

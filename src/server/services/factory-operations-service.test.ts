@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { ApiError } from "@/src/server/api/responses";
 import { workflowStages } from "@/src/server/factory-operations/contracts";
 
 test("PE-001 defines workflow order and decision boundaries", async () => {
@@ -34,17 +35,52 @@ test("dispatcher leasing is globally bounded and isolates locked work", async ()
   assert.doesNotMatch(service, /completed: topics\.length/);
 });
 
-test("Runtime V2 uses worker-scoped leases without process-local heartbeats", async () => {
+test("Runtime V2 renews worker-scoped leases during long execution", async () => {
   const [service, repository] = await Promise.all([
     readFile("src/server/services/factory-operations-service.ts", "utf8"),
     readFile("src/server/repositories/factory-operations-repository.ts", "utf8")
   ]);
   assert.match(service, /WORKER_LEASE_SECONDS = 180/);
-  assert.doesNotMatch(service, /setInterval|WORKFLOW_HEARTBEAT_MS/);
+  assert.match(service, /WORKFLOW_HEARTBEAT_MS = 60_000/);
+  assert.match(service, /repository\.heartbeat\(topic\.id, workerId, WORKER_LEASE_SECONDS\)/);
+  assert.match(service, /await leaseHeartbeat\.stop\(\)/);
+  assert.match(service, /leaseHeartbeat\.assertOwned\(\)/);
   assert.match(service, /maxWorkers: from === "research" \? undefined : 1/);
   assert.match(service, /topic\.status !== "running" \|\| topic\.leaseOwner !== workerId/);
   assert.match(repository, /lease_expires_at >= NOW\(\)/);
   assert.match(repository, /AND status='running' AND current_stage=\$\{topic\.currentStage\}/);
+});
+
+test("lease heartbeat renews repeatedly and stops without leaving a duplicate executor", async () => {
+  const { startLeaseHeartbeat } = await import("@/src/server/services/factory-operations-service");
+  let renewals = 0;
+  const heartbeat = startLeaseHeartbeat({
+    intervalMs: 5,
+    heartbeat: async () => {
+      renewals += 1;
+    }
+  });
+  await new Promise((resolve) => setTimeout(resolve, 24));
+  await heartbeat.stop();
+  heartbeat.assertOwned();
+  const stoppedAt = renewals;
+  await new Promise((resolve) => setTimeout(resolve, 12));
+  assert.ok(stoppedAt >= 2);
+  assert.equal(renewals, stoppedAt);
+});
+
+test("lease heartbeat propagates ownership loss", async () => {
+  const { startLeaseHeartbeat } = await import("@/src/server/services/factory-operations-service");
+  const expected = new ApiError(409, "LEASE_LOST", "lost");
+  const heartbeat = startLeaseHeartbeat({
+    intervalMs: 1,
+    heartbeat: async () => {
+      throw expected;
+    }
+  });
+  await new Promise((resolve) => setTimeout(resolve, 8));
+  await heartbeat.stop();
+  assert.throws(() => heartbeat.assertOwned(), (error) => error === expected);
 });
 
 test("EXECUTION-001 schedules replay atomically and retries failed stages only", async () => {

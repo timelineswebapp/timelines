@@ -59,8 +59,19 @@ If the evidence does not support a specific canonical identity, return candidate
   milestone_extraction_worker: `${extractionContract}
 Task: Extract chronology-rich candidate milestones.
 Candidate object type allowed: candidate_milestone.
-Payload must include title, date, datePrecision, summary, location, and chronologyPosition.
-Dates must be internally consistent. Use ISO-like years or dates where possible.
+Payload must include date and datePrecision.
+A directly supported four-digit year is a complete date: copy the year exactly and set datePrecision to "year". Do not require month or day precision.
+The candidate title must identify the event using only supplied evidence.
+summary, location, and chronologyPosition are optional and may be omitted.
+If location is not explicitly supplied by evidence, omit it or set it to null. Never invent location.
+If summary is present, keep it bounded and include only details directly stated by the candidate's evidence records.
+Treat each independently described historical event as a separate milestone candidate.
+Evaluate date consistency within each event only; do not require dates from different events to reconcile.
+Later publications, commentary, photographs, preservation records, or retrospective material do not invalidate an earlier independently supported event.
+Emit a candidate only when one or more supplied evidence records directly support that candidate's event and explicit date.
+A single validated evidence record that directly states an event and explicit date is sufficient; never require corroboration from a second record.
+If supplied evidence gives conflicting dates for the same event and does not resolve the conflict, emit no candidate for that event.
+Use ISO-like years or dates exactly as supplied where possible.
 Dates, titles, events, ordering, and temporal relationships must be directly supported by validated evidence.
 Never infer or invent chronology, events, titles, descriptions, or historical significance.
 If the evidence does not support a complete milestone and explicit date, return candidates as exactly [] and state the grounding gap in summary.`,

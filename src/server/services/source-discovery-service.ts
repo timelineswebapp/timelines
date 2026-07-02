@@ -11,6 +11,10 @@ import { providerInCooldown, resilientFetch } from "@/src/server/source-authorit
 const approvedProviders: SourceAuthorityProvider[] = ["wikidata", "dbpedia", "library_of_congress", "nara"];
 const QUERY_STOP_WORDS = new Set(["a", "an", "and", "of", "the", "to", "in", "on", "for", "history"]);
 const MIN_RELEVANT_SOURCES = 2;
+const HOMONYM_WORK_PATTERNS = [
+  /\b(?:single|song|album|film|movie|novel|book|episode|television series|video game)\s+by\b/i,
+  /\b(?:single|song|album|film|movie|novel|book|episode|television series|video game)\s+(?:from|released|recorded|published|starring|featuring)\b/i
+];
 
 function relevanceTerms(value: string): string[] {
   return [...new Set(value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(
@@ -50,6 +54,11 @@ export function assessSourceRelevance(query: string, source: SourceDiscoveryResu
     titleTerms.some((candidate) => candidate === term || candidate.startsWith(term) || term.startsWith(candidate))
   );
   const semanticRelevance = queryTerms.length ? titleMatches.length / queryTerms.length : 0;
+  const description = source.description || "";
+  const describesUnrequestedCreativeWork = HOMONYM_WORK_PATTERNS.some((pattern) => pattern.test(description)) &&
+    !relevanceTerms(description)
+      .filter((term) => ["single", "song", "album", "film", "movie", "novel", "book", "episode", "television", "video", "game"].includes(term))
+      .some((term) => queryTerms.includes(term));
   const historicalRelevance = topicalRelevance > 0 && [
     "knowledge_base_entity", "archive_record", "library_record"
   ].some((type) => source.sourceType.toLowerCase().includes(type.replace("_record", ""))) ? 1 : topicalRelevance;
@@ -64,12 +73,12 @@ export function assessSourceRelevance(query: string, source: SourceDiscoveryResu
   ).toFixed(3));
   const rejectionReasons: string[] = [];
   if (topicalRelevance === 0) rejectionReasons.push("Source does not concern the discovery Topic.");
-  if (semanticRelevance === 0) rejectionReasons.push("Source entity is semantically misaligned with the discovery Topic.");
+  if (semanticRelevance === 0 || describesUnrequestedCreativeWork) rejectionReasons.push("Source entity is semantically misaligned with the discovery Topic.");
   if (historicalRelevance === 0) rejectionReasons.push("Source does not materially contribute historical understanding of the Topic.");
   if (publicationSuitability === 0) rejectionReasons.push("Source would not improve publication quality.");
   if (relevanceScore < 0.55) rejectionReasons.push("Source relevance score is below the institutional acceptance threshold.");
   return {
-    accepted: topicalRelevance > 0 && semanticRelevance > 0 && relevanceScore >= 0.55,
+    accepted: topicalRelevance > 0 && semanticRelevance > 0 && !describesUnrequestedCreativeWork && relevanceScore >= 0.55,
     relevanceScore,
     topicalRelevance: Number(topicalRelevance.toFixed(3)),
     historicalRelevance: Number(historicalRelevance.toFixed(3)),
@@ -77,9 +86,11 @@ export function assessSourceRelevance(query: string, source: SourceDiscoveryResu
     authorityRelevance,
     publicationSuitability,
     rejectionReasons,
-    semanticMismatch: semanticRelevance === 0
-      ? `No Topic terms (${queryTerms.join(", ")}) matched the source entity title.`
-      : null
+    semanticMismatch: describesUnrequestedCreativeWork
+      ? "Source description identifies a creative work type not requested by the Topic."
+      : semanticRelevance === 0
+        ? `No Topic terms (${queryTerms.join(", ")}) matched the source entity title.`
+        : null
   };
 }
 
@@ -387,7 +398,12 @@ export const sourceDiscoveryService = {
           assessment: assessSourceRelevance(query, discovery)
         });
       }
-      if (evaluated.filter((candidate) => candidate.assessment.accepted).length >= MIN_RELEVANT_SOURCES) break;
+      const chronologyQueryCompleted = discoveryQuery !== query &&
+        /\bhistory\b/i.test(discoveryQuery);
+      if (
+        chronologyQueryCompleted &&
+        evaluated.filter((candidate) => candidate.assessment.accepted).length >= MIN_RELEVANT_SOURCES
+      ) break;
     }
 
     const accepted = evaluated.filter((candidate) => candidate.assessment.accepted);

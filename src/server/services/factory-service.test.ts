@@ -10,6 +10,7 @@ import {
   assertFactoryCannotRejectPackage,
   buildGovernancePublicationPackage,
   factoryService,
+  milestonePayloadGroundingFailures,
   setFactoryPipelineEvidenceVerifierForTests
 } from "@/src/server/services/factory-service";
 import {
@@ -980,6 +981,54 @@ describe("factory production memory foundation", () => {
     });
     assert.deepEqual(validated.candidates, []);
     assert.match(getFactoryWorkerPromptTemplate("milestone_extraction_worker"), /return candidates as exactly \[\]/);
+  });
+
+  it("evaluates milestone chronology per independently supported event", () => {
+    const prompt = getFactoryWorkerPromptTemplate("milestone_extraction_worker");
+    assert.match(prompt, /each independently described historical event as a separate milestone candidate/);
+    assert.match(prompt, /four-digit year is a complete date.*datePrecision to "year"/);
+    assert.match(prompt, /date consistency within each event only/);
+    assert.match(prompt, /do not require dates from different events to reconcile/);
+    assert.match(prompt, /Later publications, commentary, photographs, preservation records, or retrospective material do not invalidate/);
+    assert.match(prompt, /directly support that candidate's event and explicit date/);
+    assert.match(prompt, /single validated evidence record.*is sufficient; never require corroboration/);
+    assert.match(prompt, /conflicting dates for the same event.*emit no candidate for that event/);
+  });
+
+  it("accepts a minimal grounded milestone without location", () => {
+    assert.deepEqual(milestonePayloadGroundingFailures({
+      title: "Telephone invention",
+      payload: { date: "1876", datePrecision: "year" },
+      evidenceTexts: ["telephone time of discovery or invention: 1876."]
+    }), []);
+  });
+
+  it("accepts null location but rejects unsupported location and invented details", () => {
+    assert.deepEqual(milestonePayloadGroundingFailures({
+      title: "Telephone invention",
+      payload: { date: "1876", datePrecision: "year", location: null },
+      evidenceTexts: ["telephone time of discovery or invention: 1876."]
+    }), []);
+    const failures = milestonePayloadGroundingFailures({
+      title: "Telephone invention",
+      payload: {
+        date: "1876",
+        datePrecision: "year",
+        location: "Boston",
+        summary: "Alexander Graham Bell patented and publicly demonstrated the telephone."
+      },
+      evidenceTexts: ["telephone time of discovery or invention: 1876."]
+    });
+    assert.deepEqual(failures.map((failure) => failure.unsupportedField), ["summary", "location"]);
+  });
+
+  it("rejects unsupported milestone dates", () => {
+    const failures = milestonePayloadGroundingFailures({
+      title: "Telephone invention",
+      payload: { date: "1877", datePrecision: "year" },
+      evidenceTexts: ["telephone time of discovery or invention: 1876."]
+    });
+    assert.equal(failures[0]?.unsupportedField, "date");
   });
 
   it("aligns every Factory worker prompt and provider schema with its registered object contract", () => {
