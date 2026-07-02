@@ -11,6 +11,7 @@ import {
   buildGovernancePublicationPackage,
   factoryService,
   milestonePayloadGroundingFailures,
+  pipelineStepsComplete,
   setFactoryPipelineEvidenceVerifierForTests
 } from "@/src/server/services/factory-service";
 import {
@@ -1029,6 +1030,35 @@ describe("factory production memory foundation", () => {
       evidenceTexts: ["telephone time of discovery or invention: 1876."]
     });
     assert.equal(failures[0]?.unsupportedField, "date");
+  });
+
+  it("completes a single-worker pipeline only after its final step completes", () => {
+    assert.equal(pipelineStepsComplete(
+      ["object_extraction_worker"],
+      [{ workerKey: "object_extraction_worker", status: "completed" }]
+    ), true);
+    assert.equal(pipelineStepsComplete(
+      ["object_extraction_worker"],
+      [{ workerKey: "object_extraction_worker", status: "running" }]
+    ), false);
+  });
+
+  it("does not complete a partial multi-worker pipeline", () => {
+    assert.equal(pipelineStepsComplete(
+      ["object_extraction_worker", "milestone_extraction_worker"],
+      [{ workerKey: "object_extraction_worker", status: "completed" }]
+    ), false);
+  });
+
+  it("persists recovered pipeline completion for Factory Operations advancement", () => {
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+    const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
+    const operations = readFileSync("src/server/services/factory-operations-service.ts", "utf8");
+    assert.match(service, /pipelineStepsComplete\(pipeline\.steps, completedSteps\)/);
+    assert.match(service, /status: "completed"/);
+    assert.match(repository, /completed_at = CASE WHEN \$\{input\.status\} IN \('completed', 'failed', 'cancelled'\) THEN NOW\(\)/);
+    assert.match(operations, /if \(run\.status === "running"\) to = from/);
+    assert.match(operations, /reason = to === from \? "pipeline_stage_in_progress" : "workflow_stage_advanced"/);
   });
 
   it("aligns every Factory worker prompt and provider schema with its registered object contract", () => {

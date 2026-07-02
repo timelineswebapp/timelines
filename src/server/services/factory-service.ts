@@ -1100,6 +1100,15 @@ type PublicationLineage = {
   };
 };
 
+export function pipelineStepsComplete(
+  expectedWorkerKeys: string[],
+  steps: Array<{ workerKey: string; status: string }>
+): boolean {
+  if (expectedWorkerKeys.length === 0 || steps.length !== expectedWorkerKeys.length) return false;
+  const stepByWorker = new Map(steps.map((step) => [step.workerKey, step.status]));
+  return expectedWorkerKeys.every((workerKey) => stepByWorker.get(workerKey) === "completed");
+}
+
 async function resolvePublicationLineage(input: StartFactoryPipelineInput): Promise<PublicationLineage | null> {
   if (input.pipelineId !== "publication_candidate_pipeline") return null;
   for (const field of clientLineageFields) {
@@ -1596,6 +1605,25 @@ export const factoryService = {
     const factoryObjectRefs: string[] = existingRun ? [...run.factoryObjectRefs] : [...(publicationLineage?.factoryObjectRefs || [])];
     let packageDraftId: string | null = run.packageDraftId;
     let validatedEvidenceContext: ValidatedEvidenceContext | null = null;
+
+    if (existingRun && pipelineStepsComplete(pipeline.steps, completedSteps)) {
+      const completedRun = await factoryRepository.transitionPipelineRun({
+        pipelineRunId: run.pipelineRunId,
+        status: "completed",
+        actor: input.actor,
+        artifactRefs,
+        factoryObjectRefs,
+        packageDraftId
+      });
+      await factoryRepository.createRuntimeAuditRecord({
+        targetRef: { authorityType: "factory_runtime_execution", authorityId: completedRun.pipelineRunId },
+        action: "complete_pipeline_run",
+        actor: input.actor,
+        reason: input.reason,
+        afterState: completedRun as unknown as Record<string, unknown>
+      });
+      return completedRun;
+    }
 
     try {
     if (!existingRun) await factoryRepository.createRuntimeAuditRecord({
