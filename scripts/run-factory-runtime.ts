@@ -1,7 +1,7 @@
 import "@/src/server/operations/environment";
 import { closeSql } from "@/src/server/db/client";
 import { getFactoryRuntimeProvider } from "@/src/server/factory/runtime-providers";
-import { FactoryDispatcher } from "@/src/server/services/factory-dispatcher";
+import { institutionalRuntimeService } from "@/src/server/services/institutional-runtime-service";
 
 const component = "factory_runtime";
 
@@ -55,7 +55,7 @@ async function main(): Promise<void> {
     throw new Error(`Factory runtime provider health verification failed for ${health.modelName}.`);
   }
 
-  const result = await new FactoryDispatcher().runCycle();
+  const result = await institutionalRuntimeService.runCycle();
   log("info", "cycle_completed", { result });
 }
 
