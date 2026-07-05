@@ -14,6 +14,7 @@
     "factory:seed": "tsx scripts/factory-seed.ts",
     "factory:runtime": "tsx scripts/run-factory-runtime.ts",
     "test:factory-reset": "tsx --test scripts/factory-reset.test.ts",
+    "test:editorial-foundation": "tsx --test src/server/editorial-intelligence/editorial-foundation.test.ts",
     "data:audit": "tsx scripts/check-and-fix-data.ts",
     "data:repair": "tsx scripts/check-and-fix-data.ts --write",
     "relationships:backfill": "tsx scripts/backfill-event-relationships.ts",

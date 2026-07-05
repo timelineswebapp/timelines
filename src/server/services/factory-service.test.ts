@@ -14,6 +14,7 @@ import {
   pipelineStepsComplete,
   setFactoryPipelineEvidenceVerifierForTests
 } from "@/src/server/services/factory-service";
+import { setEditorialEvidencePersistenceForTests } from "@/src/server/services/editorial-foundation-service";
 import {
   compactExtractionWorkerOutputContractSchema,
   factoryWorkerOutputContractSchema,
@@ -1854,6 +1855,10 @@ describe("factory production memory foundation", () => {
       setFactoryPipelineEvidenceVerifierForTests(async (refs, context) => {
         state.verifierCalls.push({ refs, context });
       });
+      setEditorialEvidencePersistenceForTests(async (set) => ({
+        ...set,
+        editorialEvidenceSetId: "editorial-evidence-set-1"
+      }));
       return await run(state);
     } finally {
       (sourceDiscoveryService as any).discover = originals.discover;
@@ -1875,6 +1880,7 @@ describe("factory production memory foundation", () => {
       (factoryRepository as any).createPackageDraft = originals.createPackageDraft;
       globalThis.fetch = originals.fetch;
       setFactoryPipelineEvidenceVerifierForTests(null);
+      setEditorialEvidencePersistenceForTests(null);
     }
   }
 
@@ -1892,6 +1898,10 @@ describe("factory production memory foundation", () => {
       assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.corpusDocuments?.length === 1));
       assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.evidenceRecords?.length === 1));
       assert.ok(state.artifacts.some((artifact) => artifact.payload.generated?.evidenceValidationRecords?.length === 1));
+      const editorialArtifact = state.artifacts.find((artifact) => artifact.title === "editorial_intelligence_foundation output");
+      assert.equal(editorialArtifact.payload.generated.editorialEvidenceSet.algorithmVersion, "ei-001-v1");
+      assert.equal(editorialArtifact.payload.generated.editorialEvidenceSet.editorialMetadata.authorityDecision, false);
+      assert.equal(editorialArtifact.payload.generated.editorialEvidenceSet.editorialMetadata.publicationReadinessDecision, false);
       assert.ok(state.artifacts.some((artifact) => artifact.payload.validatedEvidenceRefs?.[0]?.validationRecordId === "validation-1"));
       const researchPrompt = state.providerPrompts.find((prompt) => prompt.includes("researchReasoningContext"));
       assert.ok(researchPrompt);

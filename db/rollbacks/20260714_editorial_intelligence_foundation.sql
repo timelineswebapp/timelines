@@ -1,0 +1,5 @@
+DROP TRIGGER IF EXISTS prevent_factory_editorial_evidence_sets_update ON factory_editorial_evidence_sets;
+DROP TRIGGER IF EXISTS prevent_factory_editorial_evidence_set_inputs_update ON factory_editorial_evidence_set_inputs;
+DROP TABLE IF EXISTS factory_editorial_evidence_set_inputs;
+DROP FUNCTION IF EXISTS prevent_factory_editorial_evidence_set_mutation();
+DROP TABLE IF EXISTS factory_editorial_evidence_sets;

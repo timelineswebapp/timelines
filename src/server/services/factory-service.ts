@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/src/server/api/responses";
 import type { EvidenceValidationRecord } from "@/src/server/evidence-validation/contracts";
+import type { EditorialEvidenceSet, EditorialEvidenceSubject } from "@/src/server/editorial-intelligence/contracts";
 import type {
   FactoryArtifactType,
   FactoryAuthorityPreparation,
@@ -55,6 +56,7 @@ import { sourceRetrievalService } from "@/src/server/services/source-retrieval-s
 import { corpusGenerationService } from "@/src/server/services/corpus-generation-service";
 import { evidenceExtractionService } from "@/src/server/services/evidence-extraction-service";
 import { evidenceValidationService } from "@/src/server/services/evidence-validation-service";
+import { editorialFoundationService } from "@/src/server/services/editorial-foundation-service";
 import { withWriteTransaction } from "@/src/server/db/client";
 
 type TransitionMap<T extends string> = Record<T, readonly T[]>;
@@ -326,6 +328,7 @@ type ValidatedEvidenceContext = {
   allowedSourceIds: Set<string>;
   allowedEvidenceRecordIds: Set<string>;
   allowedUrls: Set<string>;
+  editorialEvidenceSet: EditorialEvidenceSet | null;
 };
 
 type ResearchReasoningContext = {
@@ -614,8 +617,33 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
     validatedEvidenceRefs: passedEvidence.map((record) => evidenceRefFromValidation(record, validationByEvidence.get(record.evidenceRecordId)!)),
     allowedSourceIds,
     allowedEvidenceRecordIds,
-    allowedUrls
+    allowedUrls,
+    editorialEvidenceSet: null
   };
+}
+
+function editorialEvidenceSubjects(context: ValidatedEvidenceContext): EditorialEvidenceSubject[] {
+  const validations = new Map(context.validationRecords.map((record) => [record.evidenceRecordId, record]));
+  const sources = new Map(context.sourceRecords.map((record) => [record.sourceRecordId, record]));
+  return context.evidenceRecords.map((evidence) => {
+    const validation = validations.get(evidence.evidenceRecordId);
+    const source = sources.get(evidence.sourceRecordId);
+    if (!validation || validation.status !== "passed" || !source) {
+      throw new ApiError(409, "EDITORIAL_EVIDENCE_LINEAGE_INCOMPLETE", "Editorial preparation requires passed validation and Source Authority lineage.");
+    }
+    const relevance = source.provenance.relevanceAssessment;
+    const sourceAuthorityScore = relevance && typeof relevance === "object" &&
+      "authorityRelevance" in relevance && typeof relevance.authorityRelevance === "number"
+      ? relevance.authorityRelevance
+      : 0;
+    return {
+      evidence,
+      validationRecordId: validation.validationRecordId,
+      validation: validation.provenance,
+      sourceTitle: source.title,
+      sourceAuthorityScore
+    };
+  });
 }
 
 function boundedReasoningExcerpt(record: EvidenceRecord): string | undefined {
@@ -632,9 +660,15 @@ function buildResearchReasoningContext(input: StartFactoryPipelineInput, context
       ? input.input.query.trim()
       : "";
 
+  const editorialRanks = new Map(
+    context.editorialEvidenceSet?.rankedEvidence.map((item) => [item.evidenceRecordId, item.rank]) || []
+  );
   return {
     subject,
-    evidence: context.evidenceRecords.map((record) => {
+    evidence: [...context.evidenceRecords].sort((left, right) => {
+      return (editorialRanks.get(left.evidenceRecordId) ?? Number.MAX_SAFE_INTEGER) -
+        (editorialRanks.get(right.evidenceRecordId) ?? Number.MAX_SAFE_INTEGER);
+    }).map((record) => {
       const item: ResearchReasoningContext["evidence"][number] = {
         evidenceRecordId: record.evidenceRecordId,
         normalizedHistoricalClaim: record.normalizedClaim
@@ -1165,7 +1199,8 @@ const deterministicResearchSteps = new Set([
   "source_authority_retrieval",
   "research_corpus_generation",
   "evidence_extraction",
-  "evidence_validation"
+  "evidence_validation",
+  "editorial_intelligence_foundation"
 ]);
 
 function deterministicStepOutput(workerKey: string, context: ValidatedEvidenceContext): Record<string, unknown> {
@@ -1188,7 +1223,10 @@ function deterministicStepOutput(workerKey: string, context: ValidatedEvidenceCo
   if (workerKey === "evidence_extraction") {
     return { ...base, evidenceRecords: context.evidenceRecords };
   }
-  return { ...base, evidenceValidationRecords: context.validationRecords };
+  if (workerKey === "evidence_validation") {
+    return { ...base, evidenceValidationRecords: context.validationRecords };
+  }
+  return { ...base, editorialEvidenceSet: context.editorialEvidenceSet };
 }
 
 function classifyRuntimeFailure(error: unknown): Record<string, unknown> {
@@ -1657,6 +1695,16 @@ export const factoryService = {
       if (deterministicResearchSteps.has(workerKey)) {
         try {
           validatedEvidenceContext ||= await buildValidatedEvidenceContext(input);
+          if (workerKey === "editorial_intelligence_foundation") {
+            const subject = typeof input.input.subject === "string" && input.input.subject.trim()
+              ? input.input.subject.trim()
+              : String(input.input.query || "").trim();
+            validatedEvidenceContext.editorialEvidenceSet = await editorialFoundationService.prepareFromValidatedEvidence({
+              topic: subject,
+              actor: input.actor,
+              evidence: editorialEvidenceSubjects(validatedEvidenceContext)
+            });
+          }
           const stepOutput = {
             ...pipelineStepOutput({
               pipelineId: pipeline.pipelineId,
