@@ -128,7 +128,7 @@ Historical Knowledge Graph
 
 Editorial Intelligence
 
-██░░░░░░░░ 20%
+████░░░░░░ 40%
 
 Public Experience
 
@@ -218,7 +218,7 @@ Active
 
 Maturity
 
-Level 1
+Level 2
 
 Objective
 
@@ -236,6 +236,14 @@ Priority
 
 Critical
 
+Status
+
+Completed
+
+Maturity
+
+Level 2
+
 Objective
 
 Transform validated research evidence into an editorially useful body of historical knowledge.
@@ -244,33 +252,33 @@ This phase establishes the deterministic editorial foundation used by every subs
 
 Deliverables
 
-□ Historical significance scoring
+✓ Historical significance scoring
 
-□ Evidence ranking
+✓ Evidence ranking
 
-□ Evidence quality scoring
+✓ Evidence quality scoring
 
-□ Coverage scoring
+✓ Coverage scoring
 
-□ Chronology coverage analysis
+✓ Chronology coverage analysis
 
-□ Turning-point detection
+✓ Turning-point detection
 
-□ Narrative contribution scoring
+✓ Narrative contribution scoring
 
-□ Duplicate evidence suppression
+✓ Duplicate evidence suppression
 
-□ Canonical subject detection
+✓ Canonical subject detection
 
-□ Canonical historical object selection
+✓ Canonical historical object selection
 
-□ Milestone importance ranking
+✓ Milestone importance ranking
 
-□ Canonical milestone selection
+✓ Canonical milestone selection
 
-□ Timeline gap detection
+✓ Timeline gap detection
 
-□ Timeline balance analysis
+✓ Timeline balance analysis
 
 Certification
 
@@ -286,41 +294,41 @@ Priority
 
 Critical
 
+Status
+
+Completed and Certified
+
+Maturity
+
+Level 4
+
 Objective
 
-Compile the best possible historical timeline from ranked, grounded milestones.
-
-The Timeline Compiler determines what story should be told before any editorial writing occurs.
+Determine which grounded milestones belong in the canonical timeline and order them chronologically before Governance.
 
 Deliverables
 
-□ Editorial timeline compilation
+✓ Deterministic timeline compilation
 
-□ Timeline framing
+✓ Deterministic duplicate suppression
 
-□ Narrative sequencing
+✓ Canonical milestone selection
 
-□ Beginning identification
+✓ Chronological ordering with stable tie-breaking
 
-□ Development identification
+✓ Compiler fingerprints and versioned provenance
 
-□ Turning-point identification
+✓ Selection and exclusion preservation
 
-□ Climax identification
+✓ Immutable Editorial Timeline Candidate persistence
 
-□ Legacy identification
+✓ Factory pipeline and package-lineage integration
 
-□ Chronological completeness scoring
-
-□ Timeline coverage balancing
-
-□ Timeline coherence validation
-
-□ Editorial completeness scoring
+✓ Tier A machine certification
 
 Certification
 
-The Factory consistently produces coherent, evidence-grounded historical timelines representing the strongest supported narrative for a topic.
+Certified by `editorial-certification-v1` against `ei-002-tier-a-v1`: 4 of 4 historical subjects and 52 of 52 invariants passed. Persisted certification run `b5c4bc1d-c283-444d-8011-d5a122aa4d9d`.
 
 ---
 
@@ -331,6 +339,14 @@ The Factory consistently produces coherent, evidence-grounded historical timelin
 Priority
 
 Critical
+
+Status
+
+Next Active Phase
+
+Maturity
+
+Level 0
 
 Objective
 
@@ -374,6 +390,14 @@ Priority
 
 High
 
+Status
+
+Planned
+
+Maturity
+
+Level 0
+
 Objective
 
 Present editorially rich historical knowledge through the public platform while preserving provenance and transparency.
@@ -413,6 +437,14 @@ Published timelines provide a compelling educational experience while preserving
 Priority
 
 Critical
+
+Status
+
+Planned
+
+Maturity
+
+Level 0
 
 Objective
 

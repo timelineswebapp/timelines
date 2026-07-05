@@ -22,7 +22,7 @@ Production-capable
 
 Current maturity:
 
-Editorial Intelligence — Level 1
+Editorial Intelligence — Level 2
 
 Current production status:
 
@@ -45,7 +45,7 @@ Public Timeline Rendering
 ✓ Certified
 
 Editorial Intelligence
-In Progress
+EI-001 Complete; EI-002 Certified
 
 ---
 
@@ -63,13 +63,13 @@ Raise publication quality from institutionally correct to editorially excellent 
 
 # Active Epic
 
-EI-001
+EI-003
 
-Editorial Foundation
+Editorial Writer
 
 Status
 
-In Progress
+Next Active Phase
 
 Priority
 
@@ -77,105 +77,79 @@ Critical
 
 Objective
 
-Create deterministic editorial intelligence foundations that prepare grounded historical evidence for editorial composition without generating public editorial content.
+Implement the next Editorial Intelligence phase using the certified EI-001 Editorial Evidence Set and EI-002 Editorial Timeline Candidate as its grounded inputs.
 
 ---
 
 # Current Task
 
-Implement the next uncertified deliverable of EI-001.
+Prepare and authorize EI-003 implementation work.
 
-Work must remain inside Editorial Intelligence.
+EI-001 is complete.
 
-Do not implement future Editorial Intelligence epics until EI-001 is fully certified.
-
----
-
-# Scope
-
-Allowed
-
-✓ Editorial evidence ranking
-
-✓ Historical significance scoring
-
-✓ Turning-point detection
-
-✓ Duplicate suppression
-
-✓ Canonical subject scoring
-
-✓ Coverage analysis
-
-✓ Chronology balance
-
-✓ Editorial metadata
-
-✓ Editorial repositories
-
-✓ Factory editorial preparation
-
-✓ Deterministic algorithms
-
-✓ Tests
-
-✓ Migrations
-
-✓ Rollbacks
-
-Not Allowed
-
-✗ Editorial Timeline Compiler
-
-✗ Editorial Writer
-
-✗ Timeline titles
-
-✗ Timeline summaries
-
-✗ Milestone summaries
-
-✗ Public UI changes
-
-✗ Projection redesign
-
-✗ Governance changes
-
-✗ Historical Library changes
-
-✗ Published Memory redesign
-
-✗ Source Authority redesign
-
-✗ Schema redesign outside Editorial Foundation
+EI-002 is complete and certified.
 
 ---
 
-# Definition of Done
+# Completed Editorial Intelligence Baseline
 
-EI-001 is complete only when:
+✓ EI-001 Editorial Intelligence Foundation
 
-✓ Editorial evidence ranking exists.
+✓ EI-002 deterministic Editorial Timeline Compiler
 
-✓ Historical significance scoring exists.
+✓ Immutable Editorial Timeline Candidate persistence
 
-✓ Turning-point detection exists.
+✓ Factory pipeline integration
 
-✓ Duplicate suppression exists.
+✓ Editorial Certification Foundation
 
-✓ Canonical subject scoring exists.
+✓ Tier A corpus: 4 historical subjects
 
-✓ Chronology coverage analysis exists.
+✓ Certification invariants: 52 / 52 passed
 
-✓ Editorial metadata is persisted.
+✓ Persisted certification run: b5c4bc1d-c283-444d-8011-d5a122aa4d9d
 
-✓ Deterministic behavior is verified.
+✓ Machine certification command: npm run ops:editorial:certify
 
-✓ Multi-topic regression tests pass.
+---
 
-✓ Publication certification passes.
+# EI-002 Certification Record
 
-Only then may EI-001 be marked Certified.
+Status
+
+Certified
+
+Implementation
+
+Complete
+
+Repository Integration
+
+Complete
+
+Determinism
+
+Certified
+
+Persistence
+
+Certified
+
+Pipeline Integration
+
+Certified
+
+Tier A Corpus
+
+Certified
+
+Machine Certification
+
+Certified
+
+Dependency for EI-003
+
+Satisfied
 
 ---
 
@@ -201,11 +175,11 @@ Do not continue beyond the blocker.
 
 # Next Epic
 
-EI-002
+EI-003
 
-Editorial Compiler
+Editorial Writer
 
-Do not begin until EI-001 has been certified.
+This is the next active phase. EI-004 and EI-005 remain planned.
 
 ---
 

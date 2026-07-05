@@ -6,7 +6,7 @@ Status: ACTIVE
 
 Authority: Tier 1
 
-Last Updated: 2026-07-03
+Last Updated: 2026-07-05
 
 ---
 
@@ -30,7 +30,7 @@ TiMELiNES has completed its institutional publishing foundation.
 
 The platform is now capable of autonomously discovering, researching, validating, governing, admitting, publishing, projecting, and serving historical timelines through the complete institutional publication pipeline.
 
-Current engineering effort is shifting from institutional infrastructure toward editorial intelligence and publication quality.
+Editorial Intelligence foundations and the Editorial Timeline Compiler are implemented. EI-002 is certified through the permanent Factory-owned Editorial Certification Foundation.
 
 Overall Platform Readiness
 
@@ -296,19 +296,53 @@ Current Projection Types
 
 Status
 
-Prototype
+Active
 
 Maturity
 
-Level 1
+Level 2
 
 Current Capabilities
 
-✓ Object Extraction
+✓ Deterministic Editorial Evidence Set preparation
 
-✓ Milestone Extraction
+✓ Historical significance and evidence ranking
 
-✓ Timeline Generation
+✓ Coverage, chronology, turning-point, and duplicate analysis
+
+✓ Canonical subject and milestone prioritization
+
+✓ Deterministic Editorial Timeline Compiler
+
+✓ Immutable Editorial Timeline Candidate persistence
+
+✓ Factory publication candidate pipeline integration
+
+✓ Compiler lineage and package dependency verification
+
+✓ Tier A machine certification
+
+Certified Editorial Intelligence Epics
+
+✓ EI-001 — Completed
+
+✓ EI-002 — Completed and Certified
+
+EI-002 Certification
+
+• Framework: editorial-certification-v1
+
+• Corpus: ei-002-tier-a-v1
+
+• Historical subjects: 4
+
+• Cases passed: 4 / 4
+
+• Invariants passed: 52 / 52
+
+• Certification run: b5c4bc1d-c283-444d-8011-d5a122aa4d9d
+
+• Machine command: npm run ops:editorial:certify
 
 Current Limitations
 
@@ -318,9 +352,7 @@ Current Limitations
 
 • Editorial summaries are minimal
 
-• Timeline composition is basic
-
-• Historical significance ranking is limited
+• Editorial composition is not implemented
 
 • Narrative quality remains below target
 
@@ -476,6 +508,10 @@ Certified
 
 ✓ End-to-End Institutional Publication
 
+✓ Editorial Intelligence Foundation
+
+✓ Editorial Timeline Compiler — Tier A
+
 ---
 
 # Current Known Limitations
@@ -496,7 +532,7 @@ Operational scaling beyond single-worker execution remains future work.
 
 The current strategic priority is:
 
-Editorial Intelligence.
+EI-003, the next Editorial Intelligence phase.
 
 Future engineering effort focuses on improving publication quality while preserving institutional authority.
 

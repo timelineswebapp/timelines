@@ -4,7 +4,7 @@ Status
 
 Document Status: ACTIVE
 Purpose: Operational Status & Roadmap Authority
-Last Updated: June 2026
+Last Updated: July 2026
 
 This document provides the current operational status of TiMELiNES.
 
@@ -233,6 +233,19 @@ Multi-subject repeatability is certified for Printing Press, Steam Engine, Inter
 
 Scale certification is accepted: 25 and 50 subject batches passed at 100%; the 100 subject batch passed at 98%. Projection slug revalidation certified the final known slug defects.
 
+Editorial Intelligence Certification:
+
+* EI-001 Editorial Intelligence Foundation is complete.
+* EI-002 Editorial Timeline Compiler is complete and certified.
+* The compiler deterministically selects canonical grounded milestones, suppresses duplicates, orders chronology, preserves exclusions, and records exact lineage.
+* Editorial Timeline Candidates are immutable, non-authoritative Factory Production Memory.
+* Compiler integration and package dependencies fail closed on missing, stale, unrelated, or incomplete lineage.
+* Editorial Timeline Candidates remain excluded from Governance authority inputs.
+* Tier A corpus `ei-002-tier-a-v1` contains four historical subjects.
+* Certification run `b5c4bc1d-c283-444d-8011-d5a122aa4d9d` passed 4 / 4 cases and 52 / 52 invariants.
+* Machine certification command: `npm run ops:editorial:certify`.
+* EI-003 is the next active Editorial Intelligence phase. EI-004 and EI-005 remain planned.
+
 ⸻
 
 Governance
@@ -324,6 +337,8 @@ Factory Research Pipeline	Operational
 Factory Extraction Pipeline	Operational
 Factory Publication Candidate Pipeline	Certified
 Factory Governance Handoff	Certified
+Editorial Intelligence Foundation	Completed
+Editorial Timeline Compiler	Completed and Tier A Certified
 Governance UI	Not Started
 Historical Knowledge Graph	Not Started
 Recommendation Layer	Not Started

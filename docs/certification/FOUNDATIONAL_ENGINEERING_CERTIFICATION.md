@@ -128,6 +128,58 @@ Factory executes deterministically.
 
 ⸻
 
+Editorial Intelligence Certification
+
+Status:
+
+EI-001 Completed
+
+EI-002 Completed and Certified
+
+Certified:
+
+* Deterministic Editorial Timeline Compiler
+* Compiler adapter
+* Immutable Editorial Timeline Candidate persistence
+* Chronology ordering
+* Duplicate suppression
+* Selection and exclusion preservation
+* Compiler artifact ownership
+* Package dependency and lineage verification
+* Governance boundary exclusion
+* Tier A certification corpus
+* Immutable persisted certification reports
+
+Certification framework:
+
+`editorial-certification-v1`
+
+Corpus:
+
+`ei-002-tier-a-v1`
+
+Result:
+
+4 / 4 historical subjects passed.
+
+52 / 52 certification invariants passed.
+
+Persisted certification run:
+
+`b5c4bc1d-c283-444d-8011-d5a122aa4d9d`
+
+Machine certification command:
+
+`npm run ops:editorial:certify`
+
+This is Factory technical certification only. It does not approve publication or replace Governance.
+
+Permanent record:
+
+`docs/certification/EDITORIAL_INTELLIGENCE_CERTIFICATION.md`
+
+⸻
+
 Governance Certification
 
 Status:
@@ -422,6 +474,7 @@ Area	Status
 Constitutional Architecture	Certified
 Institutional Architecture	Certified
 Factory	Certified
+Editorial Intelligence	EI-001 Complete; EI-002 Tier A Certified
 Governance	Certified
 Historical Library	Certified
 Published Memory	Certified
