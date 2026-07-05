@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { ApiError } from "@/src/server/api/responses";
 import type { EvidenceValidationRecord } from "@/src/server/evidence-validation/contracts";
 import type { EditorialEvidenceSet, EditorialEvidenceSubject } from "@/src/server/editorial-intelligence/contracts";
+import type { EditorialTimelineCandidate } from "@/src/server/editorial-intelligence/timeline-compiler-contracts";
+import { adaptFactoryMilestonesToCompilerInput } from "@/src/server/editorial-intelligence/timeline-compiler-adapter";
+import { compileEditorialTimeline } from "@/src/server/editorial-intelligence/timeline-compiler";
 import type {
+  FactoryArtifact,
   FactoryArtifactType,
   FactoryAuthorityPreparation,
   FactoryConfidenceLevel,
@@ -19,6 +23,7 @@ import type {
   FactoryPackageVersion,
   FactoryPackageType,
   FactoryPipelineFailure,
+  FactoryPipelineRun,
   FactoryPipelineRunStatus,
   FactoryRuntimeExecutionStatus,
   FactoryRuntimeJobStatus,
@@ -48,6 +53,8 @@ import type { CorpusDocument, EvidenceRecord } from "@/src/server/research-corpu
 import type { SourceAuthorityRegistryRecord, SourceAuthoritySnapshot } from "@/src/server/source-authority/contracts";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { evidenceValidationRepository } from "@/src/server/repositories/evidence-validation-repository";
+import { editorialEvidenceRepository } from "@/src/server/repositories/editorial-evidence-repository";
+import { editorialTimelineCandidateRepository } from "@/src/server/repositories/editorial-timeline-candidate-repository";
 import { governanceRepository, verifyValidatedEvidenceRefs } from "@/src/server/repositories/governance-repository";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
 import { governanceService } from "@/src/server/services/governance-service";
@@ -1132,6 +1139,10 @@ type PublicationLineage = {
     researchPipelineRunId: string;
     extractionPipelineRunId: string;
   };
+  editorialEvidenceSetId: string;
+  compilerCandidate: EditorialTimelineCandidate;
+  persistedCandidate: Awaited<ReturnType<typeof editorialTimelineCandidateRepository.getByFingerprint>>;
+  compilerArtifactId: string | null;
 };
 
 export function pipelineStepsComplete(
@@ -1143,7 +1154,45 @@ export function pipelineStepsComplete(
   return expectedWorkerKeys.every((workerKey) => stepByWorker.get(workerKey) === "completed");
 }
 
-async function resolvePublicationLineage(input: StartFactoryPipelineInput): Promise<PublicationLineage | null> {
+function editorialEvidenceSetIdFromArtifacts(artifacts: FactoryArtifact[]): string {
+  const ids = artifacts.flatMap((artifact) => {
+    const generated = artifact.payload.generated;
+    if (!generated || typeof generated !== "object") return [];
+    const set = (generated as Record<string, unknown>).editorialEvidenceSet;
+    if (!set || typeof set !== "object") return [];
+    const id = (set as Record<string, unknown>).editorialEvidenceSetId;
+    return typeof id === "string" ? [id] : [];
+  });
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length !== 1) {
+    throw new ApiError(409, "PUBLICATION_EDITORIAL_EVIDENCE_LINEAGE_REQUIRED", "Publication requires exactly one Editorial Evidence Set from the pinned research run.");
+  }
+  return uniqueIds[0]!;
+}
+
+function pinnedPublicationLineage(run: FactoryPipelineRun): {
+  researchPipelineRunId: string;
+  extractionPipelineRunId: string;
+  editorialEvidenceSetId: string;
+  compilerInputFingerprint: string;
+} {
+  const value = run.input.factoryResolvedLineage;
+  if (!value || typeof value !== "object") {
+    throw new ApiError(409, "PUBLICATION_PINNED_LINEAGE_REQUIRED", "Resumed publication requires persisted predecessor lineage.");
+  }
+  const lineage = value as Record<string, unknown>;
+  for (const field of ["researchPipelineRunId", "extractionPipelineRunId", "editorialEvidenceSetId", "compilerInputFingerprint"] as const) {
+    if (typeof lineage[field] !== "string" || !lineage[field]) {
+      throw new ApiError(409, "PUBLICATION_PINNED_LINEAGE_INCOMPLETE", `Resumed publication lineage is missing ${field}.`);
+    }
+  }
+  return lineage as ReturnType<typeof pinnedPublicationLineage>;
+}
+
+async function resolvePublicationLineage(
+  input: StartFactoryPipelineInput,
+  existingRun: FactoryPipelineRun | null
+): Promise<PublicationLineage | null> {
   if (input.pipelineId !== "publication_candidate_pipeline") return null;
   for (const field of clientLineageFields) {
     if (field in input.input) {
@@ -1154,15 +1203,42 @@ async function resolvePublicationLineage(input: StartFactoryPipelineInput): Prom
   if (subject.length < 2 || subject.length > 300) {
     throw new ApiError(400, "PUBLICATION_INTENT_SUBJECT_REQUIRED", "Publication candidate intent requires a valid subject.");
   }
-  const [researchRun, extractionRun] = await Promise.all([
-    factoryRepository.getLatestCompletedPipelineRun("historical_research_pipeline", subject),
-    factoryRepository.getLatestCompletedPipelineRun("historical_extraction_pipeline", subject)
-  ]);
+  const pinned = existingRun ? pinnedPublicationLineage(existingRun) : null;
+  const workflowId = typeof input.input.workflowId === "string" ? input.input.workflowId.trim() : "";
+  if (existingRun && (
+    typeof existingRun.input.subject !== "string" ||
+    existingRun.input.subject.trim().toLowerCase() !== subject.toLowerCase() ||
+    typeof existingRun.input.workflowId !== "string" ||
+    existingRun.input.workflowId !== workflowId
+  )) {
+    throw new ApiError(409, "PUBLICATION_RESUME_INTENT_MISMATCH", "Resumed publication intent must match its persisted subject and workflow identity.");
+  }
+  if (!existingRun && !workflowId) {
+    throw new ApiError(400, "PUBLICATION_WORKFLOW_ID_REQUIRED", "New publication candidates require an exact Factory workflow identity.");
+  }
+  const [researchRun, extractionRun] = pinned
+    ? await Promise.all([
+      factoryRepository.getPipelineRun(pinned.researchPipelineRunId),
+      factoryRepository.getPipelineRun(pinned.extractionPipelineRunId)
+    ])
+    : await Promise.all([
+      factoryRepository.getCompletedPipelineRunForWorkflow("historical_research_pipeline", workflowId, subject),
+      factoryRepository.getCompletedPipelineRunForWorkflow("historical_extraction_pipeline", workflowId, subject)
+    ]);
   if (!researchRun) {
     throw new ApiError(409, "PUBLICATION_RESEARCH_PREDECESSOR_REQUIRED", "Publication requires a completed research pipeline run for the requested subject.");
   }
   if (!extractionRun) {
     throw new ApiError(409, "PUBLICATION_EXTRACTION_PREDECESSOR_REQUIRED", "Publication requires a completed extraction pipeline run for the requested subject.");
+  }
+  if (researchRun.pipelineId !== "historical_research_pipeline" || researchRun.status !== "completed" ||
+      extractionRun.pipelineId !== "historical_extraction_pipeline" || extractionRun.status !== "completed") {
+    throw new ApiError(409, "PUBLICATION_PINNED_PREDECESSOR_INVALID", "Pinned publication predecessors must be completed research and extraction runs.");
+  }
+  if (researchRun.input.workflowId !== workflowId || extractionRun.input.workflowId !== workflowId ||
+      String(researchRun.input.subject || "").toLowerCase() !== subject.toLowerCase() ||
+      String(extractionRun.input.subject || "").toLowerCase() !== subject.toLowerCase()) {
+    throw new ApiError(409, "PUBLICATION_PREDECESSOR_WORKFLOW_MISMATCH", "Publication predecessors must belong to the exact subject workflow.");
   }
   const artifactRefs = Array.from(new Set([...researchRun.artifactRefs, ...extractionRun.artifactRefs]));
   const artifacts = await factoryRepository.getArtifactsByIds(artifactRefs);
@@ -1182,16 +1258,99 @@ async function resolvePublicationLineage(input: StartFactoryPipelineInput): Prom
   if (extractionRun.factoryObjectRefs.length === 0) {
     throw new ApiError(409, "PUBLICATION_FACTORY_OBJECTS_REQUIRED", "Publication predecessor lineage contains no Factory objects.");
   }
+  const researchArtifacts = artifacts.filter((artifact) => researchRun.artifactRefs.includes(artifact.artifactId));
+  const editorialEvidenceSetId = editorialEvidenceSetIdFromArtifacts(researchArtifacts);
+  if (pinned && pinned.editorialEvidenceSetId !== editorialEvidenceSetId) {
+    throw new ApiError(409, "PUBLICATION_EDITORIAL_EVIDENCE_LINEAGE_STALE", "Pinned Editorial Evidence Set no longer matches the research checkpoint.");
+  }
+  const editorialEvidenceSet = await editorialEvidenceRepository.getById(editorialEvidenceSetId);
+  if (!editorialEvidenceSet) {
+    throw new ApiError(409, "PUBLICATION_EDITORIAL_EVIDENCE_SET_NOT_FOUND", "Pinned Editorial Evidence Set could not be loaded.");
+  }
+  const extractionObjects = await factoryRepository.getObjectsByIds(extractionRun.factoryObjectRefs, undefined, 200);
+  if (extractionObjects.length !== extractionRun.factoryObjectRefs.length) {
+    throw new ApiError(409, "PUBLICATION_EXTRACTION_OBJECT_LINEAGE_INCOMPLETE", "Pinned extraction Factory object lineage is incomplete or exceeds compiler bounds.");
+  }
+  const milestoneObjects = extractionObjects.filter((object) => object.objectType === "candidate_milestone");
+  const compilerCandidate = compileEditorialTimeline(adaptFactoryMilestonesToCompilerInput({
+    editorialEvidenceSet,
+    milestones: milestoneObjects
+  }));
+  if (pinned && pinned.compilerInputFingerprint !== compilerCandidate.compilerInputFingerprint) {
+    throw new ApiError(409, "PUBLICATION_COMPILER_FINGERPRINT_STALE", "Resumed publication compiler fingerprint does not match pinned inputs.");
+  }
+  const selectedMilestoneIds = new Set(compilerCandidate.selectedMilestones.map((milestone) => milestone.milestoneId));
+  const selectedFactoryObjectRefs = extractionObjects
+    .filter((object) => object.objectType !== "candidate_milestone" || selectedMilestoneIds.has(object.objectId))
+    .map((object) => object.objectId);
+  const existingRunArtifacts = existingRun
+    ? await factoryRepository.getArtifactsByIds(existingRun.artifactRefs)
+    : [];
+  const matchingCompilerArtifacts = existingRun
+    ? existingRunArtifacts.filter((artifact) =>
+      artifact.factoryObjectId !== null &&
+      artifact.payload.compilerInputFingerprint === compilerCandidate.compilerInputFingerprint &&
+      artifact.payload.editorialTimelineCandidateId
+    )
+    : [];
+  if (matchingCompilerArtifacts.length > 1) {
+    throw new ApiError(409, "PUBLICATION_COMPILER_ARTIFACT_AMBIGUOUS", "Resumed publication contains multiple compiler artifacts for the pinned fingerprint.");
+  }
+  const existingCompilerArtifact = matchingCompilerArtifacts[0] || null;
+  const persistedCandidate = existingCompilerArtifact
+    ? await editorialTimelineCandidateRepository.getByFingerprint(editorialEvidenceSetId, compilerCandidate.compilerInputFingerprint)
+    : null;
+  if (existingCompilerArtifact && !persistedCandidate) {
+    throw new ApiError(409, "PUBLICATION_COMPILER_CHECKPOINT_INCOMPLETE", "Compiler artifact cannot resolve its persisted EditorialTimelineCandidate.");
+  }
+  if (existingCompilerArtifact && persistedCandidate && (
+    existingCompilerArtifact.factoryObjectId !== persistedCandidate.factoryObjectId ||
+    existingCompilerArtifact.payload.editorialTimelineCandidateId !== persistedCandidate.candidateId
+  )) {
+    throw new ApiError(409, "PUBLICATION_COMPILER_ARTIFACT_UNRELATED", "Compiler artifact does not belong to the persisted EditorialTimelineCandidate.");
+  }
   await pipelineEvidenceVerifier(validatedEvidenceRefs, "Publication candidate pipeline");
   return {
     artifactRefs,
-    factoryObjectRefs: Array.from(new Set([...researchRun.factoryObjectRefs, ...extractionRun.factoryObjectRefs])),
+    factoryObjectRefs: Array.from(new Set([...researchRun.factoryObjectRefs, ...selectedFactoryObjectRefs])),
     validatedEvidenceRefs,
     predecessorRunIds: {
       researchPipelineRunId: researchRun.pipelineRunId,
       extractionPipelineRunId: extractionRun.pipelineRunId
-    }
+    },
+    editorialEvidenceSetId,
+    compilerCandidate,
+    persistedCandidate,
+    compilerArtifactId: existingCompilerArtifact?.artifactId || null
   };
+}
+
+function assertEditorialCompilerCheckpoint(input: {
+  publicationLineage: PublicationLineage | null;
+  persistedCandidate: NonNullable<PublicationLineage["persistedCandidate"]> | null;
+  compilerArtifactId: string | null;
+  artifactRefs: string[];
+  factoryObjectRefs: string[];
+}): void {
+  const expected = input.publicationLineage?.compilerCandidate;
+  const persisted = input.persistedCandidate;
+  if (!expected || !persisted || !input.compilerArtifactId || !input.artifactRefs.includes(input.compilerArtifactId)) {
+    throw new ApiError(409, "PUBLICATION_COMPILER_CHECKPOINT_REQUIRED", "Package validation and assembly require a completed EditorialTimelineCandidate compiler checkpoint.");
+  }
+  if (persisted.editorialEvidenceSetId !== expected.editorialEvidenceSetId ||
+      persisted.compilerInputFingerprint !== expected.compilerInputFingerprint) {
+    throw new ApiError(409, "PUBLICATION_COMPILER_CHECKPOINT_STALE", "Persisted compiler output does not match pinned publication inputs.");
+  }
+  const selectedIds = expected.selectedMilestones.map((milestone) => milestone.milestoneId);
+  const persistedIds = persisted.selectedMilestones.map((milestone) => milestone.milestoneId);
+  if (selectedIds.length !== persistedIds.length ||
+      selectedIds.some((id, index) => id !== persistedIds[index]) ||
+      selectedIds.some((id) => !input.factoryObjectRefs.includes(id))) {
+    throw new ApiError(409, "PUBLICATION_COMPILER_MILESTONE_LINEAGE_INCOMPLETE", "Package lineage does not contain the exact selected compiler milestones.");
+  }
+  if (input.factoryObjectRefs.includes(persisted.factoryObjectId)) {
+    throw new ApiError(409, "PUBLICATION_COMPILER_AUTHORITY_BOUNDARY_VIOLATION", "EditorialTimelineCandidate must remain outside Governance canonical authority inputs.");
+  }
 }
 
 const deterministicResearchSteps = new Set([
@@ -1202,6 +1361,7 @@ const deterministicResearchSteps = new Set([
   "evidence_validation",
   "editorial_intelligence_foundation"
 ]);
+const deterministicPublicationSteps = new Set(["editorial_timeline_compiler"]);
 
 function deterministicStepOutput(workerKey: string, context: ValidatedEvidenceContext): Record<string, unknown> {
   const base = {
@@ -1613,12 +1773,6 @@ export const factoryService = {
       throw new ApiError(404, "FACTORY_PIPELINE_NOT_FOUND", "Factory pipeline definition not found.");
     }
     await assertExtractionEvidenceGate(input);
-    const publicationLineage = await resolvePublicationLineage(input);
-    const missingWorker = pipeline.steps.find((workerKey) => !deterministicResearchSteps.has(workerKey) && !getCanonicalFactoryWorker(workerKey));
-    if (missingWorker) {
-      throw new ApiError(409, "FACTORY_PIPELINE_WORKER_MISSING", `Pipeline worker ${missingWorker} is not registered in the canonical worker registry.`);
-    }
-
     const existingRun = input.pipelineRunId
       ? await factoryRepository.getPipelineRun(input.pipelineRunId)
       : null;
@@ -1631,10 +1785,26 @@ export const factoryService = {
     if (existingRun && existingRun.status !== "running") {
       throw new ApiError(409, "FACTORY_PIPELINE_NOT_RESUMABLE", `Pipeline run in ${existingRun.status} state cannot resume.`);
     }
+    const publicationLineage = await resolvePublicationLineage(input, existingRun);
+    const missingWorker = pipeline.steps.find((workerKey) =>
+      !deterministicResearchSteps.has(workerKey) &&
+      !deterministicPublicationSteps.has(workerKey) &&
+      !getCanonicalFactoryWorker(workerKey)
+    );
+    if (missingWorker) {
+      throw new ApiError(409, "FACTORY_PIPELINE_WORKER_MISSING", `Pipeline worker ${missingWorker} is not registered in the canonical worker registry.`);
+    }
     const run = existingRun || await factoryRepository.createPipelineRun({
       pipelineId: pipeline.pipelineId,
       input: publicationLineage
-        ? { ...input.input, factoryResolvedLineage: publicationLineage.predecessorRunIds }
+        ? {
+          ...input.input,
+          factoryResolvedLineage: {
+            ...publicationLineage.predecessorRunIds,
+            editorialEvidenceSetId: publicationLineage.editorialEvidenceSetId,
+            compilerInputFingerprint: publicationLineage.compilerCandidate.compilerInputFingerprint
+          }
+        }
         : input.input,
       actor: input.actor
     });
@@ -1643,6 +1813,8 @@ export const factoryService = {
     const factoryObjectRefs: string[] = existingRun ? [...run.factoryObjectRefs] : [...(publicationLineage?.factoryObjectRefs || [])];
     let packageDraftId: string | null = run.packageDraftId;
     let validatedEvidenceContext: ValidatedEvidenceContext | null = null;
+    let persistedTimelineCandidate = publicationLineage?.persistedCandidate || null;
+    let compilerArtifactId = publicationLineage?.compilerArtifactId || null;
 
     if (existingRun && pipelineStepsComplete(pipeline.steps, completedSteps)) {
       const completedRun = await factoryRepository.transitionPipelineRun({
@@ -1691,6 +1863,94 @@ export const factoryService = {
         }
       });
       await factoryRepository.transitionPipelineStep({ pipelineStepId: step.pipelineStepId, status: "running" });
+
+      if (deterministicPublicationSteps.has(workerKey)) {
+        if (!publicationLineage) {
+          throw new ApiError(409, "PUBLICATION_COMPILER_LINEAGE_REQUIRED", "Editorial timeline compilation requires pinned publication lineage.");
+        }
+        try {
+          let committedArtifactId: string | null = null;
+          await withWriteTransaction("committing EditorialTimelineCandidate compiler checkpoint", async () => {
+            persistedTimelineCandidate = await editorialTimelineCandidateRepository.create({
+              candidate: publicationLineage.compilerCandidate,
+              actor: input.actor
+            });
+            const stepOutput = {
+              ...pipelineStepOutput({
+                pipelineId: pipeline.pipelineId,
+                pipelineRunId: run.pipelineRunId,
+                workerKey,
+                stepIndex,
+                previousArtifactRefs: artifactRefs,
+                previousFactoryObjectRefs: factoryObjectRefs
+              }),
+              executionKey,
+              editorialTimelineCandidateId: persistedTimelineCandidate.candidateId,
+              editorialTimelineFactoryObjectId: persistedTimelineCandidate.factoryObjectId,
+              editorialEvidenceSetId: persistedTimelineCandidate.editorialEvidenceSetId,
+              compilerInputFingerprint: persistedTimelineCandidate.compilerInputFingerprint,
+              selectedMilestoneRefs: persistedTimelineCandidate.selectedMilestones.map((milestone) => milestone.milestoneId),
+              predecessorRunIds: publicationLineage.predecessorRunIds,
+              boundary: {
+                factoryOwned: true,
+                authorityDecision: false,
+                publicationReadinessDecision: false
+              }
+            };
+            const artifact = await factoryRepository.createArtifact({
+              factoryObjectId: persistedTimelineCandidate.factoryObjectId,
+              artifactType: "generation",
+              title: "EditorialTimelineCandidate compiler output",
+              payload: stepOutput,
+              authoritySafe: false,
+              actor: input.actor
+            });
+            const checkpointArtifactRefs = [...artifactRefs, artifact.artifactId];
+            const completedStep = await factoryRepository.transitionPipelineStep({
+              pipelineStepId: step.pipelineStepId,
+              status: "completed",
+              output: stepOutput,
+              artifactRefs: checkpointArtifactRefs,
+              factoryObjectRefs: [...factoryObjectRefs]
+            });
+            await factoryRepository.createRuntimeAuditRecord({
+              targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
+              action: "complete_editorial_timeline_compiler",
+              actor: input.actor,
+              reason: input.reason,
+              afterState: completedStep as unknown as Record<string, unknown>
+            });
+            await factoryRepository.transitionPipelineRun({
+              pipelineRunId: run.pipelineRunId,
+              status: stepIndex === pipeline.steps.length - 1 ? "completed" : "running",
+              actor: input.actor,
+              artifactRefs: checkpointArtifactRefs,
+              factoryObjectRefs,
+              packageDraftId
+            });
+            committedArtifactId = artifact.artifactId;
+          });
+          compilerArtifactId = committedArtifactId;
+          artifactRefs.push(committedArtifactId!);
+        } catch (error) {
+          await finalizePipelineFailure({
+            failure: createPipelineFailure({
+              error,
+              pipelineRunId: run.pipelineRunId,
+              pipelineStepId: step.pipelineStepId,
+              workerKey,
+              stepIndex,
+              stage: "editorial_timeline_compilation"
+            }),
+            actor: input.actor,
+            reason: input.reason,
+            artifactRefs,
+            factoryObjectRefs,
+            packageDraftId
+          });
+        }
+        continue;
+      }
 
       if (deterministicResearchSteps.has(workerKey)) {
         try {
@@ -1769,6 +2029,15 @@ export const factoryService = {
         continue;
       }
 
+      if (pipeline.pipelineId === "publication_candidate_pipeline") {
+        assertEditorialCompilerCheckpoint({
+          publicationLineage,
+          persistedCandidate: persistedTimelineCandidate,
+          compilerArtifactId,
+          artifactRefs,
+          factoryObjectRefs
+        });
+      }
       const contract = getCanonicalFactoryWorker(workerKey)!;
       const provider = getFactoryRuntimeProvider("qwen14");
       let result: Awaited<ReturnType<typeof provider.execute>> | null = null;
@@ -3294,7 +3563,7 @@ export function buildGovernancePublicationPackage(
     ? packageVersion.validatedEvidenceRefs
     : draft.validatedEvidenceRefs;
 
-  const authorityTypeByFactoryType: Record<FactoryObjectType, AuthorityRef["authorityType"]> = {
+  const authorityTypeByFactoryType: Record<Exclude<FactoryObjectType, "editorial_timeline_candidate">, AuthorityRef["authorityType"]> = {
     candidate_historical_object: "historical_object",
     candidate_milestone: "milestone",
     candidate_participation: "participation",
@@ -3302,16 +3571,21 @@ export function buildGovernancePublicationPackage(
     candidate_context_record: "context_record",
     candidate_source: "source"
   };
-  const canonicalAuthority = factoryObjects.map((object) => ({
-    authorityRef: {
-      authorityType: authorityTypeByFactoryType[object.objectType],
-      authorityId: object.objectId
-    },
-    title: object.title,
-    payload: object.payload,
-    provenance: object.provenance,
-    factoryObjectId: object.objectId
-  }));
+  const canonicalAuthority = factoryObjects.map((object) => {
+    if (object.objectType === "editorial_timeline_candidate") {
+      throw new ApiError(409, "EDITORIAL_TIMELINE_CANDIDATE_NOT_PACKAGEABLE", "EditorialTimelineCandidate persistence is not yet certified for package integration.");
+    }
+    return {
+      authorityRef: {
+        authorityType: authorityTypeByFactoryType[object.objectType],
+        authorityId: object.objectId
+      },
+      title: object.title,
+      payload: object.payload,
+      provenance: object.provenance,
+      factoryObjectId: object.objectId
+    };
+  });
 
   return {
     packageId: randomUUID(),

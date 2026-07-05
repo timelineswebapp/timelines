@@ -2,6 +2,17 @@ import { getWriteSql, withWriteTransaction } from "@/src/server/db/client";
 import type { EditorialEvidenceSet, EditorialEvidenceSubject } from "@/src/server/editorial-intelligence/contracts";
 
 export const editorialEvidenceRepository = {
+  async getById(editorialEvidenceSetId: string): Promise<EditorialEvidenceSet | null> {
+    const sql = getWriteSql("loading Editorial Evidence Set by exact ID");
+    const [row] = await sql<{ payload: EditorialEvidenceSet }[]>`
+      SELECT payload
+      FROM factory_editorial_evidence_sets
+      WHERE id = ${editorialEvidenceSetId}
+      LIMIT 1
+    `;
+    return row ? { ...row.payload, editorialEvidenceSetId } : null;
+  },
+
   async listValidatedEvidence(topic: string, limit = 500): Promise<EditorialEvidenceSubject[]> {
     const sql = getWriteSql("loading passed evidence for editorial preparation");
     return sql<EditorialEvidenceSubject[]>`

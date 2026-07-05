@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  EDITORIAL_TIMELINE_COMPILER_VERSION,
   EDITORIAL_TIMELINE_SELECTION_ALGORITHM_VERSION,
   type EditorialTimelineCandidate,
   type EditorialTimelineChronology,
@@ -118,6 +119,7 @@ function chronologyOrder(left: GroundedMilestoneCandidate, right: GroundedMilest
 function canonicalFingerprintInput(input: EditorialTimelineCompilerInput) {
   return {
     selectionAlgorithmVersion: EDITORIAL_TIMELINE_SELECTION_ALGORITHM_VERSION,
+    compilerVersion: EDITORIAL_TIMELINE_COMPILER_VERSION,
     canonicalSubject: input.canonicalSubject,
     editorialEvidenceSetId: input.editorialEvidenceSetId,
     milestones: [...input.milestones]
@@ -176,10 +178,15 @@ export function compileEditorialTimeline(input: EditorialTimelineCompilerInput):
   return {
     canonicalSubject: input.canonicalSubject,
     editorialEvidenceSetId: input.editorialEvidenceSetId,
+    compilerVersion: EDITORIAL_TIMELINE_COMPILER_VERSION,
     selectionAlgorithmVersion: EDITORIAL_TIMELINE_SELECTION_ALGORITHM_VERSION,
     compilerInputFingerprint,
     selectedMilestones,
-    excludedMilestones: exclusions
+    excludedMilestones: exclusions,
+    compilerMetadata: {
+      authorityDecision: false,
+      publicationReadinessDecision: false,
+      sourceMilestoneCount: input.milestones.length
+    }
   };
 }
-

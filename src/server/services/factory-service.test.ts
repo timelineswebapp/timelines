@@ -27,6 +27,8 @@ import { getFactoryWorkerPromptTemplate, renderObjectExtractionCompilerPrompt } 
 import { getFactoryRuntimeProvider, resolveFactoryQwenTimeoutMs } from "@/src/server/factory/runtime-providers";
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { evidenceValidationRepository } from "@/src/server/repositories/evidence-validation-repository";
+import { editorialEvidenceRepository } from "@/src/server/repositories/editorial-evidence-repository";
+import { editorialTimelineCandidateRepository } from "@/src/server/repositories/editorial-timeline-candidate-repository";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
@@ -1594,6 +1596,7 @@ describe("factory production memory foundation", () => {
       missingResearchPredecessor?: boolean;
       missingExtractionPredecessor?: boolean;
       missingArtifactEvidence?: boolean;
+      missingEditorialEvidenceSet?: boolean;
     } = {}
   ): Promise<T> {
     const originals = {
@@ -1606,7 +1609,13 @@ describe("factory production memory foundation", () => {
       requireSourceRecord: sourceAuthorityRepository.requireSourceRecord,
       createPipelineRun: factoryRepository.createPipelineRun,
       getLatestCompletedPipelineRun: factoryRepository.getLatestCompletedPipelineRun,
+      getCompletedPipelineRunForWorkflow: factoryRepository.getCompletedPipelineRunForWorkflow,
+      getPipelineRun: factoryRepository.getPipelineRun,
+      getObjectsByIds: factoryRepository.getObjectsByIds,
       getArtifactsByIds: factoryRepository.getArtifactsByIds,
+      getEditorialEvidenceSetById: editorialEvidenceRepository.getById,
+      createEditorialTimelineCandidate: editorialTimelineCandidateRepository.create,
+      getEditorialTimelineCandidateByFingerprint: editorialTimelineCandidateRepository.getByFingerprint,
       transitionPipelineRun: factoryRepository.transitionPipelineRun,
       createPipelineStep: factoryRepository.createPipelineStep,
       transitionPipelineStep: factoryRepository.transitionPipelineStep,
@@ -1630,6 +1639,12 @@ describe("factory production memory foundation", () => {
     let stepId = 0;
     let artifactId = 0;
     let objectId = 0;
+    const editorialEvidenceSetId = "00000000-0000-4000-8000-000000000010";
+    const milestoneObjectId = "00000000-0000-4000-8000-000000000011";
+    const milestoneEvidenceId = "00000000-0000-4000-8000-000000000012";
+    const milestoneValidationId = "00000000-0000-4000-8000-000000000013";
+    const editorialTimelineCandidateId = "00000000-0000-4000-8000-000000000014";
+    const editorialTimelineFactoryObjectId = "00000000-0000-4000-8000-000000000015";
     try {
       (sourceDiscoveryService as any).discover = async () => ({
         query: "Telephone",
@@ -1752,14 +1767,14 @@ describe("factory production memory foundation", () => {
         provenance: { authority: "source_authority" },
         createdBy: "factory-test"
       });
-      (factoryRepository as any).getLatestCompletedPipelineRun = async (pipelineId: string) => {
+      (factoryRepository as any).getCompletedPipelineRunForWorkflow = async (pipelineId: string) => {
         if (pipelineId === "historical_research_pipeline") {
           if (options.missingResearchPredecessor) return null;
           return {
             pipelineRunId: "research-run-1",
             pipelineId,
             status: "completed",
-            input: { subject: "Telephone" },
+            input: { subject: "Telephone", workflowId: "workflow-1" },
             artifactRefs: ["research-artifact-1"],
             factoryObjectRefs: ["research-object-1"]
           };
@@ -1769,9 +1784,9 @@ describe("factory production memory foundation", () => {
           pipelineRunId: "extraction-run-1",
           pipelineId,
           status: "completed",
-          input: { subject: "Telephone" },
+          input: { subject: "Telephone", workflowId: "workflow-1" },
           artifactRefs: ["extraction-artifact-1"],
-          factoryObjectRefs: ["extraction-object-1"]
+          factoryObjectRefs: [milestoneObjectId]
         };
       };
       (factoryRepository as any).getArtifactsByIds = async (artifactIds: string[]) => artifactIds.map((artifactId) => ({
@@ -1780,6 +1795,9 @@ describe("factory production memory foundation", () => {
         artifactType: "generation",
         title: `${artifactId} output`,
         payload: options.missingArtifactEvidence ? {} : {
+          ...(artifactId.startsWith("research") && !options.missingEditorialEvidenceSet ? {
+            generated: { editorialEvidenceSet: { editorialEvidenceSetId } }
+          } : {}),
           validatedEvidenceRefs: artifactId.startsWith("research")
             ? [{
               evidenceId: "validation-1",
@@ -1795,10 +1813,10 @@ describe("factory production memory foundation", () => {
               authoritySafe: true
             }]
             : [{
-              evidenceId: "validation-2",
+              evidenceId: milestoneValidationId,
               evidenceType: "validated_evidence",
-              evidenceRecordId: "evidence-2",
-              validationRecordId: "validation-2",
+              evidenceRecordId: milestoneEvidenceId,
+              validationRecordId: milestoneValidationId,
               authoritySafe: true
             }]
         },
@@ -1807,6 +1825,63 @@ describe("factory production memory foundation", () => {
         modelName: "qwen3:14b",
         createdBy: "factory-test"
       }));
+      (factoryRepository as any).getObjectsByIds = async (objectIds: string[], objectType?: string) => [{
+        objectId: milestoneObjectId,
+        objectType: "candidate_milestone",
+        title: "Telephone demonstrated",
+        payload: {
+          date: "1876",
+          datePrecision: "year",
+          sourceRefs: [milestoneEvidenceId],
+          evidence: [{ claim: "Telephone demonstrated", citations: [{ evidenceRecordId: milestoneEvidenceId }] }]
+        },
+        lifecycle: "draft",
+        provenance: {},
+        createdBy: "factory-test",
+        updatedBy: "factory-test"
+      }].filter((object) => objectIds.includes(object.objectId) && (!objectType || object.objectType === objectType));
+      (editorialEvidenceRepository as any).getById = async (id: string) => id === editorialEvidenceSetId ? ({
+        editorialEvidenceSetId,
+        topic: "Telephone",
+        algorithmVersion: "ei-001-v1",
+        inputFingerprint: "a".repeat(64),
+        rankedEvidence: [{
+          rank: 1,
+          evidenceRecordId: milestoneEvidenceId,
+          validationRecordId: milestoneValidationId,
+          duplicateOfEvidenceRecordId: null,
+          chronologyYears: [1876],
+          score: {
+            historicalSignificance: 90, chronologicalImportance: 100, narrativeContribution: 80,
+            coverageContribution: 100, novelty: 100, redundancy: 0, sourceDiversity: 100,
+            evidenceStrength: 95, subjectCentrality: 100, total: 95
+          }
+        }],
+        coverageAnalysis: { uniqueEvidenceCount: 1, duplicateEvidenceCount: 0, uniqueSourceCount: 1, sourceDiversityScore: 100, chronologyEvidenceRatio: 1 },
+        timelineCoverage: { earliestYear: 1876, latestYear: 1876, representedYears: [1876], gaps: [], balanceScore: 50 },
+        identifiedTurningPoints: [],
+        canonicalSubject: { label: "Telephone", confidence: 100, supportingEvidenceRecordIds: [milestoneEvidenceId] },
+        canonicalHistoricalObject: { label: "Telephone", supportingEvidenceRecordIds: [milestoneEvidenceId] },
+        candidateMilestonesRanked: [{ rank: 1, evidenceRecordId: milestoneEvidenceId, year: 1876, importanceScore: 90 }],
+        editorialMetadata: { authorityDecision: false, publicationReadinessDecision: false, compilerOutput: false, evidenceRecordCount: 1, scoringScale: "integer_0_100" }
+      }) : null;
+      let persistedEditorialCandidate: any = null;
+      (editorialTimelineCandidateRepository as any).create = async ({ candidate, actor }: any) => {
+        persistedEditorialCandidate ||= {
+          candidateId: editorialTimelineCandidateId,
+          factoryObjectId: editorialTimelineFactoryObjectId,
+          ...candidate,
+          selectedMilestones: candidate.selectedMilestones.map((milestone: any) => ({
+            milestoneId: milestone.milestoneId,
+            sequence: milestone.sequence,
+            evidenceLineage: milestone.evidenceLineage,
+            selectionReasons: milestone.selectionReasons
+          })),
+          createdBy: actor
+        };
+        return persistedEditorialCandidate;
+      };
+      (editorialTimelineCandidateRepository as any).getByFingerprint = async () => persistedEditorialCandidate;
       (factoryRepository as any).createPipelineRun = async (input: any) => ({ pipelineRunId: "run-1", pipelineId: input.pipelineId, status: "queued", input: input.input, artifactRefs: [], factoryObjectRefs: [], packageDraftId: null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
       (factoryRepository as any).transitionPipelineRun = async (input: any) => {
         state.pipelineStatuses.push(input.status);
@@ -1831,7 +1906,7 @@ describe("factory production memory foundation", () => {
         return "audit-1";
       };
       (factoryRepository as any).createArtifact = async (input: any) => {
-        const artifact = { artifactId: `artifact-${++artifactId}`, factoryObjectId: null, artifactType: input.artifactType, title: input.title, payload: input.payload, authoritySafe: input.authoritySafe, modelProvider: input.modelProvider || null, modelName: input.modelName || null, createdBy: input.actor };
+        const artifact = { artifactId: `artifact-${++artifactId}`, factoryObjectId: input.factoryObjectId || null, artifactType: input.artifactType, title: input.title, payload: input.payload, authoritySafe: input.authoritySafe, modelProvider: input.modelProvider || null, modelName: input.modelName || null, createdBy: input.actor };
         state.artifacts.push(artifact);
         return artifact;
       };
@@ -1870,7 +1945,13 @@ describe("factory production memory foundation", () => {
       (sourceAuthorityRepository as any).requireSourceRecord = originals.requireSourceRecord;
       (factoryRepository as any).createPipelineRun = originals.createPipelineRun;
       (factoryRepository as any).getLatestCompletedPipelineRun = originals.getLatestCompletedPipelineRun;
+      (factoryRepository as any).getCompletedPipelineRunForWorkflow = originals.getCompletedPipelineRunForWorkflow;
+      (factoryRepository as any).getPipelineRun = originals.getPipelineRun;
+      (factoryRepository as any).getObjectsByIds = originals.getObjectsByIds;
       (factoryRepository as any).getArtifactsByIds = originals.getArtifactsByIds;
+      (editorialEvidenceRepository as any).getById = originals.getEditorialEvidenceSetById;
+      (editorialTimelineCandidateRepository as any).create = originals.createEditorialTimelineCandidate;
+      (editorialTimelineCandidateRepository as any).getByFingerprint = originals.getEditorialTimelineCandidateByFingerprint;
       (factoryRepository as any).transitionPipelineRun = originals.transitionPipelineRun;
       (factoryRepository as any).createPipelineStep = originals.createPipelineStep;
       (factoryRepository as any).transitionPipelineStep = originals.transitionPipelineStep;
@@ -1888,7 +1969,7 @@ describe("factory production memory foundation", () => {
     await withMockedFactoryPipeline({}, async (state) => {
       await factoryService.startPipeline({
         pipelineId: "historical_research_pipeline",
-        input: { subject: "Telephone" },
+        input: { subject: "Telephone", workflowId: "workflow-1" },
         actor: "factory-test",
         reason: "Test authority-grounded research."
       });
@@ -1948,7 +2029,7 @@ describe("factory production memory foundation", () => {
         }]
       }, async () => factoryService.startPipeline({
         pipelineId: "historical_research_pipeline",
-        input: { subject: "Telephone" },
+        input: { subject: "Telephone", workflowId: "workflow-1" },
         actor: "factory-test",
         reason: "Reject fabricated citation."
       })),
@@ -1966,7 +2047,7 @@ describe("factory production memory foundation", () => {
         }]
       }, async () => factoryService.startPipeline({
         pipelineId: "historical_research_pipeline",
-        input: { subject: "Telephone" },
+        input: { subject: "Telephone", workflowId: "workflow-1" },
         actor: "factory-test",
         reason: "Reject fabricated URL."
       })),
@@ -2119,7 +2200,7 @@ describe("factory production memory foundation", () => {
     await withMockedFactoryPipeline({}, async (state) => {
       await factoryService.startPipeline({
         pipelineId: "publication_candidate_pipeline",
-        input: { subject: "Telephone" },
+        input: { subject: "Telephone", workflowId: "workflow-1" },
         actor: "factory-test",
         reason: "Evidence-backed publication candidate assembly."
       });
@@ -2127,13 +2208,19 @@ describe("factory production memory foundation", () => {
       assert.equal(state.pipelineStatuses.at(0), "running");
       assert.equal(state.pipelineStatuses.at(-1), "completed");
       assert.equal(state.packageDrafts.length, 1);
+      assert.deepEqual(
+        state.artifacts.slice(0, 3).map((artifact) => artifact.title),
+        ["EditorialTimelineCandidate compiler output", "Validation Worker output", "Package Assembly Worker output"]
+      );
+      assert.equal(state.artifacts[0].factoryObjectId, "00000000-0000-4000-8000-000000000015");
       assert.equal(state.packageDrafts[0].validatedEvidenceRefs[0].evidenceRecordId, "evidence-1");
       assert.deepEqual(
         state.packageDrafts[0].validatedEvidenceRefs.map((ref: any) => ref.evidenceRecordId),
-        ["evidence-1", "evidence-2"]
+        ["evidence-1", "00000000-0000-4000-8000-000000000012"]
       );
-      assert.deepEqual(state.packageDrafts[0].factoryObjectRefs.slice(0, 2), ["research-object-1", "extraction-object-1"]);
-      assert.deepEqual(state.packageDrafts[0].artifactRefs.slice(0, 2), ["research-artifact-1", "extraction-artifact-1"]);
+      assert.deepEqual(state.packageDrafts[0].factoryObjectRefs.slice(0, 2), ["research-object-1", "00000000-0000-4000-8000-000000000011"]);
+      assert.equal(state.packageDrafts[0].factoryObjectRefs.includes("00000000-0000-4000-8000-000000000015"), false);
+      assert.deepEqual(state.packageDrafts[0].artifactRefs.slice(0, 3), ["research-artifact-1", "extraction-artifact-1", "artifact-1"]);
       assert.equal(state.verifierCalls.at(-1).context, "Publication candidate pipeline");
     });
   });
@@ -2155,7 +2242,7 @@ describe("factory production memory foundation", () => {
       await assert.rejects(
         factoryService.startPipeline({
           pipelineId: "publication_candidate_pipeline",
-          input: { subject: "Telephone" },
+          input: { subject: "Telephone", workflowId: "workflow-1" },
           actor: "factory-test",
           reason: "Require certified predecessors."
         }),
@@ -2164,12 +2251,37 @@ describe("factory production memory foundation", () => {
     }, { missingResearchPredecessor: true });
   });
 
+  it("fails publication when extraction or EI-001 lineage is missing", async () => {
+    await withMockedFactoryPipeline({}, async () => {
+      await assert.rejects(
+        factoryService.startPipeline({
+          pipelineId: "publication_candidate_pipeline",
+          input: { subject: "Telephone", workflowId: "workflow-1" },
+          actor: "factory-test",
+          reason: "Require extraction predecessor."
+        }),
+        (error: unknown) => error instanceof ApiError && error.code === "PUBLICATION_EXTRACTION_PREDECESSOR_REQUIRED"
+      );
+    }, { missingExtractionPredecessor: true });
+    await withMockedFactoryPipeline({}, async () => {
+      await assert.rejects(
+        factoryService.startPipeline({
+          pipelineId: "publication_candidate_pipeline",
+          input: { subject: "Telephone", workflowId: "workflow-1" },
+          actor: "factory-test",
+          reason: "Require EI-001 lineage."
+        }),
+        (error: unknown) => error instanceof ApiError && error.code === "PUBLICATION_EDITORIAL_EVIDENCE_LINEAGE_REQUIRED"
+      );
+    }, { missingEditorialEvidenceSet: true });
+  });
+
   it("fails publication deterministically when persisted artifacts contain no validated evidence", async () => {
     await withMockedFactoryPipeline({}, async () => {
       await assert.rejects(
         factoryService.startPipeline({
           pipelineId: "publication_candidate_pipeline",
-          input: { subject: "Telephone" },
+          input: { subject: "Telephone", workflowId: "workflow-1" },
           actor: "factory-test",
           reason: "Require persisted artifact evidence."
         }),

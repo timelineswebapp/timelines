@@ -6,7 +6,8 @@ export type FactoryObjectType =
   | "candidate_participation"
   | "candidate_relationship"
   | "candidate_source"
-  | "candidate_context_record";
+  | "candidate_context_record"
+  | "editorial_timeline_candidate";
 
 export type FactoryObjectLifecycle =
   | "draft"

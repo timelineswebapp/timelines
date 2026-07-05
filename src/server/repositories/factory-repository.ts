@@ -522,6 +522,38 @@ export const factoryRepository = {
     return row || null;
   },
 
+  async getCompletedPipelineRunForWorkflow(
+    pipelineId: string,
+    workflowId: string,
+    subject: string
+  ): Promise<FactoryPipelineRun | null> {
+    const sql = getWriteSql("loading workflow-pinned completed Factory pipeline run");
+    const [row] = await sql<FactoryPipelineRun[]>`
+      SELECT
+        id::text AS "pipelineRunId",
+        pipeline_id AS "pipelineId",
+        status,
+        input,
+        artifact_refs AS "artifactRefs",
+        factory_object_refs AS "factoryObjectRefs",
+        package_draft_id::text AS "packageDraftId",
+        started_at::text AS "startedAt",
+        completed_at::text AS "completedAt",
+        created_by AS "createdBy",
+        updated_by AS "updatedBy",
+        created_at::text AS "createdAt",
+        updated_at::text AS "updatedAt"
+      FROM factory_pipeline_runs
+      WHERE pipeline_id = ${pipelineId}
+        AND status = 'completed'
+        AND input->>'workflowId' = ${workflowId}
+        AND lower(input->>'subject') = lower(${subject})
+      ORDER BY completed_at DESC, created_at DESC, id DESC
+      LIMIT 1
+    `;
+    return row || null;
+  },
+
   async listPipelineRuns(status?: FactoryPipelineRunStatus, limit = 100): Promise<FactoryPipelineRun[]> {
     const sql = getWriteSql("listing factory pipeline runs");
     return sql<FactoryPipelineRun[]>`
@@ -1554,6 +1586,36 @@ export const factoryRepository = {
       LIMIT 1
     `;
     return row || null;
+  },
+
+  async getObjectsByIds(
+    objectIds: string[],
+    objectType?: FactoryObjectType,
+    limit = 200
+  ): Promise<FactoryObject[]> {
+    if (objectIds.length === 0) return [];
+    if (objectIds.length > 500 || limit < 1 || limit > 200) {
+      throw new ApiError(400, "FACTORY_OBJECT_READ_BOUND_INVALID", "Factory object lineage reads are bounded to 500 references and 200 results.");
+    }
+    const sql = getWriteSql("loading bounded Factory objects by exact IDs");
+    return sql<FactoryObject[]>`
+      SELECT
+        id::text AS "objectId",
+        object_type AS "objectType",
+        title,
+        payload,
+        lifecycle,
+        provenance,
+        created_by AS "createdBy",
+        updated_by AS "updatedBy",
+        created_at::text AS "createdAt",
+        updated_at::text AS "updatedAt"
+      FROM factory_objects
+      WHERE id = ANY(${objectIds}::uuid[])
+        AND (${objectType || null}::text IS NULL OR object_type = ${objectType || null})
+      ORDER BY id
+      LIMIT ${limit}
+    `;
   },
 
   async transitionObject(objectId: string, lifecycle: FactoryObjectLifecycle, actor: string): Promise<FactoryObject> {

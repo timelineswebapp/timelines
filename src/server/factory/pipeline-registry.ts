@@ -31,7 +31,7 @@ export const canonicalFactoryPipelines: FactoryPipelineDefinition[] = [
     pipelineId: "publication_candidate_pipeline",
     pipelineName: "Publication Candidate Pipeline",
     description: "Creates validation artifacts and draft package candidates without Governance submission.",
-    steps: ["validation_worker", "package_assembly_worker"],
+    steps: ["editorial_timeline_compiler", "validation_worker", "package_assembly_worker"],
     generationTargets: []
   }
 ];

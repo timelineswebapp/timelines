@@ -1,4 +1,5 @@
 export const EDITORIAL_TIMELINE_SELECTION_ALGORITHM_VERSION = "ei-002-selection-v1" as const;
+export const EDITORIAL_TIMELINE_COMPILER_VERSION = "ei-002-compiler-v1" as const;
 
 export type EditorialTimelineChronology = Readonly<{
   sortYear: number;
@@ -54,9 +55,14 @@ export type EditorialTimelineExcludedMilestone = Readonly<{
 export type EditorialTimelineCandidate = Readonly<{
   canonicalSubject: string;
   editorialEvidenceSetId: string;
+  compilerVersion: typeof EDITORIAL_TIMELINE_COMPILER_VERSION;
   selectionAlgorithmVersion: typeof EDITORIAL_TIMELINE_SELECTION_ALGORITHM_VERSION;
   compilerInputFingerprint: string;
   selectedMilestones: readonly EditorialTimelineSelectedMilestone[];
   excludedMilestones: readonly EditorialTimelineExcludedMilestone[];
+  compilerMetadata: Readonly<{
+    authorityDecision: false;
+    publicationReadinessDecision: false;
+    sourceMilestoneCount: number;
+  }>;
 }>;
-

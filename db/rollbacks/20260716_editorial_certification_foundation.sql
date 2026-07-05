@@ -1,0 +1,10 @@
+DROP TRIGGER IF EXISTS prevent_factory_editorial_certification_invariants_mutation ON factory_editorial_certification_invariant_results;
+DROP TRIGGER IF EXISTS prevent_factory_editorial_certification_cases_mutation ON factory_editorial_certification_case_results;
+DROP TRIGGER IF EXISTS prevent_factory_editorial_certification_runs_mutation ON factory_editorial_certification_runs;
+
+DROP TABLE IF EXISTS factory_editorial_certification_invariant_results;
+DROP TABLE IF EXISTS factory_editorial_certification_case_results;
+DROP TABLE IF EXISTS factory_editorial_certification_runs;
+
+DROP FUNCTION IF EXISTS prevent_editorial_certification_mutation();
+

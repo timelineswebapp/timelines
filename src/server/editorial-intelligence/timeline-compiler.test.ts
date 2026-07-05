@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   EDITORIAL_TIMELINE_SELECTION_ALGORITHM_VERSION,
+  EDITORIAL_TIMELINE_COMPILER_VERSION,
   type EditorialTimelineCompilerInput,
   type GroundedMilestoneCandidate
 } from "@/src/server/editorial-intelligence/timeline-compiler-contracts";
@@ -58,6 +59,7 @@ test("is referentially transparent and independent of input order", () => {
   assert.deepEqual(first, second);
   assert.equal(JSON.stringify(first), JSON.stringify(second));
   assert.equal(first.selectionAlgorithmVersion, EDITORIAL_TIMELINE_SELECTION_ALGORITHM_VERSION);
+  assert.equal(first.compilerVersion, EDITORIAL_TIMELINE_COMPILER_VERSION);
   assert.match(first.compilerInputFingerprint, /^[a-f0-9]{64}$/);
 });
 
@@ -154,4 +156,3 @@ test("output remains minimal and contains no composition or reader-facing fields
     assert.equal(serialized.includes(`"${forbidden}"`), false);
   }
 });
-
