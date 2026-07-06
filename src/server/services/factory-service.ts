@@ -3,6 +3,10 @@ import { ApiError } from "@/src/server/api/responses";
 import type { EvidenceValidationRecord } from "@/src/server/evidence-validation/contracts";
 import type { EditorialEvidenceSet, EditorialEvidenceSubject } from "@/src/server/editorial-intelligence/contracts";
 import type { EditorialTimelineCandidate } from "@/src/server/editorial-intelligence/timeline-compiler-contracts";
+import {
+  buildEditorialCompositionFromExactLineage,
+  prepareAndPersistEditorialComposition
+} from "@/src/server/editorial-intelligence/editorial-composition-adapter";
 import { adaptFactoryMilestonesToCompilerInput } from "@/src/server/editorial-intelligence/timeline-compiler-adapter";
 import { compileEditorialTimeline } from "@/src/server/editorial-intelligence/timeline-compiler";
 import type {
@@ -54,6 +58,7 @@ import type { SourceAuthorityRegistryRecord, SourceAuthoritySnapshot } from "@/s
 import { factoryRepository } from "@/src/server/repositories/factory-repository";
 import { evidenceValidationRepository } from "@/src/server/repositories/evidence-validation-repository";
 import { editorialEvidenceRepository } from "@/src/server/repositories/editorial-evidence-repository";
+import { editorialCompositionRepository } from "@/src/server/repositories/editorial-composition-repository";
 import { editorialTimelineCandidateRepository } from "@/src/server/repositories/editorial-timeline-candidate-repository";
 import { governanceRepository, verifyValidatedEvidenceRefs } from "@/src/server/repositories/governance-repository";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
@@ -1143,6 +1148,8 @@ type PublicationLineage = {
   compilerCandidate: EditorialTimelineCandidate;
   persistedCandidate: Awaited<ReturnType<typeof editorialTimelineCandidateRepository.getByFingerprint>>;
   compilerArtifactId: string | null;
+  persistedComposition: Awaited<ReturnType<typeof editorialCompositionRepository.getByFingerprint>>;
+  compositionArtifactId: string | null;
 };
 
 export function pipelineStepsComplete(
@@ -1309,6 +1316,47 @@ async function resolvePublicationLineage(
   )) {
     throw new ApiError(409, "PUBLICATION_COMPILER_ARTIFACT_UNRELATED", "Compiler artifact does not belong to the persisted EditorialTimelineCandidate.");
   }
+  const matchingCompositionArtifacts = existingRun && persistedCandidate
+    ? existingRunArtifacts.filter((artifact) =>
+      artifact.factoryObjectId !== null &&
+      artifact.payload.editorialTimelineCandidateId === persistedCandidate.candidateId &&
+      artifact.payload.editorialCompositionId &&
+      artifact.payload.plannerInputFingerprint
+    )
+    : [];
+  if (matchingCompositionArtifacts.length > 1) {
+    throw new ApiError(409, "PUBLICATION_COMPOSITION_ARTIFACT_AMBIGUOUS", "Resumed publication contains multiple composition artifacts for the pinned candidate.");
+  }
+  const existingCompositionArtifact = matchingCompositionArtifacts[0] || null;
+  const persistedComposition = existingCompositionArtifact && persistedCandidate
+    ? await editorialCompositionRepository.getByFingerprint(
+      persistedCandidate.candidateId,
+      String(existingCompositionArtifact.payload.plannerInputFingerprint)
+    )
+    : null;
+  if (existingCompositionArtifact && !persistedComposition) {
+    throw new ApiError(409, "PUBLICATION_COMPOSITION_CHECKPOINT_INCOMPLETE", "Composition artifact cannot resolve its persisted EditorialComposition.");
+  }
+  if (existingCompositionArtifact && persistedComposition && (
+    existingCompositionArtifact.factoryObjectId !== persistedComposition.factoryObjectId ||
+    existingCompositionArtifact.payload.editorialCompositionId !== persistedComposition.compositionId ||
+    persistedComposition.editorialEvidenceSetId !== editorialEvidenceSetId ||
+    persistedComposition.editorialTimelineCandidateFingerprint !== compilerCandidate.compilerInputFingerprint
+  )) {
+    throw new ApiError(409, "PUBLICATION_COMPOSITION_ARTIFACT_UNRELATED", "Composition artifact does not belong to the pinned candidate and evidence lineage.");
+  }
+  if (existingCompositionArtifact && persistedComposition && persistedCandidate) {
+    const expectedComposition = buildEditorialCompositionFromExactLineage({
+      persistedCandidate,
+      editorialEvidenceSet,
+      expectedTimelineCandidate: compilerCandidate
+    });
+    if (persistedComposition.plannerInputFingerprint !== expectedComposition.plannerInputFingerprint ||
+        persistedComposition.plannerVersion !== expectedComposition.plannerVersion ||
+        persistedComposition.structureAlgorithmVersion !== expectedComposition.structureAlgorithmVersion) {
+      throw new ApiError(409, "PUBLICATION_COMPOSITION_FINGERPRINT_STALE", "Resumed composition fingerprint or planner versions do not match pinned inputs.");
+    }
+  }
   await pipelineEvidenceVerifier(validatedEvidenceRefs, "Publication candidate pipeline");
   return {
     artifactRefs,
@@ -1321,7 +1369,9 @@ async function resolvePublicationLineage(
     editorialEvidenceSetId,
     compilerCandidate,
     persistedCandidate,
-    compilerArtifactId: existingCompilerArtifact?.artifactId || null
+    compilerArtifactId: existingCompilerArtifact?.artifactId || null,
+    persistedComposition,
+    compositionArtifactId: existingCompositionArtifact?.artifactId || null
   };
 }
 
@@ -1353,6 +1403,37 @@ function assertEditorialCompilerCheckpoint(input: {
   }
 }
 
+function assertEditorialCompositionCheckpoint(input: {
+  publicationLineage: PublicationLineage | null;
+  persistedCandidate: NonNullable<PublicationLineage["persistedCandidate"]> | null;
+  persistedComposition: NonNullable<PublicationLineage["persistedComposition"]> | null;
+  compilerArtifactId: string | null;
+  compositionArtifactId: string | null;
+  artifactRefs: string[];
+  factoryObjectRefs: string[];
+}): void {
+  assertEditorialCompilerCheckpoint(input);
+  const composition = input.persistedComposition;
+  if (!composition || !input.compositionArtifactId || !input.artifactRefs.includes(input.compositionArtifactId)) {
+    throw new ApiError(409, "PUBLICATION_COMPOSITION_CHECKPOINT_REQUIRED", "Validation and package assembly require a completed EditorialComposition checkpoint.");
+  }
+  if (composition.editorialTimelineCandidateId !== input.persistedCandidate!.candidateId ||
+      composition.editorialEvidenceSetId !== input.persistedCandidate!.editorialEvidenceSetId ||
+      composition.editorialTimelineCandidateFingerprint !== input.persistedCandidate!.compilerInputFingerprint) {
+    throw new ApiError(409, "PUBLICATION_COMPOSITION_CHECKPOINT_STALE", "Persisted composition does not match the pinned compiler lineage.");
+  }
+  const candidateIds = input.persistedCandidate!.selectedMilestones.map((item) => item.milestoneId);
+  const compositionIds = composition.phases.flatMap((phase) => phase.milestoneIds);
+  if (candidateIds.length !== compositionIds.length ||
+      candidateIds.some((id, index) => id !== compositionIds[index]) ||
+      compositionIds.some((id) => !input.factoryObjectRefs.includes(id))) {
+    throw new ApiError(409, "PUBLICATION_COMPOSITION_MILESTONE_LINEAGE_INCOMPLETE", "Package milestone references must equal EditorialComposition membership.");
+  }
+  if (input.factoryObjectRefs.includes(composition.factoryObjectId)) {
+    throw new ApiError(409, "PUBLICATION_COMPOSITION_AUTHORITY_BOUNDARY_VIOLATION", "EditorialComposition must remain outside Governance canonical authority inputs.");
+  }
+}
+
 const deterministicResearchSteps = new Set([
   "source_authority_discovery",
   "source_authority_retrieval",
@@ -1361,7 +1442,7 @@ const deterministicResearchSteps = new Set([
   "evidence_validation",
   "editorial_intelligence_foundation"
 ]);
-const deterministicPublicationSteps = new Set(["editorial_timeline_compiler"]);
+const deterministicPublicationSteps = new Set(["editorial_timeline_compiler", "editorial_composition_planner"]);
 
 function deterministicStepOutput(workerKey: string, context: ValidatedEvidenceContext): Record<string, unknown> {
   const base = {
@@ -1815,6 +1896,8 @@ export const factoryService = {
     let validatedEvidenceContext: ValidatedEvidenceContext | null = null;
     let persistedTimelineCandidate = publicationLineage?.persistedCandidate || null;
     let compilerArtifactId = publicationLineage?.compilerArtifactId || null;
+    let persistedEditorialComposition = publicationLineage?.persistedComposition || null;
+    let compositionArtifactId = publicationLineage?.compositionArtifactId || null;
 
     if (existingRun && pipelineStepsComplete(pipeline.steps, completedSteps)) {
       const completedRun = await factoryRepository.transitionPipelineRun({
@@ -1867,6 +1950,102 @@ export const factoryService = {
       if (deterministicPublicationSteps.has(workerKey)) {
         if (!publicationLineage) {
           throw new ApiError(409, "PUBLICATION_COMPILER_LINEAGE_REQUIRED", "Editorial timeline compilation requires pinned publication lineage.");
+        }
+        if (workerKey === "editorial_composition_planner") {
+          assertEditorialCompilerCheckpoint({
+            publicationLineage,
+            persistedCandidate: persistedTimelineCandidate,
+            compilerArtifactId,
+            artifactRefs,
+            factoryObjectRefs
+          });
+          try {
+            let committedArtifactId: string | null = null;
+            await withWriteTransaction("committing EditorialComposition planner checkpoint", async () => {
+              persistedEditorialComposition = await prepareAndPersistEditorialComposition({
+                editorialTimelineCandidateId: persistedTimelineCandidate!.candidateId,
+                editorialEvidenceSetId: publicationLineage.editorialEvidenceSetId,
+                expectedTimelineCandidate: publicationLineage.compilerCandidate,
+                actor: input.actor
+              });
+              const stepOutput = {
+                ...pipelineStepOutput({
+                  pipelineId: pipeline.pipelineId,
+                  pipelineRunId: run.pipelineRunId,
+                  workerKey,
+                  stepIndex,
+                  previousArtifactRefs: artifactRefs,
+                  previousFactoryObjectRefs: factoryObjectRefs
+                }),
+                executionKey,
+                editorialCompositionId: persistedEditorialComposition.compositionId,
+                editorialCompositionFactoryObjectId: persistedEditorialComposition.factoryObjectId,
+                editorialTimelineCandidateId: persistedEditorialComposition.editorialTimelineCandidateId,
+                editorialEvidenceSetId: persistedEditorialComposition.editorialEvidenceSetId,
+                plannerInputFingerprint: persistedEditorialComposition.plannerInputFingerprint,
+                plannerVersion: persistedEditorialComposition.plannerVersion,
+                structureAlgorithmVersion: persistedEditorialComposition.structureAlgorithmVersion,
+                selectedMilestoneRefs: persistedEditorialComposition.phases.flatMap((phase) => phase.milestoneIds),
+                predecessorRunIds: publicationLineage.predecessorRunIds,
+                boundary: {
+                  factoryOwned: true,
+                  authorityDecision: false,
+                  publicationReadinessDecision: false
+                }
+              };
+              const artifact = await factoryRepository.createArtifact({
+                factoryObjectId: persistedEditorialComposition.factoryObjectId,
+                artifactType: "generation",
+                title: "EditorialComposition planner output",
+                payload: stepOutput,
+                authoritySafe: false,
+                actor: input.actor
+              });
+              const checkpointArtifactRefs = [...artifactRefs, artifact.artifactId];
+              const completedStep = await factoryRepository.transitionPipelineStep({
+                pipelineStepId: step.pipelineStepId,
+                status: "completed",
+                output: stepOutput,
+                artifactRefs: checkpointArtifactRefs,
+                factoryObjectRefs: [...factoryObjectRefs]
+              });
+              await factoryRepository.createRuntimeAuditRecord({
+                targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
+                action: "complete_editorial_composition_planner",
+                actor: input.actor,
+                reason: input.reason,
+                afterState: completedStep as unknown as Record<string, unknown>
+              });
+              await factoryRepository.transitionPipelineRun({
+                pipelineRunId: run.pipelineRunId,
+                status: stepIndex === pipeline.steps.length - 1 ? "completed" : "running",
+                actor: input.actor,
+                artifactRefs: checkpointArtifactRefs,
+                factoryObjectRefs,
+                packageDraftId
+              });
+              committedArtifactId = artifact.artifactId;
+            });
+            compositionArtifactId = committedArtifactId;
+            artifactRefs.push(committedArtifactId!);
+          } catch (error) {
+            await finalizePipelineFailure({
+              failure: createPipelineFailure({
+                error,
+                pipelineRunId: run.pipelineRunId,
+                pipelineStepId: step.pipelineStepId,
+                workerKey,
+                stepIndex,
+                stage: "editorial_composition_planning"
+              }),
+              actor: input.actor,
+              reason: input.reason,
+              artifactRefs,
+              factoryObjectRefs,
+              packageDraftId
+            });
+          }
+          continue;
         }
         try {
           let committedArtifactId: string | null = null;
@@ -2030,10 +2209,12 @@ export const factoryService = {
       }
 
       if (pipeline.pipelineId === "publication_candidate_pipeline") {
-        assertEditorialCompilerCheckpoint({
+        assertEditorialCompositionCheckpoint({
           publicationLineage,
           persistedCandidate: persistedTimelineCandidate,
+          persistedComposition: persistedEditorialComposition,
           compilerArtifactId,
+          compositionArtifactId,
           artifactRefs,
           factoryObjectRefs
         });
@@ -3563,7 +3744,7 @@ export function buildGovernancePublicationPackage(
     ? packageVersion.validatedEvidenceRefs
     : draft.validatedEvidenceRefs;
 
-  const authorityTypeByFactoryType: Record<Exclude<FactoryObjectType, "editorial_timeline_candidate">, AuthorityRef["authorityType"]> = {
+  const authorityTypeByFactoryType: Record<Exclude<FactoryObjectType, "editorial_timeline_candidate" | "editorial_composition">, AuthorityRef["authorityType"]> = {
     candidate_historical_object: "historical_object",
     candidate_milestone: "milestone",
     candidate_participation: "participation",
@@ -3574,6 +3755,9 @@ export function buildGovernancePublicationPackage(
   const canonicalAuthority = factoryObjects.map((object) => {
     if (object.objectType === "editorial_timeline_candidate") {
       throw new ApiError(409, "EDITORIAL_TIMELINE_CANDIDATE_NOT_PACKAGEABLE", "EditorialTimelineCandidate persistence is not yet certified for package integration.");
+    }
+    if (object.objectType === "editorial_composition") {
+      throw new ApiError(409, "EDITORIAL_COMPOSITION_NOT_PACKAGEABLE", "EditorialComposition is Factory Production Memory and cannot become Governance canonical authority.");
     }
     return {
       authorityRef: {

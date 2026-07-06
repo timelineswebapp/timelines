@@ -6,9 +6,9 @@ const registry = readFileSync("src/server/factory/pipeline-registry.ts", "utf8")
 const service = readFileSync("src/server/services/factory-service.ts", "utf8");
 const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
 
-test("compiler is the first publication checkpoint before validation and assembly", () => {
-  assert.match(registry, /steps: \["editorial_timeline_compiler", "validation_worker", "package_assembly_worker"\]/);
-  assert.match(service, /deterministicPublicationSteps = new Set\(\["editorial_timeline_compiler"\]\)/);
+test("compiler and composition are ordered before validation and assembly", () => {
+  assert.match(registry, /steps: \["editorial_timeline_compiler", "editorial_composition_planner", "validation_worker", "package_assembly_worker"\]/);
+  assert.match(service, /deterministicPublicationSteps = new Set\(\["editorial_timeline_compiler", "editorial_composition_planner"\]\)/);
   assert.doesNotMatch(service, /deterministicResearchSteps = new Set\(\[[\s\S]{0,200}"editorial_timeline_compiler"/);
 });
 

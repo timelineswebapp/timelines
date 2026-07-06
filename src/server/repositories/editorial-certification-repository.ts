@@ -4,9 +4,13 @@ import type {
   EditorialCertificationPersistence,
   EditorialCertificationReport
 } from "@/src/server/editorial-certification/contracts";
+import type { Ei003CertificationReport } from "@/src/server/editorial-certification/ei003-contracts";
 
 export const editorialCertificationRepository: EditorialCertificationPersistence = {
-  async createReport(report: EditorialCertificationReport, actor: string): Promise<EditorialCertificationReport> {
+  async createReport<T extends EditorialCertificationReport | Ei003CertificationReport>(
+    report: T,
+    actor: string
+  ): Promise<T> {
     return withWriteTransaction("persisting immutable Editorial Certification report", async () => {
       const sql = getWriteSql("persisting immutable Editorial Certification report");
       const certificationRunId = randomUUID();
@@ -21,16 +25,25 @@ export const editorialCertificationRepository: EditorialCertificationPersistence
         )
       `;
       for (const caseResult of report.caseResults) {
+        const isComposition = report.epic === "EI-003";
+        const compositionCase = isComposition ? caseResult : null;
         const [caseRow] = await sql<{ caseResultId: string }[]>`
           INSERT INTO factory_editorial_certification_case_results (
             certification_run_id, case_id, topic, status, compiler_version,
             selection_algorithm_version, expected_fingerprint, actual_fingerprint,
-            exact_input, actual_output
+            exact_input, actual_output, planner_version, structure_algorithm_version,
+            input_fingerprint, output_fingerprint
           ) VALUES (
             ${certificationRunId}, ${caseResult.caseId}, ${caseResult.topic}, ${caseResult.status},
-            ${caseResult.compilerVersion}, ${caseResult.selectionAlgorithmVersion},
+            ${isComposition ? "not_applicable" : (caseResult as any).compilerVersion},
+            ${isComposition ? "not_applicable" : (caseResult as any).selectionAlgorithmVersion},
             ${caseResult.expectedFingerprint}, ${caseResult.actualFingerprint},
-            ${sql.json(caseResult.exactInput as any)}, ${sql.json((caseResult.actualCompilerOutput || {}) as any)}
+            ${sql.json(caseResult.exactInput as any)},
+            ${sql.json(((caseResult as any).actualCompilerOutput || (caseResult as any).actualCompositionOutput || {}) as any)},
+            ${isComposition ? (compositionCase as any).plannerVersion : null},
+            ${isComposition ? (compositionCase as any).structureAlgorithmVersion : null},
+            ${isComposition ? (compositionCase as any).actualFingerprint : null},
+            ${isComposition ? (compositionCase as any).actualOutputFingerprint : null}
           )
           RETURNING id::text AS "caseResultId"
         `;
@@ -55,4 +68,3 @@ export const editorialCertificationRepository: EditorialCertificationPersistence
     });
   }
 };
-

@@ -53,8 +53,9 @@ test("service persists one immutable technical report without authority decision
   let persisted: EditorialCertificationReport | null = null;
   const persistence: EditorialCertificationPersistence = {
     async createReport(report) {
-      persisted = { ...report, certificationRunId: "00000000-0000-4000-8000-000000000900" };
-      return persisted;
+      const result = { ...report, certificationRunId: "00000000-0000-4000-8000-000000000900" };
+      if (result.epic === "EI-002") persisted = result;
+      return result;
     }
   };
   const report: EditorialCertificationReport = await editorialCertificationService.certifyEi002({ actor: "test", persistence });

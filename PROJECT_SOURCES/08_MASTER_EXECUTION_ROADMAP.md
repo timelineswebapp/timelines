@@ -128,7 +128,7 @@ Historical Knowledge Graph
 
 Editorial Intelligence
 
-████░░░░░░ 40%
+██████░░░░ 60%
 
 Public Experience
 
@@ -334,7 +334,7 @@ Certified by `editorial-certification-v1` against `ei-002-tier-a-v1`: 4 of 4 his
 
 ## Epic EI-003
 
-### Editorial Writer
+### Editorial Composition
 
 Priority
 
@@ -342,19 +342,31 @@ Critical
 
 Status
 
-Next Active Phase
+Completed and Certified
 
 Maturity
 
-Level 0
+Level 4
 
 Objective
 
-Generate publication-quality editorial content exclusively from admitted institutional knowledge.
-
-No new historical facts may be introduced.
+Organize the selected EI-002 milestones into deterministic historical structure without generating prose or changing chronology.
 
 Deliverables
+
+✓ Deterministic Editorial Composition Planner
+
+✓ Immutable EditorialComposition persistence
+
+✓ Factory pipeline integration
+
+✓ Structural phases, boundaries, transitions, continuity, and arcs
+
+✓ Exact EI-002 chronology and membership preservation
+
+✓ Tier A machine certification
+
+Deferred to EI-004
 
 □ Timeline title generation
 
@@ -378,13 +390,13 @@ Deliverables
 
 Certification
 
-Editorial content is publication-ready, historically grounded, stylistically consistent, and fully traceable to validated evidence.
+Certified by `editorial-certification-v1` against `ei-003-tier-a-v1`: 8 of 8 cases and 176 of 176 invariants passed. Persisted certification run `660ac578-a571-49a5-9d1d-6ca3586ff1f1`.
 
 ---
 
 ## Epic EI-004
 
-### Public Editorial Experience
+### Editorial Writer
 
 Priority
 
@@ -392,7 +404,7 @@ High
 
 Status
 
-Planned
+Next Active Phase
 
 Maturity
 
@@ -400,7 +412,7 @@ Level 0
 
 Objective
 
-Present editorially rich historical knowledge through the public platform while preserving provenance and transparency.
+Generate publication-quality editorial content exclusively from certified EditorialComposition without introducing historical facts.
 
 Deliverables
 

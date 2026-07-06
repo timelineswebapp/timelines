@@ -29,6 +29,7 @@ import { factoryRepository } from "@/src/server/repositories/factory-repository"
 import { evidenceValidationRepository } from "@/src/server/repositories/evidence-validation-repository";
 import { editorialEvidenceRepository } from "@/src/server/repositories/editorial-evidence-repository";
 import { editorialTimelineCandidateRepository } from "@/src/server/repositories/editorial-timeline-candidate-repository";
+import { editorialCompositionRepository } from "@/src/server/repositories/editorial-composition-repository";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
@@ -1615,7 +1616,10 @@ describe("factory production memory foundation", () => {
       getArtifactsByIds: factoryRepository.getArtifactsByIds,
       getEditorialEvidenceSetById: editorialEvidenceRepository.getById,
       createEditorialTimelineCandidate: editorialTimelineCandidateRepository.create,
+      getEditorialTimelineCandidateById: editorialTimelineCandidateRepository.getById,
       getEditorialTimelineCandidateByFingerprint: editorialTimelineCandidateRepository.getByFingerprint,
+      createEditorialComposition: editorialCompositionRepository.create,
+      getEditorialCompositionByFingerprint: editorialCompositionRepository.getByFingerprint,
       transitionPipelineRun: factoryRepository.transitionPipelineRun,
       createPipelineStep: factoryRepository.createPipelineStep,
       transitionPipelineStep: factoryRepository.transitionPipelineStep,
@@ -1882,6 +1886,18 @@ describe("factory production memory foundation", () => {
         return persistedEditorialCandidate;
       };
       (editorialTimelineCandidateRepository as any).getByFingerprint = async () => persistedEditorialCandidate;
+      (editorialTimelineCandidateRepository as any).getById = async () => persistedEditorialCandidate;
+      let persistedComposition: any = null;
+      (editorialCompositionRepository as any).create = async ({ composition, actor }: any) => {
+        persistedComposition ||= {
+          compositionId: "00000000-0000-4000-8000-000000000016",
+          factoryObjectId: "00000000-0000-4000-8000-000000000017",
+          ...composition,
+          createdBy: actor
+        };
+        return persistedComposition;
+      };
+      (editorialCompositionRepository as any).getByFingerprint = async () => persistedComposition;
       (factoryRepository as any).createPipelineRun = async (input: any) => ({ pipelineRunId: "run-1", pipelineId: input.pipelineId, status: "queued", input: input.input, artifactRefs: [], factoryObjectRefs: [], packageDraftId: null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
       (factoryRepository as any).transitionPipelineRun = async (input: any) => {
         state.pipelineStatuses.push(input.status);
@@ -1951,7 +1967,10 @@ describe("factory production memory foundation", () => {
       (factoryRepository as any).getArtifactsByIds = originals.getArtifactsByIds;
       (editorialEvidenceRepository as any).getById = originals.getEditorialEvidenceSetById;
       (editorialTimelineCandidateRepository as any).create = originals.createEditorialTimelineCandidate;
+      (editorialTimelineCandidateRepository as any).getById = originals.getEditorialTimelineCandidateById;
       (editorialTimelineCandidateRepository as any).getByFingerprint = originals.getEditorialTimelineCandidateByFingerprint;
+      (editorialCompositionRepository as any).create = originals.createEditorialComposition;
+      (editorialCompositionRepository as any).getByFingerprint = originals.getEditorialCompositionByFingerprint;
       (factoryRepository as any).transitionPipelineRun = originals.transitionPipelineRun;
       (factoryRepository as any).createPipelineStep = originals.createPipelineStep;
       (factoryRepository as any).transitionPipelineStep = originals.transitionPipelineStep;
@@ -2209,8 +2228,8 @@ describe("factory production memory foundation", () => {
       assert.equal(state.pipelineStatuses.at(-1), "completed");
       assert.equal(state.packageDrafts.length, 1);
       assert.deepEqual(
-        state.artifacts.slice(0, 3).map((artifact) => artifact.title),
-        ["EditorialTimelineCandidate compiler output", "Validation Worker output", "Package Assembly Worker output"]
+        state.artifacts.slice(0, 4).map((artifact) => artifact.title),
+        ["EditorialTimelineCandidate compiler output", "EditorialComposition planner output", "Validation Worker output", "Package Assembly Worker output"]
       );
       assert.equal(state.artifacts[0].factoryObjectId, "00000000-0000-4000-8000-000000000015");
       assert.equal(state.packageDrafts[0].validatedEvidenceRefs[0].evidenceRecordId, "evidence-1");

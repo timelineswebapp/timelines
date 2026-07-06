@@ -37,11 +37,11 @@ Database migrations:
 |---|---|---|---|
 | EI-001 — Editorial Intelligence Foundation | Complete | Repository-backed completion recorded | Satisfied |
 | EI-002 — Editorial Timeline Compiler | Complete | Certified — Tier A | Satisfied for EI-003 |
-| EI-003 | Not completed | Not certified | Next active phase |
-| EI-004 | Not completed | Not certified | Planned |
+| EI-003 — Editorial Composition | Complete | Certified — Tier A | Satisfied for EI-004 |
+| EI-004 | Not completed | Not certified | Next active phase |
 | EI-005 | Not completed | Not certified | Planned |
 
-No future epic certification is claimed.
+No EI-004 or EI-005 certification is claimed.
 
 ## EI-001 Record
 
@@ -133,6 +133,26 @@ Each corpus case records and passes the following invariants:
 
 ## Institutional Boundary
 
+## EI-003 Record
+
+Status: Certified
+
+Implementation and Factory integration: Complete
+
+Corpus: `ei-003-tier-a-v1`
+
+Cases passed: 8 / 8
+
+Invariants passed: 176 / 176
+
+Persisted certification run: `660ac578-a571-49a5-9d1d-6ca3586ff1f1`
+
+Machine command: `npm run ops:editorial:certify -- --epic EI-003`
+
+Certified behavior includes deterministic output and fingerprints, exact EI-002 chronology and membership preservation, exclusion preservation, phase integrity, EI-001 turning-point lineage, continuity, transitions, arcs, structural-only boundaries, absence of generated content, immutable persistence equality, exact resume reuse, artifact ownership, package lineage, and Governance exclusion.
+
+EditorialComposition remains immutable, unpublished, non-authoritative Factory Production Memory.
+
 Editorial Intelligence remains inside the Factory before Governance:
 
 Factory → Governance → Historical Library → Published Memory → Platform
@@ -141,4 +161,4 @@ EI-002 does not modify Governance, Historical Library, Published Memory, or Plat
 
 ## Future Certification
 
-EI-003, EI-004, and EI-005 remain uncertified. Their certification records must be added only after repository-backed implementation and persisted certification evidence exist.
+EI-004 and EI-005 remain uncertified. Their certification records must be added only after repository-backed implementation and persisted certification evidence exist.

@@ -136,6 +136,8 @@ EI-001 Completed
 
 EI-002 Completed and Certified
 
+EI-003 Completed and Certified
+
 Certified:
 
 * Deterministic Editorial Timeline Compiler
@@ -163,6 +165,14 @@ Result:
 4 / 4 historical subjects passed.
 
 52 / 52 certification invariants passed.
+
+EI-003 result:
+
+8 / 8 certification cases and 176 / 176 invariants passed.
+
+EI-003 persisted certification run:
+
+`660ac578-a571-49a5-9d1d-6ca3586ff1f1`
 
 Persisted certification run:
 

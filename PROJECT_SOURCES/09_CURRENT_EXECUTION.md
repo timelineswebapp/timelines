@@ -22,7 +22,7 @@ Production-capable
 
 Current maturity:
 
-Editorial Intelligence — Level 2
+Editorial Intelligence — Level 3
 
 Current production status:
 
@@ -45,7 +45,7 @@ Public Timeline Rendering
 ✓ Certified
 
 Editorial Intelligence
-EI-001 Complete; EI-002 Certified
+EI-001 Complete; EI-002 and EI-003 Certified
 
 ---
 
@@ -63,7 +63,7 @@ Raise publication quality from institutionally correct to editorially excellent 
 
 # Active Epic
 
-EI-003
+EI-004
 
 Editorial Writer
 
@@ -77,17 +77,19 @@ Critical
 
 Objective
 
-Implement the next Editorial Intelligence phase using the certified EI-001 Editorial Evidence Set and EI-002 Editorial Timeline Candidate as its grounded inputs.
+Implement editorial writing from the certified EI-003 EditorialComposition without changing its milestone structure or lineage.
 
 ---
 
 # Current Task
 
-Prepare and authorize EI-003 implementation work.
+Prepare and authorize EI-004 implementation work.
 
 EI-001 is complete.
 
 EI-002 is complete and certified.
+
+EI-003 is complete and certified.
 
 ---
 
@@ -110,6 +112,14 @@ EI-002 is complete and certified.
 ✓ Persisted certification run: b5c4bc1d-c283-444d-8011-d5a122aa4d9d
 
 ✓ Machine certification command: npm run ops:editorial:certify
+
+✓ EI-003 Editorial Composition
+
+✓ Tier A corpus: 8 certification cases
+
+✓ Certification invariants: 176 / 176 passed
+
+✓ Persisted certification run: 660ac578-a571-49a5-9d1d-6ca3586ff1f1
 
 ---
 
@@ -175,11 +185,11 @@ Do not continue beyond the blocker.
 
 # Next Epic
 
-EI-003
+EI-004
 
 Editorial Writer
 
-This is the next active phase. EI-004 and EI-005 remain planned.
+This is the next active phase. EI-005 remains planned.
 
 ---
 

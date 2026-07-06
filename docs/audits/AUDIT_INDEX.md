@@ -31,6 +31,7 @@ Existing audit-related artifacts include root quality docs, relationship recover
 | Scale Certification | Certified | 25 and 50 subject batches passed at 100%; 100 subject batch passed at 98%. |
 | Projection Slug Revalidation | Certified | Final known slug defects were fixed and revalidated. |
 | EI-002 Editorial Intelligence Certification | Certified | Tier A corpus passed 4 / 4 historical subjects and 52 / 52 invariants; persisted run `b5c4bc1d-c283-444d-8011-d5a122aa4d9d`. |
+| EI-003 Editorial Composition Certification | Certified | Tier A corpus passed 8 / 8 cases and 176 / 176 invariants; persisted run `660ac578-a571-49a5-9d1d-6ca3586ff1f1`. |
 
 ## Future Architecture
 Every audit should record ID, mode, objective, inspected files/data, findings, actions, and follow-ups.

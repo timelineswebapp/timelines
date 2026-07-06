@@ -328,6 +328,8 @@ Certified Editorial Intelligence Epics
 
 ✓ EI-002 — Completed and Certified
 
+✓ EI-003 — Completed and Certified
+
 EI-002 Certification
 
 • Framework: editorial-certification-v1
@@ -343,6 +345,20 @@ EI-002 Certification
 • Certification run: b5c4bc1d-c283-444d-8011-d5a122aa4d9d
 
 • Machine command: npm run ops:editorial:certify
+
+EI-003 Certification
+
+• Framework: editorial-certification-v1
+
+• Corpus: ei-003-tier-a-v1
+
+• Cases passed: 8 / 8
+
+• Invariants passed: 176 / 176
+
+• Certification run: 660ac578-a571-49a5-9d1d-6ca3586ff1f1
+
+• Machine command: npm run ops:editorial:certify -- --epic EI-003
 
 Current Limitations
 
@@ -512,6 +528,8 @@ Certified
 
 ✓ Editorial Timeline Compiler — Tier A
 
+✓ Editorial Composition — Tier A
+
 ---
 
 # Current Known Limitations
@@ -532,7 +550,7 @@ Operational scaling beyond single-worker execution remains future work.
 
 The current strategic priority is:
 
-EI-003, the next Editorial Intelligence phase.
+EI-004, the next Editorial Intelligence phase.
 
 Future engineering effort focuses on improving publication quality while preserving institutional authority.
 
