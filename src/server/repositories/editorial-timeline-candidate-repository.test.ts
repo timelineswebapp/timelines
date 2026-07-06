@@ -24,7 +24,7 @@ test("registers an immutable non-authoritative Factory Production Memory object"
   assert.match(repository, /publicationReadinessDecision: false/);
   assert.match(migration, /prevent_editorial_timeline_factory_object_update/);
   assert.match(factoryService, /EDITORIAL_TIMELINE_CANDIDATE_NOT_PACKAGEABLE/);
-  assert.match(pipelineRegistry, /"editorial_timeline_compiler", "editorial_composition_planner", "validation_worker", "package_assembly_worker"/);
+  assert.match(pipelineRegistry, /"editorial_timeline_compiler", "editorial_composition_planner", "editorial_writer", "validation_worker", "package_assembly_worker"/);
 });
 
 test("preserves foreign-key lineage with delete restriction", () => {

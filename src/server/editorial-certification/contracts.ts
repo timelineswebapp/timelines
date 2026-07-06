@@ -1,5 +1,6 @@
 import type { EditorialTimelineCandidate, EditorialTimelineCompilerInput } from "@/src/server/editorial-intelligence/timeline-compiler-contracts";
 import type { Ei003CertificationReport } from "@/src/server/editorial-certification/ei003-contracts";
+import type { Ei004CertificationReport } from "@/src/server/editorial-certification/ei004-contracts";
 
 export const EDITORIAL_CERTIFICATION_FRAMEWORK_VERSION = "editorial-certification-v1" as const;
 export const EI002_TIER_A_CORPUS_VERSION = "ei-002-tier-a-v1" as const;
@@ -91,7 +92,7 @@ export type EditorialCertificationReport = Readonly<{
 }>;
 
 export type EditorialCertificationPersistence = Readonly<{
-  createReport<T extends EditorialCertificationReport | Ei003CertificationReport>(
+  createReport<T extends EditorialCertificationReport | Ei003CertificationReport | Ei004CertificationReport>(
     report: T,
     actor: string
   ): Promise<T>;

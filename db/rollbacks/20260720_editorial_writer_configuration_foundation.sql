@@ -1,0 +1,13 @@
+DROP TRIGGER IF EXISTS enforce_editorial_prompt_supersession ON editorial_prompt_supersessions;
+DROP FUNCTION IF EXISTS enforce_editorial_prompt_supersession_lineage();
+DROP TRIGGER IF EXISTS prevent_editorial_provider_configurations_mutation ON editorial_provider_configurations;
+DROP TRIGGER IF EXISTS prevent_editorial_writing_policies_mutation ON editorial_writing_policies;
+DROP TRIGGER IF EXISTS prevent_editorial_prompt_supersessions_mutation ON editorial_prompt_supersessions;
+DROP TRIGGER IF EXISTS prevent_editorial_prompt_versions_mutation ON editorial_prompt_versions;
+DROP TRIGGER IF EXISTS prevent_editorial_prompts_mutation ON editorial_prompts;
+DROP TABLE IF EXISTS editorial_prompt_supersessions;
+DROP TABLE IF EXISTS editorial_prompt_versions;
+DROP TABLE IF EXISTS editorial_prompts;
+DROP TABLE IF EXISTS editorial_writing_policies;
+DROP TABLE IF EXISTS editorial_provider_configurations;
+DROP FUNCTION IF EXISTS prevent_editorial_writer_configuration_mutation();

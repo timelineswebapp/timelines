@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { prepareEditorialEvidenceSet } from "@/src/server/editorial-intelligence/editorial-foundation";
 import { planEditorialComposition } from "@/src/server/editorial-intelligence/editorial-composition-planner";
@@ -9,6 +10,7 @@ import {
   fingerprintEditorialWritingPolicy
 } from "@/src/server/editorial-intelligence/editorial-writer-input-builder";
 import type { BuildEditorialNarrativeWriterInput } from "@/src/server/editorial-intelligence/editorial-writer-input";
+import { editorialWriterPromptAssets } from "@/src/server/editorial-intelligence/editorial-prompt-assets";
 
 const id = (value: number) => `00000000-0000-4000-8000-${value.toString().padStart(12, "0")}`;
 
@@ -77,7 +79,8 @@ export function fixture(): BuildEditorialNarrativeWriterInput {
   });
   const prompts = (["editorial_title", "editorial_introduction", "editorial_phase", "editorial_conclusion"] as const)
     .map((promptKey, index) => fingerprintEditorialPrompt({
-      promptId: id(900 + index), promptKey, promptVersion: 1, templateFingerprint: String(index + 1).repeat(64),
+      promptId: id(900 + index), promptKey, promptVersion: 1,
+      templateFingerprint: createHash("sha256").update(editorialWriterPromptAssets[promptKey]).digest("hex"),
       schemaVersion: "ei-004-prompt-schema-v1", policyId: writingPolicy.policyId,
       policyVersion: writingPolicy.version, lifecycle: "active"
     }));

@@ -5,9 +5,10 @@ import type {
   EditorialCertificationReport
 } from "@/src/server/editorial-certification/contracts";
 import type { Ei003CertificationReport } from "@/src/server/editorial-certification/ei003-contracts";
+import type { Ei004CertificationReport } from "@/src/server/editorial-certification/ei004-contracts";
 
 export const editorialCertificationRepository: EditorialCertificationPersistence = {
-  async createReport<T extends EditorialCertificationReport | Ei003CertificationReport>(
+  async createReport<T extends EditorialCertificationReport | Ei003CertificationReport | Ei004CertificationReport>(
     report: T,
     actor: string
   ): Promise<T> {
@@ -26,24 +27,35 @@ export const editorialCertificationRepository: EditorialCertificationPersistence
       `;
       for (const caseResult of report.caseResults) {
         const isComposition = report.epic === "EI-003";
+        const isWriter = report.epic === "EI-004";
         const compositionCase = isComposition ? caseResult : null;
         const [caseRow] = await sql<{ caseResultId: string }[]>`
           INSERT INTO factory_editorial_certification_case_results (
             certification_run_id, case_id, topic, status, compiler_version,
             selection_algorithm_version, expected_fingerprint, actual_fingerprint,
             exact_input, actual_output, planner_version, structure_algorithm_version,
-            input_fingerprint, output_fingerprint
+            input_fingerprint, output_fingerprint, writer_version, generation_algorithm_version,
+            execution_key, narrative_id, revision_identity, prompt_fingerprints,
+            policy_fingerprint, provider_fingerprint
           ) VALUES (
             ${certificationRunId}, ${caseResult.caseId}, ${caseResult.topic}, ${caseResult.status},
-            ${isComposition ? "not_applicable" : (caseResult as any).compilerVersion},
-            ${isComposition ? "not_applicable" : (caseResult as any).selectionAlgorithmVersion},
+            ${isComposition || isWriter ? "not_applicable" : (caseResult as any).compilerVersion},
+            ${isComposition || isWriter ? "not_applicable" : (caseResult as any).selectionAlgorithmVersion},
             ${caseResult.expectedFingerprint}, ${caseResult.actualFingerprint},
             ${sql.json(caseResult.exactInput as any)},
-            ${sql.json(((caseResult as any).actualCompilerOutput || (caseResult as any).actualCompositionOutput || {}) as any)},
+            ${sql.json(((caseResult as any).actualCompilerOutput || (caseResult as any).actualCompositionOutput || (caseResult as any).actualNarrativeOutput || {}) as any)},
             ${isComposition ? (compositionCase as any).plannerVersion : null},
             ${isComposition ? (compositionCase as any).structureAlgorithmVersion : null},
             ${isComposition ? (compositionCase as any).actualFingerprint : null},
-            ${isComposition ? (compositionCase as any).actualOutputFingerprint : null}
+            ${isComposition ? (compositionCase as any).actualOutputFingerprint : isWriter ? (caseResult as any).actualOutputFingerprint : null},
+            ${isWriter ? (caseResult as any).writerVersion : null},
+            ${isWriter ? (caseResult as any).generationAlgorithmVersion : null},
+            ${isWriter ? (caseResult as any).exactInput.executionKey : null},
+            ${isWriter ? (caseResult as any).exactInput.narrative.narrativeId : null},
+            ${isWriter ? sql.json((caseResult as any).exactInput.observedRevision) : null},
+            ${isWriter ? (caseResult as any).exactInput.promptFingerprints : null},
+            ${isWriter ? (caseResult as any).exactInput.policyFingerprint : null},
+            ${isWriter ? (caseResult as any).exactInput.providerFingerprint : null}
           )
           RETURNING id::text AS "caseResultId"
         `;

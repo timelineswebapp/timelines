@@ -38,10 +38,10 @@ Database migrations:
 | EI-001 — Editorial Intelligence Foundation | Complete | Repository-backed completion recorded | Satisfied |
 | EI-002 — Editorial Timeline Compiler | Complete | Certified — Tier A | Satisfied for EI-003 |
 | EI-003 — Editorial Composition | Complete | Certified — Tier A | Satisfied for EI-004 |
-| EI-004 | Not completed | Not certified | Next active phase |
+| EI-004 — Editorial Writer | Complete | Certified — Tier A | Satisfied for EI-005 |
 | EI-005 | Not completed | Not certified | Planned |
 
-No EI-004 or EI-005 certification is claimed.
+No EI-005 certification is claimed.
 
 ## EI-001 Record
 
@@ -153,6 +153,28 @@ Certified behavior includes deterministic output and fingerprints, exact EI-002 
 
 EditorialComposition remains immutable, unpublished, non-authoritative Factory Production Memory.
 
+## EI-004 Record
+
+Status: Certified
+
+Implementation and Factory integration: Complete
+
+Corpus: `ei-004-tier-a-v1`
+
+Cases passed: 4 / 4
+
+Invariants passed: 112 / 112
+
+Persisted certification run: `773889f8-cc36-4514-a3b1-fedf9deb1c2a`
+
+Corpus fingerprint: `9ba2799e185caded9a2d676946fe9b72a3c8fd4977b9fa79d5c1e51b6dc4dbc3`
+
+Machine command: `npm run ops:editorial:certify -- --epic EI-004`
+
+Certified behavior includes exact prompt, policy, provider, WriterInput, evidence, sentence, citation, resume, generation-unit, revision, artifact, package, Factory ownership, and Governance exclusion invariants.
+
+EditorialNarrative remains immutable, unpublished, non-authoritative Factory Production Memory.
+
 Editorial Intelligence remains inside the Factory before Governance:
 
 Factory → Governance → Historical Library → Published Memory → Platform
@@ -161,4 +183,4 @@ EI-002 does not modify Governance, Historical Library, Published Memory, or Plat
 
 ## Future Certification
 
-EI-004 and EI-005 remain uncertified. Their certification records must be added only after repository-backed implementation and persisted certification evidence exist.
+EI-005 remains uncertified.

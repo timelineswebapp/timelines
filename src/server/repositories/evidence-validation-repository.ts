@@ -27,6 +27,28 @@ export type CreateEvidenceValidationRecordInput = {
 };
 
 export const evidenceValidationRepository = {
+  async getValidationRecordById(validationRecordId: string): Promise<EvidenceValidationRecord | null> {
+    const [record] = await evidenceValidationRepository.getValidationRecords([validationRecordId]);
+    return record || null;
+  },
+
+  async getValidationRecords(validationRecordIds: readonly string[]): Promise<EvidenceValidationRecord[]> {
+    if (validationRecordIds.length === 0) return [];
+    if (validationRecordIds.length > 500) {
+      throw new ApiError(400, "VALIDATION_RECORD_BATCH_LIMIT_EXCEEDED", "At most 500 exact validation records may be loaded.");
+    }
+    const ids = [...new Set(validationRecordIds)];
+    const sql = getWriteSql("loading evidence validation records by exact IDs");
+    return sql<EvidenceValidationRecord[]>`
+      SELECT id::text AS "validationRecordId", evidence_record_id::text AS "evidenceRecordId",
+        status, checks, provenance, created_by AS "createdBy", created_at::text AS "createdAt"
+      FROM evidence_validation_records
+      WHERE id = ANY(${ids}::uuid[])
+      ORDER BY id
+      LIMIT 500
+    `;
+  },
+
   async getEvidenceSubject(evidenceRecordId: string): Promise<EvidenceValidationSubject | null> {
     const sql = getWriteSql("loading evidence record for structural validation");
     const [row] = await sql<EvidenceValidationSubject[]>`

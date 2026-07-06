@@ -7,8 +7,8 @@ const service = readFileSync("src/server/services/factory-service.ts", "utf8");
 const repository = readFileSync("src/server/repositories/factory-repository.ts", "utf8");
 
 test("compiler and composition are ordered before validation and assembly", () => {
-  assert.match(registry, /steps: \["editorial_timeline_compiler", "editorial_composition_planner", "validation_worker", "package_assembly_worker"\]/);
-  assert.match(service, /deterministicPublicationSteps = new Set\(\["editorial_timeline_compiler", "editorial_composition_planner"\]\)/);
+  assert.match(registry, /steps: \["editorial_timeline_compiler", "editorial_composition_planner", "editorial_writer", "validation_worker", "package_assembly_worker"\]/);
+  assert.match(service, /deterministicPublicationSteps = new Set\(\["editorial_timeline_compiler", "editorial_composition_planner", "editorial_writer"\]\)/);
   assert.doesNotMatch(service, /deterministicResearchSteps = new Set\(\[[\s\S]{0,200}"editorial_timeline_compiler"/);
 });
 

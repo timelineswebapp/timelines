@@ -300,7 +300,7 @@ Active
 
 Maturity
 
-Level 2
+Level 4
 
 Current Capabilities
 
@@ -329,6 +329,8 @@ Certified Editorial Intelligence Epics
 ✓ EI-002 — Completed and Certified
 
 ✓ EI-003 — Completed and Certified
+
+✓ EI-004 — Completed and Certified
 
 EI-002 Certification
 
@@ -360,6 +362,20 @@ EI-003 Certification
 
 • Machine command: npm run ops:editorial:certify -- --epic EI-003
 
+EI-004 Certification
+
+• Framework: editorial-certification-v1
+
+• Corpus: ei-004-tier-a-v1
+
+• Cases passed: 4 / 4
+
+• Invariants passed: 112 / 112
+
+• Certification run: 773889f8-cc36-4514-a3b1-fedf9deb1c2a
+
+• Machine command: npm run ops:editorial:certify -- --epic EI-004
+
 Current Limitations
 
 • Timeline titles require improvement
@@ -368,9 +384,7 @@ Current Limitations
 
 • Editorial summaries are minimal
 
-• Editorial composition is not implemented
-
-• Narrative quality remains below target
+• Editorial quality evaluation remains planned for EI-005
 
 ---
 
@@ -550,7 +564,7 @@ Operational scaling beyond single-worker execution remains future work.
 
 The current strategic priority is:
 
-EI-004, the next Editorial Intelligence phase.
+EI-005, the next Editorial Intelligence phase.
 
 Future engineering effort focuses on improving publication quality while preserving institutional authority.
 

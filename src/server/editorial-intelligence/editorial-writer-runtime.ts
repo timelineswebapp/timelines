@@ -7,19 +7,34 @@ import type {
   ValidatedSection
 } from "@/src/server/editorial-intelligence/editorial-generation-contracts";
 import { editorialGenerationOutputSchema, parseGeneratedSection } from "@/src/server/editorial-intelligence/editorial-generation-schemas";
-import { editorialWriterPromptAssets } from "@/src/server/editorial-intelligence/editorial-prompt-assets";
 import {
   narrativeClaimId,
   validateGeneratedSection,
   validateNarrativeCoverage
 } from "@/src/server/editorial-intelligence/editorial-grounding-validator";
 import { assembleEditorialNarrative } from "@/src/server/editorial-intelligence/editorial-narrative-assembler";
+import { createHash } from "node:crypto";
 
 export type EditorialWriterRuntimeOptions = Readonly<{
   provider: FactoryRuntimeProvider;
   maxAttempts?: number;
   timeoutMs?: number;
+  promptContent: Readonly<Record<"editorial_title" | "editorial_introduction" | "editorial_phase" | "editorial_conclusion", string>>;
+  loadValidatedUnit?: (
+    unit: GenerationUnit,
+    inputFingerprint: string
+  ) => Promise<{ validated: ValidatedSection; diagnostics: GenerationDiagnostics } | null>;
+  persistValidatedUnit?: (
+    unit: GenerationUnit,
+    inputFingerprint: string,
+    outputFingerprint: string,
+    validated: ValidatedSection,
+    diagnostics: GenerationDiagnostics
+  ) => Promise<void>;
 }>;
+
+const unitFingerprint = (value: unknown) =>
+  createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 function units(input: EditorialNarrativeWriterInput): GenerationUnit[] {
   const claimIdsFor = (milestoneIds: readonly string[]) => [...new Set(
@@ -85,13 +100,30 @@ export async function runEditorialWriter(
     const key = promptKey(unit);
     const promptRef = input.prompts.find((item) => item.promptKey === key);
     if (!promptRef) throw new Error(`Missing versioned prompt ${key}.`);
+    const promptContent = options.promptContent[key];
+    if (!promptContent ||
+        createHash("sha256").update(promptContent).digest("hex") !== promptRef.templateFingerprint) {
+      throw new Error(`Prompt Registry content fingerprint mismatch for ${key}.`);
+    }
+    const exactUnitInput = boundedUnitInput(unit, input);
+    const inputFingerprint = unitFingerprint({
+      writerInputFingerprint: input.writerInputFingerprint,
+      promptFingerprint: promptRef.promptFingerprint,
+      unitInput: exactUnitInput
+    });
+    const reused = await options.loadValidatedUnit?.(unit, inputFingerprint);
+    if (reused) {
+      successful.push(reused.validated);
+      diagnostics.push(reused.diagnostics);
+      continue;
+    }
     let lastError: unknown = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const startedAt = Date.now();
       try {
         const response = await options.provider.execute({
-          prompt: editorialWriterPromptAssets[key],
-          input: boundedUnitInput(unit, input),
+          prompt: promptContent,
+          input: exactUnitInput,
           outputSchema: editorialGenerationOutputSchema(unit),
           timeoutMs: options.timeoutMs,
           configuration: {
@@ -104,8 +136,7 @@ export async function runEditorialWriter(
         });
         const generated = parseGeneratedSection(unit, response.output);
         const validated = validateGeneratedSection(generated, input);
-        successful.push(validated);
-        diagnostics.push({
+        const unitDiagnostics = {
           unitId: unit.unitId,
           provider: response.providerKey,
           model: response.modelName,
@@ -116,7 +147,16 @@ export async function runEditorialWriter(
           },
           retryCount: attempt - 1,
           completionReason: typeof response.diagnostics.completionReason === "string" ? response.diagnostics.completionReason : null
-        });
+        };
+        await options.persistValidatedUnit?.(
+          unit,
+          inputFingerprint,
+          unitFingerprint(validated),
+          validated,
+          unitDiagnostics
+        );
+        successful.push(validated);
+        diagnostics.push(unitDiagnostics);
         lastError = null;
         break;
       } catch (error) {

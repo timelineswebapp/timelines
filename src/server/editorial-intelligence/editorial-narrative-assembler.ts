@@ -57,6 +57,38 @@ export function assembleEditorialNarrative(input: {
     evidenceRecordIds: sentence.claimIds.map((id) => claimToEvidence.get(id)!.evidenceRecordId),
     milestoneIds: sentence.milestoneIds
   }));
+  const evidenceById = new Map(input.writerInput.validatedEvidence.map((item) => [item.evidence.evidenceRecordId, item.evidence]));
+  const citationsBySnapshot = new Map<string, {
+    citationReferenceId: string;
+    sentenceIds: Set<string>;
+    evidenceRecordIds: Set<string>;
+    sourceRecordId: string;
+    sourceSnapshotId: string;
+  }>();
+  for (const entry of claimMap) {
+    for (const evidenceRecordId of entry.evidenceRecordIds) {
+      const evidence = evidenceById.get(evidenceRecordId)!;
+      const existing = citationsBySnapshot.get(evidence.sourceSnapshotId) || {
+        citationReferenceId: `citation:${evidence.sourceSnapshotId}`,
+        sentenceIds: new Set<string>(),
+        evidenceRecordIds: new Set<string>(),
+        sourceRecordId: evidence.sourceRecordId,
+        sourceSnapshotId: evidence.sourceSnapshotId
+      };
+      existing.sentenceIds.add(entry.sentenceId);
+      existing.evidenceRecordIds.add(evidenceRecordId);
+      citationsBySnapshot.set(evidence.sourceSnapshotId, existing);
+    }
+  }
+  const citations = [...citationsBySnapshot.values()]
+    .sort((left, right) => left.sourceSnapshotId.localeCompare(right.sourceSnapshotId))
+    .map((item) => ({
+      citationReferenceId: item.citationReferenceId,
+      sentenceIds: [...item.sentenceIds].sort(),
+      evidenceRecordIds: [...item.evidenceRecordIds].sort(),
+      sourceRecordId: item.sourceRecordId,
+      sourceSnapshotId: item.sourceSnapshotId
+    }));
   const draft = {
     contractVersion: "ei-004-narrative-v1" as const,
     narrativeId: `runtime-${hash([input.writerInput.writerInputFingerprint, sections])}`,
@@ -73,7 +105,7 @@ export function assembleEditorialNarrative(input: {
     providerProvenance: input.writerInput.providerProvenance,
     writerInputFingerprint: input.writerInput.writerInputFingerprint,
     title, subtitle, introduction, phases, transitions: [], conclusion, sections,
-    citations: [],
+    citations,
     narrativeClaimMap: { entries: claimMap },
     generationMetrics: {
       sectionCount: sections.length,

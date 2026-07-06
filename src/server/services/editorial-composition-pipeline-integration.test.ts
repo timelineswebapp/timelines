@@ -8,7 +8,7 @@ const adapter = readFileSync("src/server/editorial-intelligence/editorial-compos
 const repository = readFileSync("src/server/repositories/editorial-composition-repository.ts", "utf8");
 
 test("composition checkpoint is exactly between compiler and validation", () => {
-  assert.match(registry, /steps: \["editorial_timeline_compiler", "editorial_composition_planner", "validation_worker", "package_assembly_worker"\]/);
+  assert.match(registry, /steps: \["editorial_timeline_compiler", "editorial_composition_planner", "editorial_writer", "validation_worker", "package_assembly_worker"\]/);
   assert.equal((registry.match(/"editorial_composition_planner"/g) || []).length, 1);
 });
 

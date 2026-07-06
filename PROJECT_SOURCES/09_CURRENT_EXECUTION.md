@@ -63,13 +63,13 @@ Raise publication quality from institutionally correct to editorially excellent 
 
 # Active Epic
 
-EI-004
+EI-005
 
-Editorial Writer
+Editorial Quality Evaluation
 
 Status
 
-Next Active Phase
+Planned next phase
 
 Priority
 
@@ -77,19 +77,21 @@ Critical
 
 Objective
 
-Implement editorial writing from the certified EI-003 EditorialComposition without changing its milestone structure or lineage.
+Evaluate certified editorial output quality without changing historical authority.
 
 ---
 
 # Current Task
 
-Prepare and authorize EI-004 implementation work.
+Prepare EI-005 architecture and engineering planning.
 
 EI-001 is complete.
 
 EI-002 is complete and certified.
 
 EI-003 is complete and certified.
+
+EI-004 is complete and certified: `ei-004-tier-a-v1` passed 4 / 4 cases and 112 / 112 invariants. Persisted run: `773889f8-cc36-4514-a3b1-fedf9deb1c2a`.
 
 ---
 

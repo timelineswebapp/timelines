@@ -6,6 +6,12 @@ import { fixture } from "@/src/server/editorial-intelligence/editorial-writer-in
 import { runEditorialWriter } from "@/src/server/editorial-intelligence/editorial-writer-runtime";
 import { narrativeClaimId, validateGeneratedSection, validateNarrativeCoverage } from "@/src/server/editorial-intelligence/editorial-grounding-validator";
 import type { GeneratedSection, ValidatedSection } from "@/src/server/editorial-intelligence/editorial-generation-contracts";
+import { editorialWriterPromptAssets } from "@/src/server/editorial-intelligence/editorial-prompt-assets";
+
+const runtimeOptions = (value: FactoryRuntimeProvider) => ({
+  provider: value,
+  promptContent: editorialWriterPromptAssets
+});
 
 function provider(options: { failOnceUnit?: string; mutate?: (unit: any, output: any) => any } = {}) {
   const calls: string[] = [];
@@ -46,7 +52,7 @@ function provider(options: { failOnceUnit?: string; mutate?: (unit: any, output:
 test("generates title, subtitle, introduction, phases, and conclusion as bounded structured units", async () => {
   const writerInput = buildEditorialNarrativeWriterInput(fixture());
   const mock = provider();
-  const result = await runEditorialWriter(writerInput, { provider: mock.value });
+  const result = await runEditorialWriter(writerInput, runtimeOptions(mock.value));
   assert.deepEqual(mock.calls, ["title", "subtitle", "introduction", "phase-1", "conclusion"]);
   assert.equal(result.narrative.title.text.length > 0, true);
   assert.equal(result.narrative.subtitle?.text.length! > 0, true);
@@ -58,8 +64,8 @@ test("generates title, subtitle, introduction, phases, and conclusion as bounded
 
 test("assembly is deterministic and provider implementation remains injected", async () => {
   const writerInput = buildEditorialNarrativeWriterInput(fixture());
-  const first = await runEditorialWriter(writerInput, { provider: provider().value });
-  const second = await runEditorialWriter(writerInput, { provider: provider().value });
+  const first = await runEditorialWriter(writerInput, runtimeOptions(provider().value));
+  const second = await runEditorialWriter(writerInput, runtimeOptions(provider().value));
   assert.deepEqual(first, second);
   assert.match(first.narrative.narrativeOutputFingerprint, /^[a-f0-9]{64}$/);
 });
@@ -67,9 +73,65 @@ test("assembly is deterministic and provider implementation remains injected", a
 test("retries only the failed unit and never regenerates successful units", async () => {
   const writerInput = buildEditorialNarrativeWriterInput(fixture());
   const mock = provider({ failOnceUnit: "phase-1" });
-  const result = await runEditorialWriter(writerInput, { provider: mock.value, maxAttempts: 2 });
+  const result = await runEditorialWriter(writerInput, { ...runtimeOptions(mock.value), maxAttempts: 2 });
   assert.deepEqual(mock.calls, ["title", "subtitle", "introduction", "phase-1", "phase-1", "conclusion"]);
   assert.equal(result.diagnostics.find((item) => item.unitId === "phase-1")?.retryCount, 1);
+});
+
+test("executes exact registry prompt content and rejects fingerprint drift", async () => {
+  const writerInput = buildEditorialNarrativeWriterInput(fixture());
+  const seen = new Set<string>();
+  const mock = provider();
+  const originalExecute = mock.value.execute.bind(mock.value);
+  mock.value.execute = async (request) => {
+    seen.add(request.prompt);
+    return originalExecute(request);
+  };
+  await runEditorialWriter(writerInput, runtimeOptions(mock.value));
+  assert.deepEqual(seen, new Set(Object.values(editorialWriterPromptAssets)));
+  await assert.rejects(
+    runEditorialWriter(writerInput, {
+      provider: provider().value,
+      promptContent: { ...editorialWriterPromptAssets, editorial_phase: "drifted prompt" }
+    }),
+    /Prompt Registry content fingerprint mismatch/
+  );
+});
+
+test("validated units survive a later failure and are reused on resume", async () => {
+  const writerInput = buildEditorialNarrativeWriterInput(fixture());
+  const persisted = new Map<string, any>();
+  const failing = provider({ mutate: (unit, output) => {
+    if (unit.kind === "conclusion") throw new Error("later unit failed");
+    return output;
+  } });
+  const callbacks = {
+    loadValidatedUnit: async (unit: any, inputFingerprint: string) => {
+      const item = persisted.get(`${unit.kind}:${unit.sequence}`);
+      if (!item) return null;
+      assert.equal(item.inputFingerprint, inputFingerprint);
+      return { validated: item.validated, diagnostics: item.diagnostics };
+    },
+    persistValidatedUnit: async (unit: any, inputFingerprint: string, outputFingerprint: string, validated: any, diagnostics: any) => {
+      persisted.set(`${unit.kind}:${unit.sequence}`, { inputFingerprint, outputFingerprint, validated, diagnostics });
+    }
+  };
+  await assert.rejects(runEditorialWriter(writerInput, {
+    ...runtimeOptions(failing.value), ...callbacks, maxAttempts: 1
+  }), /later unit failed/);
+  assert.equal(persisted.size, 4);
+  const resumed = provider();
+  await runEditorialWriter(writerInput, { ...runtimeOptions(resumed.value), ...callbacks });
+  assert.deepEqual(resumed.calls, ["conclusion"]);
+});
+
+test("assembler derives normalized sentence-to-evidence-to-snapshot citations server-side", async () => {
+  const writerInput = buildEditorialNarrativeWriterInput(fixture());
+  const result = await runEditorialWriter(writerInput, runtimeOptions(provider().value));
+  assert.equal(result.narrative.citations.length, 1);
+  assert.equal(result.narrative.citations[0]!.sourceSnapshotId, writerInput.sourceSnapshots[0]!.snapshotId);
+  assert.deepEqual(result.narrative.citations[0]!.evidenceRecordIds, [writerInput.validatedEvidence[0]!.evidence.evidenceRecordId]);
+  assert.equal(result.narrative.citations[0]!.sentenceIds.length, result.narrative.generationMetrics.sentenceCount);
 });
 
 function generated(text: string, milestoneIds?: string[], claimIds?: string[]): { section: GeneratedSection; input: ReturnType<typeof buildEditorialNarrativeWriterInput> } {
@@ -131,7 +193,7 @@ test("rejects invalid paragraph ordering, missing coverage, and duplicate covera
 test("fails closed on malformed structured output", async () => {
   const writerInput = buildEditorialNarrativeWriterInput(fixture());
   const mock = provider({ mutate: () => ({ rawText: "not structured" }) });
-  await assert.rejects(runEditorialWriter(writerInput, { provider: mock.value, maxAttempts: 1 }));
+  await assert.rejects(runEditorialWriter(writerInput, { ...runtimeOptions(mock.value), maxAttempts: 1 }));
 });
 
 test("supports maximum milestone bound and multiple historical subjects without repository access", async () => {

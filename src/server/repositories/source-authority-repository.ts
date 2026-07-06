@@ -40,6 +40,30 @@ function hashContent(content: string): string {
 }
 
 export const sourceAuthorityRepository = {
+  async getSourceSnapshotById(snapshotId: string): Promise<SourceAuthoritySnapshot | null> {
+    const [snapshot] = await sourceAuthorityRepository.getSourceSnapshots([snapshotId]);
+    return snapshot || null;
+  },
+
+  async getSourceSnapshots(snapshotIds: readonly string[]): Promise<SourceAuthoritySnapshot[]> {
+    if (snapshotIds.length === 0) return [];
+    if (snapshotIds.length > 500) {
+      throw new ApiError(400, "SOURCE_SNAPSHOT_BATCH_LIMIT_EXCEEDED", "At most 500 exact source snapshots may be loaded.");
+    }
+    const ids = [...new Set(snapshotIds)];
+    const sql = getWriteSql("loading source authority snapshots by exact IDs");
+    return sql<SourceAuthoritySnapshot[]>`
+      SELECT id::text AS "snapshotId", source_record_id::text AS "sourceRecordId", version::int,
+        retrieval_url AS "retrievalUrl", content_type AS "contentType", content_hash AS "contentHash",
+        content_text AS "contentText", raw_metadata AS "rawMetadata", provenance,
+        retrieved_by AS "retrievedBy", retrieved_at::text AS "retrievedAt"
+      FROM source_authority_snapshots
+      WHERE id = ANY(${ids}::uuid[])
+      ORDER BY id
+      LIMIT 500
+    `;
+  },
+
   async recordRelevanceRejection(input: RecordSourceRelevanceRejectionInput): Promise<SourceRelevanceDiagnostic> {
     const sql = getWriteSql("recording source relevance rejection");
     const [row] = await sql<SourceRelevanceDiagnostic[]>`

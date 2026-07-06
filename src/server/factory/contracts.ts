@@ -8,7 +8,8 @@ export type FactoryObjectType =
   | "candidate_source"
   | "candidate_context_record"
   | "editorial_timeline_candidate"
-  | "editorial_composition";
+  | "editorial_composition"
+  | "editorial_narrative";
 
 export type FactoryObjectLifecycle =
   | "draft"

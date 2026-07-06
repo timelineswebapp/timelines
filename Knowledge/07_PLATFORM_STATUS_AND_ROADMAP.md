@@ -240,6 +240,9 @@ Editorial Intelligence Certification:
 * EI-003 Editorial Composition is complete and certified.
 * EI-003 Tier A corpus `ei-003-tier-a-v1` passed 8 / 8 cases and 176 / 176 invariants.
 * EI-003 persisted certification run: `660ac578-a571-49a5-9d1d-6ca3586ff1f1`.
+* EI-004 Editorial Writer is complete and certified.
+* EI-004 Tier A corpus `ei-004-tier-a-v1` passed 4 / 4 cases and 112 / 112 invariants.
+* EI-004 persisted certification run: `773889f8-cc36-4514-a3b1-fedf9deb1c2a`.
 * The compiler deterministically selects canonical grounded milestones, suppresses duplicates, orders chronology, preserves exclusions, and records exact lineage.
 * Editorial Timeline Candidates are immutable, non-authoritative Factory Production Memory.
 * Compiler integration and package dependencies fail closed on missing, stale, unrelated, or incomplete lineage.
@@ -247,7 +250,7 @@ Editorial Intelligence Certification:
 * Tier A corpus `ei-002-tier-a-v1` contains four historical subjects.
 * Certification run `b5c4bc1d-c283-444d-8011-d5a122aa4d9d` passed 4 / 4 cases and 52 / 52 invariants.
 * Machine certification command: `npm run ops:editorial:certify`.
-* EI-004 is the next active Editorial Intelligence phase. EI-005 remains planned.
+* EI-005 is the next planned Editorial Intelligence phase.
 
 ⸻
 

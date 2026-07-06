@@ -1,15 +1,21 @@
 import type { EditorialCertificationPersistence } from "@/src/server/editorial-certification/contracts";
 import { editorialCertificationService } from "@/src/server/services/editorial-certification-service";
 import { ei003CertificationService } from "@/src/server/services/ei003-certification-service";
+import { ei004CertificationService } from "@/src/server/services/ei004-certification-service";
 
 export async function runEditorialCertificationCommand(input: {
   actor: string;
-  epic?: "EI-002" | "EI-003";
+  epic?: "EI-002" | "EI-003" | "EI-004";
   persistence?: EditorialCertificationPersistence;
   write: (line: string) => void;
 }): Promise<number> {
   try {
-    const report = input.epic === "EI-003"
+    const report = input.epic === "EI-004"
+      ? await ei004CertificationService.certify({
+        actor: input.actor,
+        persistence: input.persistence
+      })
+      : input.epic === "EI-003"
       ? await ei003CertificationService.certify({
         actor: input.actor,
         persistence: input.persistence

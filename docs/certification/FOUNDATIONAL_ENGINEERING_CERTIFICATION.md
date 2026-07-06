@@ -138,6 +138,8 @@ EI-002 Completed and Certified
 
 EI-003 Completed and Certified
 
+EI-004 Completed and Certified
+
 Certified:
 
 * Deterministic Editorial Timeline Compiler

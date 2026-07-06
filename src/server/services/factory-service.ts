@@ -9,6 +9,7 @@ import {
 } from "@/src/server/editorial-intelligence/editorial-composition-adapter";
 import { adaptFactoryMilestonesToCompilerInput } from "@/src/server/editorial-intelligence/timeline-compiler-adapter";
 import { compileEditorialTimeline } from "@/src/server/editorial-intelligence/timeline-compiler";
+import { executeEditorialWriterCheckpoint } from "@/src/server/editorial-intelligence/editorial-writer-adapter";
 import type {
   FactoryArtifact,
   FactoryArtifactType,
@@ -60,6 +61,8 @@ import { evidenceValidationRepository } from "@/src/server/repositories/evidence
 import { editorialEvidenceRepository } from "@/src/server/repositories/editorial-evidence-repository";
 import { editorialCompositionRepository } from "@/src/server/repositories/editorial-composition-repository";
 import { editorialTimelineCandidateRepository } from "@/src/server/repositories/editorial-timeline-candidate-repository";
+import { editorialNarrativeRepository } from "@/src/server/repositories/editorial-narrative-repository";
+import { editorialWriterConfigurationBindingRepository } from "@/src/server/repositories/editorial-writer-binding-repository";
 import { governanceRepository, verifyValidatedEvidenceRefs } from "@/src/server/repositories/governance-repository";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
 import { governanceService } from "@/src/server/services/governance-service";
@@ -70,6 +73,13 @@ import { evidenceExtractionService } from "@/src/server/services/evidence-extrac
 import { evidenceValidationService } from "@/src/server/services/evidence-validation-service";
 import { editorialFoundationService } from "@/src/server/services/editorial-foundation-service";
 import { withWriteTransaction } from "@/src/server/db/client";
+
+let editorialWriterCheckpointExecutor = executeEditorialWriterCheckpoint;
+export function setEditorialWriterCheckpointExecutorForTests(
+  executor: typeof executeEditorialWriterCheckpoint | null
+): void {
+  editorialWriterCheckpointExecutor = executor || executeEditorialWriterCheckpoint;
+}
 
 type TransitionMap<T extends string> = Record<T, readonly T[]>;
 
@@ -1133,7 +1143,12 @@ const clientLineageFields = [
   "factoryObjectRefs",
   "validatedEvidenceRefs",
   "priorResearchPipelineRunId",
-  "priorExtractionPipelineRunId"
+  "priorExtractionPipelineRunId",
+  "writerConfigurationBindingId",
+  "promptVersionIds",
+  "writingPolicyVersionId",
+  "providerConfigurationId",
+  "editorialNarrativeId"
 ] as const;
 
 type PublicationLineage = {
@@ -1150,6 +1165,10 @@ type PublicationLineage = {
   compilerArtifactId: string | null;
   persistedComposition: Awaited<ReturnType<typeof editorialCompositionRepository.getByFingerprint>>;
   compositionArtifactId: string | null;
+  writerConfigurationBindingId: string;
+  persistedNarrative: Awaited<ReturnType<typeof editorialNarrativeRepository.getByExecutionKey>>;
+  narrativeArtifactId: string | null;
+  regenerationSourceNarrative: Awaited<ReturnType<typeof editorialNarrativeRepository.getById>>;
 };
 
 export function pipelineStepsComplete(
@@ -1182,13 +1201,14 @@ function pinnedPublicationLineage(run: FactoryPipelineRun): {
   extractionPipelineRunId: string;
   editorialEvidenceSetId: string;
   compilerInputFingerprint: string;
+  writerConfigurationBindingId: string;
 } {
   const value = run.input.factoryResolvedLineage;
   if (!value || typeof value !== "object") {
     throw new ApiError(409, "PUBLICATION_PINNED_LINEAGE_REQUIRED", "Resumed publication requires persisted predecessor lineage.");
   }
   const lineage = value as Record<string, unknown>;
-  for (const field of ["researchPipelineRunId", "extractionPipelineRunId", "editorialEvidenceSetId", "compilerInputFingerprint"] as const) {
+  for (const field of ["researchPipelineRunId", "extractionPipelineRunId", "editorialEvidenceSetId", "compilerInputFingerprint", "writerConfigurationBindingId"] as const) {
     if (typeof lineage[field] !== "string" || !lineage[field]) {
       throw new ApiError(409, "PUBLICATION_PINNED_LINEAGE_INCOMPLETE", `Resumed publication lineage is missing ${field}.`);
     }
@@ -1293,6 +1313,33 @@ async function resolvePublicationLineage(
   const existingRunArtifacts = existingRun
     ? await factoryRepository.getArtifactsByIds(existingRun.artifactRefs)
     : [];
+  const regenerationRunId = !existingRun && typeof input.input.regenerateFromPipelineRunId === "string"
+    ? input.input.regenerateFromPipelineRunId
+    : null;
+  let regenerationSourceNarrative: Awaited<ReturnType<typeof editorialNarrativeRepository.getById>> = null;
+  if (regenerationRunId) {
+    const regenerationRun = await factoryRepository.getPipelineRun(regenerationRunId);
+    if (!regenerationRun || regenerationRun.pipelineId !== "publication_candidate_pipeline" ||
+        regenerationRun.status !== "completed" ||
+        regenerationRun.input.workflowId !== workflowId ||
+        String(regenerationRun.input.subject || "").toLowerCase() !== subject.toLowerCase()) {
+      throw new ApiError(409, "EDITORIAL_REGENERATION_SOURCE_INVALID", "Explicit regeneration requires an exact completed publication pipeline from the same workflow.");
+    }
+    const regenerationArtifacts = await factoryRepository.getArtifactsByIds(regenerationRun.artifactRefs);
+    const narrativeArtifacts = regenerationArtifacts.filter((artifact) =>
+      artifact.payload.editorialNarrativeId && artifact.payload.narrativeOutputFingerprint
+    );
+    if (narrativeArtifacts.length !== 1) {
+      throw new ApiError(409, "EDITORIAL_REGENERATION_NARRATIVE_AMBIGUOUS", "Explicit regeneration requires exactly one source narrative artifact.");
+    }
+    regenerationSourceNarrative = await editorialNarrativeRepository.getById(
+      String(narrativeArtifacts[0]!.payload.editorialNarrativeId)
+    );
+    if (!regenerationSourceNarrative ||
+        narrativeArtifacts[0]!.factoryObjectId !== regenerationSourceNarrative.factoryObjectId) {
+      throw new ApiError(409, "EDITORIAL_REGENERATION_NARRATIVE_INVALID", "Explicit regeneration source narrative ownership is invalid.");
+    }
+  }
   const matchingCompilerArtifacts = existingRun
     ? existingRunArtifacts.filter((artifact) =>
       artifact.factoryObjectId !== null &&
@@ -1357,6 +1404,35 @@ async function resolvePublicationLineage(
       throw new ApiError(409, "PUBLICATION_COMPOSITION_FINGERPRINT_STALE", "Resumed composition fingerprint or planner versions do not match pinned inputs.");
     }
   }
+  const activeWriterBinding = pinned
+    ? await editorialWriterConfigurationBindingRepository.getWriterConfigurationBindingById(pinned.writerConfigurationBindingId)
+    : await editorialWriterConfigurationBindingRepository.getActiveWriterConfigurationBinding();
+  if (!activeWriterBinding) {
+    throw new ApiError(409, "PUBLICATION_WRITER_CONFIGURATION_REQUIRED", "Publication requires an immutable Writer Configuration Binding.");
+  }
+  const matchingNarrativeArtifacts = existingRun && persistedComposition
+    ? existingRunArtifacts.filter((artifact) =>
+      artifact.factoryObjectId !== null &&
+      artifact.payload.editorialCompositionId === persistedComposition.compositionId &&
+      artifact.payload.editorialNarrativeId &&
+      artifact.payload.narrativeOutputFingerprint &&
+      artifact.payload.writerConfigurationBindingId === activeWriterBinding.bindingId
+    )
+    : [];
+  if (matchingNarrativeArtifacts.length > 1) {
+    throw new ApiError(409, "PUBLICATION_NARRATIVE_ARTIFACT_AMBIGUOUS", "Resumed publication contains multiple narrative artifacts for its execution.");
+  }
+  const existingNarrativeArtifact = matchingNarrativeArtifacts[0] || null;
+  const persistedNarrative = existingNarrativeArtifact
+    ? await editorialNarrativeRepository.getById(String(existingNarrativeArtifact.payload.editorialNarrativeId))
+    : null;
+  if (existingNarrativeArtifact && (!persistedNarrative ||
+      existingNarrativeArtifact.factoryObjectId !== persistedNarrative.factoryObjectId ||
+      existingNarrativeArtifact.payload.narrativeOutputFingerprint !== persistedNarrative.narrativeOutputFingerprint ||
+      persistedNarrative.editorialCompositionId !== persistedComposition?.compositionId ||
+      persistedNarrative.editorialEvidenceSetId !== editorialEvidenceSetId)) {
+    throw new ApiError(409, "PUBLICATION_NARRATIVE_ARTIFACT_UNRELATED", "Narrative artifact does not own the exact pinned EditorialNarrative lineage.");
+  }
   await pipelineEvidenceVerifier(validatedEvidenceRefs, "Publication candidate pipeline");
   return {
     artifactRefs,
@@ -1371,7 +1447,11 @@ async function resolvePublicationLineage(
     persistedCandidate,
     compilerArtifactId: existingCompilerArtifact?.artifactId || null,
     persistedComposition,
-    compositionArtifactId: existingCompositionArtifact?.artifactId || null
+    compositionArtifactId: existingCompositionArtifact?.artifactId || null,
+    writerConfigurationBindingId: activeWriterBinding.bindingId,
+    persistedNarrative,
+    narrativeArtifactId: existingNarrativeArtifact?.artifactId || null,
+    regenerationSourceNarrative
   };
 }
 
@@ -1434,6 +1514,61 @@ function assertEditorialCompositionCheckpoint(input: {
   }
 }
 
+function assertEditorialNarrativeCheckpoint(input: {
+  publicationLineage: PublicationLineage | null;
+  persistedCandidate: NonNullable<PublicationLineage["persistedCandidate"]> | null;
+  persistedComposition: NonNullable<PublicationLineage["persistedComposition"]> | null;
+  persistedNarrative: NonNullable<PublicationLineage["persistedNarrative"]> | null;
+  compilerArtifactId: string | null;
+  compositionArtifactId: string | null;
+  narrativeArtifactId: string | null;
+  artifactRefs: string[];
+  factoryObjectRefs: string[];
+}): void {
+  assertEditorialCompositionCheckpoint(input);
+  const narrative = input.persistedNarrative;
+  if (!narrative || !input.narrativeArtifactId || !input.artifactRefs.includes(input.narrativeArtifactId)) {
+    throw new ApiError(409, "PUBLICATION_NARRATIVE_CHECKPOINT_REQUIRED", "Validation and package assembly require a completed EditorialNarrative checkpoint.");
+  }
+  if (narrative.editorialCompositionId !== input.persistedComposition!.compositionId ||
+      narrative.editorialTimelineCandidateId !== input.persistedCandidate!.candidateId ||
+      narrative.editorialEvidenceSetId !== input.persistedCandidate!.editorialEvidenceSetId ||
+      narrative.editorialCompositionFingerprint !== input.persistedComposition!.plannerInputFingerprint ||
+      narrative.editorialTimelineCandidateFingerprint !== input.persistedCandidate!.compilerInputFingerprint) {
+    throw new ApiError(409, "PUBLICATION_NARRATIVE_LINEAGE_MISMATCH", "EditorialNarrative does not match exact compiler and composition lineage.");
+  }
+  const compositionMilestones = input.persistedComposition!.phases.flatMap((phase) => phase.milestoneIds);
+  const narrativeMilestones = new Set(narrative.sections.flatMap((section) =>
+    section.paragraphs.flatMap((paragraph) => paragraph.sentences.flatMap((sentence) => sentence.milestoneIds))
+  ));
+  if (compositionMilestones.some((id) => !narrativeMilestones.has(id)) ||
+      narrative.narrativeClaimMap.entries.some((entry) => entry.evidenceRecordIds.length === 0)) {
+    throw new ApiError(409, "PUBLICATION_NARRATIVE_COVERAGE_INCOMPLETE", "Narrative milestone or sentence evidence lineage is incomplete.");
+  }
+  const sentenceIds = new Set(narrative.sections.flatMap((section) =>
+    section.paragraphs.flatMap((paragraph) => paragraph.sentences.map((sentence) => sentence.sentenceId))
+  ));
+  const claimSentenceIds = new Set(narrative.narrativeClaimMap.entries.map((entry) => entry.sentenceId));
+  const citationSentenceIds = new Set(narrative.citations.flatMap((citation) => citation.sentenceIds));
+  const claimEvidenceIds = new Set(narrative.narrativeClaimMap.entries.flatMap((entry) => entry.evidenceRecordIds));
+  const citationEvidenceIds = new Set(narrative.citations.flatMap((citation) => citation.evidenceRecordIds));
+  if (narrative.prompts.length !== 4 ||
+      narrative.prompts.some((prompt) => !prompt.promptFingerprint || !prompt.templateFingerprint) ||
+      !narrative.writingPolicy.fingerprint ||
+      !narrative.providerProvenance.runtimeFingerprint ||
+      sentenceIds.size === 0 ||
+      [...sentenceIds].some((id) => !claimSentenceIds.has(id) || !citationSentenceIds.has(id)) ||
+      [...claimEvidenceIds].some((id) => !citationEvidenceIds.has(id)) ||
+      narrative.citations.some((citation) => !citation.sourceRecordId || !citation.sourceSnapshotId) ||
+      !narrative.narrativeOutputFingerprint ||
+      narrative.revision.revision < 1) {
+    throw new ApiError(409, "PUBLICATION_NARRATIVE_PROVENANCE_INCOMPLETE", "Narrative prompt, policy, provider, sentence, citation, fingerprint, or revision lineage is incomplete.");
+  }
+  if (input.factoryObjectRefs.includes(narrative.factoryObjectId)) {
+    throw new ApiError(409, "PUBLICATION_NARRATIVE_AUTHORITY_BOUNDARY_VIOLATION", "EditorialNarrative must remain outside Governance canonical authority inputs.");
+  }
+}
+
 const deterministicResearchSteps = new Set([
   "source_authority_discovery",
   "source_authority_retrieval",
@@ -1442,7 +1577,7 @@ const deterministicResearchSteps = new Set([
   "evidence_validation",
   "editorial_intelligence_foundation"
 ]);
-const deterministicPublicationSteps = new Set(["editorial_timeline_compiler", "editorial_composition_planner"]);
+const deterministicPublicationSteps = new Set(["editorial_timeline_compiler", "editorial_composition_planner", "editorial_writer"]);
 
 function deterministicStepOutput(workerKey: string, context: ValidatedEvidenceContext): Record<string, unknown> {
   const base = {
@@ -1883,7 +2018,8 @@ export const factoryService = {
           factoryResolvedLineage: {
             ...publicationLineage.predecessorRunIds,
             editorialEvidenceSetId: publicationLineage.editorialEvidenceSetId,
-            compilerInputFingerprint: publicationLineage.compilerCandidate.compilerInputFingerprint
+            compilerInputFingerprint: publicationLineage.compilerCandidate.compilerInputFingerprint,
+            writerConfigurationBindingId: publicationLineage.writerConfigurationBindingId
           }
         }
         : input.input,
@@ -1898,6 +2034,8 @@ export const factoryService = {
     let compilerArtifactId = publicationLineage?.compilerArtifactId || null;
     let persistedEditorialComposition = publicationLineage?.persistedComposition || null;
     let compositionArtifactId = publicationLineage?.compositionArtifactId || null;
+    let persistedEditorialNarrative = publicationLineage?.persistedNarrative || null;
+    let narrativeArtifactId = publicationLineage?.narrativeArtifactId || null;
 
     if (existingRun && pipelineStepsComplete(pipeline.steps, completedSteps)) {
       const completedRun = await factoryRepository.transitionPipelineRun({
@@ -1950,6 +2088,134 @@ export const factoryService = {
       if (deterministicPublicationSteps.has(workerKey)) {
         if (!publicationLineage) {
           throw new ApiError(409, "PUBLICATION_COMPILER_LINEAGE_REQUIRED", "Editorial timeline compilation requires pinned publication lineage.");
+        }
+        if (workerKey === "editorial_writer") {
+          assertEditorialCompositionCheckpoint({
+            publicationLineage,
+            persistedCandidate: persistedTimelineCandidate,
+            persistedComposition: persistedEditorialComposition,
+            compilerArtifactId,
+            compositionArtifactId,
+            artifactRefs,
+            factoryObjectRefs
+          });
+          try {
+            let committedArtifactId: string | null = null;
+            await withWriteTransaction("committing Editorial Writer checkpoint", async () => {
+              const writerResult = await editorialWriterCheckpointExecutor({
+                editorialCompositionId: persistedEditorialComposition!.compositionId,
+                editorialTimelineCandidateId: persistedTimelineCandidate!.candidateId,
+                editorialEvidenceSetId: publicationLineage.editorialEvidenceSetId,
+                expectedTimelineCandidate: publicationLineage.compilerCandidate,
+                writerConfigurationBindingId: publicationLineage.writerConfigurationBindingId,
+                executionKey,
+                actor: input.actor,
+                revision: publicationLineage.regenerationSourceNarrative
+                  ? publicationLineage.regenerationSourceNarrative.revision.revision + 1
+                  : 1,
+                supersedesNarrativeId: publicationLineage.regenerationSourceNarrative?.narrativeId || null
+              });
+              persistedEditorialNarrative = writerResult.narrative;
+              const stepOutput = {
+                ...pipelineStepOutput({
+                  pipelineId: pipeline.pipelineId,
+                  pipelineRunId: run.pipelineRunId,
+                  workerKey,
+                  stepIndex,
+                  previousArtifactRefs: artifactRefs,
+                  previousFactoryObjectRefs: factoryObjectRefs
+                }),
+                executionKey,
+                editorialNarrativeId: persistedEditorialNarrative.narrativeId,
+                editorialNarrativeFactoryObjectId: persistedEditorialNarrative.factoryObjectId,
+                editorialCompositionId: persistedEditorialNarrative.editorialCompositionId,
+                editorialTimelineCandidateId: persistedEditorialNarrative.editorialTimelineCandidateId,
+                editorialEvidenceSetId: persistedEditorialNarrative.editorialEvidenceSetId,
+                writerConfigurationBindingId: publicationLineage.writerConfigurationBindingId,
+                writerInputFingerprint: persistedEditorialNarrative.writerInputFingerprint,
+                narrativeOutputFingerprint: persistedEditorialNarrative.narrativeOutputFingerprint,
+                promptLineage: persistedEditorialNarrative.prompts.map((prompt) => ({
+                  promptId: prompt.promptId,
+                  promptVersion: prompt.promptVersion,
+                  promptFingerprint: prompt.promptFingerprint
+                })),
+                writingPolicyFingerprint: persistedEditorialNarrative.writingPolicy.fingerprint,
+                providerRuntimeFingerprint: persistedEditorialNarrative.providerProvenance.runtimeFingerprint,
+                selectedMilestoneRefs: persistedEditorialNarrative.sections.flatMap((section) =>
+                  section.paragraphs.flatMap((paragraph) => paragraph.sentences.flatMap((sentence) => sentence.milestoneIds))
+                ),
+                evidenceRefs: persistedEditorialNarrative.narrativeClaimMap.entries.flatMap((entry) => entry.evidenceRecordIds),
+                reusedNarrative: writerResult.reusedNarrative,
+                boundary: {
+                  factoryOwned: true,
+                  authorityDecision: false,
+                  publicationReadinessDecision: false
+                }
+              };
+              const artifact = await factoryRepository.createArtifact({
+                factoryObjectId: persistedEditorialNarrative.factoryObjectId,
+                artifactType: "generation",
+                title: "EditorialNarrative writer output",
+                payload: stepOutput,
+                authoritySafe: false,
+                modelProvider: persistedEditorialNarrative.providerProvenance.provider,
+                modelName: persistedEditorialNarrative.providerProvenance.model,
+                actor: input.actor
+              });
+              const checkpointArtifactRefs = [...artifactRefs, artifact.artifactId];
+              const completedStep = await factoryRepository.transitionPipelineStep({
+                pipelineStepId: step.pipelineStepId,
+                status: "completed",
+                output: stepOutput,
+                artifactRefs: checkpointArtifactRefs,
+                factoryObjectRefs: [...factoryObjectRefs]
+              });
+              await factoryRepository.createRuntimeAuditRecord({
+                targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
+                action: "complete_editorial_writer",
+                actor: input.actor,
+                reason: input.reason,
+                afterState: {
+                  executionDurationMs: persistedEditorialNarrative.diagnostics.reduce((sum, item) => sum + item.latencyMs, 0),
+                  provider: persistedEditorialNarrative.providerProvenance.provider,
+                  model: persistedEditorialNarrative.providerProvenance.model,
+                  promptVersions: persistedEditorialNarrative.prompts.map((prompt) => prompt.promptVersion),
+                  policyVersion: persistedEditorialNarrative.writingPolicy.version,
+                  outputFingerprint: persistedEditorialNarrative.narrativeOutputFingerprint,
+                  retryCount: persistedEditorialNarrative.diagnostics.reduce((sum, item) => sum + item.retryCount, 0),
+                  completionStatus: "completed"
+                }
+              });
+              await factoryRepository.transitionPipelineRun({
+                pipelineRunId: run.pipelineRunId,
+                status: "running",
+                actor: input.actor,
+                artifactRefs: checkpointArtifactRefs,
+                factoryObjectRefs,
+                packageDraftId
+              });
+              committedArtifactId = artifact.artifactId;
+            });
+            narrativeArtifactId = committedArtifactId;
+            artifactRefs.push(committedArtifactId!);
+          } catch (error) {
+            await finalizePipelineFailure({
+              failure: createPipelineFailure({
+                error,
+                pipelineRunId: run.pipelineRunId,
+                pipelineStepId: step.pipelineStepId,
+                workerKey,
+                stepIndex,
+                stage: "editorial_writing"
+              }),
+              actor: input.actor,
+              reason: input.reason,
+              artifactRefs,
+              factoryObjectRefs,
+              packageDraftId
+            });
+          }
+          continue;
         }
         if (workerKey === "editorial_composition_planner") {
           assertEditorialCompilerCheckpoint({
@@ -2209,12 +2475,14 @@ export const factoryService = {
       }
 
       if (pipeline.pipelineId === "publication_candidate_pipeline") {
-        assertEditorialCompositionCheckpoint({
+        assertEditorialNarrativeCheckpoint({
           publicationLineage,
           persistedCandidate: persistedTimelineCandidate,
           persistedComposition: persistedEditorialComposition,
+          persistedNarrative: persistedEditorialNarrative,
           compilerArtifactId,
           compositionArtifactId,
+          narrativeArtifactId,
           artifactRefs,
           factoryObjectRefs
         });
@@ -3744,7 +4012,7 @@ export function buildGovernancePublicationPackage(
     ? packageVersion.validatedEvidenceRefs
     : draft.validatedEvidenceRefs;
 
-  const authorityTypeByFactoryType: Record<Exclude<FactoryObjectType, "editorial_timeline_candidate" | "editorial_composition">, AuthorityRef["authorityType"]> = {
+  const authorityTypeByFactoryType: Record<Exclude<FactoryObjectType, "editorial_timeline_candidate" | "editorial_composition" | "editorial_narrative">, AuthorityRef["authorityType"]> = {
     candidate_historical_object: "historical_object",
     candidate_milestone: "milestone",
     candidate_participation: "participation",
@@ -3758,6 +4026,9 @@ export function buildGovernancePublicationPackage(
     }
     if (object.objectType === "editorial_composition") {
       throw new ApiError(409, "EDITORIAL_COMPOSITION_NOT_PACKAGEABLE", "EditorialComposition is Factory Production Memory and cannot become Governance canonical authority.");
+    }
+    if (object.objectType === "editorial_narrative") {
+      throw new ApiError(409, "EDITORIAL_NARRATIVE_NOT_PACKAGEABLE", "EditorialNarrative is Factory Production Memory and cannot become Governance canonical authority.");
     }
     return {
       authorityRef: {

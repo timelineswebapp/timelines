@@ -12,7 +12,8 @@ import {
   factoryService,
   milestonePayloadGroundingFailures,
   pipelineStepsComplete,
-  setFactoryPipelineEvidenceVerifierForTests
+  setFactoryPipelineEvidenceVerifierForTests,
+  setEditorialWriterCheckpointExecutorForTests
 } from "@/src/server/services/factory-service";
 import { setEditorialEvidencePersistenceForTests } from "@/src/server/services/editorial-foundation-service";
 import {
@@ -30,6 +31,7 @@ import { evidenceValidationRepository } from "@/src/server/repositories/evidence
 import { editorialEvidenceRepository } from "@/src/server/repositories/editorial-evidence-repository";
 import { editorialTimelineCandidateRepository } from "@/src/server/repositories/editorial-timeline-candidate-repository";
 import { editorialCompositionRepository } from "@/src/server/repositories/editorial-composition-repository";
+import { editorialWriterConfigurationBindingRepository } from "@/src/server/repositories/editorial-writer-binding-repository";
 import { sourceDiscoveryService } from "@/src/server/services/source-discovery-service";
 import { sourceRetrievalService } from "@/src/server/services/source-retrieval-service";
 import { sourceAuthorityRepository } from "@/src/server/repositories/source-authority-repository";
@@ -1620,6 +1622,7 @@ describe("factory production memory foundation", () => {
       getEditorialTimelineCandidateByFingerprint: editorialTimelineCandidateRepository.getByFingerprint,
       createEditorialComposition: editorialCompositionRepository.create,
       getEditorialCompositionByFingerprint: editorialCompositionRepository.getByFingerprint,
+      getActiveWriterConfigurationBinding: editorialWriterConfigurationBindingRepository.getActiveWriterConfigurationBinding,
       transitionPipelineRun: factoryRepository.transitionPipelineRun,
       createPipelineStep: factoryRepository.createPipelineStep,
       transitionPipelineStep: factoryRepository.transitionPipelineStep,
@@ -1898,6 +1901,49 @@ describe("factory production memory foundation", () => {
         return persistedComposition;
       };
       (editorialCompositionRepository as any).getByFingerprint = async () => persistedComposition;
+      (editorialWriterConfigurationBindingRepository as any).getActiveWriterConfigurationBinding = async () => ({
+        bindingId: "00000000-0000-4000-8000-000000000018",
+        bindingFingerprint: "b".repeat(64)
+      });
+      setEditorialWriterCheckpointExecutorForTests(async ({ executionKey }: any) => {
+        const milestoneIds = persistedComposition.phases.flatMap((phase: any) => phase.milestoneIds);
+        return {
+          reusedNarrative: false,
+          writerInput: { writerInputFingerprint: "c".repeat(64) },
+          narrative: {
+            narrativeId: "00000000-0000-4000-8000-000000000019",
+            factoryObjectId: "00000000-0000-4000-8000-000000000020",
+            editorialCompositionId: persistedComposition.compositionId,
+            editorialCompositionFingerprint: persistedComposition.plannerInputFingerprint,
+            editorialTimelineCandidateId: persistedComposition.editorialTimelineCandidateId,
+            editorialTimelineCandidateFingerprint: persistedComposition.editorialTimelineCandidateFingerprint,
+            editorialEvidenceSetId: persistedComposition.editorialEvidenceSetId,
+            writerInputFingerprint: "c".repeat(64),
+            narrativeOutputFingerprint: "d".repeat(64),
+            prompts: ["title", "introduction", "phase", "conclusion"].map((key) => ({
+              promptId: key, promptVersion: 1, promptFingerprint: "e".repeat(64), templateFingerprint: "f".repeat(64)
+            })),
+            writingPolicy: { version: "1", fingerprint: "f".repeat(64) },
+            providerProvenance: { provider: "qwen14", model: "qwen", runtimeFingerprint: "a".repeat(64) },
+            sections: [{ paragraphs: [{ sentences: milestoneIds.map((id: string, index: number) => ({
+              sentenceId: `sentence-${index}`, milestoneIds: [id]
+            })) }] }],
+            narrativeClaimMap: { entries: milestoneIds.map((_id: string, index: number) => ({
+              sentenceId: `sentence-${index}`, evidenceRecordIds: ["evidence-1"]
+            })) },
+            citations: [{
+              citationReferenceId: "citation-1",
+              sentenceIds: milestoneIds.map((_id: string, index: number) => `sentence-${index}`),
+              evidenceRecordIds: ["evidence-1"],
+              sourceRecordId: "source-record-1",
+              sourceSnapshotId: "source-snapshot-1"
+            }],
+            revision: { revision: 1, supersedesNarrativeId: null, reason: "test" },
+            diagnostics: [],
+            executionKey
+          }
+        } as any;
+      });
       (factoryRepository as any).createPipelineRun = async (input: any) => ({ pipelineRunId: "run-1", pipelineId: input.pipelineId, status: "queued", input: input.input, artifactRefs: [], factoryObjectRefs: [], packageDraftId: null, startedAt: null, completedAt: null, createdBy: input.actor, updatedBy: input.actor });
       (factoryRepository as any).transitionPipelineRun = async (input: any) => {
         state.pipelineStatuses.push(input.status);
@@ -1971,6 +2017,8 @@ describe("factory production memory foundation", () => {
       (editorialTimelineCandidateRepository as any).getByFingerprint = originals.getEditorialTimelineCandidateByFingerprint;
       (editorialCompositionRepository as any).create = originals.createEditorialComposition;
       (editorialCompositionRepository as any).getByFingerprint = originals.getEditorialCompositionByFingerprint;
+      (editorialWriterConfigurationBindingRepository as any).getActiveWriterConfigurationBinding = originals.getActiveWriterConfigurationBinding;
+      setEditorialWriterCheckpointExecutorForTests(null);
       (factoryRepository as any).transitionPipelineRun = originals.transitionPipelineRun;
       (factoryRepository as any).createPipelineStep = originals.createPipelineStep;
       (factoryRepository as any).transitionPipelineStep = originals.transitionPipelineStep;
@@ -2228,8 +2276,8 @@ describe("factory production memory foundation", () => {
       assert.equal(state.pipelineStatuses.at(-1), "completed");
       assert.equal(state.packageDrafts.length, 1);
       assert.deepEqual(
-        state.artifacts.slice(0, 4).map((artifact) => artifact.title),
-        ["EditorialTimelineCandidate compiler output", "EditorialComposition planner output", "Validation Worker output", "Package Assembly Worker output"]
+        state.artifacts.slice(0, 5).map((artifact) => artifact.title),
+        ["EditorialTimelineCandidate compiler output", "EditorialComposition planner output", "EditorialNarrative writer output", "Validation Worker output", "Package Assembly Worker output"]
       );
       assert.equal(state.artifacts[0].factoryObjectId, "00000000-0000-4000-8000-000000000015");
       assert.equal(state.packageDrafts[0].validatedEvidenceRefs[0].evidenceRecordId, "evidence-1");

@@ -60,6 +60,14 @@ export async function withWriteTransaction<T>(_operation: string, callback: () =
   ) as Promise<T>;
 }
 
+export async function withIndependentWriteTransaction<T>(_operation: string, callback: () => Promise<T>): Promise<T> {
+  const sql = getSql();
+  if (!sql) return callback();
+  return sql.begin(async (transaction) =>
+    transactionStorage.run(transaction as unknown as Sql, callback)
+  ) as Promise<T>;
+}
+
 export async function closeSql(): Promise<void> {
   if (!sqlInstance) {
     return;
