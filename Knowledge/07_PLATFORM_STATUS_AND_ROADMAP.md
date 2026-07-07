@@ -1,490 +1,197 @@
-07_PLATFORM_STATUS_AND_ROADMAP.md
-
-Status
+# TiMELiNES — Platform Status and Roadmap
 
 Document Status: ACTIVE
+
 Purpose: Operational Status & Roadmap Authority
+
 Last Updated: July 2026
 
-This document provides the current operational status of TiMELiNES.
+This document summarizes current repository-backed platform status. Constitutional authority remains in the Product Constitution, Architecture Canon, Schema Canon, Product Experience Canon, Execution Canon, and Permanent Context documents.
 
-It is not a constitutional authority document.
+---
 
-Constitutional authority remains:
-
-* AUTHORITY_INDEX.md
-* 01_PRODUCT_CONSTITUTION_V2.md
-* 02_ARCHITECTURE_CANON_V2.md
-* 03_SCHEMA_CANON_V2.md
-* 04_PRODUCT_EXPERIENCE_CANON_V2.md
-* 05_EXECUTION_CANON_V2.md
-* 06_PERMANENT_CONTEXT_V2.md
-
-This document exists to answer:
-
-* Where is the platform today?
-* What has been completed?
-* What is locked?
-* What remains to be built?
-* What programs are currently authorized?
-
-⸻
-
-Platform Vision
+## Platform Vision
 
 TiMELiNES is a Chronological Knowledge Platform.
 
-Its purpose is to organize historical knowledge through chronology while preserving authority, context, governance, provenance, and institutional memory.
+Its purpose is to organize historical knowledge through chronology while preserving authority, context, governance, provenance, institutional memory, and public readability.
 
-The platform is evolving through sequential foundations:
+---
 
-Chronology
-→ Historical Authority
-→ Historical Context
-→ Governance
-→ Historical Library
-→ Factory Publication
-→ Historical Knowledge Graph
+## Current Institutional Status
 
-Chronology remains the primary organizing principle of the platform.
+The institutional architecture is complete and certified.
 
-⸻
+Certified chain:
 
-Locked Foundations
-
-Chronology Foundation
-
-Status: LOCKED
-
-Implemented:
-
-* Historical chronology
-* Historical date precision
-* Chronology ordering
-* Timeline ordering modes
-* Chronological milestone rendering
-* Historical date authority
-
-Chronology remains the highest authority for ordering historical knowledge.
-
-⸻
-
-Historical Authority Foundation (Wave 1)
-
-Status: LOCKED
-
-Implemented:
-
-* Historical Objects
-* Participation
-* Revision
-* Merge
-* Retirement
-* Preservation
-* Lifecycle management
-* Historical Object Registry
-
-Historical Objects are canonical authorities.
-
-Participation is the canonical relationship between Historical Objects and Milestones.
-
-⸻
-
-Historical Context Foundation (Wave 2A)
-
-Status: LOCKED
-
-Implemented:
-
-* Milestone Context
-* Participation visibility
-* Historical Context rendering
-* Historical Object pages
-* Context prioritization
-* Context overflow management
-* Context navigation
-
-Experience hierarchy:
-
-Timeline
-→ Milestone
-→ Historical Context
-→ Participation
-→ Historical Object
-
-Chronology remains dominant.
-
-Historical Context is enrichment.
-
-⸻
-
-Governance Foundation (Wave 2B)
-
-Status: LOCKED
-
-Implemented:
-
-* Governance Decisions
-* Approval Chains
-* Governance Queues
-* Publication Packages
-* Feedback Packages
-* Disputes
-* Audit Records
-* Lifecycle Enforcement
-* Runtime Enforcement
-* Service Boundary Enforcement
-* Audit Reconstruction
-* Preservation Enforcement
-
-Governance Status:
-
-Governance Foundation
-LOCKED
-Governance Backend
-LOCKED
-Governance Operational Layer
-LOCKED
-Governance Foundation
-FULLY OPERATIONAL
-
-⸻
-
-Current Institutional Architecture
-
-Factory
+Validated Evidence
+→ Editorial Intelligence
 → Governance
 → Historical Library
 → Published Memory
-→ Platform
+→ Projection Engine
+→ Search
+→ Platform Read Models
+→ Public APIs
+→ Public Platform
+
+Institutional verdict:
+
+CERTIFIED WITH NO ARCHITECTURAL GAPS
+
+Current phase:
+
+Production Launch Readiness
+
+---
+
+## Locked Institutional Architecture
 
 Factory
+→ Editorial Intelligence
+→ Governance
+→ Historical Library
+→ Published Memory
+→ Projection Engine
+→ Search
+→ Platform Read Models
+→ Public APIs
+→ Public Platform
+
+No separate Timeline Generation institution exists. Timeline, milestone, relationship, search, and sitemap outputs are certified Projection Engine projections consumed by Platform read models.
+
+---
+
+## Completed Certification Program
+
+| Certification | Status |
+|---|---|
+| EI-005 — Editorial Intelligence End-to-End | Certified |
+| HL-000 — Historical Library Institutional Completion | Certified |
+| HL-001 — Historical Library End-to-End | Certified |
+| PM-001 — Published Memory End-to-End | Certified |
+| PR-001 — Projection Engine End-to-End | Certified |
+| SR-001 — Search End-to-End | Certified |
+| PL-001 — Public Platform End-to-End | Certified |
+| IC-001 — Institutional Completion Audit | Certified |
+
+---
+
+## Current Platform Maturity
+
+| Area | Status |
+|---|---|
+| Chronology Foundation | Locked |
+| Historical Authority Foundation | Locked |
+| Historical Context Foundation | Locked |
+| Governance Foundation | Certified |
+| Factory Runtime | Certified |
+| Editorial Intelligence | Certified |
+| Historical Library | Certified |
+| Published Memory | Certified |
+| Projection Engine | Certified |
+| Search | Certified |
+| Platform Read Models | Certified |
+| Public APIs | Certified |
+| Public Platform | Certified |
+| Institutional Completion | Certified |
+| Production Launch Readiness | Active |
+
+---
+
+## Repository-Backed Certification Commands
+
+* `npm run ops:editorial:certify -- --scope end-to-end`
+* `npm run ops:historical-library:certify -- --scope end-to-end`
+* `npm run ops:published-memory:certify -- --scope end-to-end`
+* `npm run ops:projection-engine:certify -- --scope end-to-end`
+* `npm run ops:search:certify -- --scope end-to-end`
+* `npm run ops:platform:certify -- --scope end-to-end`
+
+---
+
+## Current Authorized Programs
+
+Remaining work is not institutional architecture work.
+
+### Production Engineering
+
+* managed production deployment;
+* production database capacity;
+* migration operations;
+* backup and restore rehearsal;
+* worker and provider runtime scaling;
+* launch runbooks.
+
+### Performance
+
+* public read latency;
+* search latency;
+* projection rebuild scale;
+* Factory queue throughput;
+* database indexes and bounded queries.
+
+### Observability and Operations
+
+* dashboards;
+* alert routing;
+* scheduled operation verification;
+* recovery drills;
+* operational audit review.
+
+### Security Hardening
+
+* admin authentication review;
+* RBAC review;
+* public input validation;
+* dependency and secret audit;
+* rate limits.
+
+### Public Experience
+
+* timeline reading quality;
+* milestone presentation;
+* source/citation presentation;
+* search UX;
+* homepage curation;
+* accessibility;
+* SEO;
+* mobile polish.
 
-Owns:
-
-* Production Memory
-* Candidate Authority
-* Validation Artifacts
-* Publication Package Preparation
-
-Does Not Own:
-
-* Published Memory
-* Governance Decisions
-* Publication Acceptance
-
-Implementation Status:
-
-Factory Foundation
-LOCKED
-Factory Runtime
-OPERATIONAL
-Default Model
-Local Qwen14 via Ollama
-Certified Local Model
-qwen3:14b
-Model Provider
-Replaceable
-Research Pipeline
-OPERATIONAL
-Extraction Pipeline
-OPERATIONAL
-Publication Candidate Pipeline
-CERTIFIED
-Governance Handoff
-CERTIFIED
+### Monetization
 
-Factory and Institutional Certification:
+* advertising policy;
+* monetization controls;
+* analytics boundaries.
 
-On 2026-06-22, Factory runtime execution was certified as Operational Alpha using local Qwen14 through Ollama with `qwen3:14b`.
+### Future Platform Evolution
 
-Certified evidence:
+* Historical Knowledge Graph;
+* richer source discovery;
+* editorial quality expansion;
+* recommendations/personalization only if separately authorized and certified.
 
-* Research Pipeline completed for subject `Telephone`.
-* Research pipeline run: `1072ee3e-d8d9-459c-a35c-80f515bd2be8`.
-* Extraction Pipeline completed for subject `Telephone`.
-* Extraction pipeline run: `4a32aedc-b7a7-4605-aed9-08890fd42ade`.
-* Factory Production Memory persistence verified for `factory_pipeline_runs`, `factory_pipeline_steps`, `factory_objects`, and `factory_artifacts`.
-* Candidate Production Memory generation verified for `candidate_source`, `candidate_context_record`, `candidate_historical_object`, `candidate_milestone`, `candidate_participation`, and `candidate_relationship`.
+---
 
-Current certification boundary:
+## Explicitly Locked
 
-Factory generates and persists candidate Production Memory inside Factory boundaries. Factory does not approve Governance decisions, admit Historical Library records, own Published Memory, or own Platform read models. Governance handoff, Historical Library admission, Published Memory generation, projection generation, and public timeline publication are certified through the institutional publication path.
+Future work must not redesign or weaken:
 
-Certified institutional trace:
+* Source Authority;
+* Factory Production Memory;
+* Editorial Intelligence boundaries;
+* Governance;
+* Historical Library;
+* Published Memory;
+* Projection Engine;
+* Search;
+* Platform read-model boundary;
+* Public Platform certification.
 
-Source Authority
-→ Source Snapshot
-→ Research Corpus
-→ Evidence
-→ Evidence Validation
-→ Factory Candidate
-→ Governance Package
-→ Governance Decisions
-→ Library Review
-→ Historical Library Admission
-→ Published Memory Snapshot
-→ Timeline/Search/Sitemap Projections
-→ Platform Route
+---
 
-Telephone is the inaugural institutionally certified subject.
+## Current Summary
 
-Multi-subject repeatability is certified for Printing Press, Steam Engine, Internet, and World Wide Web.
+TiMELiNES is now a certified institutional historical publishing platform through the Public Platform.
 
-Scale certification is accepted: 25 and 50 subject batches passed at 100%; the 100 subject batch passed at 98%. Projection slug revalidation certified the final known slug defects.
-
-Editorial Intelligence Certification:
-
-* EI-001 Editorial Intelligence Foundation is complete.
-* EI-002 Editorial Timeline Compiler is complete and certified.
-* EI-003 Editorial Composition is complete and certified.
-* EI-003 Tier A corpus `ei-003-tier-a-v1` passed 8 / 8 cases and 176 / 176 invariants.
-* EI-003 persisted certification run: `660ac578-a571-49a5-9d1d-6ca3586ff1f1`.
-* EI-004 Editorial Writer is complete and certified.
-* EI-004 Tier A corpus `ei-004-tier-a-v1` passed 4 / 4 cases and 112 / 112 invariants.
-* EI-004 persisted certification run: `773889f8-cc36-4514-a3b1-fedf9deb1c2a`.
-* The compiler deterministically selects canonical grounded milestones, suppresses duplicates, orders chronology, preserves exclusions, and records exact lineage.
-* Editorial Timeline Candidates are immutable, non-authoritative Factory Production Memory.
-* Compiler integration and package dependencies fail closed on missing, stale, unrelated, or incomplete lineage.
-* Editorial Timeline Candidates remain excluded from Governance authority inputs.
-* Tier A corpus `ei-002-tier-a-v1` contains four historical subjects.
-* Certification run `b5c4bc1d-c283-444d-8011-d5a122aa4d9d` passed 4 / 4 cases and 52 / 52 invariants.
-* Machine certification command: `npm run ops:editorial:certify`.
-* EI-005 is the next planned Editorial Intelligence phase.
-
-⸻
-
-Governance
-
-Owns:
-
-* Decisions
-* Approvals
-* Queues
-* Disputes
-* Publication Readiness
-* Audit Reconstruction
-
-Status:
-
-FULLY OPERATIONAL
-
-Certification:
-
-CERTIFIED
-
-Governance requires source-grounded validated evidence for authority-bearing decisions. Publication package acceptance requires the `library_review` lifecycle state before `accepted`.
-
-⸻
-
-Historical Library
-
-Owns:
-
-* Published Memory
-* Publication Acceptance
-* Published Revisions
-* Published Preservation
-* Feedback Package Creation
-
-Status:
-
-OPERATIONAL
-
-Architecture:
-
-DEFINED
-
-Implementation:
-
-IMPLEMENTED
-
-Certification:
-
-CERTIFIED
-
-⸻
-
-Platform
-
-Owns:
-
-* Public presentation
-* Search
-* Navigation
-* Publishing
-* Timeline experience
-
-Does Not Own:
-
-* Historical Authority
-* Governance Decisions
-* Published Memory Governance
-
-⸻
-
-Current Platform Maturity
-
-Area	Status
-Timeline Platform	Operational
-Chronology Engine	Locked
-Search Foundation	Operational
-Publishing Layer	Operational
-Historical Authority	Locked
-Historical Context	Locked
-Governance Foundation	Locked
-Governance Backend	Locked
-Historical Library	Certified Operational
-Published Memory	Certified Operational
-Projection Layer	Certified Operational
-Platform Publication	Certified Operational
-Factory Runtime	Operational
-Factory Research Pipeline	Operational
-Factory Extraction Pipeline	Operational
-Factory Publication Candidate Pipeline	Certified
-Factory Governance Handoff	Certified
-Editorial Intelligence Foundation	Completed
-Editorial Timeline Compiler	Completed and Tier A Certified
-Editorial Composition	Completed and Tier A Certified
-Governance UI	Not Started
-Historical Knowledge Graph	Not Started
-Recommendation Layer	Not Started
-AI Layer	Factory-local Operational
-
-⸻
-
-Current Completion Assessment
-
-Domain	Completion
-Timeline Platform	95%
-Historical Authority	100%
-Historical Context	100%
-Governance	100%
-Historical Library	100%
-Published Memory	100%
-Projection Layer	100%
-Factory	100%
-Institutional Operations	90%
-Long-Term Platform Vision	~70%
-
-⸻
-
-Authorized Next Programs
-
-The following programs remain authorized. Completed Historical Library backend, Published Memory, Factory publication workflow certification, Governance handoff certification, projection generation, and Platform publication work has moved out of future/planned status.
-
-Priority 1
-
-Governance UI
-
-Objectives:
-
-* Decision Management
-* Approval Management
-* Queue Management
-* Dispute Resolution
-* Publication Readiness Operations
-
-⸻
-
-Priority 2
-
-Production Operations
-
-Objectives:
-
-* Production runbooks
-* Observability
-* Managed production deployment
-* Provider health persistence
-* Provider resilience monitoring
-
-⸻
-
-Deferred Programs
-
-Not currently authorized.
-
-Historical Knowledge Graph
-
-Future capability.
-
-Requires certified institutional publication data to be promoted into graph authority through a separate approved program.
-
-⸻
-
-Recommendations
-
-Future capability.
-
-Requires Historical Graph maturity.
-
-⸻
-
-AI Layer
-
-Factory-local capability has reached Operational Alpha for source-grounded candidate generation through Qwen14/Ollama.
-
-Broader AI Layer capabilities remain future work and require separate certification beyond the current institutional publication scope.
-
-⸻
-
-Explicitly Locked
-
-The following foundations are considered closed and authoritative.
-
-* Chronology Foundation
-* Historical Authority Foundation (Wave 1)
-* Historical Context Foundation (Wave 2A)
-* Governance Foundation (Wave 2B)
-* Governance Backend
-* Governance Operational Layer
-* Source Authority Foundation
-* Research Corpus Foundation
-* Evidence Foundation
-* Evidence Validation Foundation
-* Historical Library institutional admission path
-* Published Memory snapshot path
-* Projection generation path
-* Platform publication path
-
-Future programs must build upon these foundations and must not redesign them without an explicit constitutional review process.
-
-⸻
-
-Current Platform Status
-
-Chronology Foundation
-LOCKED
-Historical Authority Foundation
-LOCKED
-Historical Context Foundation
-LOCKED
-Governance Foundation
-LOCKED
-Governance Backend
-LOCKED
-Governance Operational Layer
-LOCKED
-Historical Library
-CERTIFIED OPERATIONAL
-Published Memory
-CERTIFIED OPERATIONAL
-Projection Layer
-CERTIFIED OPERATIONAL
-Platform Publication
-CERTIFIED OPERATIONAL
-Factory Runtime
-OPERATIONAL
-Factory Research Pipeline
-OPERATIONAL
-Factory Extraction Pipeline
-OPERATIONAL
-Factory Publication Candidate Pipeline
-CERTIFIED
-Factory Governance Handoff
-CERTIFIED
-Governance UI
-NOT STARTED
-
-TiMELiNES is now a certified Factory-to-Historical-Library publishing system within the accepted institutional certification scope. Telephone is the inaugural institutionally certified subject. Multi-subject repeatability and scale certification have been accepted. Remaining work is operational maturity, Governance UI, provider health persistence, production runbooks, observability, managed production deployment, and future Historical Knowledge Graph programs.
+The active roadmap is Production Launch Readiness. Remaining work concerns launch, production hardening, operations, UX, SEO, accessibility, monitoring, monetization, and future product evolution.

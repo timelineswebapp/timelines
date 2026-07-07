@@ -66,17 +66,22 @@ Contributors:
 6. Documentation: constitutional and architectural authority.
 
 ## Certified Institutional Publication Path
-As of 2026-06-23, TiMELiNES has a certified institutional publication path. The locked architecture remains:
+As of 2026-07-07, TiMELiNES has a certified institutional publication path through the Public Platform. The locked architecture is:
 
 ```text
 Factory
-  -> Governance
-    -> Historical Library
-      -> Published Memory
-        -> Platform
+  -> Editorial Intelligence
+    -> Governance
+      -> Historical Library
+        -> Published Memory
+          -> Projection Engine
+            -> Search
+              -> Platform Read Models
+                -> Public APIs
+                  -> Public Platform
 ```
 
-Telephone is the inaugural institutionally certified subject. Multi-subject repeatability and scale execution have been certified within the accepted certification scope.
+Institutional certification is complete with no architectural gaps. Production Launch Readiness is the active phase.
 
 The early Factory runtime path remains valid inside Platform Administration:
 
@@ -106,7 +111,9 @@ Source Authority
                   -> Historical Library Admission
                     -> Published Memory Snapshot
                       -> Timeline/Search/Sitemap Projections
-                        -> Platform Route
+                        -> Platform Read Models
+                          -> Public APIs
+                            -> Public Platform
 ```
 
 Certified early runtime evidence:

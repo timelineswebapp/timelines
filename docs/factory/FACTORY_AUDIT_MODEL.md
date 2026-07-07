@@ -29,7 +29,7 @@ Every Feedback Package must preserve the Published Memory signal that caused ret
 Audit records must preserve source tier decisions and publisher authority assumptions.
 
 ## Current Reality
-Factory runtime now persists pipeline runs, pipeline steps, Factory objects, Factory artifacts, and runtime audit records for certified candidate generation runs.
+Factory runtime now persists pipeline runs, pipeline steps, Factory objects, Factory artifacts, Editorial Intelligence artifacts, and runtime audit records for certified candidate generation and publication preparation runs.
 
 Certified on 2026-06-22:
 - Research pipeline run `1072ee3e-d8d9-459c-a35c-80f515bd2be8`.

@@ -62,7 +62,7 @@ Stewards:
 ## Implementation Maturity Notes
 The authority hierarchy above is unchanged by institutional certification.
 
-As of 2026-06-23, TiMELiNES has a certified institutional publication path from source-backed discovery through Platform route rendering. Telephone is the inaugural institutionally certified subject. Multi-subject repeatability and scale execution have also been certified within the documented certification scope.
+As of 2026-07-07, TiMELiNES has a certified institutional publication path from source-backed discovery through the Public Platform. The institutional architecture is complete and certified with no architectural gaps. Production Launch Readiness is the active phase.
 
 This maturity note does not change authority ordering: Factory Production Memory remains separate from Historical Library Published Memory, Governance remains the sole authority boundary for approval and publication-readiness decisions, and Historical Library remains the authority owner for Published Memory.
 
@@ -81,6 +81,13 @@ This maturity note does not change authority ordering: Factory Production Memory
 | Provider Adapter Hardening | Implemented and certified by later scale run | Provider response validation and diagnostics improved fresh-database acquisition. |
 | Scale Certification | Certified | 25 and 50 subject batches passed at 100%; 100 subject batch passed at 98%. |
 | Projection Slug Revalidation | Certified | Final known slug defects were corrected and revalidated. |
+| Editorial Intelligence End-to-End | Certified | Complete Editorial Intelligence certification through EI-005. |
+| Historical Library End-to-End | Certified | Complete Historical Library certification. |
+| Published Memory End-to-End | Certified | Complete Published Memory certification. |
+| Projection Engine End-to-End | Certified | Complete projection certification. |
+| Search End-to-End | Certified | Complete Search certification. |
+| Public Platform End-to-End | Certified | Complete public platform certification. |
+| Institutional Completion Audit | Certified | Final institutional audit found no architectural gaps. |
 
 ## References
 - `01_PRODUCT_CONSTITUTION_V2.md`

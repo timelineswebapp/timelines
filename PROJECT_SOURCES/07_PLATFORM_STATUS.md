@@ -1,12 +1,12 @@
 # TiMELiNES — Platform Status
 
-Version: 1.0
+Version: 2.0
 
 Status: ACTIVE
 
 Authority: Tier 1
 
-Last Updated: 2026-07-05
+Last Updated: 2026-07-07
 
 ---
 
@@ -14,580 +14,225 @@ Last Updated: 2026-07-05
 
 This document records the current verified operational status of TiMELiNES.
 
-It is the authoritative snapshot of the platform.
-
-Unlike the Master Execution Roadmap, this document contains no future planning.
-
-It describes only repository-backed, certified, operational capabilities.
-
-Every completed certification or institutional milestone must update this document.
+It describes repository-backed, certified, operational capabilities only. It does not define future architecture.
 
 ---
 
 # Executive Summary
 
-TiMELiNES has completed its institutional publishing foundation.
+TiMELiNES has completed its institutional architecture and institutional certification program.
 
-The platform is now capable of autonomously discovering, researching, validating, governing, admitting, publishing, projecting, and serving historical timelines through the complete institutional publication pipeline.
+The certified institutional chain is:
 
-Editorial Intelligence foundations and the Editorial Timeline Compiler are implemented. EI-002 is certified through the permanent Factory-owned Editorial Certification Foundation.
+Validated Evidence
+→ Editorial Intelligence
+→ Governance
+→ Historical Library
+→ Published Memory
+→ Projection Engine
+→ Search
+→ Platform Read Models
+→ Public APIs
+→ Public Platform
 
-Overall Platform Readiness
+Institutional status:
 
-Approximately 82%
+CERTIFIED WITH NO ARCHITECTURAL GAPS
+
+Current engineering phase:
+
+Production Launch Readiness
+
+Remaining work is production, launch, operations, product, and future-platform work. It is not institutional architecture work.
 
 ---
 
-# Institutional Architecture
-
-The approved institutional architecture is:
+# Locked Institutional Architecture
 
 Factory
+→ Editorial Intelligence
+→ Governance
+→ Historical Library
+→ Published Memory
+→ Projection Engine
+→ Search
+→ Platform Read Models
+→ Public APIs
+→ Public Platform
 
-↓
-
-Governance
-
-↓
-
-Historical Library
-
-↓
-
-Published Memory
-
-↓
-
-Platform
-
-This architecture is LOCKED.
+No separate Timeline Generation institution exists. Timeline projections are a certified Projection Engine responsibility.
 
 ---
 
-# Institutional Status
+# Institutional Certification Status
 
-## Factory
-
-Status
-
-Production Locked
-
-Maturity
-
-Level 5
-
-Capabilities
-
-✓ Founder Inbox
-
-✓ Topic Queue
-
-✓ Autonomous Runtime
-
-✓ Workflow Leasing
-
-✓ Pipeline Execution
-
-✓ Research
-
-✓ Extraction
-
-✓ Publication Candidate Generation
-
-✓ Runtime Recovery
-
-✓ Lease Renewal
-
-✓ Failure Recovery
-
-✓ Local Execution
-
-Provider
-
-Local Ollama
-
-Default Model
-
-Qwen3:14B
+| Layer | Status | Certification |
+|---|---|---|
+| Factory | Certified | Covered by Editorial Intelligence and institutional publication tests |
+| Editorial Intelligence | Certified | EI-005 End-to-End |
+| Governance | Certified | Governance contract and publication-readiness tests |
+| Historical Library | Certified | HL-000 and HL-001 |
+| Published Memory | Certified | PM-001 |
+| Projection Engine | Certified | PR-001 |
+| Search | Certified | SR-001 |
+| Platform Read Models | Certified | PL-001 |
+| Public APIs | Certified | PL-001 |
+| Public Platform | Certified | PL-001 |
+| Institutional Completion | Certified | IC-001 audit |
 
 ---
+
+# Certification Commands
+
+Repository-backed machine certification commands:
+
+* `npm run ops:editorial:certify -- --scope end-to-end`
+* `npm run ops:historical-library:certify -- --scope end-to-end`
+* `npm run ops:published-memory:certify -- --scope end-to-end`
+* `npm run ops:projection-engine:certify -- --scope end-to-end`
+* `npm run ops:search:certify -- --scope end-to-end`
+* `npm run ops:platform:certify -- --scope end-to-end`
+
+Certification test suites:
+
+* `npm run test:editorial-certification`
+* `npm run test:historical-library-certification`
+* `npm run test:published-memory-certification`
+* `npm run test:projection-engine-certification`
+* `npm run test:search-certification`
+* `npm run test:platform-certification`
+
+---
+
+# Certified Capabilities
+
+## Factory and Editorial Intelligence
+
+Status: Certified
+
+Capabilities:
+
+* deterministic Editorial Evidence Set preparation;
+* deterministic Editorial Timeline Compiler;
+* immutable Editorial Timeline Candidate persistence;
+* deterministic Editorial Composition;
+* immutable EditorialComposition persistence;
+* Editorial Writer execution from immutable prompt, policy, provider, and binding records;
+* immutable EditorialNarrative persistence;
+* end-to-end Editorial Intelligence certification.
+
+Editorial outputs remain Factory-owned technical memory until Governance.
 
 ## Governance
 
-Status
+Status: Certified
 
-Production Locked
+Capabilities:
 
-Maturity
-
-Level 5
-
-Capabilities
-
-✓ Publication Packages
-
-✓ Evidence Verification
-
-✓ Governance Decisions
-
-✓ Autonomous Routine Approval
-
-✓ Editorial Review Path
-
-✓ Decision Audit
-
-✓ Governance History
-
----
+* publication packages;
+* evidence verification;
+* governance decisions;
+* readiness certification;
+* decision audit;
+* lifecycle enforcement;
+* prevention of Factory bypass.
 
 ## Historical Library
 
-Status
+Status: Certified
 
-Production Locked
+Capabilities:
 
-Maturity
-
-Level 5
-
-Capabilities
-
-✓ Canonical Admission
-
-✓ Snapshot Creation
-
-✓ Historical Preservation
-
-✓ Object Versioning
-
-✓ Authority Preservation
-
-✓ Admission History
-
----
+* canonical admission;
+* authority records;
+* immutable admission audit;
+* revision, supersession, retirement, withdrawal, merge, split, and preservation lifecycle;
+* authority continuity.
 
 ## Published Memory
 
-Status
+Status: Certified
 
-Production Locked
+Capabilities:
 
-Maturity
+* immutable publication snapshots;
+* publication lifecycle;
+* lineage preservation;
+* projection source authority;
+* recovery and audit preservation.
 
-Level 5
+## Projection Engine
 
-Capabilities
+Status: Certified
 
-✓ Immutable Publication Snapshots
+Capabilities:
 
-✓ Projection Source
+* timeline projections;
+* milestone projections;
+* historical object projections;
+* relationship projections;
+* search projections;
+* sitemap projections;
+* full and incremental rebuild;
+* deterministic replay and recovery;
+* projection preservation.
 
-✓ Historical Continuity
+## Search
 
-✓ Snapshot Lifecycle
+Status: Certified
 
----
+Capabilities:
 
-## Platform
+* projection-backed search intake;
+* PostgreSQL indexed search;
+* entity, timeline, milestone, chronology, relationship, and canonical identity indexing;
+* deterministic rebuild, replay, recovery, and query consistency.
 
-Status
+## Public Platform
 
-Operational
+Status: Certified
 
-Maturity
+Capabilities:
 
-Level 4
-
-Capabilities
-
-✓ Homepage
-
-✓ Featured Timelines
-
-✓ Timeline Pages
-
-✓ Search
-
-✓ Sitemap
-
-✓ Timeline Projection
-
-✓ Search Projection
-
-✓ Homepage Revalidation
-
----
-
-# Historical Authority
-
-Status
-
-Operational
-
-Maturity
-
-Level 4
-
-Capabilities
-
-✓ Source Authority
-
-✓ Source Discovery
-
-✓ Retrieval
-
-✓ Corpus Generation
-
-✓ Evidence Extraction
-
-✓ Evidence Validation
-
-✓ Provenance
-
-✓ Canonical Source Registry
-
-Current Providers
-
-✓ Wikidata
-
-✓ DBpedia
-
-✓ Library of Congress
-
-✓ National Archives (NARA)
+* projection-backed Platform read models;
+* public API serialization;
+* routing;
+* timeline rendering;
+* event rendering;
+* milestone rendering;
+* canonical URLs;
+* metadata;
+* structured data;
+* authority-preserving public presentation.
 
 ---
 
-# Historical Knowledge Model
+# Current Production Status
 
-Implemented Authorities
+Institutional architecture: Complete and certified.
 
-✓ Historical Object
+Production engineering: Active.
 
-✓ Participation
+Launch readiness: Active.
 
-✓ Relationship
+Remaining work belongs to:
 
-✓ Milestone
-
-✓ Timeline
-
-✓ Source
-
-✓ Context Record
-
-Current Projection Types
-
-✓ Historical Object
-
-✓ Relationship
-
-✓ Milestone
-
-✓ Timeline
-
-✓ Search
-
-✓ Sitemap
+* production deployment;
+* performance and scale hardening;
+* observability and alerting;
+* operational excellence;
+* security hardening;
+* public UX polish;
+* SEO and accessibility;
+* monitoring;
+* monetization;
+* launch documentation;
+* future feature evolution.
 
 ---
 
-# Editorial Intelligence
+# Current Priority
 
-Status
+Production Launch Readiness.
 
-Active
-
-Maturity
-
-Level 4
-
-Current Capabilities
-
-✓ Deterministic Editorial Evidence Set preparation
-
-✓ Historical significance and evidence ranking
-
-✓ Coverage, chronology, turning-point, and duplicate analysis
-
-✓ Canonical subject and milestone prioritization
-
-✓ Deterministic Editorial Timeline Compiler
-
-✓ Immutable Editorial Timeline Candidate persistence
-
-✓ Factory publication candidate pipeline integration
-
-✓ Compiler lineage and package dependency verification
-
-✓ Tier A machine certification
-
-Certified Editorial Intelligence Epics
-
-✓ EI-001 — Completed
-
-✓ EI-002 — Completed and Certified
-
-✓ EI-003 — Completed and Certified
-
-✓ EI-004 — Completed and Certified
-
-EI-002 Certification
-
-• Framework: editorial-certification-v1
-
-• Corpus: ei-002-tier-a-v1
-
-• Historical subjects: 4
-
-• Cases passed: 4 / 4
-
-• Invariants passed: 52 / 52
-
-• Certification run: b5c4bc1d-c283-444d-8011-d5a122aa4d9d
-
-• Machine command: npm run ops:editorial:certify
-
-EI-003 Certification
-
-• Framework: editorial-certification-v1
-
-• Corpus: ei-003-tier-a-v1
-
-• Cases passed: 8 / 8
-
-• Invariants passed: 176 / 176
-
-• Certification run: 660ac578-a571-49a5-9d1d-6ca3586ff1f1
-
-• Machine command: npm run ops:editorial:certify -- --epic EI-003
-
-EI-004 Certification
-
-• Framework: editorial-certification-v1
-
-• Corpus: ei-004-tier-a-v1
-
-• Cases passed: 4 / 4
-
-• Invariants passed: 112 / 112
-
-• Certification run: 773889f8-cc36-4514-a3b1-fedf9deb1c2a
-
-• Machine command: npm run ops:editorial:certify -- --epic EI-004
-
-Current Limitations
-
-• Timeline titles require improvement
-
-• Milestone titles require improvement
-
-• Editorial summaries are minimal
-
-• Editorial quality evaluation remains planned for EI-005
-
----
-
-# Public Experience
-
-Status
-
-Operational
-
-Maturity
-
-Level 2
-
-Available
-
-✓ Homepage
-
-✓ Featured Timelines
-
-✓ Timeline Pages
-
-✓ Search
-
-✓ Timeline Navigation
-
-Known Improvements
-
-• Timeline presentation
-
-• Milestone presentation
-
-• Source presentation
-
-• Confidence display
-
-• Discovery experience
-
-• Homepage curation
-
----
-
-# Operations
-
-Status
-
-Operational
-
-Maturity
-
-Level 4
-
-Capabilities
-
-✓ Local Runtime
-
-✓ Runtime Recovery
-
-✓ Monitoring
-
-✓ Logging
-
-✓ Migration Framework
-
-✓ Backup Framework
-
-✓ Restore Framework
-
-✓ Production Verification
-
-✓ Publication Certification
-
----
-
-# Security
-
-Status
-
-Operational
-
-Capabilities
-
-✓ Admin Authentication
-
-✓ RBAC
-
-✓ Security Headers
-
-✓ Governance Separation
-
-✓ Historical Authority Separation
-
----
-
-# Production Infrastructure
-
-Application
-
-Next.js 14
-
-Language
-
-TypeScript
-
-Database
-
-PostgreSQL (Neon)
-
-Hosting
-
-Vercel
-
-Runtime
-
-Node.js
-
-AI Runtime
-
-Local Ollama
-
-Default Model
-
-Qwen3:14B
-
----
-
-# Current Certifications
-
-Certified
-
-✓ Chronology Foundation
-
-✓ Historical Authority Foundation
-
-✓ Historical Context Foundation
-
-✓ Governance Foundation
-
-✓ Governance Runtime
-
-✓ Historical Library
-
-✓ Published Memory
-
-✓ Projection Runtime
-
-✓ Institutional Runtime
-
-✓ Autonomous Publication
-
-✓ Local Runtime
-
-✓ End-to-End Institutional Publication
-
-✓ Editorial Intelligence Foundation
-
-✓ Editorial Timeline Compiler — Tier A
-
-✓ Editorial Composition — Tier A
-
----
-
-# Current Known Limitations
-
-Editorial quality remains below the historical GPT benchmark.
-
-Research depth can be expanded through broader discovery and stronger chronology extraction.
-
-Historical Knowledge Graph requires additional semantic relationships.
-
-Public presentation requires editorial refinement.
-
-Operational scaling beyond single-worker execution remains future work.
-
----
-
-# Current Platform Priority
-
-The current strategic priority is:
-
-EI-005, the next Editorial Intelligence phase.
-
-Future engineering effort focuses on improving publication quality while preserving institutional authority.
-
-No architectural redesign is planned.
-
----
-
-# Success Definition
-
-TiMELiNES currently satisfies the institutional requirements for autonomous historical publication.
-
-Future work is focused on increasing the quality of published historical knowledge rather than expanding the institutional architecture.
-
-All future improvements must preserve:
-
-• Historical authority
-
-• Provenance
-
-• Governance
-
-• Reproducibility
-
-• Institutional integrity
-
-The institutional foundation is considered complete.
+Future engineering must preserve institutional authority, provenance, governance, reproducibility, and the certified architecture.

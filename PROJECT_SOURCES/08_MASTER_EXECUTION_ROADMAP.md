@@ -1,716 +1,231 @@
 # TiMELiNES — Master Execution Roadmap
 
-Version: 1.0
+Version: 2.0
 
 Status: ACTIVE
 
 Authority: Tier 1
 
-This document is the authoritative execution roadmap for TiMELiNES.
+Last Updated: 2026-07-07
 
-It defines all remaining engineering, institutional, editorial, operational, and product work required between the current platform state and public production maturity.
+---
 
-This document does NOT redesign approved architecture.
+# Purpose
 
-It executes the approved architecture.
+This roadmap records remaining work after completion of the institutional architecture and certification program.
+
+It does not redesign the certified architecture.
 
 ---
 
 # Execution Principles
 
-The following principles govern all future work.
-
 1. Preserve institutional architecture.
+2. Never weaken historical authority.
+3. Provenance overrides convenience.
+4. Editorial quality never bypasses evidence.
+5. Architecture changes require constitutional approval.
+6. Certified institutional phases remain locked.
+
+---
+
+# Certified Institutional Architecture
 
 Factory
+→ Editorial Intelligence
+→ Governance
+→ Historical Library
+→ Published Memory
+→ Projection Engine
+→ Search
+→ Platform Read Models
+→ Public APIs
+→ Public Platform
 
-↓
-
-Governance
-
-↓
-
-Historical Library
-
-↓
-
-Published Memory
-
-↓
-
-Platform
-
-2. Never weaken historical authority.
-
-3. Provenance always overrides convenience.
-
-4. Editorial quality never bypasses evidence.
-
-5. Architecture changes require constitutional approval.
-
-6. All completed phases become LOCKED.
+Timeline generation is not a separate institution. Timeline projections are certified Projection Engine outputs.
 
 ---
 
-# Maturity Levels
+# Completed Institutional Program
 
-Every roadmap item uses one of six maturity levels.
-
-Level 0
-
-Not Started
-
----
-
-Level 1
-
-Prototype
-
----
-
-Level 2
-
-Implemented
+| Program | Status |
+|---|---|
+| Institutional Architecture | Complete and Certified |
+| Institutional Authority | Complete and Certified |
+| Factory | Complete and Certified |
+| Editorial Intelligence | Complete and Certified |
+| Governance | Complete and Certified |
+| Historical Library | Complete and Certified |
+| Published Memory | Complete and Certified |
+| Projection Engine | Complete and Certified |
+| Search | Complete and Certified |
+| Public Platform | Complete and Certified |
+| Institutional Completion Audit | Complete and Certified |
 
 ---
 
-Level 3
+# Completed Certifications
 
-Operational
-
----
-
-Level 4
-
-Certified
-
----
-
-Level 5
-
-Production Locked
+| Certification | Status |
+|---|---|
+| EI-005 — Editorial Intelligence End-to-End | Certified |
+| HL-000 — Historical Library Institutional Completion | Certified |
+| HL-001 — Historical Library End-to-End | Certified |
+| PM-001 — Published Memory End-to-End | Certified |
+| PR-001 — Projection Engine End-to-End | Certified |
+| SR-001 — Search End-to-End | Certified |
+| PL-001 — Public Platform End-to-End | Certified |
+| IC-001 — Institutional Completion Audit | Certified |
 
 ---
 
-# Overall Platform Progress
+# Current Phase — Production Launch Readiness
 
-Institutional Foundation
+Status: Active
 
-██████████ 100%
+Objective:
 
-Factory Runtime
+Prepare the certified institutional platform for public production launch without changing institutional authority boundaries.
 
-██████████ 100%
-
-Governance
-
-██████████ 100%
-
-Historical Library
-
-██████████ 100%
-
-Published Memory
-
-██████████ 100%
-
-Publication Runtime
-
-██████████ 100%
-
-Research Authority
-
-███████░░░ 70%
-
-Historical Knowledge Graph
-
-██████░░░░ 60%
-
-Editorial Intelligence
-
-██████░░░░ 60%
-
-Public Experience
-
-███░░░░░░░ 30%
-
-Operations
-
-████████░░ 85%
-
-Overall Production Readiness
-
-≈ 82%
+Remaining work belongs only to production engineering, operations, product launch, and future-platform evolution.
 
 ---
 
-# Phase 0 — Constitutional Foundations
+# Phase A — Production Engineering
 
-Status
+Status: Active
 
-Production Locked
+Scope:
 
-Maturity
+* production deployment verification;
+* database capacity planning;
+* bounded query review;
+* worker concurrency review;
+* migration operations;
+* backup and restore rehearsal;
+* incident response rehearsal;
+* environment and secret hygiene.
 
-Level 5
+Certification target:
 
-Includes
-
-✓ Product Constitution
-
-✓ Architecture Canon
-
-✓ Schema Canon
-
-✓ Product Experience Canon
-
-✓ Execution Canon
-
-✓ Permanent Context
-
-Changes
-
-None without constitutional approval.
+Production launch operations pass without weakening institutional certification.
 
 ---
 
-# Phase 1 — Institutional Runtime
+# Phase B — Performance and Scale
 
-Status
+Status: Active
 
-Production Locked
+Scope:
 
-Maturity
+* search performance;
+* public page latency;
+* projection rebuild scale;
+* Factory queue throughput;
+* provider runtime scaling;
+* database index review;
+* load testing.
 
-Level 5
+Certification target:
 
-Completed
-
-✓ Local Factory Runtime
-
-✓ Local Ollama Runtime
-
-✓ Governance Runtime
-
-✓ Historical Library Runtime
-
-✓ Published Memory Runtime
-
-✓ Projection Runtime
-
-✓ Institutional Continuation
-
-✓ Autonomous Publication
-
-✓ Homepage Revalidation
-
-Certification
-
-Completed
+Certified institutional flows remain deterministic and bounded under expected production load.
 
 ---
 
-# Phase 2 — Editorial Intelligence
+# Phase C — Observability and Operational Excellence
 
-Status
+Status: Active
 
-Active
+Scope:
 
-Maturity
+* dashboards;
+* alert routing;
+* audit review;
+* scheduled operation verification;
+* recovery drills;
+* production runbooks;
+* founder/operator operational views.
 
-Level 2
+Certification target:
 
-Objective
-
-Transform TiMELiNES from a technically correct institutional publisher into an editorially excellent historical publisher while preserving institutional authority, provenance, reproducibility, and governance.
-
-Editorial Intelligence must produce publication-quality timelines that equal or exceed the historical GPT benchmark without introducing unsupported historical claims.
-
----
-
-## Epic EI-001
-
-### Editorial Intelligence Foundation
-
-Priority
-
-Critical
-
-Status
-
-Completed
-
-Maturity
-
-Level 2
-
-Objective
-
-Transform validated research evidence into an editorially useful body of historical knowledge.
-
-This phase establishes the deterministic editorial foundation used by every subsequent stage.
-
-Deliverables
-
-✓ Historical significance scoring
-
-✓ Evidence ranking
-
-✓ Evidence quality scoring
-
-✓ Coverage scoring
-
-✓ Chronology coverage analysis
-
-✓ Turning-point detection
-
-✓ Narrative contribution scoring
-
-✓ Duplicate evidence suppression
-
-✓ Canonical subject detection
-
-✓ Canonical historical object selection
-
-✓ Milestone importance ranking
-
-✓ Canonical milestone selection
-
-✓ Timeline gap detection
-
-✓ Timeline balance analysis
-
-Certification
-
-Validated evidence is transformed into a ranked, balanced, deterministic editorial dataset ready for timeline compilation without introducing unsupported facts.
+Operators can detect, diagnose, and recover from production failures without bypassing institutional authority.
 
 ---
 
-## Epic EI-002
+# Phase D — Security Hardening
 
-### Editorial Timeline Compiler
+Status: Active
 
-Priority
+Scope:
 
-Critical
+* admin authentication hardening;
+* RBAC review;
+* CSRF and security header review;
+* public input validation;
+* dependency audit;
+* secrets audit;
+* rate limiting.
 
-Status
+Certification target:
 
-Completed and Certified
-
-Maturity
-
-Level 4
-
-Objective
-
-Determine which grounded milestones belong in the canonical timeline and order them chronologically before Governance.
-
-Deliverables
-
-✓ Deterministic timeline compilation
-
-✓ Deterministic duplicate suppression
-
-✓ Canonical milestone selection
-
-✓ Chronological ordering with stable tie-breaking
-
-✓ Compiler fingerprints and versioned provenance
-
-✓ Selection and exclusion preservation
-
-✓ Immutable Editorial Timeline Candidate persistence
-
-✓ Factory pipeline and package-lineage integration
-
-✓ Tier A machine certification
-
-Certification
-
-Certified by `editorial-certification-v1` against `ei-002-tier-a-v1`: 4 of 4 historical subjects and 52 of 52 invariants passed. Persisted certification run `b5c4bc1d-c283-444d-8011-d5a122aa4d9d`.
+Public launch exposes no authority mutation path outside certified services.
 
 ---
 
-## Epic EI-003
+# Phase E — Public Experience and Launch
 
-### Editorial Composition
+Status: Active
 
-Priority
+Scope:
 
-Critical
+* timeline reading experience;
+* milestone presentation;
+* source and citation presentation;
+* search experience;
+* homepage curation;
+* SEO;
+* accessibility;
+* mobile polish;
+* public launch checklist.
 
-Status
+Certification target:
 
-Completed and Certified
-
-Maturity
-
-Level 4
-
-Objective
-
-Organize the selected EI-002 milestones into deterministic historical structure without generating prose or changing chronology.
-
-Deliverables
-
-✓ Deterministic Editorial Composition Planner
-
-✓ Immutable EditorialComposition persistence
-
-✓ Factory pipeline integration
-
-✓ Structural phases, boundaries, transitions, continuity, and arcs
-
-✓ Exact EI-002 chronology and membership preservation
-
-✓ Tier A machine certification
-
-Deferred to EI-004
-
-□ Timeline title generation
-
-□ Timeline subtitle generation
-
-□ Timeline summary generation
-
-□ Milestone title generation
-
-□ Milestone summary generation
-
-□ SEO metadata generation
-
-□ Slug optimization
-
-□ Editorial consistency
-
-□ Readability optimization
-
-□ Educational clarity
-
-Certification
-
-Certified by `editorial-certification-v1` against `ei-003-tier-a-v1`: 8 of 8 cases and 176 of 176 invariants passed. Persisted certification run `660ac578-a571-49a5-9d1d-6ca3586ff1f1`.
+Public Platform is launch-ready while preserving projection-backed authority.
 
 ---
 
-## Epic EI-004
+# Phase F — Monetization
 
-### Editorial Writer
+Status: Planned
 
-Priority
+Scope:
 
-High
+* advertising policy;
+* monetization controls;
+* analytics boundaries;
+* public experience constraints.
 
-Status
+Certification target:
 
-Completed and Certified
-
-Maturity
-
-Level 4
-
-Objective
-
-Generate publication-quality editorial content exclusively from certified EditorialComposition without introducing historical facts.
-
-Deliverables
-
-□ Timeline presentation improvements
-
-□ Milestone presentation improvements
-
-□ Source presentation
-
-□ Milestone-level citations
-
-□ Search snippet improvements
-
-□ Homepage editorial improvements
-
-□ Discovery improvements
-
-□ Timeline navigation improvements
-
-□ Editorial confidence presentation
-
-□ Public readability improvements
-
-Certification
-
-Published timelines provide a compelling educational experience while preserving institutional authority and provenance.
+Monetization does not affect institutional authority, ranking integrity, or public trust.
 
 ---
 
-## Epic EI-005
+# Phase G — Future Platform Evolution
 
-### Editorial Quality Certification
+Status: Planned
 
-Priority
+Scope:
 
-Critical
+* Historical Knowledge Graph expansion;
+* improved source discovery;
+* richer editorial quality evaluation;
+* recommendations and personalization, if authorized later;
+* model/provider upgrades.
 
-Status
+Certification target:
 
-Planned
-
-Maturity
-
-Level 0
-
-Objective
-
-Continuously measure and certify editorial quality against the historical GPT benchmark.
-
-Deliverables
-
-□ Editorial benchmark framework
-
-□ GPT benchmark comparison
-
-□ Timeline quality scoring
-
-□ Historical coherence scoring
-
-□ Chronology completeness scoring
-
-□ Coverage scoring
-
-□ Readability scoring
-
-□ Educational usefulness scoring
-
-□ Regression certification
-
-□ Continuous editorial quality monitoring
-
-Certification
-
-Generated timelines consistently equal or exceed the historical GPT benchmark across representative historical topics while maintaining institutional correctness, provenance, and governance.
-
-# Phase 3 — Research Authority 2.0
-
-Status
-
-Planned
-
-Maturity
-
-Level 0
-
-Objective
-
-Increase evidence quality and historical completeness.
-
-Deliverables
-
-□ Better source discovery
-
-□ Query expansion
-
-□ Multi-source corroboration
-
-□ Conflict detection
-
-□ Source weighting
-
-□ Better chronology extraction
-
-□ Ambiguity resolution
-
-Certification
-
-Major historical topics consistently produce complete chronology evidence.
-
----
-
-# Phase 4 — Historical Knowledge Graph
-
-Status
-
-Planned
-
-Maturity
-
-Level 0
-
-Objective
-
-Expand the institutional knowledge model.
-
-Deliverables
-
-□ Historical periods
-
-□ Eras
-
-□ Civilizations
-
-□ Themes
-
-□ Causality
-
-□ Influence
-
-□ Successor relationships
-
-□ Historical significance graph
-
-□ Idea propagation
-
-Certification
-
-Historical knowledge extends beyond isolated timelines into a connected graph.
-
----
-
-# Phase 5 — Public Experience
-
-Status
-
-Active
-
-Maturity
-
-Level 2
-
-Objective
-
-Transform institutional output into an exceptional public product.
-
-Deliverables
-
-□ Homepage improvements
-
-□ Timeline pages
-
-□ Milestone pages
-
-□ Relationship visualization
-
-□ Source presentation
-
-□ Search improvements
-
-□ Discovery improvements
-
-□ Reading experience
-
-□ Mobile optimization
-
-□ Accessibility
-
-Certification
-
-Public platform ready for unrestricted launch.
-
----
-
-# Phase 6 — Operations
-
-Status
-
-Operational
-
-Maturity
-
-Level 4
-
-Deliverables
-
-□ Monitoring
-
-□ Logging
-
-□ Metrics
-
-□ Alerting
-
-□ Scaling
-
-□ Disaster recovery
-
-□ Backup verification
-
-□ Performance optimization
-
-□ Multi-worker execution
-
-Certification
-
-Production infrastructure operates autonomously.
-
----
-
-# Phase 7 — Artificial Intelligence Evolution
-
-Status
-
-Planned
-
-Maturity
-
-Level 0
-
-Objective
-
-Continuously improve historical intelligence while preserving institutional authority.
-
-Deliverables
-
-□ Better extraction
-
-□ Better ranking
-
-□ Better synthesis
-
-□ Better editorial writing
-
-□ Local model upgrades
-
-□ Multi-model orchestration
-
-□ Confidence calibration
-
-□ Automatic quality scoring
-
-Certification
-
-Editorial intelligence continuously improves without weakening governance.
-
----
-
-# Phase 8 — Launch Readiness
-
-Status
-
-Planned
-
-Maturity
-
-Level 0
-
-Deliverables
-
-□ Complete institutional certification
-
-□ Editorial certification
-
-□ Performance certification
-
-□ Security certification
-
-□ Production deployment
-
-□ Public documentation
-
-□ Monitoring dashboards
-
-□ Operational runbooks
-
-Certification
-
-TiMELiNES publicly launched.
+Future capabilities must be certified as extensions and must not modify locked institutional architecture without constitutional approval.
 
 ---
 
@@ -718,44 +233,18 @@ TiMELiNES publicly launched.
 
 Every implementation must produce:
 
-• Repository-backed implementation
+* repository-backed implementation;
+* tests;
+* appropriate certification or operational verification;
+* updated documentation when status changes.
 
-• Tests
+No future roadmap item may weaken:
 
-• Certification
-
-• Operational verification
-
-• Updated platform status
-
-Every completed milestone must update:
-
-07_PLATFORM_STATUS.md
-
-Every completed phase must update:
-
-08_MASTER_EXECUTION_ROADMAP.md
-
----
-
-# Success Definition
-
-TiMELiNES succeeds when it becomes the world's most trustworthy historical chronology platform.
-
-Success requires all of the following:
-
-✓ Institutional historical authority
-
-✓ Editorial excellence
-
-✓ Autonomous operation
-
-✓ Transparent provenance
-
-✓ Historical accuracy
-
-✓ Excellent public experience
-
-No single dimension alone is sufficient.
-
-The platform is complete only when all dimensions are simultaneously achieved.
+* Source Authority;
+* Editorial Intelligence boundaries;
+* Governance;
+* Historical Library;
+* Published Memory;
+* Projection Engine;
+* Search certification;
+* Public Platform certification.

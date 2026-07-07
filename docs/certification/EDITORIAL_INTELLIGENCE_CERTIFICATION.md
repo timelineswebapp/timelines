@@ -1,10 +1,10 @@
 # Editorial Intelligence Certification
 
-Version: 1.0
+Version: 2.0
 
 Status: Active Certification Record
 
-Date: 2026-07-05
+Date: 2026-07-07
 
 ## Purpose
 
@@ -39,9 +39,9 @@ Database migrations:
 | EI-002 — Editorial Timeline Compiler | Complete | Certified — Tier A | Satisfied for EI-003 |
 | EI-003 — Editorial Composition | Complete | Certified — Tier A | Satisfied for EI-004 |
 | EI-004 — Editorial Writer | Complete | Certified — Tier A | Satisfied for EI-005 |
-| EI-005 | Not completed | Not certified | Planned |
+| EI-005 — Editorial Intelligence End-to-End | Complete | Certified — End-to-End | Satisfied for institutional completion |
 
-No EI-005 certification is claimed.
+EI-005 certification is the end-to-end Editorial Intelligence institutional certification. It certifies the complete Editorial Intelligence chain through EI-004 and does not replace Governance.
 
 ## EI-001 Record
 
@@ -175,12 +175,30 @@ Certified behavior includes exact prompt, policy, provider, WriterInput, evidenc
 
 EditorialNarrative remains immutable, unpublished, non-authoritative Factory Production Memory.
 
+## EI-005 Record
+
+Status: Certified
+
+Certification kind: Editorial Intelligence End-to-End
+
+Certification version: `editorial-end-to-end-v1`
+
+Corpus version: `editorial-end-to-end-tier-a-v1`
+
+Machine command:
+
+`npm run ops:editorial:certify -- --scope end-to-end`
+
+Certified behavior includes complete Editorial Intelligence execution from validated evidence through Editorial Narrative package readiness before Governance. It verifies stage order, deterministic execution, writer determinism, prompt lineage, policy lineage, provider lineage, evidence lineage, claim lineage, citation lineage, package lineage, artifact ownership, governance-ready package integrity, fingerprint stability, revision identity, resume determinism, chronology integrity, composition integrity, milestone preservation, compiler invariants, Governance exclusion, and Factory ownership boundaries.
+
+EI-005 does not certify Historical Library admission, Published Memory, Projection Engine, Search, Public APIs, or Public Platform.
+
 Editorial Intelligence remains inside the Factory before Governance:
 
 Factory → Governance → Historical Library → Published Memory → Platform
 
 EI-002 does not modify Governance, Historical Library, Published Memory, or Platform authority. Selected milestone references remain packageable authority inputs; the Editorial Timeline Candidate itself is excluded from Governance authority mapping.
 
-## Future Certification
+## Institutional Completion Status
 
-EI-005 remains uncertified.
+Editorial Intelligence is complete and certified as a Factory-owned technical institution. Future editorial quality improvements must preserve certified lineage, deterministic execution, and Governance boundaries.

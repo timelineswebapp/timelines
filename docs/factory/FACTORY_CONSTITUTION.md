@@ -68,9 +68,11 @@ Factory evidence is governed by Tiered Source Authority. Sources provide evidenc
 - Platform: public presentation and discovery.
 
 ## Current Reality
-Factory runtime reached Operational Alpha on 2026-06-22. Local Qwen14 execution through Ollama using `qwen3:14b` completed certified research and extraction runs for the subject `Telephone`.
+Factory runtime is certified as part of the completed institutional architecture. Local Qwen execution through Ollama using `qwen3:14b` remains the certified local provider path for Factory execution.
 
-Certified Factory Production Memory outputs now include candidate sources, candidate context records, candidate historical objects, candidate milestones, candidate participations, and candidate relationships persisted as Factory objects and artifacts. Publication Candidate Pipeline completion, Governance handoff, Historical Library admission, Published Memory generation, and public timeline generation remain uncertified.
+Certified Factory Production Memory outputs include candidate sources, candidate context records, candidate historical objects, candidate milestones, candidate participations, candidate relationships, Editorial Evidence Sets, Editorial Timeline Candidates, Editorial Compositions, and Editorial Narratives persisted as Factory-owned technical memory where applicable.
+
+Publication Candidate Pipeline completion, Governance handoff, Historical Library admission, Published Memory generation, Projection Engine, Search, and Public Platform are now certified through the institutional certification program. Factory still does not approve publication, admit Historical Library records, own Published Memory, or own Platform read models.
 
 Existing import, validation, chronology, relationship recovery, and audit concepts remain useful precedents but are not the Factory constitutional model.
 

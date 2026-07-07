@@ -1,33 +1,71 @@
 # Public Platform Roadmap
 
 Authority Level: Product
-Governed System: Roadmap direction, not committed dates.
-Describes: Both
+
+Governed System: Public product roadmap direction, not committed dates.
+
+---
 
 ## Scope
-Defines staged evolution.
 
-## Non-Scope
-Does not promise delivery timelines.
+This roadmap covers Public Platform work after institutional certification.
+
+Institutional architecture is complete and certified. This roadmap must not move authority boundaries.
+
+---
 
 ## Verified Implementation
-Current state is curated timeline publishing with admin import/recovery and public search.
 
-## Future Architecture
-Roadmap:
-1. Harden current curated publishing.
-2. Add publication and revision lifecycle.
-3. Add source document and provenance registries.
-4. Add canonical entity/concept registries.
-5. Add factory pipeline with approval gates.
-6. Add public knowledge graph discovery.
+Repository-backed completed capabilities:
 
-## Dependencies
-All authority and governance documents.
+* projection-backed Platform read models;
+* public timeline pages;
+* milestone pages;
+* public search;
+* sitemap and Open Graph routes;
+* metadata and structured data;
+* public API serialization;
+* projection-backed content service boundary;
+* Public Platform End-to-End certification.
 
-## Open Questions
-- Which stage requires a separate worker system?
-- What data volume target defines registry migration?
+---
 
-## Future Evolution Guidance
-Do not skip lifecycle and provenance stages.
+## Current Phase
+
+Production Launch Readiness
+
+Current work:
+
+1. Production deployment readiness.
+2. Public performance and scale validation.
+3. Monitoring and operational runbooks.
+4. Security hardening.
+5. Public timeline reading polish.
+6. Search UX polish.
+7. SEO and accessibility.
+8. Launch checklist.
+
+---
+
+## Future Evolution
+
+Future work may include:
+
+* Historical Knowledge Graph discovery;
+* recommendations;
+* personalization;
+* richer source/citation presentation;
+* monetization.
+
+Future work must preserve certified authority boundaries and must not bypass Projection Engine, Search, Platform read models, or Governance.
+
+---
+
+## Non-Scope
+
+This roadmap does not authorize:
+
+* institutional architecture redesign;
+* direct public reads from Factory, Governance, Historical Library, or Published Memory operational repositories;
+* ungoverned authority mutation;
+* a separate Timeline Generation institution.

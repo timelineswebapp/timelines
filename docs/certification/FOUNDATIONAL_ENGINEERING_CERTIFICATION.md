@@ -98,7 +98,17 @@ Completed institutions:
 
 ✓ Published Memory
 
-✓ Projection
+✓ Projection Engine
+
+✓ Search
+
+✓ Platform Read Models
+
+✓ Public APIs
+
+✓ Public Platform
+
+✓ Institutional Completion Audit
 
 Institutional boundaries are immutable.
 
@@ -132,13 +142,7 @@ Editorial Intelligence Certification
 
 Status:
 
-EI-001 Completed
-
-EI-002 Completed and Certified
-
-EI-003 Completed and Certified
-
-EI-004 Completed and Certified
+Certified End-to-End
 
 Certified:
 
@@ -153,6 +157,7 @@ Certified:
 * Governance boundary exclusion
 * Tier A certification corpus
 * Immutable persisted certification reports
+* End-to-end Editorial Intelligence certification
 
 Certification framework:
 
@@ -180,9 +185,11 @@ Persisted certification run:
 
 `b5c4bc1d-c283-444d-8011-d5a122aa4d9d`
 
-Machine certification command:
+Machine certification commands:
 
 `npm run ops:editorial:certify`
+
+`npm run ops:editorial:certify -- --scope end-to-end`
 
 This is Factory technical certification only. It does not approve publication or replace Governance.
 
@@ -247,7 +254,7 @@ Published Memory is immutable.
 
 ⸻
 
-Projection Certification
+Projection Engine Certification
 
 Status:
 
@@ -265,6 +272,53 @@ Completed:
 Projection creates presentation only.
 
 Projection creates no historical authority.
+
+⸻
+
+Search Certification
+
+Status:
+
+Certified
+
+Completed:
+
+* Projection-backed search intake
+* Search index generation
+* Entity indexing
+* Timeline indexing
+* Milestone indexing
+* Chronology indexing
+* Relationship indexing
+* Canonical identity indexing
+* Full and incremental indexing
+* Replay and recovery
+* Query consistency
+
+Search consumes certified projections and creates no historical authority.
+
+⸻
+
+Public Platform Certification
+
+Status:
+
+Certified
+
+Completed:
+
+* Platform read models
+* Public API serialization
+* Routing
+* Timeline rendering
+* Event rendering
+* Milestone rendering
+* Canonical URLs
+* Metadata
+* Structured data
+* Authority-preserving public presentation
+
+Public Platform consumes certified Platform read models and does not mutate authority.
 
 ⸻
 
@@ -486,11 +540,16 @@ Area	Status
 Constitutional Architecture	Certified
 Institutional Architecture	Certified
 Factory	Certified
-Editorial Intelligence	EI-001 Complete; EI-002 Tier A Certified
+Editorial Intelligence	Certified End-to-End
 Governance	Certified
 Historical Library	Certified
 Published Memory	Certified
-Projection	Certified
+Projection Engine	Certified
+Search	Certified
+Platform Read Models	Certified
+Public APIs	Certified
+Public Platform	Certified
+Institutional Completion	Certified
 Operations	Certified
 Reliability	Certified
 Performance	Certified
@@ -505,7 +564,7 @@ Final Certification
 
 TiMELiNES has successfully completed its foundational engineering program.
 
-The platform is repository-certified and institutionally complete.
+The platform is repository-certified and institutionally complete through the Public Platform.
 
 Remaining work concerns production infrastructure validation and deployment readiness rather than foundational software engineering.
 

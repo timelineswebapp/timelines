@@ -2,7 +2,7 @@ INSTITUTIONAL_ARCHITECTURE.md
 
 TiMELiNES Institutional Architecture
 
-Version: 1.0
+Version: 2.0
 
 Status: LOCKED
 
@@ -44,6 +44,9 @@ Topic Sources
 Factory
         │
         ▼
+Editorial Intelligence
+        │
+        ▼
 Historical Publication Package
         │
         ▼
@@ -56,10 +59,19 @@ Historical Library
 Published Memory
         │
         ▼
-Projection
+Projection Engine
         │
         ▼
-Platform Runtime
+Search
+        │
+        ▼
+Platform Read Models
+        │
+        ▼
+Public APIs
+        │
+        ▼
+Public Platform
 
 This sequence is permanent.
 
@@ -117,7 +129,21 @@ It is immutable once submitted.
 
 ⸻
 
-3. Governance
+3. Editorial Intelligence
+
+Editorial Intelligence is a Factory-owned technical institution.
+
+Editorial Intelligence prepares, compiles, composes, and writes editorial technical artifacts before Governance.
+
+Editorial Intelligence never approves publication.
+
+Editorial Intelligence never creates canonical authority.
+
+Editorial Intelligence remains excluded from Governance authority mapping except through approved package references.
+
+⸻
+
+4. Governance
 
 Governance owns editorial authority.
 
@@ -137,7 +163,7 @@ Governance never publishes directly.
 
 ⸻
 
-4. Historical Library
+5. Historical Library
 
 Historical Library owns canonical preservation.
 
@@ -157,7 +183,7 @@ Historical Library never performs editorial review.
 
 ⸻
 
-5. Published Memory
+6. Published Memory
 
 Published Memory owns immutable published historical authority.
 
@@ -175,11 +201,11 @@ Published Memory never edits history.
 
 ⸻
 
-6. Projection
+7. Projection Engine
 
-Projection owns deterministic transformation.
+Projection Engine owns deterministic transformation.
 
-Projection derives:
+Projection Engine derives:
 
 * Timeline Views;
 * Timeline Membership;
@@ -188,32 +214,43 @@ Projection derives:
 * Platform Read Models;
 * API read models.
 
-Projection creates presentation only.
+Projection Engine creates presentation only.
 
-Projection never creates authority.
+Projection Engine never creates authority.
 
-Projection never modifies historical knowledge.
+Projection Engine never modifies historical knowledge.
 
 ⸻
 
-7. Platform Runtime
+8. Search
 
-Platform Runtime owns user experience.
+Search owns projection-backed query indexes and read behavior.
 
-Platform Runtime consumes Projection.
+Search consumes Projection Engine outputs.
 
-Platform Runtime owns:
+Search never creates historical authority.
 
-* APIs;
+Search never modifies Published Memory.
+
+⸻
+
+9. Public Platform
+
+Public Platform owns public presentation.
+
+Public Platform consumes Platform Read Models.
+
+Public Platform owns:
+
+* public APIs;
 * public website;
 * search interface;
 * timeline rendering;
 * milestone rendering;
-* administration UI.
 
-Platform Runtime never creates historical authority.
+Public Platform never creates historical authority.
 
-Platform Runtime never modifies canonical knowledge.
+Public Platform never modifies canonical knowledge.
 
 ⸻
 
@@ -221,12 +258,16 @@ Authority Ownership
 
 Institution	Owns Authority
 Factory	Candidate Authority
+Editorial Intelligence	No canonical authority
 Historical Publication Package	Transfer Artifact
 Governance	Editorial Authority
 Historical Library	Canonical Authority
 Published Memory	Published Authority
-Projection	No
-Platform Runtime	No
+Projection Engine	No
+Search	No
+Platform Read Models	No
+Public APIs	No
+Public Platform	No
 
 ⸻
 

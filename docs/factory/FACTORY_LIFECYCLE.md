@@ -29,11 +29,11 @@ Feedback Package lifecycle is the return lifecycle from Historical Library to Fa
 The term `published` must not be used as a Factory-owned terminal state unless explicitly qualified as Historical Library admission or Published Memory status.
 
 ## Current Reality
-Factory runtime now persists candidate Factory objects and worker artifacts through certified research and extraction pipeline runs. Persisted Factory objects currently remain candidate Production Memory records, not Published Memory.
+Factory runtime persists candidate Factory objects, worker artifacts, Editorial Intelligence artifacts, and publication candidate lineage through certified Factory pipelines. Persisted Factory objects remain Production Memory records, not Published Memory.
 
 Import preview and execute remain behavioral states, not persisted Factory lifecycle states.
 
-Publication Candidate Pipeline completion, Governance handoff, Historical Library admission, Published Memory generation, and public timeline generation remain uncertified lifecycle stages.
+Publication Candidate Pipeline completion, Governance handoff, Historical Library admission, Published Memory generation, Projection Engine, Search, and Public Platform are certified lifecycle stages outside Factory ownership.
 
 ## Future Architecture
 Factory lifecycle documentation should distinguish:

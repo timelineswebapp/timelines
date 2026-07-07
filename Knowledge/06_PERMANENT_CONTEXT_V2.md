@@ -54,9 +54,11 @@ Contributors:
 - Historical Library is implemented, operational, and certified for accepted publication package admission.
 - Published Memory snapshot creation is implemented, operational, and certified.
 - Projection generation is implemented, operational, and certified for timeline, search, sitemap, and platform route consumption.
-- Platform publication is implemented, operational, and certified within the accepted institutional certification scope.
-- Factory runtime began as Operational Alpha for local Qwen14/Ollama candidate generation as certified on 2026-06-22.
-- Telephone is the inaugural institutionally certified subject.
+- Search is implemented, operational, and certified.
+- Platform read models, public APIs, and Public Platform rendering are implemented, operational, and certified.
+- Institutional Completion Audit found no architectural gaps; Production Launch Readiness is the current phase.
+- Factory runtime is certified; the 2026-06-22 local Qwen14/Ollama run remains early certification evidence.
+- Telephone remains historical inaugural certification evidence, superseded as current status by the complete institutional certification program.
 - Multi-subject repeatability is certified for Printing Press, Steam Engine, Internet, and World Wide Web.
 - Scale execution is certified: 25 and 50 subject batches passed at 100%; the 100 subject batch passed at 98%; final known slug defects were resolved by projection slug revalidation.
 
@@ -76,7 +78,8 @@ Contributors:
 - Verified Factory outputs: candidate source, candidate context record, candidate historical object, candidate milestone, candidate participation, and candidate relationship.
 - Verified persistence: Factory pipeline runs, pipeline steps, Factory objects, and Factory artifacts.
 - Certified trace: Source Authority -> Source Snapshot -> Research Corpus -> Evidence -> Evidence Validation -> Factory Candidate -> Governance Package -> Governance Decisions -> Library Review -> Historical Library Admission -> Published Memory Snapshot -> Timeline/Search/Sitemap Projections -> Platform Route.
-- Source resilience is certified with minor defects; provider health persistence remains a planned hardening item.
+- Search End-to-End, Public Platform End-to-End, and Institutional Completion certifications supersede earlier partial publication-status notes.
+- Source resilience is certified with minor defects; provider health persistence remains a production hardening item.
 - `TL-PUBLICATION-CERTIFICATION-001` remains preserved as superseded historical failure evidence, not current platform status.
 
 ## References

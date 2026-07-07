@@ -61,7 +61,7 @@ Contributors:
 - Compatibility checked.
 
 ## Certified Institutional Execution
-As of 2026-06-23, TiMELiNES has certified execution evidence for the full institutional publication path. Telephone is the inaugural institutionally certified subject, and the same path has been repeated across multiple independent subjects.
+As of 2026-07-07, TiMELiNES has certified execution evidence for the complete institutional publication path through the Public Platform.
 
 Certified institutional path:
 
@@ -81,7 +81,10 @@ Source discovery
                         -> Historical Library admission
                           -> Published Memory snapshot
                             -> Timeline, search, and sitemap projections
-                              -> Platform route rendering
+                              -> Search
+                                -> Platform read models
+                                  -> Public APIs
+                                    -> Public Platform rendering
 ```
 
 Certified early Factory runtime runs:
@@ -93,6 +96,9 @@ Certified institutional execution results:
 - Multi-subject certification: Printing Press, Steam Engine, Internet, and World Wide Web certified.
 - Scale certification: 25 and 50 subject batches passed at 100%; 100 subject batch passed at 98%.
 - Projection slug revalidation: certified final known slug defects for punctuation, symbols, digits, acronyms, and non-standard titles.
+- Search End-to-End certification: certified.
+- Public Platform End-to-End certification: certified.
+- Institutional Completion Audit: certified with no architectural gaps.
 
 Runtime diagnostics requirements:
 - Provider timeout must be environment-configurable for local Qwen14 execution.

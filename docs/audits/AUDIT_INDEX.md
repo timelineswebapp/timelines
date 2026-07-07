@@ -33,6 +33,13 @@ Existing audit-related artifacts include root quality docs, relationship recover
 | EI-002 Editorial Intelligence Certification | Certified | Tier A corpus passed 4 / 4 historical subjects and 52 / 52 invariants; persisted run `b5c4bc1d-c283-444d-8011-d5a122aa4d9d`. |
 | EI-003 Editorial Composition Certification | Certified | Tier A corpus passed 8 / 8 cases and 176 / 176 invariants; persisted run `660ac578-a571-49a5-9d1d-6ca3586ff1f1`. |
 | EI-004 Editorial Writer Certification | Certified | Tier A corpus passed 4 / 4 cases and 112 / 112 invariants; persisted run `773889f8-cc36-4514-a3b1-fedf9deb1c2a`. |
+| EI-005 Editorial Intelligence End-to-End Certification | Certified | End-to-end Editorial Intelligence certification is implemented and machine-runnable through `npm run ops:editorial:certify -- --scope end-to-end`. |
+| HL-001 Historical Library End-to-End Certification | Certified | Historical Library end-to-end certification is implemented and machine-runnable through `npm run ops:historical-library:certify -- --scope end-to-end`. |
+| PM-001 Published Memory End-to-End Certification | Certified | Published Memory end-to-end certification is implemented and machine-runnable through `npm run ops:published-memory:certify -- --scope end-to-end`. |
+| PR-001 Projection Engine End-to-End Certification | Certified | Projection Engine end-to-end certification is implemented and machine-runnable through `npm run ops:projection-engine:certify -- --scope end-to-end`. |
+| SR-001 Search End-to-End Certification | Certified | Search end-to-end certification is implemented and machine-runnable through `npm run ops:search:certify -- --scope end-to-end`. |
+| PL-001 Public Platform End-to-End Certification | Certified | Public Platform end-to-end certification is implemented and machine-runnable through `npm run ops:platform:certify -- --scope end-to-end`. |
+| IC-001 Institutional Completion Audit | Certified | Final institutional audit found no architectural gaps; remaining work is production launch readiness. |
 
 ## Future Architecture
 Every audit should record ID, mode, objective, inspected files/data, findings, actions, and follow-ups.
