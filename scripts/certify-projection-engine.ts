@@ -1,0 +1,26 @@
+import "@/src/server/operations/environment";
+import { closeSql } from "@/src/server/db/client";
+import { runProjectionEngineCertificationCommand } from "@/src/server/projection-engine-certification/command";
+
+async function main(): Promise<void> {
+  const scopeIndexes = process.argv.map((arg, index) => arg === "--scope" ? index : -1).filter((index) => index >= 0);
+  const epicIndex = process.argv.indexOf("--epic");
+  if (scopeIndexes.length !== 1 || epicIndex >= 0) {
+    console.log(JSON.stringify({ ok: false, component: "projection_engine_certification", error: "Use exactly one --scope end-to-end argument and do not mix --scope with --epic." }));
+    process.exitCode = 1;
+    return;
+  }
+  const scope = process.argv[scopeIndexes[0]! + 1];
+  if (scope !== "end-to-end") {
+    console.log(JSON.stringify({ ok: false, component: "projection_engine_certification", error: "Unsupported scope." }));
+    process.exitCode = 1;
+    return;
+  }
+  process.exitCode = await runProjectionEngineCertificationCommand({
+    actor: process.env.USER || "projection-engine-certification",
+    scope,
+    write: (line) => console.log(line)
+  });
+}
+
+main().finally(closeSql);

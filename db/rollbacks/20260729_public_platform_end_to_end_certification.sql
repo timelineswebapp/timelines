@@ -1,0 +1,13 @@
+DROP TRIGGER IF EXISTS prevent_pl_cert_invariant_results_mut ON platform_certification_invariant_results;
+DROP TRIGGER IF EXISTS prevent_pl_cert_failure_results_mut ON platform_certification_failure_results;
+DROP TRIGGER IF EXISTS prevent_pl_cert_case_results_mut ON platform_certification_case_results;
+DROP TRIGGER IF EXISTS prevent_pl_cert_stage_results_mut ON platform_certification_stage_results;
+DROP TRIGGER IF EXISTS prevent_pl_cert_runs_mut ON platform_certification_runs;
+
+DROP TABLE IF EXISTS platform_certification_invariant_results;
+DROP TABLE IF EXISTS platform_certification_failure_results;
+DROP TABLE IF EXISTS platform_certification_case_results;
+DROP TABLE IF EXISTS platform_certification_stage_results;
+DROP TABLE IF EXISTS platform_certification_runs;
+
+DROP FUNCTION IF EXISTS prevent_platform_certification_mutation();

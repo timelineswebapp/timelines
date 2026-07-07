@@ -1,0 +1,15 @@
+DROP TRIGGER IF EXISTS prevent_pr_cert_invariant_results_mut ON projection_engine_certification_invariant_results;
+DROP TRIGGER IF EXISTS prevent_pr_cert_failure_results_mut ON projection_engine_certification_failure_results;
+DROP TRIGGER IF EXISTS prevent_pr_cert_projection_results_mut ON projection_engine_certification_projection_results;
+DROP TRIGGER IF EXISTS prevent_pr_cert_case_results_mut ON projection_engine_certification_case_results;
+DROP TRIGGER IF EXISTS prevent_pr_cert_stage_results_mut ON projection_engine_certification_stage_results;
+DROP TRIGGER IF EXISTS prevent_pr_cert_runs_mut ON projection_engine_certification_runs;
+
+DROP TABLE IF EXISTS projection_engine_certification_invariant_results;
+DROP TABLE IF EXISTS projection_engine_certification_failure_results;
+DROP TABLE IF EXISTS projection_engine_certification_projection_results;
+DROP TABLE IF EXISTS projection_engine_certification_case_results;
+DROP TABLE IF EXISTS projection_engine_certification_stage_results;
+DROP TABLE IF EXISTS projection_engine_certification_runs;
+
+DROP FUNCTION IF EXISTS prevent_projection_engine_certification_mutation();
