@@ -155,4 +155,66 @@ describe("historical library backend foundation", () => {
     assert.match(validation, /historicalLibraryPreservationSchema/);
     assert.match(validation, /historicalLibraryFeedbackGenerationSchema/);
   });
+
+  it("completes immutable withdrawal, split, and explicit supersession lifecycles", () => {
+    const service = readFileSync("src/server/services/historical-library-service.ts", "utf8");
+    const repository = readFileSync("src/server/repositories/historical-library-repository.ts", "utf8");
+    const migration = readFileSync("db/migrations/20260724_historical_library_institutional_completion.sql", "utf8");
+    const rollback = readFileSync("db/rollbacks/20260724_historical_library_institutional_completion.sql", "utf8");
+
+    for (const operation of ["withdrawPublishedMemory", "splitPublishedMemory", "supersedePublishedMemory"]) {
+      assert.match(service, new RegExp(operation));
+    }
+    for (const operation of ["createWithdrawal", "createSplit", "createSupersession", "getContinuityByAuthorityId"]) {
+      assert.match(repository, new RegExp(operation));
+    }
+    for (const decision of [
+      "WITHDRAW_HISTORICAL_OBJECT", "SPLIT_HISTORICAL_OBJECT", "SUPERSEDE_HISTORICAL_OBJECT",
+      "WITHDRAW_RELATIONSHIP", "SPLIT_RELATIONSHIP", "SUPERSEDE_RELATIONSHIP"
+    ]) assert.match(service, new RegExp(decision));
+    assert.match(service, /Split requires at least two distinct child authority records/);
+    assert.match(service, /Every split child requires immutable redirect metadata/);
+    assert.match(service, /Supersession must preserve authority type/);
+    assert.match(migration, /historical_library_withdrawals/);
+    assert.match(migration, /historical_library_splits/);
+    assert.match(migration, /historical_library_split_children/);
+    assert.match(migration, /historical_library_supersessions/);
+    assert.match(rollback, /DROP TABLE IF EXISTS historical_library_withdrawals/);
+  });
+
+  it("enforces canonical uniqueness, immutable admissions, continuity, and lifecycle audit", () => {
+    const migration = readFileSync("db/migrations/20260724_historical_library_institutional_completion.sql", "utf8");
+    const repository = readFileSync("src/server/repositories/historical-library-repository.ts", "utf8");
+    assert.match(migration, /CREATE UNIQUE INDEX IF NOT EXISTS uq_historical_library_canonical_authority/);
+    assert.match(migration, /prevent_historical_library_admissions_update/);
+    assert.match(migration, /historical_library_continuity_edges/);
+    assert.match(migration, /historical_library_lifecycle_audit/);
+    assert.match(migration, /BEFORE UPDATE OR DELETE/);
+    assert.match(migration, /record_historical_library_revision_lifecycle/);
+    assert.match(migration, /record_historical_library_retirement_lifecycle/);
+    assert.match(migration, /record_historical_library_merge_lifecycle/);
+    assert.match(migration, /record_historical_library_preservation_lifecycle/);
+    assert.match(repository, /withdrawing|creating historical library withdrawal/i);
+    assert.match(repository, /ON CONFLICT \(previous_published_record_id\) DO NOTHING/);
+    assert.match(repository, /LIMIT \$\{Math\.min\(Math\.max\(limit, 1\), 200\)\}/);
+  });
+
+  it("exposes new lifecycle mutations only through validated admin service routes", () => {
+    const adminService = readFileSync("src/server/services/admin-service.ts", "utf8");
+    const routePaths = [
+      "app/api/admin/historical-library/published-snapshots/[id]/withdrawals/route.ts",
+      "app/api/admin/historical-library/published-snapshots/[id]/splits/route.ts",
+      "app/api/admin/historical-library/published-snapshots/[id]/supersessions/route.ts"
+    ];
+    for (const method of ["withdrawPublishedMemory", "splitPublishedMemory", "supersedePublishedMemory"]) {
+      assert.match(adminService, new RegExp(`${method}: historicalLibraryService\\.${method}`));
+    }
+    for (const routePath of routePaths) {
+      const route = readFileSync(routePath, "utf8");
+      assert.match(route, /withAdminAuth/);
+      assert.match(route, /roles: \["library_operator"\]/);
+      assert.match(route, /Schema\.parse\(await request\.json\(\)\)/);
+      assert.doesNotMatch(route, /Repository|getWriteSql|INSERT INTO|UPDATE |DELETE FROM/);
+    }
+  });
 });

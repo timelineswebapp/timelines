@@ -55,6 +55,22 @@ export type PreservePublishedMemoryInput = LibraryLifecycleInput & {
   preservationMetadata: Record<string, unknown>;
 };
 
+export type WithdrawPublishedMemoryInput = LibraryLifecycleInput & {
+  continuityPath: Record<string, unknown>;
+};
+
+export type SupersedePublishedMemoryInput = Omit<LibraryLifecycleInput, "publishedSnapshotId"> & {
+  previousPublishedRecordId: string;
+  newPublishedRecordId: string;
+};
+
+export type SplitPublishedMemoryInput = Omit<LibraryLifecycleInput, "publishedSnapshotId"> & {
+  sourcePublishedRecordId: string;
+  childPublishedRecordIds: string[];
+  provenance: Record<string, unknown>;
+  redirects: Record<string, Record<string, unknown>>;
+};
+
 export type GenerateHistoricalLibraryFeedbackInput = {
   lifecycleActionType: "revision" | "retirement" | "merge" | "preservation";
   lifecycleActionId: string;
@@ -270,6 +286,84 @@ export const historicalLibraryService = {
     });
     await publishedMemoryProjectionService.generateForPreservation(preservation);
     return preservation;
+  },
+
+  async withdrawPublishedMemory(input: WithdrawPublishedMemoryInput) {
+    const publishedSnapshot = await loadLifecycleSnapshot(input);
+    await verifyLibraryDecision({
+      governanceDecisionId: input.governanceDecisionId,
+      expectedDecisionTypes: ["WITHDRAW_HISTORICAL_OBJECT", "WITHDRAW_RELATIONSHIP"],
+      targetAuthority: publishedSnapshot.authorityRef
+    });
+    return historicalLibraryRepository.createWithdrawal({
+      publishedSnapshot, publicationPackageId: input.publicationPackageId,
+      governanceDecisionId: input.governanceDecisionId, withdrawalReason: input.reason,
+      continuityPath: input.continuityPath, auditRecordId: input.auditRecordId, actor: input.actor
+    });
+  },
+
+  async supersedePublishedMemory(input: SupersedePublishedMemoryInput) {
+    assertLibraryActor(input.actor);
+    if (input.previousPublishedRecordId === input.newPublishedRecordId) {
+      throw new ApiError(409, "PUBLISHED_MEMORY_SUPERSESSION_SELF_REFERENCE", "Previous and new authority records must be distinct.");
+    }
+    const [previousSnapshot, newSnapshot] = await Promise.all([
+      historicalLibraryRepository.getPublishedSnapshot(input.previousPublishedRecordId),
+      historicalLibraryRepository.getPublishedSnapshot(input.newPublishedRecordId)
+    ]);
+    if (!previousSnapshot || !newSnapshot) throw new ApiError(404, "PUBLISHED_SNAPSHOT_NOT_FOUND", "Previous or new authority record was not found.");
+    if (extractSnapshotPackageId(previousSnapshot.snapshot) !== input.publicationPackageId) {
+      throw new ApiError(409, "PUBLISHED_SNAPSHOT_PACKAGE_MISMATCH", "Previous authority record does not belong to the supplied PublicationPackage.");
+    }
+    if (previousSnapshot.authorityRef.authorityType !== newSnapshot.authorityRef.authorityType) {
+      throw new ApiError(409, "HISTORICAL_LIBRARY_AUTHORITY_TYPE_MISMATCH", "Supersession must preserve authority type.");
+    }
+    await verifyLibraryDecision({
+      governanceDecisionId: input.governanceDecisionId,
+      expectedDecisionTypes: ["SUPERSEDE_HISTORICAL_OBJECT", "SUPERSEDE_RELATIONSHIP"],
+      targetAuthority: previousSnapshot.authorityRef
+    });
+    return historicalLibraryRepository.createSupersession({
+      previousSnapshot, newSnapshot, publicationPackageId: input.publicationPackageId,
+      governanceDecisionId: input.governanceDecisionId, supersessionReason: input.reason,
+      auditRecordId: input.auditRecordId, actor: input.actor
+    });
+  },
+
+  async splitPublishedMemory(input: SplitPublishedMemoryInput) {
+    assertLibraryActor(input.actor);
+    const childIds = [...new Set(input.childPublishedRecordIds)];
+    if (childIds.length < 2 || childIds.length !== input.childPublishedRecordIds.length || childIds.includes(input.sourcePublishedRecordId)) {
+      throw new ApiError(409, "HISTORICAL_LIBRARY_SPLIT_CHILDREN_INVALID", "Split requires at least two distinct child authority records.");
+    }
+    const [sourceSnapshot, ...childSnapshots] = await Promise.all([
+      historicalLibraryRepository.getPublishedSnapshot(input.sourcePublishedRecordId),
+      ...childIds.map((id) => historicalLibraryRepository.getPublishedSnapshot(id))
+    ]);
+    if (!sourceSnapshot || childSnapshots.some((item) => !item)) {
+      throw new ApiError(404, "PUBLISHED_SNAPSHOT_NOT_FOUND", "Source or child authority record was not found.");
+    }
+    const children = childSnapshots.filter((item): item is NonNullable<typeof item> => item !== null);
+    if (extractSnapshotPackageId(sourceSnapshot.snapshot) !== input.publicationPackageId) {
+      throw new ApiError(409, "PUBLISHED_SNAPSHOT_PACKAGE_MISMATCH", "Source authority record does not belong to the supplied PublicationPackage.");
+    }
+    if (children.some((item) => item.authorityRef.authorityType !== sourceSnapshot.authorityRef.authorityType)) {
+      throw new ApiError(409, "HISTORICAL_LIBRARY_AUTHORITY_TYPE_MISMATCH", "Split children must preserve authority type.");
+    }
+    if (children.some((item) => !input.redirects[item.snapshotId])) {
+      throw new ApiError(409, "HISTORICAL_LIBRARY_SPLIT_REDIRECT_REQUIRED", "Every split child requires immutable redirect metadata.");
+    }
+    await verifyLibraryDecision({
+      governanceDecisionId: input.governanceDecisionId,
+      expectedDecisionTypes: ["SPLIT_HISTORICAL_OBJECT", "SPLIT_RELATIONSHIP"],
+      targetAuthority: sourceSnapshot.authorityRef
+    });
+    return historicalLibraryRepository.createSplit({
+      sourceSnapshot, childSnapshots: children, publicationPackageId: input.publicationPackageId,
+      governanceDecisionId: input.governanceDecisionId, splitReason: input.reason,
+      provenance: input.provenance, redirects: input.redirects,
+      auditRecordId: input.auditRecordId, actor: input.actor
+    });
   },
 
   async generateFeedbackPackage(input: GenerateHistoricalLibraryFeedbackInput) {

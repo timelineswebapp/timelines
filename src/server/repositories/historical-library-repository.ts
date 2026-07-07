@@ -79,6 +79,43 @@ export type HistoricalLibraryPreservation = {
   createdAt?: string;
 };
 
+export type HistoricalLibraryWithdrawal = {
+  withdrawalId: string;
+  publishedSnapshotId: string;
+  publicationPackageId: string;
+  governanceDecisionId: string;
+  withdrawalReason: string;
+  continuityPath: Record<string, unknown>;
+  auditRecordId: string | null;
+  createdBy: GovernanceActorRef;
+  createdAt?: string;
+};
+
+export type HistoricalLibrarySplit = {
+  splitId: string;
+  sourcePublishedRecordId: string;
+  publicationPackageId: string;
+  governanceDecisionId: string;
+  splitReason: string;
+  provenance: Record<string, unknown>;
+  childPublishedRecordIds: string[];
+  auditRecordId: string | null;
+  createdBy: GovernanceActorRef;
+  createdAt?: string;
+};
+
+export type HistoricalLibrarySupersession = {
+  supersessionId: string;
+  previousPublishedRecordId: string;
+  newPublishedRecordId: string;
+  publicationPackageId: string;
+  governanceDecisionId: string;
+  supersessionReason: string;
+  auditRecordId: string | null;
+  createdBy: GovernanceActorRef;
+  createdAt?: string;
+};
+
 export type HistoricalLibraryFeedbackLink = {
   feedbackLinkId: string;
   lifecycleActionType: "revision" | "retirement" | "merge" | "preservation";
@@ -163,6 +200,41 @@ async function buildPublishedMemorySnapshotPayload(input: {
   };
 
   return canonicalPayload;
+}
+
+async function appendLifecycleRecords(tx: Sql, input: {
+  operationType: "split" | "supersession" | "withdrawal";
+  operationId: string;
+  sourceId: string;
+  targetIds: string[];
+  relationship: "split_into" | "superseded_by" | "withdrawn";
+  governanceDecisionId: string;
+  reason: string;
+  actor: GovernanceActorRef;
+  references: Record<string, unknown>;
+}): Promise<void> {
+  const targets = input.targetIds.length > 0 ? input.targetIds : [null];
+  for (const targetId of targets) {
+    await tx`
+      INSERT INTO historical_library_continuity_edges (
+        operation_type, operation_id, source_published_record_id,
+        target_published_record_id, relationship, lineage
+      ) VALUES (
+        ${input.operationType}, ${input.operationId}, ${input.sourceId},
+        ${targetId}, ${input.relationship}, ${tx.json(input.references as any)}
+      )
+    `;
+  }
+  await tx`
+    INSERT INTO historical_library_lifecycle_audit (
+      operation_type, operation_id, authority_ids, previous_authority_id,
+      new_authority_ids, governance_decision_id, reason, actor, reference_data
+    ) VALUES (
+      ${input.operationType}, ${input.operationId}, ${[input.sourceId, ...input.targetIds]},
+      ${input.sourceId}, ${input.targetIds}, ${input.governanceDecisionId}, ${input.reason},
+      ${tx.json(input.actor as any)}, ${tx.json(input.references as any)}
+    )
+  `;
 }
 
 export const historicalLibraryRepository = {
@@ -492,6 +564,18 @@ export const historicalLibraryRepository = {
         insertedSnapshots.push(row!);
       }
 
+      await tx`
+        INSERT INTO historical_library_lifecycle_audit (
+          operation_type, operation_id, authority_ids, previous_authority_id,
+          new_authority_ids, governance_decision_id, reason, actor, reference_data
+        ) VALUES (
+          'admission', ${admissionId}, ${insertedSnapshots.map((item) => item.snapshotId)}, NULL,
+          ${insertedSnapshots.map((item) => item.snapshotId)}, ${input.governanceDecisionId},
+          ${input.admissionReason}, ${tx.json(input.admittedBy as any)},
+          ${tx.json({ publicationPackageId: input.publicationPackage.packageId, auditRefs } as any)}
+        )
+      `;
+
       return {
         admission,
         snapshots: insertedSnapshots
@@ -656,6 +740,181 @@ export const historicalLibraryRepository = {
         created_at::text AS "createdAt"
     `;
     return row!;
+  },
+
+  async createWithdrawal(input: LifecycleBaseInput & {
+    withdrawalReason: string;
+    continuityPath: Record<string, unknown>;
+  }): Promise<HistoricalLibraryWithdrawal> {
+    const sql = getWriteSql("creating historical library withdrawal");
+    return sql.begin(async (transaction) => {
+      const tx = transaction as unknown as Sql;
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${input.publishedSnapshot.snapshotId}, 0))`;
+      const [existing] = await tx<HistoricalLibraryWithdrawal[]>`
+        SELECT id::text AS "withdrawalId", published_snapshot_id::text AS "publishedSnapshotId",
+          publication_package_id::text AS "publicationPackageId", governance_decision_id::text AS "governanceDecisionId",
+          withdrawal_reason AS "withdrawalReason", continuity_path AS "continuityPath",
+          audit_record_id::text AS "auditRecordId", created_by AS "createdBy", created_at::text AS "createdAt"
+        FROM historical_library_withdrawals WHERE published_snapshot_id=${input.publishedSnapshot.snapshotId} LIMIT 1
+      `;
+      if (existing) {
+        if (existing.governanceDecisionId !== input.governanceDecisionId) throw new ApiError(409, "HISTORICAL_LIBRARY_WITHDRAWAL_CONFLICT", "Authority was withdrawn by a different Governance decision.");
+        return existing;
+      }
+      const [row] = await tx<HistoricalLibraryWithdrawal[]>`
+        INSERT INTO historical_library_withdrawals (
+          published_snapshot_id, publication_package_id, governance_decision_id, withdrawal_reason,
+          continuity_path, audit_record_id, created_by
+        ) VALUES (
+          ${input.publishedSnapshot.snapshotId}, ${input.publicationPackageId}, ${input.governanceDecisionId},
+          ${input.withdrawalReason}, ${tx.json(input.continuityPath as any)}, ${input.auditRecordId || null},
+          ${tx.json(input.actor as any)}
+        ) RETURNING id::text AS "withdrawalId", published_snapshot_id::text AS "publishedSnapshotId",
+          publication_package_id::text AS "publicationPackageId", governance_decision_id::text AS "governanceDecisionId",
+          withdrawal_reason AS "withdrawalReason", continuity_path AS "continuityPath",
+          audit_record_id::text AS "auditRecordId", created_by AS "createdBy", created_at::text AS "createdAt"
+      `;
+      await appendLifecycleRecords(tx, {
+        operationType: "withdrawal", operationId: row!.withdrawalId,
+        sourceId: input.publishedSnapshot.snapshotId, targetIds: [], relationship: "withdrawn",
+        governanceDecisionId: input.governanceDecisionId, reason: input.withdrawalReason,
+        actor: input.actor, references: input.continuityPath
+      });
+      return row!;
+    });
+  },
+
+  async createSupersession(input: {
+    previousSnapshot: PublishedMemorySnapshot; newSnapshot: PublishedMemorySnapshot;
+    publicationPackageId: string; governanceDecisionId: string; supersessionReason: string;
+    auditRecordId?: string | null; actor: GovernanceActorRef;
+  }): Promise<HistoricalLibrarySupersession> {
+    const sql = getWriteSql("creating historical library supersession");
+    return sql.begin(async (transaction) => {
+      const tx = transaction as unknown as Sql;
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${input.previousSnapshot.snapshotId}, 0))`;
+      const [inserted] = await tx<HistoricalLibrarySupersession[]>`
+        INSERT INTO historical_library_supersessions (
+          previous_published_record_id, new_published_record_id, publication_package_id,
+          governance_decision_id, supersession_reason, audit_record_id, created_by
+        ) VALUES (
+          ${input.previousSnapshot.snapshotId}, ${input.newSnapshot.snapshotId}, ${input.publicationPackageId},
+          ${input.governanceDecisionId}, ${input.supersessionReason}, ${input.auditRecordId || null},
+          ${tx.json(input.actor as any)}
+        ) ON CONFLICT (previous_published_record_id) DO NOTHING
+        RETURNING id::text AS "supersessionId", previous_published_record_id::text AS "previousPublishedRecordId",
+          new_published_record_id::text AS "newPublishedRecordId", publication_package_id::text AS "publicationPackageId",
+          governance_decision_id::text AS "governanceDecisionId", supersession_reason AS "supersessionReason",
+          audit_record_id::text AS "auditRecordId", created_by AS "createdBy", created_at::text AS "createdAt"
+      `;
+      const [row] = inserted ? [inserted] : await tx<HistoricalLibrarySupersession[]>`
+        SELECT id::text AS "supersessionId", previous_published_record_id::text AS "previousPublishedRecordId",
+          new_published_record_id::text AS "newPublishedRecordId", publication_package_id::text AS "publicationPackageId",
+          governance_decision_id::text AS "governanceDecisionId", supersession_reason AS "supersessionReason",
+          audit_record_id::text AS "auditRecordId", created_by AS "createdBy", created_at::text AS "createdAt"
+        FROM historical_library_supersessions WHERE previous_published_record_id=${input.previousSnapshot.snapshotId} LIMIT 1
+      `;
+      if (!row || row.governanceDecisionId !== input.governanceDecisionId || row.newPublishedRecordId !== input.newSnapshot.snapshotId) {
+        throw new ApiError(409, "HISTORICAL_LIBRARY_SUPERSESSION_CONFLICT", "Authority already has a different explicit supersession.");
+      }
+      if (!inserted) return row;
+      await appendLifecycleRecords(tx, {
+        operationType: "supersession", operationId: row.supersessionId,
+        sourceId: input.previousSnapshot.snapshotId, targetIds: [input.newSnapshot.snapshotId],
+        relationship: "superseded_by", governanceDecisionId: input.governanceDecisionId,
+        reason: input.supersessionReason, actor: input.actor, references: {}
+      });
+      return row;
+    });
+  },
+
+  async createSplit(input: {
+    sourceSnapshot: PublishedMemorySnapshot; childSnapshots: PublishedMemorySnapshot[];
+    publicationPackageId: string; governanceDecisionId: string; splitReason: string;
+    provenance: Record<string, unknown>; redirects: Record<string, Record<string, unknown>>;
+    auditRecordId?: string | null; actor: GovernanceActorRef;
+  }): Promise<HistoricalLibrarySplit> {
+    const sql = getWriteSql("creating historical library split");
+    return sql.begin(async (transaction) => {
+      const tx = transaction as unknown as Sql;
+      await tx`SELECT pg_advisory_xact_lock(hashtextextended(${input.sourceSnapshot.snapshotId}, 0))`;
+      const [existing] = await tx<Array<{ splitId: string; governanceDecisionId: string; childPublishedRecordIds: string[] }>>`
+        SELECT s.id::text AS "splitId", s.governance_decision_id::text AS "governanceDecisionId",
+          COALESCE(array_agg(c.child_published_record_id::text ORDER BY c.sequence), '{}') AS "childPublishedRecordIds"
+        FROM historical_library_splits s
+        LEFT JOIN historical_library_split_children c ON c.split_id=s.id
+        WHERE s.source_published_record_id=${input.sourceSnapshot.snapshotId}
+        GROUP BY s.id
+        LIMIT 1
+      `;
+      const childIds = input.childSnapshots.map((item) => item.snapshotId);
+      if (existing) {
+        if (existing.governanceDecisionId !== input.governanceDecisionId ||
+            JSON.stringify(existing.childPublishedRecordIds) !== JSON.stringify(childIds)) {
+          throw new ApiError(409, "HISTORICAL_LIBRARY_SPLIT_CONFLICT", "Authority already has a different canonical split.");
+        }
+        const [persisted] = await tx<Omit<HistoricalLibrarySplit, "childPublishedRecordIds">[]>`
+          SELECT id::text AS "splitId", source_published_record_id::text AS "sourcePublishedRecordId",
+            publication_package_id::text AS "publicationPackageId", governance_decision_id::text AS "governanceDecisionId",
+            split_reason AS "splitReason", provenance, audit_record_id::text AS "auditRecordId",
+            created_by AS "createdBy", created_at::text AS "createdAt"
+          FROM historical_library_splits WHERE id=${existing.splitId}
+        `;
+        return { ...persisted!, childPublishedRecordIds: existing.childPublishedRecordIds };
+      }
+      const [row] = await tx<Omit<HistoricalLibrarySplit, "childPublishedRecordIds">[]>`
+        INSERT INTO historical_library_splits (
+          source_published_record_id, publication_package_id, governance_decision_id,
+          split_reason, provenance, audit_record_id, created_by
+        ) VALUES (
+          ${input.sourceSnapshot.snapshotId}, ${input.publicationPackageId}, ${input.governanceDecisionId},
+          ${input.splitReason}, ${tx.json(input.provenance as any)}, ${input.auditRecordId || null},
+          ${tx.json(input.actor as any)}
+        ) RETURNING id::text AS "splitId", source_published_record_id::text AS "sourcePublishedRecordId",
+          publication_package_id::text AS "publicationPackageId", governance_decision_id::text AS "governanceDecisionId",
+          split_reason AS "splitReason", provenance, audit_record_id::text AS "auditRecordId",
+          created_by AS "createdBy", created_at::text AS "createdAt"
+      `;
+      for (const [index, child] of input.childSnapshots.entries()) {
+        await tx`INSERT INTO historical_library_split_children (
+          split_id, child_published_record_id, sequence, redirect_metadata
+        ) VALUES (${row!.splitId}, ${child.snapshotId}, ${index + 1}, ${tx.json(input.redirects[child.snapshotId] as any)})`;
+      }
+      await appendLifecycleRecords(tx, {
+        operationType: "split", operationId: row!.splitId,
+        sourceId: input.sourceSnapshot.snapshotId, targetIds: input.childSnapshots.map((item) => item.snapshotId),
+        relationship: "split_into", governanceDecisionId: input.governanceDecisionId,
+        reason: input.splitReason, actor: input.actor, references: input.provenance
+      });
+      return { ...row!, childPublishedRecordIds: childIds };
+    });
+  },
+
+  async getContinuityByAuthorityId(authorityRecordId: string, limit = 200) {
+    const sql = getWriteSql("loading bounded historical library continuity");
+    return sql`
+      SELECT id::text, operation_type AS "operationType", operation_id::text AS "operationId",
+        source_published_record_id::text AS "sourcePublishedRecordId",
+        target_published_record_id::text AS "targetPublishedRecordId", relationship, lineage,
+        created_at::text AS "createdAt"
+      FROM historical_library_continuity_edges
+      WHERE source_published_record_id=${authorityRecordId} OR target_published_record_id=${authorityRecordId}
+      ORDER BY created_at, id LIMIT ${Math.min(Math.max(limit, 1), 200)}
+    `;
+  },
+
+  async getActiveCanonicalAuthority(authorityRef: AuthorityRef): Promise<PublishedMemorySnapshot | null> {
+    const sql = getWriteSql("loading exact active Historical Library canonical authority");
+    const [row] = await sql<PublishedMemorySnapshot[]>`
+      SELECT id::text AS "snapshotId", admission_id::text AS "admissionId",
+        authority_ref AS "authorityRef", snapshot, snapshot_hash AS "snapshotHash",
+        lifecycle, created_at::text AS "createdAt"
+      FROM historical_library_active_canonical_authority
+      WHERE authority_ref->>'authorityType'=${authorityRef.authorityType}
+        AND authority_ref->>'authorityId'=${authorityRef.authorityId}
+      LIMIT 1
+    `;
+    return row || null;
   },
 
   async createFeedbackLink(input: {

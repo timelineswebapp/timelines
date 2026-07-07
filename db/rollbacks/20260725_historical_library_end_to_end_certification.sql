@@ -1,0 +1,15 @@
+DROP TRIGGER IF EXISTS prevent_hl_cert_invariant_results_mut ON historical_library_certification_invariant_results;
+DROP TRIGGER IF EXISTS prevent_hl_cert_failure_results_mut ON historical_library_certification_failure_results;
+DROP TRIGGER IF EXISTS prevent_hl_cert_lifecycle_results_mut ON historical_library_certification_lifecycle_results;
+DROP TRIGGER IF EXISTS prevent_hl_cert_case_results_mut ON historical_library_certification_case_results;
+DROP TRIGGER IF EXISTS prevent_hl_cert_stage_results_mut ON historical_library_certification_stage_results;
+DROP TRIGGER IF EXISTS prevent_hl_cert_runs_mut ON historical_library_certification_runs;
+
+DROP TABLE IF EXISTS historical_library_certification_invariant_results;
+DROP TABLE IF EXISTS historical_library_certification_failure_results;
+DROP TABLE IF EXISTS historical_library_certification_lifecycle_results;
+DROP TABLE IF EXISTS historical_library_certification_case_results;
+DROP TABLE IF EXISTS historical_library_certification_stage_results;
+DROP TABLE IF EXISTS historical_library_certification_runs;
+
+DROP FUNCTION IF EXISTS prevent_historical_library_certification_mutation();

@@ -604,6 +604,20 @@ export const historicalLibraryPreservationSchema = historicalLibraryLifecycleBas
   preservationMetadata: z.record(z.unknown()).default({})
 });
 
+export const historicalLibraryWithdrawalSchema = historicalLibraryLifecycleBaseSchema.extend({
+  continuityPath: z.record(z.unknown()).default({})
+});
+
+export const historicalLibrarySupersessionSchema = historicalLibraryLifecycleBaseSchema.extend({
+  newPublishedRecordId: governanceDecisionIdSchema
+});
+
+export const historicalLibrarySplitSchema = historicalLibraryLifecycleBaseSchema.extend({
+  childPublishedRecordIds: z.array(governanceDecisionIdSchema).min(2).max(100),
+  provenance: z.record(z.unknown()),
+  redirects: z.record(z.record(z.unknown()))
+});
+
 export const historicalLibraryFeedbackGenerationSchema = z.object({
   lifecycleActionType: z.enum(["revision", "retirement", "merge", "preservation"]),
   lifecycleActionId: governanceDecisionIdSchema,

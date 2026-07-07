@@ -1,0 +1,15 @@
+DROP TRIGGER IF EXISTS prevent_pm_cert_invariant_results_mut ON published_memory_certification_invariant_results;
+DROP TRIGGER IF EXISTS prevent_pm_cert_failure_results_mut ON published_memory_certification_failure_results;
+DROP TRIGGER IF EXISTS prevent_pm_cert_lifecycle_results_mut ON published_memory_certification_lifecycle_results;
+DROP TRIGGER IF EXISTS prevent_pm_cert_case_results_mut ON published_memory_certification_case_results;
+DROP TRIGGER IF EXISTS prevent_pm_cert_stage_results_mut ON published_memory_certification_stage_results;
+DROP TRIGGER IF EXISTS prevent_pm_cert_runs_mut ON published_memory_certification_runs;
+
+DROP TABLE IF EXISTS published_memory_certification_invariant_results;
+DROP TABLE IF EXISTS published_memory_certification_failure_results;
+DROP TABLE IF EXISTS published_memory_certification_lifecycle_results;
+DROP TABLE IF EXISTS published_memory_certification_case_results;
+DROP TABLE IF EXISTS published_memory_certification_stage_results;
+DROP TABLE IF EXISTS published_memory_certification_runs;
+
+DROP FUNCTION IF EXISTS prevent_published_memory_certification_mutation();
