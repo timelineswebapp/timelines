@@ -89,5 +89,6 @@ jobs:
             fi
           }
 
+          invoke_institution "Factory" "/api/cron/factory"
           invoke_institution "Governance" "/api/cron/governance"
           invoke_institution "Maintenance" "/api/cron/maintenance"
