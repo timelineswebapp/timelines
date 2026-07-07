@@ -3,7 +3,7 @@ import { corpusRepository } from "@/src/server/repositories/corpus-repository";
 import { evidenceRepository } from "@/src/server/repositories/evidence-repository";
 import type { ExtractEvidenceInput, FactoryEvidenceReference } from "@/src/server/research-corpus/contracts";
 
-const MIN_EVIDENCE_CHARS = 40;
+const MIN_EVIDENCE_CHARS = 24;
 const MAX_EVIDENCE_CHARS = 600;
 
 function clampLimit(limit?: number): number {
