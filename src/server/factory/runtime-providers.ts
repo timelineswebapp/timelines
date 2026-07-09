@@ -302,9 +302,8 @@ const qwen14Provider: FactoryRuntimeProvider = {
       ? request.prompt
       : `/no_think
 You are TiMELiNES Factory historical intelligence.
-Return one complete JSON object only. Do not return {}. Do not include markdown.
-The JSON object must contain all required fields and non-empty arrays requested by the schema.
-If a field is uncertain, include a conservative value with source-grounded evidence instead of omitting it.
+Return one complete JSON object only. No markdown. Do not return {}.
+Omit unsupported optional fields. Use only supplied evidence.
 
 ${request.prompt}
 

@@ -1439,7 +1439,7 @@ describe("factory production memory foundation", () => {
     const objectExtractionWorker = canonicalFactoryWorkers.find(
       (worker) => worker.worker_id === "object_extraction_worker"
     );
-    assert.equal(objectExtractionWorker?.max_output_tokens, 4000);
+    assert.equal(objectExtractionWorker?.max_output_tokens, 900);
     assert.equal(objectExtractionWorker?.execution_timeout, 240);
   });
 

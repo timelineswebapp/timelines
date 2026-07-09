@@ -1,13 +1,11 @@
 const sharedContract = `
 Return one compact JSON object only.
 Required top-level keys: summary, confidence, boundary, sources, evidence, candidates.
-confidence must be a number such as 0.82, never "high", "medium", or text.
 boundary must be {"factoryOwned":true,"publicationAllowed":false,"governanceSubmissionAllowed":false}.
-sources must be non-empty: [{"sourceId":"source_1","title":"...","url":"..."}].
-evidence must be non-empty and use citations, not evidence_refs: [{"claim":"...","citations":[{"sourceId":"source_1","evidenceRecordId":"evidence_record_uuid","title":"...","url":"..."}]}].
+confidence must be numeric from 0 through 1.
+sources and evidence must be non-empty and use citations, not evidence_refs.
 Each candidate must include title, objectType, payload, evidence, sources.
-For every candidate_source payload include sourceId, title, url, publisher, credibility, citationNote, and evidenceSourceRefs.
-candidate_source publisher must never be empty. If exact publisher is unknown, derive a conservative publisher from the URL host or use "Unknown publisher".
+candidate_source payload requires sourceId, title, url, publisher, credibility, citationNote, evidenceSourceRefs.
 Use conservative historical claims and stable source titles/URLs only.
 `;
 
@@ -17,16 +15,15 @@ Required top-level keys: summary, confidence, boundary, candidates.
 confidence must be a number from 0 through 1.
 boundary must be {"factoryOwned":true,"publicationAllowed":false,"governanceSubmissionAllowed":false}.
 Each candidate must include title, objectType, payload, and evidenceRecordIds.
-Only reference evidenceRecordIds supplied in the Extraction evidence context, copied verbatim.
-Never invent provenance. Never generate source identifiers, URLs, publisher information, citations, or provenance metadata.
-If the supplied evidence does not support a candidate, return candidates as exactly [].
+Copy only supplied evidenceRecordIds. Never invent provenance, source IDs, URLs, publishers, citations, or metadata.
+If evidence is insufficient, return candidates as exactly [].
 `;
 
 export const factoryWorkerPromptTemplates: Record<string, string> = {
   research_worker: `
 Return one compact JSON object only.
 Required top-level keys: summary, confidence, boundary, claims, candidates.
-confidence must be a number such as 0.82, never "high", "medium", or text.
+confidence must be numeric from 0 through 1.
 boundary must be {"factoryOwned":true,"publicationAllowed":false,"governanceSubmissionAllowed":false}.
 claims must be non-empty and use evidenceRecordIds only.
 Each candidate must include title, objectType, payload, and evidenceRecordIds.
@@ -60,20 +57,12 @@ If the evidence does not support a specific canonical identity, return candidate
 Task: Extract chronology-rich candidate milestones.
 Candidate object type allowed: candidate_milestone.
 Payload must include date and datePrecision.
-A directly supported four-digit year is a complete date: copy the year exactly and set datePrecision to "year". Do not require month or day precision.
-The candidate title must identify the event using only supplied evidence.
-summary, location, and chronologyPosition are optional and may be omitted.
-If location is not explicitly supplied by evidence, omit it or set it to null. Never invent location.
-If summary is present, keep it bounded and include only details directly stated by the candidate's evidence records.
+Supported four-digit years are complete dates: copy the year and set datePrecision to "year".
+Title, summary, location, and chronologyPosition must be directly evidence-grounded. Omit unsupported optional fields.
 Treat each independently described historical event as a separate milestone candidate.
-Evaluate date consistency within each event only; do not require dates from different events to reconcile.
-Later publications, commentary, photographs, preservation records, or retrospective material do not invalidate an earlier independently supported event.
 Emit a candidate only when one or more supplied evidence records directly support that candidate's event and explicit date.
-A single validated evidence record that directly states an event and explicit date is sufficient; never require corroboration from a second record.
 If supplied evidence gives conflicting dates for the same event and does not resolve the conflict, emit no candidate for that event.
-Use ISO-like years or dates exactly as supplied where possible.
-Dates, titles, events, ordering, and temporal relationships must be directly supported by validated evidence.
-Never infer or invent chronology, events, titles, descriptions, or historical significance.
+Use ISO-like years/dates exactly as supplied. Never infer chronology, events, titles, descriptions, or significance.
 If the evidence does not support a complete milestone and explicit date, return candidates as exactly [] and state the grounding gap in summary.`,
 
   participation_extraction_worker: `${extractionContract}

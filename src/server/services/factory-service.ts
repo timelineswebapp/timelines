@@ -487,17 +487,14 @@ function assertWorkerExecutionPolicy(input: {
 }
 
 function renderPrompt(template: string, input: Record<string, unknown>, outputSchema: Record<string, unknown>): string {
+  void outputSchema;
   const boundary = [
-    "You are executing inside TiMELiNES Factory Runtime only.",
-    "Generate Factory-owned Production Memory candidates only.",
-    "Do not approve, certify, admit to Historical Library, publish, mutate projections, or mutate Platform read models.",
-    "Every candidate must include evidence and source attribution.",
-    "Return JSON that conforms to the provided output schema."
+    "TiMELiNES Factory Runtime only.",
+    "Generate Factory-owned Production Memory only.",
+    "No approval, certification, Library admission, publication, projection mutation, or Platform mutation.",
+    "Return one JSON object matching the enforced schema."
   ].join("\n");
   return `${boundary}
-
-Output schema:
-${JSON.stringify(outputSchema)}
 
 Prompt:
 ${template.replaceAll("{{input}}", JSON.stringify(input))}`;

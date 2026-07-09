@@ -60,7 +60,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_source", "candidate_context_record"],
     allowed_relationship_types: [],
     max_context_tokens: 12000,
-    max_output_tokens: 2000,
+    max_output_tokens: 900,
     execution_timeout: 120
   }),
   worker({
@@ -74,7 +74,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_source"],
     allowed_relationship_types: [],
     max_context_tokens: 10000,
-    max_output_tokens: 1600,
+    max_output_tokens: 900,
     execution_timeout: 90
   }),
   worker({
@@ -88,7 +88,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_source"],
     allowed_relationship_types: [],
     max_context_tokens: 10000,
-    max_output_tokens: 1600,
+    max_output_tokens: 900,
     execution_timeout: 90
   }),
   worker({
@@ -102,7 +102,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_historical_object"],
     allowed_relationship_types: [],
     max_context_tokens: 12000,
-    max_output_tokens: 4000,
+    max_output_tokens: 900,
     execution_timeout: 240
   }),
   worker({
@@ -116,7 +116,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_milestone"],
     allowed_relationship_types: [],
     max_context_tokens: 12000,
-    max_output_tokens: 2000,
+    max_output_tokens: 900,
     execution_timeout: 120
   }),
   worker({
@@ -130,7 +130,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_participation"],
     allowed_relationship_types: [],
     max_context_tokens: 12000,
-    max_output_tokens: 2000,
+    max_output_tokens: 700,
     execution_timeout: 120
   }),
   worker({
@@ -144,7 +144,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_relationship"],
     allowed_relationship_types: ["influences", "influenced_by", "member_of", "contains", "located_in", "succeeds", "preceded_by", "owns", "owned_by", "related_to"],
     max_context_tokens: 12000,
-    max_output_tokens: 2000,
+    max_output_tokens: 700,
     execution_timeout: 120
   }),
   worker({
@@ -158,7 +158,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_context_record"],
     allowed_relationship_types: [],
     max_context_tokens: 12000,
-    max_output_tokens: 3000,
+    max_output_tokens: 800,
     execution_timeout: 120
   }),
   worker({
@@ -172,7 +172,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: [],
     allowed_relationship_types: [],
     max_context_tokens: 10000,
-    max_output_tokens: 1800,
+    max_output_tokens: 800,
     execution_timeout: 90
   }),
   worker({
@@ -186,7 +186,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_historical_object", "candidate_milestone", "candidate_participation", "candidate_relationship", "candidate_source", "candidate_context_record"],
     allowed_relationship_types: ["influences", "influenced_by", "member_of", "contains", "located_in", "succeeds", "preceded_by", "owns", "owned_by", "related_to"],
     max_context_tokens: 12000,
-    max_output_tokens: 2200,
+    max_output_tokens: 900,
     execution_timeout: 120
   })
 ];
