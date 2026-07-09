@@ -292,6 +292,7 @@ const qwen14Provider: FactoryRuntimeProvider = {
         })
       : await localDevelopmentQwenLimiter.acquire();
     const startedAt = Date.now();
+    const providerExecutionStartedAt = new Date(startedAt).toISOString();
     const baseUrl = process.env.OLLAMA_BASE_URL || defaultOllamaBaseUrl;
     const requestUrl = `${baseUrl}/api/generate`;
     const method = "POST";
@@ -340,6 +341,8 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
       estimatedPromptTokens: promptTokenEstimate(prompt),
       maxOutputTokens: maxOutputTokens ?? null,
       timeoutMs,
+      providerQueueWaitMs: lease.queueWaitMs,
+      providerExecutionStartedAt,
       durationMs: Date.now() - startedAt,
       failureClass,
       transportCause: null,
@@ -424,6 +427,9 @@ ${compactSchemaInstruction((request.outputSchema || request.configuration.output
           promptChars: prompt.length,
           estimatedPromptTokens: promptTokenEstimate(prompt),
           maxOutputTokens: maxOutputTokens ?? null,
+          providerQueueWaitMs: lease.queueWaitMs,
+          providerExecutionStartedAt,
+          providerExecutionDurationMs: Date.now() - startedAt,
           promptTokens: payload.prompt_eval_count ?? null,
           completionTokens: payload.eval_count ?? null,
           totalTokens: (payload.prompt_eval_count ?? 0) + (payload.eval_count ?? 0),

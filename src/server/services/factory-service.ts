@@ -1576,6 +1576,46 @@ const deterministicResearchSteps = new Set([
 ]);
 const deterministicPublicationSteps = new Set(["editorial_timeline_compiler", "editorial_composition_planner", "editorial_writer"]);
 
+type FactoryRuntimeProfileEvent = {
+  event: string;
+  pipelineRunId?: string;
+  topicId?: string | null;
+  pipelineId?: string;
+  stage?: string;
+  workerKey?: string;
+  stepIndex?: number;
+  startedAt?: string;
+  finishedAt?: string;
+  elapsedMs?: number;
+  outcome?: "success" | "retry" | "failure" | "checkpoint";
+  details?: Record<string, unknown>;
+};
+
+function profileNow() {
+  return { epochMs: Date.now(), iso: new Date().toISOString() };
+}
+
+function logFactoryRuntimeProfile(input: FactoryRuntimeProfileEvent): void {
+  console.info(JSON.stringify({
+    level: "info",
+    component: "factory_runtime_profile",
+    ...input
+  }));
+}
+
+function numericDiagnostic(diagnostics: Record<string, unknown> | undefined, key: string): number | null {
+  const value = diagnostics?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function stageClassForWorker(workerKey: string): "research" | "extraction" | "validation" | "package" | "governance" {
+  if (workerKey === "research_worker" || deterministicResearchSteps.has(workerKey)) return "research";
+  if (EXTRACTION_WORKERS.has(workerKey)) return "extraction";
+  if (workerKey === "validation_worker") return "validation";
+  if (workerKey === "package_assembly_worker" || deterministicPublicationSteps.has(workerKey)) return "package";
+  return "governance";
+}
+
 function deterministicStepOutput(workerKey: string, context: ValidatedEvidenceContext): Record<string, unknown> {
   const base = {
     boundary: { factoryOwned: true, publicationAllowed: false, governanceSubmissionAllowed: false },
@@ -2042,6 +2082,22 @@ export const factoryService = {
         : input.input,
       actor: input.actor
     });
+    const pipelineStarted = profileNow();
+    const pipelineWorkerDurations: Array<{ workerKey: string; stage: string; elapsedMs: number; outcome: string; persistenceDurationMs: number }> = [];
+    const pipelineIdleDurations: number[] = [];
+    let previousWorkerFinishedAt: number | null = null;
+    logFactoryRuntimeProfile({
+      event: existingRun ? "pipeline_resumed" : "pipeline_started",
+      pipelineRunId: run.pipelineRunId,
+      pipelineId: pipeline.pipelineId,
+      topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+      startedAt: pipelineStarted.iso,
+      details: {
+        maxWorkers: input.maxWorkers ?? pipeline.steps.length,
+        totalWorkers: pipeline.steps.length,
+        existingRun: Boolean(existingRun)
+      }
+    });
     const completedSteps = existingRun ? await factoryRepository.listPipelineSteps(run.pipelineRunId) : [];
     const artifactRefs: string[] = existingRun ? [...run.artifactRefs] : [...(publicationLineage?.artifactRefs || [])];
     const factoryObjectRefs: string[] = existingRun ? [...run.factoryObjectRefs] : [...(publicationLineage?.factoryObjectRefs || [])];
@@ -2089,6 +2145,21 @@ export const factoryService = {
       if (stepIndex < nextStepIndex) continue;
       if (stepIndex >= nextStepIndex + workerLimit) break;
       const executionKey = `${run.pipelineRunId}:${stepIndex}:${workerKey}`;
+      const workerStarted = profileNow();
+      if (previousWorkerFinishedAt !== null) {
+        pipelineIdleDurations.push(workerStarted.epochMs - previousWorkerFinishedAt);
+      }
+      logFactoryRuntimeProfile({
+        event: "worker_started",
+        pipelineRunId: run.pipelineRunId,
+        pipelineId: pipeline.pipelineId,
+        topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+        workerKey,
+        stepIndex,
+        stage: stageClassForWorker(workerKey),
+        startedAt: workerStarted.iso,
+        details: { executionKey }
+      });
       const step = await factoryRepository.createPipelineStep({
         pipelineRunId: run.pipelineRunId,
         stepIndex,
@@ -2203,11 +2274,11 @@ export const factoryService = {
                   completionStatus: "completed"
                 }
               });
-              await factoryRepository.transitionPipelineRun({
-                pipelineRunId: run.pipelineRunId,
-                status: "running",
-                actor: input.actor,
-                artifactRefs: checkpointArtifactRefs,
+            await factoryRepository.transitionPipelineRun({
+              pipelineRunId: run.pipelineRunId,
+              status: "running",
+              actor: input.actor,
+              artifactRefs: checkpointArtifactRefs,
                 factoryObjectRefs,
                 packageDraftId
               });
@@ -2215,6 +2286,24 @@ export const factoryService = {
             });
             narrativeArtifactId = committedArtifactId;
             artifactRefs.push(committedArtifactId!);
+            const workerFinished = profileNow();
+            const elapsedMs = workerFinished.epochMs - workerStarted.epochMs;
+            pipelineWorkerDurations.push({ workerKey, stage: stageClassForWorker(workerKey), elapsedMs, outcome: "checkpoint", persistenceDurationMs: elapsedMs });
+            previousWorkerFinishedAt = workerFinished.epochMs;
+            logFactoryRuntimeProfile({
+              event: "worker_completed",
+              pipelineRunId: run.pipelineRunId,
+              pipelineId: pipeline.pipelineId,
+              topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+              workerKey,
+              stepIndex,
+              stage: stageClassForWorker(workerKey),
+              startedAt: workerStarted.iso,
+              finishedAt: workerFinished.iso,
+              elapsedMs,
+              outcome: "checkpoint",
+              details: { executionKey, artifactRefs: artifactRefs.length, factoryObjectRefs: factoryObjectRefs.length }
+            });
           } catch (error) {
             await finalizePipelineFailure({
               failure: createPipelineFailure({
@@ -2311,6 +2400,24 @@ export const factoryService = {
             });
             compositionArtifactId = committedArtifactId;
             artifactRefs.push(committedArtifactId!);
+            const workerFinished = profileNow();
+            const elapsedMs = workerFinished.epochMs - workerStarted.epochMs;
+            pipelineWorkerDurations.push({ workerKey, stage: stageClassForWorker(workerKey), elapsedMs, outcome: "checkpoint", persistenceDurationMs: elapsedMs });
+            previousWorkerFinishedAt = workerFinished.epochMs;
+            logFactoryRuntimeProfile({
+              event: "worker_completed",
+              pipelineRunId: run.pipelineRunId,
+              pipelineId: pipeline.pipelineId,
+              topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+              workerKey,
+              stepIndex,
+              stage: stageClassForWorker(workerKey),
+              startedAt: workerStarted.iso,
+              finishedAt: workerFinished.iso,
+              elapsedMs,
+              outcome: "checkpoint",
+              details: { executionKey, artifactRefs: artifactRefs.length, factoryObjectRefs: factoryObjectRefs.length }
+            });
           } catch (error) {
             await finalizePipelineFailure({
               failure: createPipelineFailure({
@@ -2394,6 +2501,24 @@ export const factoryService = {
           });
           compilerArtifactId = committedArtifactId;
           artifactRefs.push(committedArtifactId!);
+          const workerFinished = profileNow();
+          const elapsedMs = workerFinished.epochMs - workerStarted.epochMs;
+          pipelineWorkerDurations.push({ workerKey, stage: stageClassForWorker(workerKey), elapsedMs, outcome: "checkpoint", persistenceDurationMs: elapsedMs });
+          previousWorkerFinishedAt = workerFinished.epochMs;
+          logFactoryRuntimeProfile({
+            event: "worker_completed",
+            pipelineRunId: run.pipelineRunId,
+            pipelineId: pipeline.pipelineId,
+            topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+            workerKey,
+            stepIndex,
+            stage: stageClassForWorker(workerKey),
+            startedAt: workerStarted.iso,
+            finishedAt: workerFinished.iso,
+            elapsedMs,
+            outcome: "checkpoint",
+            details: { executionKey, artifactRefs: artifactRefs.length, factoryObjectRefs: factoryObjectRefs.length }
+          });
         } catch (error) {
           await finalizePipelineFailure({
             failure: createPipelineFailure({
@@ -2471,6 +2596,24 @@ export const factoryService = {
               packageDraftId
             });
           });
+          const workerFinished = profileNow();
+          const elapsedMs = workerFinished.epochMs - workerStarted.epochMs;
+          pipelineWorkerDurations.push({ workerKey, stage: stageClassForWorker(workerKey), elapsedMs, outcome: "checkpoint", persistenceDurationMs: elapsedMs });
+          previousWorkerFinishedAt = workerFinished.epochMs;
+          logFactoryRuntimeProfile({
+            event: "worker_completed",
+            pipelineRunId: run.pipelineRunId,
+            pipelineId: pipeline.pipelineId,
+            topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+            workerKey,
+            stepIndex,
+            stage: stageClassForWorker(workerKey),
+            startedAt: workerStarted.iso,
+            finishedAt: workerFinished.iso,
+            elapsedMs,
+            outcome: "checkpoint",
+            details: { executionKey, artifactRefs: artifactRefs.length, factoryObjectRefs: factoryObjectRefs.length }
+          });
         } catch (error) {
           await finalizePipelineFailure({
             failure: createPipelineFailure({
@@ -2510,6 +2653,9 @@ export const factoryService = {
       let validated = null;
       let lastFailure: unknown = null;
       const retryHistory: Array<Record<string, unknown>> = [];
+      let providerDurationMs = 0;
+      let validationDurationMs = 0;
+      let persistenceDurationMs = 0;
       const compactAuthorityResearch = Boolean(validatedEvidenceContext && pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker");
       const compactExtraction = pipeline.pipelineId === "historical_extraction_pipeline" && EXTRACTION_WORKERS.has(workerKey);
       const extractionEvidenceRefs = compactExtraction ? evidenceRefsFromPipelineInput(input.input) : [];
@@ -2543,6 +2689,7 @@ export const factoryService = {
         const maxAttempts = Math.max(1, contract.retry_policy.maxAttempts);
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           try {
+            const providerStartedAt = Date.now();
             const attemptResult = await provider.execute({
               prompt: objectExtractionCompiler
                 ? renderObjectExtractionCompilerPrompt(outputSchema, workerInput)
@@ -2566,6 +2713,8 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
               },
               timeoutMs: contract.execution_timeout * 1000
             });
+            providerDurationMs += Date.now() - providerStartedAt;
+            const validationStartedAt = Date.now();
             const attemptValidated = compactAuthorityResearch
               ? validateFactoryWorkerOutput({
                 workerKey,
@@ -2609,6 +2758,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
                 };
               }
             }
+            validationDurationMs += Date.now() - validationStartedAt;
             result = attemptResult;
             validated = attemptValidated;
             break;
@@ -2678,6 +2828,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
       };
       const objectType = candidateObjectTypeForWorker(workerKey);
 
+      const persistenceStartedAt = Date.now();
       await withWriteTransaction("committing Factory worker checkpoint", async () => {
       for (const candidate of validated.candidates) {
         const candidateType = candidate.objectType || objectType;
@@ -2784,9 +2935,63 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
         packageDraftId
       });
       });
+      persistenceDurationMs = Date.now() - persistenceStartedAt;
+      const workerFinished = profileNow();
+      const elapsedMs = workerFinished.epochMs - workerStarted.epochMs;
+      pipelineWorkerDurations.push({ workerKey, stage: stageClassForWorker(workerKey), elapsedMs, outcome: "success", persistenceDurationMs });
+      previousWorkerFinishedAt = workerFinished.epochMs;
+      logFactoryRuntimeProfile({
+        event: "worker_completed",
+        pipelineRunId: run.pipelineRunId,
+        pipelineId: pipeline.pipelineId,
+        topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+        workerKey,
+        stepIndex,
+        stage: stageClassForWorker(workerKey),
+        startedAt: workerStarted.iso,
+        finishedAt: workerFinished.iso,
+        elapsedMs,
+        outcome: "success",
+        details: {
+          executionKey,
+          promptSize: numericDiagnostic(result.diagnostics, "promptChars"),
+          estimatedPromptTokens: numericDiagnostic(result.diagnostics, "estimatedPromptTokens"),
+          outputTokenLimit: numericDiagnostic(result.diagnostics, "maxOutputTokens"),
+          actualCompletionTokens: numericDiagnostic(result.diagnostics, "completionTokens"),
+          retryCount: retryHistory.length,
+          providerQueueWaitMs: numericDiagnostic(result.diagnostics, "providerQueueWaitMs"),
+          providerExecutionDurationMs: numericDiagnostic(result.diagnostics, "providerExecutionDurationMs") ?? providerDurationMs,
+          validationDurationMs,
+          persistenceDurationMs,
+          totalWorkerDurationMs: elapsedMs,
+          artifactRefs: artifactRefs.length,
+          factoryObjectRefs: factoryObjectRefs.length
+        }
+      });
     }
 
     if (nextStepIndex + workerLimit < pipeline.steps.length) {
+      const pipelineFinished = profileNow();
+      logFactoryRuntimeProfile({
+        event: "pipeline_checkpoint",
+        pipelineRunId: run.pipelineRunId,
+        pipelineId: pipeline.pipelineId,
+        topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+        startedAt: pipelineStarted.iso,
+        finishedAt: pipelineFinished.iso,
+        elapsedMs: pipelineFinished.epochMs - pipelineStarted.epochMs,
+        outcome: "checkpoint",
+        details: {
+          workerTimeline: pipelineWorkerDurations,
+          idleTimeBetweenWorkersMs: pipelineIdleDurations,
+          databasePersistenceTimeMs: pipelineWorkerDurations.reduce((sum, item) => sum + item.persistenceDurationMs, 0),
+          researchDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "research").reduce((sum, item) => sum + item.elapsedMs, 0),
+          extractionDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "extraction").reduce((sum, item) => sum + item.elapsedMs, 0),
+          validationDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "validation").reduce((sum, item) => sum + item.elapsedMs, 0),
+          packageDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "package").reduce((sum, item) => sum + item.elapsedMs, 0),
+          governanceDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "governance").reduce((sum, item) => sum + item.elapsedMs, 0)
+        }
+      });
       return (await factoryRepository.getPipelineRun(run.pipelineRunId))!;
     }
     const completedRun = await factoryRepository.transitionPipelineRun({
@@ -2803,6 +3008,28 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
       actor: input.actor,
       reason: input.reason,
       afterState: completedRun as unknown as Record<string, unknown>
+    });
+    const pipelineFinished = profileNow();
+    logFactoryRuntimeProfile({
+      event: "pipeline_completed",
+      pipelineRunId: run.pipelineRunId,
+      pipelineId: pipeline.pipelineId,
+      topicId: typeof input.input.workflowId === "string" ? input.input.workflowId : null,
+      startedAt: pipelineStarted.iso,
+      finishedAt: pipelineFinished.iso,
+      elapsedMs: pipelineFinished.epochMs - pipelineStarted.epochMs,
+      outcome: "success",
+      details: {
+        workerTimeline: pipelineWorkerDurations,
+        idleTimeBetweenWorkersMs: pipelineIdleDurations,
+        databasePersistenceTimeMs: pipelineWorkerDurations.reduce((sum, item) => sum + item.persistenceDurationMs, 0),
+        researchDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "research").reduce((sum, item) => sum + item.elapsedMs, 0),
+        extractionDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "extraction").reduce((sum, item) => sum + item.elapsedMs, 0),
+        validationDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "validation").reduce((sum, item) => sum + item.elapsedMs, 0),
+        packageDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "package").reduce((sum, item) => sum + item.elapsedMs, 0),
+        governanceDurationMs: pipelineWorkerDurations.filter((item) => item.stage === "governance").reduce((sum, item) => sum + item.elapsedMs, 0),
+        totalWallClockDurationMs: pipelineFinished.epochMs - pipelineStarted.epochMs
+      }
     });
     return completedRun;
     } catch (error) {

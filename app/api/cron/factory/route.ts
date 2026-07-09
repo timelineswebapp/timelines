@@ -23,19 +23,26 @@ function deploymentDiagnostics() {
 
 export async function GET(request: Request) {
   if (!isAuthorizedCronRequest(request)) return fail(401, "Factory scheduler authentication failed.");
+  const cronStartedAt = Date.now();
+  const cronStartedIso = new Date(cronStartedAt).toISOString();
   const diagnostics = deploymentDiagnostics();
   console.info(JSON.stringify({
     level: "info",
     component: "factory_cron",
     event: "factory_cron_started",
+    cronRequestStartedAt: cronStartedIso,
     ...diagnostics
   }));
   const dispatcher = new FactoryDispatcher();
   const result = await dispatcher.runCycle();
+  const cronFinishedAt = Date.now();
   console.info(JSON.stringify({
     level: "info",
     component: "factory_cron",
     event: "factory_cron_completed",
+    cronRequestStartedAt: cronStartedIso,
+    httpResponseReturnedAt: new Date(cronFinishedAt).toISOString(),
+    totalCronDurationMs: cronFinishedAt - cronStartedAt,
     ...diagnostics,
     leasedWorkItemIds: "outcomes" in result && Array.isArray(result.outcomes)
       ? result.outcomes.map((outcome) => outcome.topicId)

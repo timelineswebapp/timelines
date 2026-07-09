@@ -202,6 +202,8 @@ export const factoryOperationsService = {
   },
 
   async executeLeasedTopic(topic: TopicWorkItem, workerId: string): Promise<TopicExecutionOutcome> {
+    const topicStartedAt = Date.now();
+    const topicStartedIso = new Date(topicStartedAt).toISOString();
     if (topic.status !== "running" || topic.leaseOwner !== workerId) {
       const reason = "authoritative_lease_not_owned";
       await repository.notify({
@@ -253,6 +255,7 @@ export const factoryOperationsService = {
           extraction: "historical_extraction_pipeline",
           publication_candidate: "publication_candidate_pipeline"
         } as const;
+        const pipelineStartedAt = Date.now();
         const run = await factoryService.startPipeline({
           pipelineId: pipelineIds[from],
           input: pipelineInput,
@@ -263,6 +266,21 @@ export const factoryOperationsService = {
           actor: "factory-operations",
           reason: `PE-001 workflow ${topic.workflowId}`
         });
+        const pipelineFinishedAt = Date.now();
+        console.info(JSON.stringify({
+          level: "info",
+          component: "factory_runtime_profile",
+          event: "topic_pipeline_timing",
+          topicId: topic.id,
+          workflowId: topic.workflowId,
+          stage: from,
+          pipelineId: pipelineIds[from],
+          factoryAcquiredWorkAt: topicStartedIso,
+          pipelineStartedAt: new Date(pipelineStartedAt).toISOString(),
+          pipelineEndedAt: new Date(pipelineFinishedAt).toISOString(),
+          pipelineElapsedMs: pipelineFinishedAt - pipelineStartedAt,
+          elapsedSinceWorkAcquiredMs: pipelineFinishedAt - topicStartedAt
+        }));
         if (!run) throw new ApiError(500, "FACTORY_PIPELINE_NO_RESULT", "Factory pipeline returned no persisted run.");
         context[`${from.replace("_candidate", "")}PipelineRunId`] = run.pipelineRunId;
         if (run.status === "running") to = from;
@@ -324,6 +342,9 @@ export const factoryOperationsService = {
       console.info(JSON.stringify({
         level: "info", component: "factory_operations", event: "topic_execution_completed",
         leasedId: topic.id, leasedType: "factory_topic_work_item", workerId,
+        factoryAcquiredWorkAt: topicStartedIso,
+        topicExecutionFinishedAt: new Date().toISOString(),
+        topicExecutionElapsedMs: Date.now() - topicStartedAt,
         previousState: { status: topic.status, stage: from },
         nextState: { status: updated.status, stage: updated.currentStage }, reason
       }));
