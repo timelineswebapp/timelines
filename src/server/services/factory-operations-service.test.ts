@@ -51,6 +51,21 @@ test("Runtime V2 renews worker-scoped leases during long execution", async () =>
   assert.match(repository, /AND status='running' AND current_stage=\$\{topic\.currentStage\}/);
 });
 
+test("Factory operation failures expose existing provider diagnostics without changing retry flow", async () => {
+  const [service, factory] = await Promise.all([
+    readFile("src/server/services/factory-operations-service.ts", "utf8"),
+    readFile("src/server/services/factory-service.ts", "utf8")
+  ]);
+  assert.match(factory, /event: "factory_pipeline_failed"/);
+  assert.match(factory, /diagnostics: failure\.diagnostics/);
+  assert.match(factory, /retryHistory: failure\.retryHistory/);
+  assert.match(service, /function errorDetails\(error: unknown\): Record<string, unknown>/);
+  assert.match(service, /details = errorDetails\(error\)/);
+  assert.match(service, /appendHistory\(topic\.id,[\s\S]*details/);
+  assert.match(service, /deduplicationKey: `\$\{topic\.workflowId\}:failure:\$\{from\}:\$\{topic\.retryCount \+ 1\}`,[\s\S]*details/);
+  assert.match(service, /nextState: \{ status, stage: from \}, reason: message, details/);
+});
+
 test("lease heartbeat renews repeatedly and stops without leaving a duplicate executor", async () => {
   const { startLeaseHeartbeat } = await import("@/src/server/services/factory-operations-service");
   let renewals = 0;

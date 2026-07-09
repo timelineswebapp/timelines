@@ -1782,6 +1782,26 @@ async function finalizePipelineFailure(input: {
     }));
   }
 
+  console.error(JSON.stringify({
+    level: "error",
+    component: "factory_pipeline",
+    event: "factory_pipeline_failed",
+    pipelineRunId: failure.pipelineRunId,
+    pipelineStepId: failure.pipelineStepId,
+    workerKey: failure.workerKey,
+    stepIndex: failure.stepIndex,
+    stage: failure.stage,
+    failureClass: failure.failureClass,
+    originalName: failure.originalName,
+    originalCode: failure.originalCode,
+    originalStatus: failure.originalStatus,
+    originalMessage: failure.originalMessage,
+    diagnostics: failure.diagnostics,
+    retryHistory: failure.retryHistory,
+    cleanupDiagnostics: failure.cleanupDiagnostics,
+    failure
+  }));
+
   throw factoryPipelineFailureError(failure);
 }
 
