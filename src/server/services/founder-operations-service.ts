@@ -34,7 +34,8 @@ function activityMessage(eventType: string, stage: string, category?: string): s
   if (eventType === "retry") return "Work retried";
   if (eventType === "replay") return "Work restarted from its last verified point";
   if (stage === "research") return "Research started";
-  if (stage === "extraction") return "Extraction completed";
+  if (stage === "extraction") return "Extraction in progress";
+  if (stage === "publication_candidate") return "Extraction completed";
   if (stage === "founder_review" || stage === "governance") return "Review required";
   if (stage === "published" || stage === "completed" || eventType === "passed") return "Published";
   return "Work progressed";

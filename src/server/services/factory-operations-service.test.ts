@@ -130,6 +130,8 @@ test("FOS-002A uses one Home read model and preserves certified workflow service
   assert.match(ui, /fetchAdmin<FounderHomeReadModel>\(\"\/api\/admin\/founder\/home\"\)/);
   assert.match(service, /factoryOperationsService\.mutateTopic/);
   assert.match(service, /getTopicBySourceReference\("public_request", sourceReference\)/);
+  assert.match(service, /if \(stage === "extraction"\) return "Extraction in progress"/);
+  assert.match(service, /if \(stage === "publication_candidate"\) return "Extraction completed"/);
   assert.match(repository, /source_reference=\$2/);
   assert.match(repository, /LIMIT \$\{Math\.max\(1, Math\.min\(50, limit\)\)\}/);
   assert.match(visitorRoute, /withAdminAuth/);
