@@ -1439,6 +1439,17 @@ describe("factory production memory foundation", () => {
     const objectExtractionWorker = canonicalFactoryWorkers.find(
       (worker) => worker.worker_id === "object_extraction_worker"
     );
+    const researchWorker = canonicalFactoryWorkers.find(
+      (worker) => worker.worker_id === "research_worker"
+    );
+    const extractionWorkers = canonicalFactoryWorkers.filter((worker) =>
+      worker.worker_category === "extraction"
+    );
+    assert.equal(researchWorker?.max_output_tokens, 1600);
+    assert.ok(
+      extractionWorkers.every((worker) => researchWorker!.max_output_tokens > worker.max_output_tokens),
+      "research_worker must keep a larger output budget than extraction workers to avoid deterministic compact research truncation."
+    );
     assert.equal(objectExtractionWorker?.max_output_tokens, 900);
     assert.equal(objectExtractionWorker?.execution_timeout, 240);
   });
