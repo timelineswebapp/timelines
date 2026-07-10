@@ -111,6 +111,93 @@ test("EXECUTION-001 schedules replay atomically and retries failed stages only",
   assert.match(repository, /ON CONFLICT \(idempotency_key\) DO NOTHING/);
 });
 
+test("TL-EXECUTION-LINEAGE-001 publication replay replaces downstream active lineage only", async () => {
+  const { stageContextForReplay } = await import("@/src/server/repositories/factory-operations-repository");
+  const context = stageContextForReplay({
+    boundary: "publication_candidate",
+    previousGeneration: 2,
+    nextGeneration: 3,
+    replayRequestId: "replay-1",
+    actor: "factory-operator",
+    stageContext: {
+      researchPipelineRunId: "research-run",
+      extractionPipelineRunId: "extraction-run",
+      publicationPipelineRunId: "failed-publication-run",
+      factoryPackageDraftId: "draft-1",
+      editorialReviewOutcome: "exceptional",
+      governanceHandoffId: "handoff-1",
+      governancePublicationPackageId: "governance-package-1",
+      historicalLibraryAdmissionId: "admission-1"
+    }
+  });
+
+  assert.equal(context.researchPipelineRunId, "research-run");
+  assert.equal(context.extractionPipelineRunId, "extraction-run");
+  assert.equal(context.publicationPipelineRunId, undefined);
+  assert.equal(context.factoryPackageDraftId, undefined);
+  assert.equal(context.governanceHandoffId, undefined);
+  assert.equal(context.governancePublicationPackageId, undefined);
+  assert.equal(context.historicalLibraryAdmissionId, undefined);
+  assert.equal(context.executionGeneration, 3);
+  assert.ok(Array.isArray(context.executionLineageHistory));
+  assert.deepEqual(context.executionLineageHistory.at(-1), {
+    replayRequestId: "replay-1",
+    boundary: "publication_candidate",
+    previousGeneration: 2,
+    nextGeneration: 3,
+    invalidatedActiveLineage: {
+      publicationPipelineRunId: "failed-publication-run",
+      factoryPackageDraftId: "draft-1",
+      editorialReviewOutcome: "exceptional",
+      governanceHandoffId: "handoff-1",
+      governancePublicationPackageId: "governance-package-1",
+      historicalLibraryAdmissionId: "admission-1"
+    },
+    requestedBy: "factory-operator"
+  });
+});
+
+test("TL-EXECUTION-LINEAGE-001 replay invalidation boundaries preserve certified upstream lineage", async () => {
+  const { stageContextForReplay } = await import("@/src/server/repositories/factory-operations-repository");
+  const base = {
+    researchPipelineRunId: "research-run",
+    extractionPipelineRunId: "extraction-run",
+    publicationPipelineRunId: "publication-run",
+    factoryPackageDraftId: "draft-1",
+    governanceHandoffId: "handoff-1",
+    governancePublicationPackageId: "governance-package-1",
+    historicalLibraryAdmissionId: "admission-1"
+  };
+
+  const extractionReplay = stageContextForReplay({
+    stageContext: base,
+    boundary: "extraction",
+    previousGeneration: 1,
+    nextGeneration: 2,
+    replayRequestId: "replay-extraction",
+    actor: "factory-operator"
+  });
+  assert.equal(extractionReplay.researchPipelineRunId, "research-run");
+  assert.equal(extractionReplay.extractionPipelineRunId, undefined);
+  assert.equal(extractionReplay.publicationPipelineRunId, undefined);
+
+  const governanceReplay = stageContextForReplay({
+    stageContext: base,
+    boundary: "governance",
+    previousGeneration: 1,
+    nextGeneration: 2,
+    replayRequestId: "replay-governance",
+    actor: "factory-operator"
+  });
+  assert.equal(governanceReplay.researchPipelineRunId, "research-run");
+  assert.equal(governanceReplay.extractionPipelineRunId, "extraction-run");
+  assert.equal(governanceReplay.publicationPipelineRunId, "publication-run");
+  assert.equal(governanceReplay.factoryPackageDraftId, "draft-1");
+  assert.equal(governanceReplay.governanceHandoffId, "handoff-1");
+  assert.equal(governanceReplay.governancePublicationPackageId, undefined);
+  assert.equal(governanceReplay.historicalLibraryAdmissionId, undefined);
+});
+
 test("Founder Operating System exposes operational controls without implementation language", async () => {
   const source = await readFile("components/admin/AdminFactoryOperations.tsx", "utf8");
   for (const label of ["Add Topics", "Queue Topics", "Production Queue", "Founder Inbox", "Operational Health", "Factory Mode"]) {

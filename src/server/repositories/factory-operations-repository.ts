@@ -18,6 +18,101 @@ type LeasedTopic = TopicWorkItem & {
   leasedPreviousStage: WorkflowStage;
 };
 
+const activeLineageKeysByReplayBoundary: Record<WorkflowStage, string[]> = {
+  queued: [
+    "researchPipelineRunId",
+    "extractionPipelineRunId",
+    "publicationPipelineRunId",
+    "factoryPackageDraftId",
+    "editorialReviewOutcome",
+    "editorialReviewReasons",
+    "governanceHandoffId",
+    "governancePublicationPackageId",
+    "historicalLibraryAdmissionId"
+  ],
+  research: [
+    "researchPipelineRunId",
+    "extractionPipelineRunId",
+    "publicationPipelineRunId",
+    "factoryPackageDraftId",
+    "editorialReviewOutcome",
+    "editorialReviewReasons",
+    "governanceHandoffId",
+    "governancePublicationPackageId",
+    "historicalLibraryAdmissionId"
+  ],
+  extraction: [
+    "extractionPipelineRunId",
+    "publicationPipelineRunId",
+    "factoryPackageDraftId",
+    "editorialReviewOutcome",
+    "editorialReviewReasons",
+    "governanceHandoffId",
+    "governancePublicationPackageId",
+    "historicalLibraryAdmissionId"
+  ],
+  publication_candidate: [
+    "publicationPipelineRunId",
+    "factoryPackageDraftId",
+    "editorialReviewOutcome",
+    "editorialReviewReasons",
+    "governanceHandoffId",
+    "governancePublicationPackageId",
+    "historicalLibraryAdmissionId"
+  ],
+  founder_review: [
+    "governanceHandoffId",
+    "governancePublicationPackageId",
+    "historicalLibraryAdmissionId"
+  ],
+  governance: [
+    "governancePublicationPackageId",
+    "historicalLibraryAdmissionId"
+  ],
+  library_admission: [
+    "historicalLibraryAdmissionId"
+  ],
+  published: [],
+  completed: []
+};
+
+export function stageContextForReplay(input: {
+  stageContext: Record<string, unknown>;
+  boundary: WorkflowStage;
+  previousGeneration: number;
+  nextGeneration: number;
+  replayRequestId: string;
+  actor: string;
+}): Record<string, unknown> {
+  const keysToInvalidate = activeLineageKeysByReplayBoundary[input.boundary];
+  const activeContext: Record<string, unknown> = { ...input.stageContext };
+  const invalidatedActiveLineage: Record<string, unknown> = {};
+  for (const key of keysToInvalidate) {
+    if (key in activeContext) {
+      invalidatedActiveLineage[key] = activeContext[key];
+      delete activeContext[key];
+    }
+  }
+  const priorHistory = Array.isArray(activeContext.executionLineageHistory)
+    ? activeContext.executionLineageHistory
+    : [];
+  return {
+    ...activeContext,
+    executionGeneration: input.nextGeneration,
+    executionLineageHistory: [
+      ...priorHistory,
+      {
+        replayRequestId: input.replayRequestId,
+        boundary: input.boundary,
+        previousGeneration: input.previousGeneration,
+        nextGeneration: input.nextGeneration,
+        invalidatedActiveLineage,
+        requestedBy: input.actor
+      }
+    ]
+  };
+}
+
 export const factoryOperationsRepository = {
   async addTopic(input: { title: string; source: TopicSource; sourceReference?: string | null; priority: number; maxRetries: number; actor: string }) {
     const sql = getWriteSql("adding Factory topic");
@@ -341,11 +436,19 @@ export const factoryOperationsRepository = {
         [topic.id, topic.workflowId, institution, input.boundary, input.actor, key]
       );
       if (!replay[0]) throw new ApiError(409, "DUPLICATE_REPLAY", "This certified boundary replay was already requested.");
+      const stageContext = stageContextForReplay({
+        stageContext: topic.stageContext,
+        boundary: input.boundary,
+        previousGeneration: topic.executionGeneration,
+        nextGeneration,
+        replayRequestId: replay[0].id,
+        actor: input.actor
+      });
       const [updated] = await tx.unsafe<TopicWorkItem[]>(
-        `UPDATE factory_topic_work_items SET status='queued',current_stage=$1,retry_count=0,execution_generation=$2,
+        `UPDATE factory_topic_work_items SET status='queued',current_stage=$1,retry_count=0,execution_generation=$2,stage_context=$3::jsonb,
           lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,next_attempt_at=NOW(),updated_at=NOW()
-         WHERE id=$3 AND status <> 'running' AND execution_generation=$4 RETURNING ${topicColumns}`,
-        [input.boundary, nextGeneration, topic.id, topic.executionGeneration]
+         WHERE id=$4 AND status <> 'running' AND execution_generation=$5 RETURNING ${topicColumns}`,
+        [input.boundary, nextGeneration, JSON.stringify(stageContext), topic.id, topic.executionGeneration]
       );
       if (!updated) throw new ApiError(409, "REPLAY_STAGE_ACTIVE", "Replay lost workflow ownership before scheduling.");
       return updated;
