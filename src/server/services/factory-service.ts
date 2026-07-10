@@ -30,6 +30,7 @@ import type {
   FactoryPipelineFailure,
   FactoryPipelineRun,
   FactoryPipelineRunStatus,
+  FactoryPipelineStep,
   FactoryRuntimeExecutionStatus,
   FactoryRuntimeJobStatus,
   FactoryRevisionPlanLifecycle
@@ -639,6 +640,197 @@ async function buildValidatedEvidenceContext(input: StartFactoryPipelineInput): 
     allowedUrls,
     editorialEvidenceSet: null
   };
+}
+
+function arrayPayload<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value as T[] : [];
+}
+
+function generatedPayload(step: FactoryPipelineStep): Record<string, unknown> {
+  const output = step.output;
+  if (!output || typeof output !== "object") return {};
+  const generated = (output as Record<string, unknown>).generated;
+  return generated && typeof generated === "object" ? generated as Record<string, unknown> : {};
+}
+
+function rebuildAuthoritySets(context: ValidatedEvidenceContext): ValidatedEvidenceContext {
+  const snapshotById = new Map(context.snapshots.map((snapshot) => [snapshot.snapshotId, snapshot]));
+  const sourceById = new Map(context.sourceRecords.map((record) => [record.sourceRecordId, record]));
+  const allowedSourceIds = new Set<string>();
+  const allowedUrls = new Set<string>();
+  const allowedEvidenceRecordIds = new Set<string>();
+  for (const record of context.evidenceRecords) {
+    const source = sourceById.get(record.sourceRecordId);
+    if (!source) continue;
+    allowedSourceIds.add(record.sourceRecordId);
+    allowedEvidenceRecordIds.add(record.evidenceRecordId);
+    for (const url of sourceUrls(source, snapshotById.get(record.sourceSnapshotId))) {
+      allowedUrls.add(url);
+    }
+  }
+  return {
+    ...context,
+    allowedSourceIds,
+    allowedEvidenceRecordIds,
+    allowedUrls
+  };
+}
+
+function validatedEvidenceRefsForContext(
+  evidenceRecords: EvidenceRecord[],
+  validationRecords: EvidenceValidationRecord[]
+): EvidenceRef[] {
+  const validationByEvidence = new Map(validationRecords.map((validation) => [validation.evidenceRecordId, validation]));
+  return evidenceRecords.flatMap((record) => {
+    const validation = validationByEvidence.get(record.evidenceRecordId);
+    return validation ? [evidenceRefFromValidation(record, validation)] : [];
+  });
+}
+
+function reconstructValidatedEvidenceContext(completedSteps: FactoryPipelineStep[]): ValidatedEvidenceContext {
+  const context: ValidatedEvidenceContext = {
+    sourceRecords: [],
+    snapshots: [],
+    corpusDocuments: [],
+    evidenceRecords: [],
+    validationRecords: [],
+    validatedEvidenceRefs: [],
+    allowedSourceIds: new Set(),
+    allowedEvidenceRecordIds: new Set(),
+    allowedUrls: new Set(),
+    editorialEvidenceSet: null
+  };
+  for (const step of completedSteps.filter((item) => item.status === "completed").sort((left, right) => left.stepIndex - right.stepIndex)) {
+    const generated = generatedPayload(step);
+    if (step.workerKey === "source_authority_discovery") {
+      context.sourceRecords = arrayPayload<SourceAuthorityRegistryRecord>(generated.sourceAuthorityRecords);
+    } else if (step.workerKey === "source_authority_retrieval") {
+      context.snapshots = arrayPayload<SourceAuthoritySnapshot>(generated.sourceAuthoritySnapshots);
+    } else if (step.workerKey === "research_corpus_generation") {
+      context.corpusDocuments = arrayPayload<CorpusDocument>(generated.corpusDocuments);
+    } else if (step.workerKey === "evidence_extraction") {
+      context.evidenceRecords = arrayPayload<EvidenceRecord>(generated.evidenceRecords);
+    } else if (step.workerKey === "evidence_validation") {
+      context.validationRecords = arrayPayload<EvidenceValidationRecord>(generated.evidenceValidationRecords);
+      context.evidenceRecords = context.evidenceRecords.filter((record) =>
+        context.validationRecords.some((validation) => validation.evidenceRecordId === record.evidenceRecordId && validation.status === "passed")
+      );
+      context.validatedEvidenceRefs = validatedEvidenceRefsForContext(context.evidenceRecords, context.validationRecords);
+    } else if (step.workerKey === "editorial_intelligence_foundation") {
+      const editorialEvidenceSet = generated.editorialEvidenceSet;
+      context.editorialEvidenceSet = editorialEvidenceSet && typeof editorialEvidenceSet === "object"
+        ? editorialEvidenceSet as EditorialEvidenceSet
+        : null;
+    }
+  }
+  return rebuildAuthoritySets(context);
+}
+
+function requireResearchContextState(
+  context: ValidatedEvidenceContext,
+  workerKey: string,
+  checks: Array<keyof Pick<ValidatedEvidenceContext, "sourceRecords" | "snapshots" | "corpusDocuments" | "evidenceRecords" | "validationRecords" | "validatedEvidenceRefs">>
+): void {
+  for (const key of checks) {
+    if (context[key].length === 0) {
+      throw new ApiError(409, "FACTORY_RESEARCH_CONTEXT_INCOMPLETE", `${workerKey} resume requires persisted ${key}.`);
+    }
+  }
+}
+
+async function executeResearchCheckpointWorker(
+  workerKey: string,
+  input: StartFactoryPipelineInput,
+  completedSteps: FactoryPipelineStep[]
+): Promise<ValidatedEvidenceContext> {
+  const subject = typeof input.input.subject === "string" && input.input.subject.trim()
+    ? input.input.subject.trim()
+    : typeof input.input.query === "string" && input.input.query.trim()
+      ? input.input.query.trim()
+      : "";
+  if (!subject) {
+    throw new ApiError(400, "FACTORY_RESEARCH_SUBJECT_REQUIRED", "Authority-grounded research requires a subject or query.");
+  }
+  const context = reconstructValidatedEvidenceContext(completedSteps);
+  if (workerKey === "source_authority_discovery") {
+    const discovery = await sourceDiscoveryService.discover({
+      query: subject,
+      providers: Array.isArray(input.input.providers) ? input.input.providers as never : undefined,
+      limit: typeof input.input.sourceLimit === "number" ? input.input.sourceLimit : 3,
+      actor: input.actor
+    });
+    if (discovery.records.length === 0) {
+      throw new ApiError(409, "SOURCE_AUTHORITY_RECORDS_REQUIRED", "Historical research requires at least one discovered Source Authority record.");
+    }
+    return rebuildAuthoritySets({ ...context, sourceRecords: discovery.records });
+  }
+  if (workerKey === "source_authority_retrieval") {
+    requireResearchContextState(context, workerKey, ["sourceRecords"]);
+    const snapshots: SourceAuthoritySnapshot[] = [];
+    let firstRetrievalFailure: unknown = null;
+    for (const sourceRecord of context.sourceRecords) {
+      try {
+        const retrieval = await sourceRetrievalService.retrieve({ sourceRecordId: sourceRecord.sourceRecordId, actor: input.actor });
+        snapshots.push(retrieval.snapshot);
+      } catch (error) {
+        firstRetrievalFailure ||= error;
+        console.warn(JSON.stringify({
+          level: "warn",
+          component: "factory_research",
+          event: "source_retrieval_skipped",
+          sourceRecordId: sourceRecord.sourceRecordId,
+          provider: sourceRecord.provider,
+          message: error instanceof Error ? error.message : "Source retrieval failed."
+        }));
+      }
+    }
+    if (snapshots.length === 0 && firstRetrievalFailure) throw firstRetrievalFailure;
+    return rebuildAuthoritySets({ ...context, snapshots });
+  }
+  if (workerKey === "research_corpus_generation") {
+    requireResearchContextState(context, workerKey, ["sourceRecords", "snapshots"]);
+    const corpusDocuments = await Promise.all(context.snapshots.map((snapshot) =>
+      corpusGenerationService.generateFromSourceSnapshot({ sourceSnapshotId: snapshot.snapshotId, actor: input.actor })
+    ));
+    return rebuildAuthoritySets({ ...context, corpusDocuments });
+  }
+  if (workerKey === "evidence_extraction") {
+    requireResearchContextState(context, workerKey, ["sourceRecords", "snapshots", "corpusDocuments"]);
+    const extracted = await Promise.all(context.corpusDocuments.map((document) =>
+      evidenceExtractionService.extractFromCorpusDocument({
+        corpusDocumentId: document.corpusDocumentId,
+        actor: input.actor,
+        maxEvidenceRecords: typeof input.input.maxEvidenceRecordsPerSource === "number" ? input.input.maxEvidenceRecordsPerSource : 5
+      })
+    ));
+    return rebuildAuthoritySets({ ...context, evidenceRecords: extracted.flat() });
+  }
+  if (workerKey === "evidence_validation") {
+    requireResearchContextState(context, workerKey, ["sourceRecords", "snapshots", "corpusDocuments", "evidenceRecords"]);
+    const validations = await Promise.all(context.evidenceRecords.map((record) =>
+      evidenceValidationService.validateEvidence({ evidenceRecordId: record.evidenceRecordId, actor: input.actor, topic: subject })
+    ));
+    const validationRecords = validations.filter((validation) => validation.status === "passed");
+    const evidenceRecords = context.evidenceRecords.filter((record) =>
+      validationRecords.some((validation) => validation.evidenceRecordId === record.evidenceRecordId)
+    );
+    if (evidenceRecords.length === 0) {
+      throw new ApiError(409, "PASSED_EVIDENCE_REQUIRED", "Historical research requires at least one passed evidence validation record.");
+    }
+    return rebuildAuthoritySets({
+      ...context,
+      evidenceRecords,
+      validationRecords,
+      validatedEvidenceRefs: validatedEvidenceRefsForContext(evidenceRecords, validationRecords)
+    });
+  }
+  requireResearchContextState(context, workerKey, ["sourceRecords", "snapshots", "corpusDocuments", "evidenceRecords", "validationRecords", "validatedEvidenceRefs"]);
+  context.editorialEvidenceSet = await editorialFoundationService.prepareFromValidatedEvidence({
+    topic: subject,
+    actor: input.actor,
+    evidence: editorialEvidenceSubjects(context)
+  });
+  return rebuildAuthoritySets(context);
 }
 
 function editorialEvidenceSubjects(context: ValidatedEvidenceContext): EditorialEvidenceSubject[] {
@@ -2541,17 +2733,7 @@ export const factoryService = {
 
       if (deterministicResearchSteps.has(workerKey)) {
         try {
-          validatedEvidenceContext ||= await buildValidatedEvidenceContext(input);
-          if (workerKey === "editorial_intelligence_foundation") {
-            const subject = typeof input.input.subject === "string" && input.input.subject.trim()
-              ? input.input.subject.trim()
-              : String(input.input.query || "").trim();
-            validatedEvidenceContext.editorialEvidenceSet = await editorialFoundationService.prepareFromValidatedEvidence({
-              topic: subject,
-              actor: input.actor,
-              evidence: editorialEvidenceSubjects(validatedEvidenceContext)
-            });
-          }
+          validatedEvidenceContext = await executeResearchCheckpointWorker(workerKey, input, completedSteps);
           const stepOutput = {
             ...pipelineStepOutput({
               pipelineId: pipeline.pipelineId,
@@ -2580,6 +2762,7 @@ export const factoryService = {
               artifactRefs: [...artifactRefs],
               factoryObjectRefs: [...factoryObjectRefs]
             });
+            completedSteps.push(completedStep);
             await factoryRepository.createRuntimeAuditRecord({
               targetRef: { authorityType: "factory_runtime_execution", authorityId: completedStep.pipelineStepId },
               action: "complete_pipeline_step",
@@ -2646,6 +2829,17 @@ export const factoryService = {
           artifactRefs,
           factoryObjectRefs
         });
+      }
+      if (pipeline.pipelineId === "historical_research_pipeline" && workerKey === "research_worker" && !validatedEvidenceContext) {
+        validatedEvidenceContext = reconstructValidatedEvidenceContext(completedSteps);
+        requireResearchContextState(
+          validatedEvidenceContext,
+          workerKey,
+          ["sourceRecords", "snapshots", "corpusDocuments", "evidenceRecords", "validationRecords", "validatedEvidenceRefs"]
+        );
+        if (!validatedEvidenceContext.editorialEvidenceSet) {
+          throw new ApiError(409, "FACTORY_RESEARCH_CONTEXT_INCOMPLETE", "research_worker resume requires persisted editorialEvidenceSet.");
+        }
       }
       const contract = getCanonicalFactoryWorker(workerKey)!;
       const provider = getFactoryRuntimeProvider("qwen14");

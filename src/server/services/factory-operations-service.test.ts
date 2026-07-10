@@ -45,7 +45,7 @@ test("Runtime V2 renews worker-scoped leases during long execution", async () =>
   assert.match(service, /repository\.heartbeat\(topic\.id, workerId, WORKER_LEASE_SECONDS\)/);
   assert.match(service, /await leaseHeartbeat\.stop\(\)/);
   assert.match(service, /leaseHeartbeat\.assertOwned\(\)/);
-  assert.match(service, /maxWorkers: from === "research" \? undefined : 1/);
+  assert.match(service, /maxWorkers: 1/);
   assert.match(service, /topic\.status !== "running" \|\| topic\.leaseOwner !== workerId/);
   assert.match(repository, /lease_expires_at >= NOW\(\)/);
   assert.match(repository, /AND status='running' AND current_stage=\$\{topic\.currentStage\}/);

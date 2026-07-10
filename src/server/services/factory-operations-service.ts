@@ -262,7 +262,7 @@ export const factoryOperationsService = {
           pipelineRunId: typeof topic.stageContext[`${from.replace("_candidate", "")}PipelineRunId`] === "string"
             ? topic.stageContext[`${from.replace("_candidate", "")}PipelineRunId`] as string
             : undefined,
-          maxWorkers: from === "research" ? undefined : 1,
+          maxWorkers: 1,
           actor: "factory-operations",
           reason: `PE-001 workflow ${topic.workflowId}`
         });
