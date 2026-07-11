@@ -11,8 +11,12 @@ export const adsService = {
     return adsRepository.getDashboardData();
   },
 
-  getPublicAssignments(slots: AdSlotKey[]) {
-    return adsRepository.getPublicAssignments(slots);
+  async getPublicAssignments(slots: AdSlotKey[]) {
+    try {
+      return await adsRepository.getPublicAssignments(slots);
+    } catch {
+      return [];
+    }
   },
 
   createCampaign(input: CampaignInput) {

@@ -16,10 +16,10 @@ function normalizeLastModified(value?: string): string {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [categories, tags, timelines, milestones] = await Promise.all([
-    contentService.listCategoryEntries(),
-    contentService.listTags(),
-    contentService.listSitemapEntries(),
-    contentService.listMilestoneSitemapEntries()
+    contentService.listCategoryEntries().catch(() => []),
+    contentService.listTags().catch(() => []),
+    contentService.listSitemapEntries().catch(() => []),
+    contentService.listMilestoneSitemapEntries().catch(() => [])
   ]);
 
   const staticEntries: MetadataRoute.Sitemap = [

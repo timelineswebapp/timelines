@@ -22,8 +22,12 @@ function getCategoryIntro(slug: string, categoryName: string) {
 }
 
 export async function generateStaticParams() {
-  const categories = await contentService.listCategoryEntries();
-  return categories.map((category) => ({ slug: category.slug }));
+  try {
+    const categories = await contentService.listCategoryEntries();
+    return categories.map((category) => ({ slug: category.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

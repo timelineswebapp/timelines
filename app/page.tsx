@@ -33,8 +33,13 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const [homeFeedAd, homepageSnapshot, categoryEntries] = await Promise.all([
     adsService.getPublicAssignments(["home_feed_ad"]).then((assignments) => assignments[0] ?? null),
-    contentService.getHomepageSnapshotSlice(0, 12),
-    SHOW_HOME_TAXONOMY_SECTION ? contentService.listCategoryEntries() : Promise.resolve([])
+    contentService.getHomepageSnapshotSlice(0, 12).catch(() => ({
+      items: [],
+      nextOffset: null,
+      hasMore: false,
+      snapshotDate: new Date().toISOString().slice(0, 10)
+    })),
+    SHOW_HOME_TAXONOMY_SECTION ? contentService.listCategoryEntries().catch(() => []) : Promise.resolve([])
   ]);
   const activeHomeFeedAd = homeFeedAd?.activeCampaign ? homeFeedAd : null;
   const homepageJsonLd = buildHomePageJsonLd();
