@@ -136,9 +136,13 @@ CREATE INDEX idx_factory_editorial_narrative_sentences_parent ON factory_editori
 CREATE INDEX idx_factory_editorial_narrative_claim_evidence ON factory_editorial_narrative_sentence_claims(evidence_record_id, narrative_id);
 
 CREATE OR REPLACE FUNCTION enforce_editorial_narrative_integrity() RETURNS TRIGGER AS $$
-DECLARE nid UUID; section_count INTEGER; milestone_count INTEGER; selected_count INTEGER;
+DECLARE nid UUID; section_count INTEGER; milestone_count INTEGER; selected_count INTEGER; inserted_row JSONB;
 BEGIN
-  nid := CASE WHEN TG_TABLE_NAME = 'factory_editorial_narratives' THEN NEW.id ELSE NEW.narrative_id END;
+  inserted_row := to_jsonb(NEW);
+  nid := COALESCE((inserted_row->>'narrative_id')::UUID, (inserted_row->>'id')::UUID);
+  IF nid IS NULL THEN
+    RAISE EXCEPTION 'EditorialNarrative integrity trigger could not resolve narrative id.';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM factory_editorial_narratives n JOIN factory_objects o ON o.id=n.factory_object_id
     WHERE n.id=nid AND o.object_type='editorial_narrative') THEN
     RAISE EXCEPTION 'EditorialNarrative must own an editorial_narrative Factory object.';

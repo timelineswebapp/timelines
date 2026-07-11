@@ -1116,6 +1116,95 @@ async function buildExtractionEvidenceContext(
   }));
 }
 
+const YEAR_NAMED_EVENT_PATTERNS: ReadonlyArray<{ pattern: RegExp; titleIndex: number; yearIndex: number }> = [
+  { pattern: /\b(the\s+)?(\d{4}\s+(?:Spanish flu|flu|influenza|H1N1|COVID-19)\s+pandemic)\b/i, titleIndex: 2, yearIndex: 2 },
+  { pattern: /\b(the\s+)?(\d{4}\s+(?:Spanish flu|flu|influenza|H1N1|COVID-19))\b/i, titleIndex: 2, yearIndex: 2 },
+  { pattern: /\b(the\s+)?(\d{4}\s+(?:cholera|plague|smallpox|tuberculosis|ebola|zika)\s+(?:pandemic|epidemic|outbreak))\b/i, titleIndex: 2, yearIndex: 2 }
+];
+
+const BIBLIOGRAPHIC_MILESTONE_EVIDENCE = /\b(?:publication date|<cite>|isbn|issn|doi|article|book|chapter|paper|study|journal)\b/i;
+
+function titleCaseEvent(value: string): string {
+  return value.replace(/\s+/g, " ").trim().replace(/\b[a-z][a-z-]*/gi, (word) => {
+    if (/^flu$/i.test(word)) return "flu";
+    if (/^h1n1$/i.test(word)) return "H1N1";
+    if (/^covid-19$/i.test(word)) return "COVID-19";
+    return `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
+  });
+}
+
+function normalizeMilestoneTitle(value: string): string {
+  return value
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\bflu\b/gi, "flu")
+    .replace(/\bh1n1\b/gi, "H1N1")
+    .replace(/\bcovid-19\b/gi, "COVID-19")
+    .replace(/(?<!^)\b(Pandemic|Epidemic|Outbreak)\b/g, (word) => word.toLowerCase());
+}
+
+function normalizeCandidateTitle(candidateType: FactoryObjectType | undefined, title: string): string {
+  return candidateType === "candidate_milestone" ? normalizeMilestoneTitle(title) : title;
+}
+
+function normalizeCandidatePayload(
+  candidateType: FactoryObjectType | undefined,
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  if (candidateType !== "candidate_milestone") return payload;
+  const title = typeof payload.title === "string" ? normalizeMilestoneTitle(payload.title) : payload.title;
+  return {
+    ...payload,
+    ...(typeof title === "string" ? { title } : {})
+  };
+}
+
+async function explicitYearMilestoneFallback(
+  refs: EvidenceRef[],
+  existing: CompactExtractionWorkerOutput
+): Promise<CompactExtractionWorkerOutput> {
+  if (existing.candidates.length > 0) return existing;
+  const candidates: CompactExtractionWorkerOutput["candidates"] = [];
+  const seen = new Set<string>();
+  for (const ref of refs) {
+    if (!ref.evidenceRecordId) continue;
+    const subject = await evidenceValidationRepository.requireEvidenceSubject(ref.evidenceRecordId);
+    const evidenceText = `${subject.normalizedClaim} ${subject.quoteText}`.replace(/\s+/g, " ").trim();
+    if (!evidenceText || BIBLIOGRAPHIC_MILESTONE_EVIDENCE.test(evidenceText)) continue;
+    for (const { pattern, titleIndex, yearIndex } of YEAR_NAMED_EVENT_PATTERNS) {
+      const match = evidenceText.match(pattern);
+      const rawTitle = match?.[titleIndex];
+      const rawYear = match?.[yearIndex]?.match(/\b\d{4}\b/)?.[0];
+      if (!rawTitle || !rawYear) continue;
+      const title = titleCaseEvent(rawTitle);
+      const key = `${rawYear}:${title.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push({
+        title,
+        objectType: "candidate_milestone",
+        payload: {
+          title,
+          date: rawYear,
+          datePrecision: "year",
+          summary: subject.normalizedClaim,
+          sourceRefs: [ref.evidenceRecordId]
+        },
+        evidenceRecordIds: [ref.evidenceRecordId]
+      });
+      break;
+    }
+    if (candidates.length >= 8) break;
+  }
+  if (candidates.length === 0) return existing;
+  return {
+    ...existing,
+    summary: `${existing.summary} Deterministic explicit-year milestones extracted from validated evidence.`,
+    confidence: Math.max(existing.confidence, 0.9),
+    candidates
+  };
+}
+
 async function hydrateExtractionWorkerOutput(
   output: CompactExtractionWorkerOutput,
   refs: EvidenceRef[]
@@ -2380,22 +2469,23 @@ export const factoryService = {
             factoryObjectRefs
           });
           try {
+            const writerResult = await editorialWriterCheckpointExecutor({
+              editorialCompositionId: persistedEditorialComposition!.compositionId,
+              editorialTimelineCandidateId: persistedTimelineCandidate!.candidateId,
+              editorialEvidenceSetId: publicationLineage.editorialEvidenceSetId,
+              expectedTimelineCandidate: publicationLineage.compilerCandidate,
+              writerConfigurationBindingId: publicationLineage.writerConfigurationBindingId,
+              executionKey,
+              actor: input.actor,
+              revision: publicationLineage.regenerationSourceNarrative
+                ? publicationLineage.regenerationSourceNarrative.revision.revision + 1
+                : 1,
+              supersedesNarrativeId: publicationLineage.regenerationSourceNarrative?.narrativeId || null
+            });
+            const editorialNarrative = writerResult.narrative;
+            persistedEditorialNarrative = editorialNarrative;
             let committedArtifactId: string | null = null;
             await withWriteTransaction("committing Editorial Writer checkpoint", async () => {
-              const writerResult = await editorialWriterCheckpointExecutor({
-                editorialCompositionId: persistedEditorialComposition!.compositionId,
-                editorialTimelineCandidateId: persistedTimelineCandidate!.candidateId,
-                editorialEvidenceSetId: publicationLineage.editorialEvidenceSetId,
-                expectedTimelineCandidate: publicationLineage.compilerCandidate,
-                writerConfigurationBindingId: publicationLineage.writerConfigurationBindingId,
-                executionKey,
-                actor: input.actor,
-                revision: publicationLineage.regenerationSourceNarrative
-                  ? publicationLineage.regenerationSourceNarrative.revision.revision + 1
-                  : 1,
-                supersedesNarrativeId: publicationLineage.regenerationSourceNarrative?.narrativeId || null
-              });
-              persistedEditorialNarrative = writerResult.narrative;
               const stepOutput = {
                 ...pipelineStepOutput({
                   pipelineId: pipeline.pipelineId,
@@ -2406,25 +2496,25 @@ export const factoryService = {
                   previousFactoryObjectRefs: factoryObjectRefs
                 }),
                 executionKey,
-                editorialNarrativeId: persistedEditorialNarrative.narrativeId,
-                editorialNarrativeFactoryObjectId: persistedEditorialNarrative.factoryObjectId,
-                editorialCompositionId: persistedEditorialNarrative.editorialCompositionId,
-                editorialTimelineCandidateId: persistedEditorialNarrative.editorialTimelineCandidateId,
-                editorialEvidenceSetId: persistedEditorialNarrative.editorialEvidenceSetId,
+                editorialNarrativeId: editorialNarrative.narrativeId,
+                editorialNarrativeFactoryObjectId: editorialNarrative.factoryObjectId,
+                editorialCompositionId: editorialNarrative.editorialCompositionId,
+                editorialTimelineCandidateId: editorialNarrative.editorialTimelineCandidateId,
+                editorialEvidenceSetId: editorialNarrative.editorialEvidenceSetId,
                 writerConfigurationBindingId: publicationLineage.writerConfigurationBindingId,
-                writerInputFingerprint: persistedEditorialNarrative.writerInputFingerprint,
-                narrativeOutputFingerprint: persistedEditorialNarrative.narrativeOutputFingerprint,
-                promptLineage: persistedEditorialNarrative.prompts.map((prompt) => ({
+                writerInputFingerprint: editorialNarrative.writerInputFingerprint,
+                narrativeOutputFingerprint: editorialNarrative.narrativeOutputFingerprint,
+                promptLineage: editorialNarrative.prompts.map((prompt) => ({
                   promptId: prompt.promptId,
                   promptVersion: prompt.promptVersion,
                   promptFingerprint: prompt.promptFingerprint
                 })),
-                writingPolicyFingerprint: persistedEditorialNarrative.writingPolicy.fingerprint,
-                providerRuntimeFingerprint: persistedEditorialNarrative.providerProvenance.runtimeFingerprint,
-                selectedMilestoneRefs: persistedEditorialNarrative.sections.flatMap((section) =>
+                writingPolicyFingerprint: editorialNarrative.writingPolicy.fingerprint,
+                providerRuntimeFingerprint: editorialNarrative.providerProvenance.runtimeFingerprint,
+                selectedMilestoneRefs: editorialNarrative.sections.flatMap((section) =>
                   section.paragraphs.flatMap((paragraph) => paragraph.sentences.flatMap((sentence) => sentence.milestoneIds))
                 ),
-                evidenceRefs: persistedEditorialNarrative.narrativeClaimMap.entries.flatMap((entry) => entry.evidenceRecordIds),
+                evidenceRefs: editorialNarrative.narrativeClaimMap.entries.flatMap((entry) => entry.evidenceRecordIds),
                 reusedNarrative: writerResult.reusedNarrative,
                 boundary: {
                   factoryOwned: true,
@@ -2433,13 +2523,13 @@ export const factoryService = {
                 }
               };
               const artifact = await factoryRepository.createArtifact({
-                factoryObjectId: persistedEditorialNarrative.factoryObjectId,
+                factoryObjectId: editorialNarrative.factoryObjectId,
                 artifactType: "generation",
                 title: "EditorialNarrative writer output",
                 payload: stepOutput,
                 authoritySafe: false,
-                modelProvider: persistedEditorialNarrative.providerProvenance.provider,
-                modelName: persistedEditorialNarrative.providerProvenance.model,
+                modelProvider: editorialNarrative.providerProvenance.provider,
+                modelName: editorialNarrative.providerProvenance.model,
                 actor: input.actor
               });
               const checkpointArtifactRefs = [...artifactRefs, artifact.artifactId];
@@ -2456,13 +2546,13 @@ export const factoryService = {
                 actor: input.actor,
                 reason: input.reason,
                 afterState: {
-                  executionDurationMs: persistedEditorialNarrative.diagnostics.reduce((sum, item) => sum + item.latencyMs, 0),
-                  provider: persistedEditorialNarrative.providerProvenance.provider,
-                  model: persistedEditorialNarrative.providerProvenance.model,
-                  promptVersions: persistedEditorialNarrative.prompts.map((prompt) => prompt.promptVersion),
-                  policyVersion: persistedEditorialNarrative.writingPolicy.version,
-                  outputFingerprint: persistedEditorialNarrative.narrativeOutputFingerprint,
-                  retryCount: persistedEditorialNarrative.diagnostics.reduce((sum, item) => sum + item.retryCount, 0),
+                  executionDurationMs: editorialNarrative.diagnostics.reduce((sum, item) => sum + item.latencyMs, 0),
+                  provider: editorialNarrative.providerProvenance.provider,
+                  model: editorialNarrative.providerProvenance.model,
+                  promptVersions: editorialNarrative.prompts.map((prompt) => prompt.promptVersion),
+                  policyVersion: editorialNarrative.writingPolicy.version,
+                  outputFingerprint: editorialNarrative.narrativeOutputFingerprint,
+                  retryCount: editorialNarrative.diagnostics.reduce((sum, item) => sum + item.retryCount, 0),
                   completionStatus: "completed"
                 }
               });
@@ -2916,11 +3006,17 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
                 output: hydrateResearchWorkerOutput(validateCompactResearchWorkerOutput(attemptResult.output), validatedEvidenceContext!)
               })
               : compactExtraction
-                ? await hydrateExtractionWorkerOutput(validateCompactExtractionWorkerOutput({
-                  workerKey,
-                  allowedObjectTypes: contract.allowed_object_types,
-                  output: attemptResult.output
-                }), extractionEvidenceRefs)
+                ? await (async () => {
+                  const compactValidated = validateCompactExtractionWorkerOutput({
+                    workerKey,
+                    allowedObjectTypes: contract.allowed_object_types,
+                    output: attemptResult.output
+                  });
+                  const compactWithFallback = workerKey === "milestone_extraction_worker"
+                    ? await explicitYearMilestoneFallback(extractionEvidenceRefs, compactValidated)
+                    : compactValidated;
+                  return hydrateExtractionWorkerOutput(compactWithFallback, extractionEvidenceRefs);
+                })()
                 : validateFactoryWorkerOutput({
                   workerKey,
                   allowedObjectTypes: contract.allowed_object_types,
@@ -3027,14 +3123,24 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
       for (const candidate of validated.candidates) {
         const candidateType = candidate.objectType || objectType;
         if (!candidateType) continue;
+        const candidateTitle = normalizeCandidateTitle(candidateType, candidate.title);
+        const candidatePayload = normalizeCandidatePayload(candidateType, candidate.payload);
+        const canonicalSubject = typeof input.input.subject === "string" && input.input.subject.trim()
+          ? input.input.subject.trim()
+          : typeof input.input.topic === "string" && input.input.topic.trim()
+            ? input.input.topic.trim()
+            : typeof input.input.query === "string" && input.input.query.trim()
+              ? input.input.query.trim()
+              : null;
         const object = await factoryRepository.createObject({
           objectType: candidateType,
-          title: candidate.title,
+          title: candidateTitle,
           payload: {
-            ...candidate.payload,
+            ...candidatePayload,
             evidence: candidate.evidence,
             sources: candidate.sources,
-            generationTarget: candidateType
+            generationTarget: candidateType,
+            ...(canonicalSubject ? { canonicalSubject } : {})
           },
           provenance: {
             pipelineId: pipeline.pipelineId,
@@ -3044,6 +3150,7 @@ Execute ${contract.worker_name} for the Factory pipeline. Use prior Factory arti
             provider: result.providerKey,
             modelName: result.modelName,
             sources: candidate.sources,
+            ...(canonicalSubject ? { canonicalSubject } : {}),
             validatedEvidenceRefs: validatedEvidenceContext?.validatedEvidenceRefs || publicationLineage?.validatedEvidenceRefs || evidenceRefsFromPipelineInput(input.input)
           },
           actor: input.actor

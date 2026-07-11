@@ -11,15 +11,36 @@ import { providerInCooldown, resilientFetch } from "@/src/server/source-authorit
 const approvedProviders: SourceAuthorityProvider[] = ["wikidata", "dbpedia", "library_of_congress", "nara"];
 const QUERY_STOP_WORDS = new Set(["a", "an", "and", "of", "the", "to", "in", "on", "for", "history"]);
 const MIN_RELEVANT_SOURCES = 2;
+const DBPEDIA_COLLECTION_EXPANSION_LIMIT = 24;
 const HOMONYM_WORK_PATTERNS = [
   /\b(?:single|song|album|film|movie|novel|book|episode|television series|video game)\s+by\b/i,
-  /\b(?:single|song|album|film|movie|novel|book|episode|television series|video game)\s+(?:from|released|recorded|published|starring|featuring)\b/i
+  /\b(?:single|song|album|film|movie|novel|book|episode|television series|video game)\s+(?:from|released|recorded|published|starring|featuring)\b/i,
+  /\b\d{3,4}\s+(?:single|song|album|film|movie|novel|book|episode|television series|video game|board game)\b/i,
+  /\b(?:single|song|album|film|movie|novel|book|episode|television series|video game|board game)\b/i
+];
+const PUBLICATION_WORK_TERMS = new Set([
+  "article", "book", "chapter", "journal", "paper", "publication", "study", "thesis", "volume"
+]);
+const BIBLIOGRAPHIC_WORK_PATTERNS = [
+  /\b(?:academic|scientific|scholarly|journal|research)\s+(?:article|paper|publication|study)\b/i,
+  /\b(?:article|book|chapter|paper|publication|study|thesis|volume)\s+published\b/i,
+  /\b(?:isbn|issn|doi)\b/i,
+  /\bvery short introduction\b/i,
+  /\b97[89][-\s]?\d{1,5}[-\s]?\d{1,7}[-\s]?\d{1,7}[-\s]?[\dx]\b/i
 ];
 
 function relevanceTerms(value: string): string[] {
   return [...new Set(value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(
     (term) => term.length > 2 && !QUERY_STOP_WORDS.has(term)
   ))];
+}
+
+function topicRequestsPublicationWork(queryTerms: readonly string[]): boolean {
+  return queryTerms.some((term) => PUBLICATION_WORK_TERMS.has(term));
+}
+
+function isBroadHistoricalTopic(query: string): boolean {
+  return /^(?:the\s+)?history\s+of\s+/i.test(query.trim());
 }
 
 export function buildHistoricalDiscoveryQueries(query: string): string[] {
@@ -37,8 +58,11 @@ export function buildHistoricalDiscoveryQueries(query: string): string[] {
     normalized,
     subject,
     singular,
-    `${singular} history`
-  ].filter((candidate) => candidate.length >= 2))].slice(0, 4);
+    `${singular} history`,
+    `list of ${subject}`,
+    `${singular} timeline`,
+    `${singular} chronology`
+  ].filter((candidate) => candidate.length >= 2))].slice(0, 7);
 }
 
 export function assessSourceRelevance(query: string, source: SourceDiscoveryResult): SourceRelevanceAssessment {
@@ -53,12 +77,26 @@ export function assessSourceRelevance(query: string, source: SourceDiscoveryResu
   const titleMatches = queryTerms.filter((term) =>
     titleTerms.some((candidate) => candidate === term || candidate.startsWith(term) || term.startsWith(candidate))
   );
-  const semanticRelevance = queryTerms.length ? titleMatches.length / queryTerms.length : 0;
+  const isCategoryRecord = /^category:/i.test(source.providerRecordId) ||
+    /^category:/i.test(source.title) ||
+    /\bcategory containing\b/i.test(source.description || "");
+  const descriptionMatches = queryTerms.filter((term) =>
+    descriptionTerms.some((candidate) => candidate === term || candidate.startsWith(term) || term.startsWith(candidate))
+  );
+  const descriptionGroundedMemberEntity = isBroadHistoricalTopic(query) &&
+    source.sourceType.toLowerCase().includes("knowledge_base_entity") &&
+    !isCategoryRecord &&
+    descriptionMatches.length === queryTerms.length;
+  const semanticRelevance = queryTerms.length
+    ? Math.max(titleMatches.length / queryTerms.length, descriptionGroundedMemberEntity ? 1 : 0)
+    : 0;
   const description = source.description || "";
   const describesUnrequestedCreativeWork = HOMONYM_WORK_PATTERNS.some((pattern) => pattern.test(description)) &&
     !relevanceTerms(description)
-      .filter((term) => ["single", "song", "album", "film", "movie", "novel", "book", "episode", "television", "video", "game"].includes(term))
+      .filter((term) => ["single", "song", "album", "film", "movie", "novel", "book", "episode", "television", "video", "game", "board"].includes(term))
       .some((term) => queryTerms.includes(term));
+  const describesUnrequestedBibliographicWork = !topicRequestsPublicationWork(queryTerms) &&
+    BIBLIOGRAPHIC_WORK_PATTERNS.some((pattern) => pattern.test(`${source.title} ${description}`));
   const historicalRelevance = topicalRelevance > 0 && [
     "knowledge_base_entity", "archive_record", "library_record"
   ].some((type) => source.sourceType.toLowerCase().includes(type.replace("_record", ""))) ? 1 : topicalRelevance;
@@ -73,12 +111,15 @@ export function assessSourceRelevance(query: string, source: SourceDiscoveryResu
   ).toFixed(3));
   const rejectionReasons: string[] = [];
   if (topicalRelevance === 0) rejectionReasons.push("Source does not concern the discovery Topic.");
-  if (semanticRelevance === 0 || describesUnrequestedCreativeWork) rejectionReasons.push("Source entity is semantically misaligned with the discovery Topic.");
+  if (semanticRelevance === 0 || describesUnrequestedCreativeWork || describesUnrequestedBibliographicWork) {
+    rejectionReasons.push("Source entity is semantically misaligned with the discovery Topic.");
+  }
   if (historicalRelevance === 0) rejectionReasons.push("Source does not materially contribute historical understanding of the Topic.");
   if (publicationSuitability === 0) rejectionReasons.push("Source would not improve publication quality.");
   if (relevanceScore < 0.55) rejectionReasons.push("Source relevance score is below the institutional acceptance threshold.");
   return {
-    accepted: topicalRelevance > 0 && semanticRelevance > 0 && !describesUnrequestedCreativeWork && relevanceScore >= 0.55,
+    accepted: topicalRelevance > 0 && semanticRelevance > 0 &&
+      !describesUnrequestedCreativeWork && !describesUnrequestedBibliographicWork && relevanceScore >= 0.55,
     relevanceScore,
     topicalRelevance: Number(topicalRelevance.toFixed(3)),
     historicalRelevance: Number(historicalRelevance.toFixed(3)),
@@ -88,6 +129,8 @@ export function assessSourceRelevance(query: string, source: SourceDiscoveryResu
     rejectionReasons,
     semanticMismatch: describesUnrequestedCreativeWork
       ? "Source description identifies a creative work type not requested by the Topic."
+      : describesUnrequestedBibliographicWork
+        ? "Source description identifies a bibliographic work rather than the requested historical Topic."
       : semanticRelevance === 0
         ? `No Topic terms (${queryTerms.join(", ")}) matched the source entity title.`
         : null
@@ -287,6 +330,186 @@ async function discoverDbpedia(query: string, limit: number): Promise<SourceDisc
   });
 }
 
+function dbpediaResourceUri(source: SourceDiscoveryResult): string | null {
+  const candidate = source.originUrl || source.canonicalUrl;
+  try {
+    const parsed = new URL(candidate);
+    if (!parsed.hostname.includes("dbpedia.org")) return null;
+    if (parsed.pathname.startsWith("/resource/")) {
+      return `http://dbpedia.org/resource/${parsed.pathname.split("/").pop()}`;
+    }
+    if (parsed.pathname.startsWith("/data/")) {
+      return `http://dbpedia.org/resource/${decodeURIComponent(parsed.pathname.split("/").pop() || "").replace(/\.json$/i, "")}`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function isDbpediaCollection(source: SourceDiscoveryResult): boolean {
+  if (source.provider !== "dbpedia") return false;
+  const identity = `${source.providerRecordId} ${source.title}`.replace(/[_-]+/g, " ");
+  return /\blist\s+of\b/i.test(identity);
+}
+
+function dbpediaCollectionTopic(source: SourceDiscoveryResult): string | null {
+  const identity = source.title.replace(/[_-]+/g, " ").trim();
+  const listSubject = identity.match(/\blist\s+of\s+(.+)$/i)?.[1]?.trim();
+  const topic = listSubject || identity;
+  return topic.length >= 2 ? topic : null;
+}
+
+function dbpediaResourceLabel(resource: string): string {
+  const rawName = resource.split("/").pop() || resource;
+  try {
+    return decodeURIComponent(rawName).replace(/[_-]+/g, " ");
+  } catch {
+    return rawName.replace(/[_-]+/g, " ");
+  }
+}
+
+function rankDbpediaCollectionLink(resource: string, query: string, collectionTopic: string | null, originalIndex: number): number {
+  const labelTerms = relevanceTerms(dbpediaResourceLabel(resource));
+  const contextTerms = relevanceTerms(`${query} ${collectionTopic || ""}`);
+  const termMatches = contextTerms.filter((term) =>
+    labelTerms.some((candidate) => candidate === term || candidate.startsWith(term) || term.startsWith(candidate))
+  ).length;
+  const temporalSignal = /\b(?:\d{3,4}|\d{3,4}\s*[–-]\s*\d{2,4}|century)\b/i.test(dbpediaResourceLabel(resource)) ? 1 : 0;
+  return termMatches * 100 + temporalSignal * 10 - originalIndex / 1000;
+}
+
+function expandedFromCollectionTopic(source: SourceDiscoveryResult): string | null {
+  const provenance = source.raw as Record<string, unknown> | undefined;
+  const expandedFrom = provenance?.expandedFromCollection;
+  if (!expandedFrom || typeof expandedFrom !== "object") return null;
+  const title = text((expandedFrom as Record<string, unknown>).title);
+  return title ? dbpediaCollectionTopic({ ...source, title }) : null;
+}
+
+function assessDiscoveryRelevance(query: string, source: SourceDiscoveryResult): SourceRelevanceAssessment {
+  const directAssessment = assessSourceRelevance(query, source);
+  if (directAssessment.accepted || !isBroadHistoricalTopic(query)) return directAssessment;
+  const collectionTopic = expandedFromCollectionTopic(source);
+  return collectionTopic ? assessSourceRelevance(`History of ${collectionTopic}`, source) : directAssessment;
+}
+
+async function fetchDbpediaExpansionJson(url: string): Promise<Record<string, unknown> | null> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:" || parsed.hostname !== "dbpedia.org") return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const response = await fetch(parsed.toString(), {
+      signal: controller.signal,
+      redirect: "manual",
+      headers: { accept: "application/json" }
+    });
+    if (!response.ok) return null;
+    const textBody = await response.text();
+    if (!/^\s*[\[{]/.test(textBody)) return null;
+    const payload = JSON.parse(textBody);
+    return payload && typeof payload === "object" && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function discoverDbpediaLinkedResources(
+  source: SourceDiscoveryResult,
+  query: string,
+  limit: number
+): Promise<SourceDiscoveryResult[]> {
+  const resource = dbpediaResourceUri(source);
+  if (!resource) return [];
+  const collectionTopic = dbpediaCollectionTopic(source);
+  const collectionPayload = await fetchJson(source.canonicalUrl) as Record<string, unknown>;
+  const collectionSubjects = [resource, resource.replace("http://", "https://")];
+  const linkedResources = collectionSubjects.flatMap((subject) => {
+    const properties = collectionPayload[subject];
+    if (!properties || typeof properties !== "object") return [];
+    return Object.entries(properties as Record<string, unknown>).flatMap(([predicate, values]) => {
+      if (!/wikiPageWikiLink$/i.test(predicate)) return [];
+      return (Array.isArray(values) ? values : [values]).flatMap((entry) => {
+        const value = entry && typeof entry === "object" ? text((entry as Record<string, unknown>).value) : text(entry);
+        if (!value || !/^https?:\/\/dbpedia\.org\/resource\//i.test(value)) return [];
+        if (/\/(?:Category|File|Template):/i.test(value)) return [];
+        return [value.replace(/^https:/i, "http:")];
+      });
+    });
+  });
+  const seen = new Set<string>();
+  const boundedLinks = linkedResources
+    .map((linkedResource, originalIndex) => ({ linkedResource, originalIndex }))
+    .filter(({ linkedResource }) => {
+      if (seen.has(linkedResource)) return false;
+      seen.add(linkedResource);
+      return true;
+    })
+    .sort((left, right) =>
+      rankDbpediaCollectionLink(right.linkedResource, query, collectionTopic, right.originalIndex) -
+      rankDbpediaCollectionLink(left.linkedResource, query, collectionTopic, left.originalIndex)
+    )
+    .map(({ linkedResource }) => linkedResource)
+    .slice(0, Math.max(limit * 4, DBPEDIA_COLLECTION_EXPANSION_LIMIT));
+  const expanded = await Promise.all(boundedLinks.map(async (linkedResource) => {
+    const payload = await fetchDbpediaExpansionJson(dbpediaDataUrl(linkedResource));
+    if (!payload) return null;
+    const properties = payload[linkedResource] || payload[linkedResource.replace("http://", "https://")];
+    if (!properties || typeof properties !== "object") return null;
+    let label = linkedResource.split("/").pop()?.replace(/_/g, " ") || null;
+    let abstract: string | null = null;
+    for (const [predicate, rawValues] of Object.entries(properties as Record<string, unknown>)) {
+      const values = Array.isArray(rawValues) ? rawValues : [rawValues];
+      if (/\/label$/i.test(predicate)) {
+        label = values.flatMap((value) => {
+          const valueObject = value && typeof value === "object" ? value as Record<string, unknown> : null;
+          return valueObject && text(valueObject.lang) === "en" ? [text(valueObject.value)] : [];
+        }).find((value): value is string => Boolean(value)) || label;
+      }
+      if (/\/abstract$/i.test(predicate)) {
+        abstract = values.flatMap((value) => {
+          const valueObject = value && typeof value === "object" ? value as Record<string, unknown> : null;
+          return valueObject && text(valueObject.lang) === "en" ? [text(valueObject.value)] : [];
+        }).find((value): value is string => Boolean(value)) || abstract;
+      }
+    }
+    if (!linkedResource || !label || !abstract) return null;
+    const candidate: SourceDiscoveryResult = {
+      provider: "dbpedia",
+      providerRecordId: linkedResource.split("/").pop() || label,
+      canonicalUrl: dbpediaDataUrl(linkedResource),
+      title: label,
+      description: abstract,
+      sourceType: "knowledge_base_entity",
+      originUrl: linkedResource,
+      raw: {
+        expandedFromCollection: {
+          providerRecordId: source.providerRecordId,
+          title: source.title,
+          query
+        },
+        providerCapabilities: providerCapabilities.dbpedia
+      }
+    };
+    const directlyRelevant = assessSourceRelevance(query, candidate).accepted;
+    const collectionRelevant = isBroadHistoricalTopic(query) && collectionTopic
+      ? assessSourceRelevance(`History of ${collectionTopic}`, candidate).accepted
+      : false;
+    return directlyRelevant || collectionRelevant ? candidate : null;
+  }));
+  return expanded.filter((candidate): candidate is SourceDiscoveryResult => Boolean(candidate)).slice(0, limit);
+}
+
 async function discoverLibraryOfCongress(query: string, limit: number): Promise<SourceDiscoveryResult[]> {
   const url = new URL("https://www.loc.gov/search/");
   url.searchParams.set("fo", "json");
@@ -365,7 +588,7 @@ export const sourceDiscoveryService = {
     const seen = new Set<string>();
 
     for (const discoveryQuery of queryVariants) {
-      const wave = (await Promise.all(providers.map(async (provider) => {
+      const providerWave = (await Promise.all(providers.map(async (provider) => {
         if (await providerInCooldown(provider)) {
           console.warn(JSON.stringify({
             level: "warn",
@@ -388,6 +611,23 @@ export const sourceDiscoveryService = {
           return [];
         }
       }))).flat();
+      const collectionExpansions = (await Promise.all(
+        providerWave
+          .filter(isDbpediaCollection)
+          .slice(0, 3)
+          .map((source) => discoverDbpediaLinkedResources(source, query, DBPEDIA_COLLECTION_EXPANSION_LIMIT).catch((error) => {
+            console.warn(JSON.stringify({
+              level: "warn",
+              component: "source_discovery",
+              provider: "dbpedia",
+              message: "DBpedia collection expansion failed.",
+              source: source.title,
+              error: error instanceof Error ? error.message : String(error)
+            }));
+            return [];
+          }))
+      )).flat();
+      const wave = [...providerWave, ...collectionExpansions];
       for (const discovery of wave) {
         const key = `${discovery.provider}:${discovery.providerRecordId}`;
         if (seen.has(key)) continue;
@@ -395,13 +635,15 @@ export const sourceDiscoveryService = {
         evaluated.push({
           discovery,
           discoveryQuery,
-          assessment: assessSourceRelevance(query, discovery)
+          assessment: assessDiscoveryRelevance(query, discovery)
         });
       }
       const chronologyQueryCompleted = discoveryQuery !== query &&
         /\bhistory\b/i.test(discoveryQuery);
+      const broadHistoryRequiresCollectionSweep = isBroadHistoricalTopic(query);
       if (
         chronologyQueryCompleted &&
+        !broadHistoryRequiresCollectionSweep &&
         evaluated.filter((candidate) => candidate.assessment.accepted).length >= MIN_RELEVANT_SOURCES
       ) break;
     }

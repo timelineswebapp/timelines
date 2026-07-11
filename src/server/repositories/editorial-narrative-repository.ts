@@ -142,7 +142,18 @@ export const editorialNarrativeRepository: EditorialNarrativePersistence = {
         ${n.title.text},${n.title.claimIds as string[]},${n.title.milestoneIds as string[]},${n.subtitle?.text ?? null},
         ${n.subtitle?.claimIds as string[] | undefined ?? null},${n.subtitle?.milestoneIds as string[] | undefined ?? null},
         ${sql.json(n.generationMetrics as any)},${sql.json(n.generationMetadata as any)},${sql.json(input.diagnostics as any)},${input.actor})`;
-      const promptRows=n.prompts.map((p,i)=>({...p,position:i+1}));
+      const promptRows=n.prompts.map((p,i)=>({
+        position:i+1,
+        prompt_id:p.promptId,
+        prompt_key:p.promptKey,
+        prompt_version:p.promptVersion,
+        template_fingerprint:p.templateFingerprint,
+        schema_version:p.schemaVersion,
+        policy_id:p.policyId,
+        policy_version:p.policyVersion,
+        lifecycle:p.lifecycle,
+        prompt_fingerprint:p.promptFingerprint
+      }));
       await sql`INSERT INTO factory_editorial_narrative_prompt_refs(narrative_id,position,prompt_id,prompt_key,prompt_version,
         template_fingerprint,schema_version,policy_id,policy_version,lifecycle,prompt_fingerprint)
         SELECT ${narrativeId},position,prompt_id,prompt_key,prompt_version,template_fingerprint,schema_version,policy_id,policy_version,lifecycle,prompt_fingerprint

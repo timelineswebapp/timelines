@@ -15,6 +15,22 @@ const WIKIDATA_HISTORICAL_PROPERTIES: Readonly<Record<string, string>> = {
   P580: "start time",
   P582: "end time"
 };
+const DBPEDIA_HISTORICAL_DATE_PROPERTIES = new Set([
+  "birth date",
+  "death date",
+  "dissolution date",
+  "end date",
+  "established",
+  "established date",
+  "formation date",
+  "founded",
+  "founding date",
+  "introduced",
+  "inception",
+  "invented",
+  "opening date",
+  "start date"
+]);
 
 function cleanText(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -85,7 +101,7 @@ function normalizeDbpedia(payload: Record<string, unknown>): string | null {
         if (!value || value.startsWith("http")) continue;
         if (name.toLowerCase() === "abstract") {
           lines.push(`Description of ${subjectName}: ${value}`);
-        } else if (/\b(?:date|year|established|founded|introduced|invented|first|opening|start|end)\b/i.test(name)) {
+        } else if (DBPEDIA_HISTORICAL_DATE_PROPERTIES.has(name.toLowerCase())) {
           lines.push(`${subjectName} ${name}: ${value}.`);
         }
       }
@@ -134,10 +150,23 @@ function normalizeSnapshotText(content: string, contentType: string, provider?: 
     .slice(0, MAX_CORPUS_CHARS);
 }
 
+function sourceDescriptionFallback(snapshot: { sourceTitle: string; sourceDescription: string | null; provider?: string }): string | null {
+  const description = cleanText(snapshot.sourceDescription);
+  if (!description || /^\d{3,4}$/.test(description)) return null;
+  if (snapshot.provider === "wikidata" || snapshot.provider === "dbpedia") {
+    return `Description of ${snapshot.sourceTitle}: ${description}`;
+  }
+  return null;
+}
+
 export const corpusGenerationService = {
   async generateFromSourceSnapshot(input: GenerateCorpusDocumentInput) {
     const snapshot = await corpusRepository.requireSourceSnapshot(input.sourceSnapshotId);
-    const normalizedText = normalizeSnapshotText(snapshot.contentText, snapshot.contentType, snapshot.provider);
+    const normalizedSnapshotText = normalizeSnapshotText(snapshot.contentText, snapshot.contentType, snapshot.provider);
+    const fallbackText = /^Structured (?:wikidata|dbpedia) record contains no extractable historical claims\.$/.test(normalizedSnapshotText)
+      ? sourceDescriptionFallback(snapshot)
+      : null;
+    const normalizedText = fallbackText || normalizedSnapshotText;
     if (!normalizedText) {
       throw new ApiError(409, "CORPUS_DOCUMENT_EMPTY", "Source snapshot does not contain corpus-ready text.");
     }

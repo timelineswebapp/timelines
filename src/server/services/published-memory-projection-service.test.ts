@@ -102,6 +102,8 @@ describe("published memory projection system", () => {
     const service = readFileSync("src/server/services/published-memory-projection-service.ts", "utf8");
 
     assert.match(service, /isPublicationPackageTimelineSnapshot/);
+    assert.match(service, /canonicalSubjectFromSnapshot/);
+    assert.match(service, /admissionTimelineTitle\(milestoneSnapshots, anchor\)/);
     assert.match(service, /snapshot\.authorityRef\.authorityType !== "publication_package"/);
     assert.match(service, /return "timeline"/);
     assert.match(service, /projectionDtoMetadata\("timeline"\)/);

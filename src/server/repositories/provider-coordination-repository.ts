@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getWriteSql } from "@/src/server/db/client";
+import { getWriteSql, withIndependentWriteTransaction } from "@/src/server/db/client";
 
 export type DurableProviderLease = { leaseId: string; queueWaitMs: number };
 
@@ -7,8 +7,8 @@ export const providerCoordinationRepository = {
   async tryAcquire(input: {
     providerKey: string; ownerId: string; maxConcurrency: number; requestsPerMinute: number; leaseSeconds: number;
   }): Promise<string | null> {
-    const sql = getWriteSql("acquiring durable provider capacity");
-    return sql.begin(async (tx) => {
+    return withIndependentWriteTransaction("acquiring durable provider capacity", async () => {
+      const tx = getWriteSql("acquiring durable provider capacity");
       await tx.unsafe(
         `INSERT INTO provider_execution_limits (provider_key,max_concurrency,requests_per_minute)
          VALUES ($1,$2,$3) ON CONFLICT (provider_key) DO UPDATE SET

@@ -6,6 +6,7 @@ import type { CorpusDocument, CorpusSourceLineage } from "@/src/server/research-
 
 export type SourceSnapshotWithRecord = SourceAuthoritySnapshot & {
   sourceTitle: string;
+  sourceDescription: string | null;
   provider: CorpusSourceLineage["provider"];
 };
 
@@ -36,6 +37,7 @@ export const corpusRepository = {
         source_authority_snapshots.retrieved_by AS "retrievedBy",
         source_authority_snapshots.retrieved_at::text AS "retrievedAt",
         source_authority_records.title AS "sourceTitle",
+        source_authority_records.description AS "sourceDescription",
         source_authority_records.provider
       FROM source_authority_snapshots
       INNER JOIN source_authority_records

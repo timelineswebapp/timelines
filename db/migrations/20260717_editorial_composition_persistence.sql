@@ -187,11 +187,17 @@ DECLARE
   phase_max INTEGER;
   selected_count INTEGER;
   membership_count INTEGER;
+  inserted_row JSONB;
 BEGIN
-  checked_composition_id := CASE
-    WHEN TG_TABLE_NAME = 'factory_editorial_compositions' THEN NEW.id
-    ELSE NEW.composition_id
-  END;
+  inserted_row := to_jsonb(NEW);
+  checked_composition_id := COALESCE(
+    (inserted_row->>'composition_id')::UUID,
+    (inserted_row->>'id')::UUID
+  );
+
+  IF checked_composition_id IS NULL THEN
+    RAISE EXCEPTION 'EditorialComposition integrity trigger could not resolve composition id.';
+  END IF;
 
   SELECT editorial_timeline_candidate_id
   INTO predecessor_candidate_id

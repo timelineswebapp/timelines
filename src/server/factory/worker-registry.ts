@@ -130,7 +130,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_participation"],
     allowed_relationship_types: [],
     max_context_tokens: 12000,
-    max_output_tokens: 700,
+    max_output_tokens: 1400,
     execution_timeout: 120
   }),
   worker({
@@ -144,7 +144,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_relationship"],
     allowed_relationship_types: ["influences", "influenced_by", "member_of", "contains", "located_in", "succeeds", "preceded_by", "owns", "owned_by", "related_to"],
     max_context_tokens: 12000,
-    max_output_tokens: 700,
+    max_output_tokens: 1400,
     execution_timeout: 120
   }),
   worker({
@@ -158,7 +158,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_context_record"],
     allowed_relationship_types: [],
     max_context_tokens: 12000,
-    max_output_tokens: 800,
+    max_output_tokens: 1400,
     execution_timeout: 120
   }),
   worker({
@@ -186,7 +186,7 @@ export const canonicalFactoryWorkers: FactoryWorkerContract[] = [
     allowed_object_types: ["candidate_historical_object", "candidate_milestone", "candidate_participation", "candidate_relationship", "candidate_source", "candidate_context_record"],
     allowed_relationship_types: ["influences", "influenced_by", "member_of", "contains", "located_in", "succeeds", "preceded_by", "owns", "owned_by", "related_to"],
     max_context_tokens: 12000,
-    max_output_tokens: 900,
+    max_output_tokens: 1400,
     execution_timeout: 120
   })
 ];

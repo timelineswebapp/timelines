@@ -108,6 +108,19 @@ export const editorialGenerationUnitRepository: EditorialGenerationUnitPersisten
         }
         return existing;
       }
+      const [existingOutput] = await sql<ValidatedEditorialGenerationUnit[]>`
+        SELECT ${sql.unsafe(unitColumns)} FROM factory_editorial_generation_units
+        WHERE output_fingerprint=${input.outputFingerprint}
+        LIMIT 1`;
+      if (existingOutput) {
+        if (existingOutput.inputFingerprint !== input.inputFingerprint ||
+            existingOutput.promptVersionId !== input.promptVersionId ||
+            existingOutput.unitType !== input.unitType ||
+            existingOutput.unitSequence !== input.unitSequence) {
+          throw new Error("Validated generation unit output fingerprint conflict.");
+        }
+        return existingOutput;
+      }
       const id = randomUUID();
       const [row] = await sql<ValidatedEditorialGenerationUnit[]>`
         INSERT INTO factory_editorial_generation_units(

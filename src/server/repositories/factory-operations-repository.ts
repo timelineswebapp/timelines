@@ -18,6 +18,25 @@ type LeasedTopic = TopicWorkItem & {
   leasedPreviousStage: WorkflowStage;
 };
 
+function parseStageContext(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value !== "string") return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeTopicRow<T extends TopicWorkItem>(row: T): T {
+  return { ...row, stageContext: parseStageContext(row.stageContext) };
+}
+
+function normalizeTopicRows<T extends TopicWorkItem>(rows: T[]): T[] {
+  return rows.map(normalizeTopicRow);
+}
+
 const activeLineageKeysByReplayBoundary: Record<WorkflowStage, string[]> = {
   queued: [
     "researchPipelineRunId",
@@ -123,8 +142,9 @@ export const factoryOperationsRepository = {
         [input.title, input.source, input.sourceReference || null, input.priority, input.maxRetries]
       );
       if (!topic) throw new ApiError(500, "TOPIC_INSERT_FAILED", "Factory topic insert returned no record.");
-      await this.appendHistory(topic.id, "topic_added", null, "queued", "control", 0, { actor: input.actor, source: input.source });
-      return topic;
+      const normalizedTopic = normalizeTopicRow(topic);
+      await this.appendHistory(normalizedTopic.id, "topic_added", null, "queued", "control", 0, { actor: input.actor, source: input.source });
+      return normalizedTopic;
     } catch (error) {
       if ((error as { code?: string }).code === "23505") throw new ApiError(409, "TOPIC_ALREADY_QUEUED", "This public request is already queued.");
       throw error;
@@ -135,7 +155,7 @@ export const factoryOperationsRepository = {
     const sql = getWriteSql("reading Factory topic");
     const [row] = await sql.unsafe<TopicWorkItem[]>(`SELECT ${topicColumns} FROM factory_topic_work_items WHERE id=$1`, [id]);
     if (!row) throw new ApiError(404, "TOPIC_NOT_FOUND", "Topic was not found.");
-    return row;
+    return normalizeTopicRow(row);
   },
 
   async getTopicBySourceReference(source: TopicSource, sourceReference: string) {
@@ -144,17 +164,17 @@ export const factoryOperationsRepository = {
       `SELECT ${topicColumns} FROM factory_topic_work_items WHERE source=$1 AND source_reference=$2 LIMIT 1`,
       [source, sourceReference]
     );
-    return row || null;
+    return row ? normalizeTopicRow(row) : null;
   },
 
   async listTopics(limit = 200) {
     const sql = getWriteSql("listing Factory topics");
-    return sql.unsafe<TopicWorkItem[]>(`SELECT ${topicColumns} FROM factory_topic_work_items ORDER BY priority DESC, created_at LIMIT $1`, [limit]);
+    return normalizeTopicRows(await sql.unsafe<TopicWorkItem[]>(`SELECT ${topicColumns} FROM factory_topic_work_items ORDER BY priority DESC, created_at LIMIT $1`, [limit]));
   },
 
   async listActionableWaitingTopics(limit: number) {
     const sql = getWriteSql("listing actionable waiting workflows");
-    return sql.unsafe<TopicWorkItem[]>(
+    return normalizeTopicRows(await sql.unsafe<TopicWorkItem[]>(
       `SELECT ${topicColumns.replace(/^  id::text/m, "  t.id::text")}
        FROM factory_topic_work_items t
        WHERE t.status='waiting' AND (
@@ -173,9 +193,9 @@ export const factoryOperationsRepository = {
            )
          )
        )
-       ORDER BY t.updated_at,t.id LIMIT $1`,
+      ORDER BY t.updated_at,t.id LIMIT $1`,
       [Math.max(1, Math.min(100, limit))]
-    );
+    ));
   },
 
   async setControl(mode: OperationsControl["mode"], actor: string) {
@@ -233,7 +253,7 @@ export const factoryOperationsRepository = {
            candidate.previous_stage AS "leasedPreviousStage"`,
         [workerId, leaseSeconds]
       );
-      return rows[0] || null;
+      return rows[0] ? normalizeTopicRow(rows[0]) : null;
     });
   },
 
@@ -281,7 +301,7 @@ export const factoryOperationsRepository = {
       [patch.status || null, patch.priority ?? null, patch.stage || null, patch.retryCount ?? null, id]
     );
     if (!row) throw new ApiError(409, "TOPIC_NOT_MUTABLE", "Running or missing topics cannot be changed.");
-    return row;
+    return normalizeTopicRow(row);
   },
 
   async mergeTopicContext(id: string, context: Record<string, unknown>) {
@@ -421,25 +441,26 @@ export const factoryOperationsRepository = {
         [input.topicId]
       );
       if (!topic) throw new ApiError(404, "TOPIC_NOT_FOUND", "Topic was not found.");
-      if (topic.status === "running" || (topic.leaseOwner && topic.leaseExpiresAt && new Date(topic.leaseExpiresAt) >= new Date())) {
+      const normalizedTopic = normalizeTopicRow(topic);
+      if (normalizedTopic.status === "running" || (normalizedTopic.leaseOwner && normalizedTopic.leaseExpiresAt && new Date(normalizedTopic.leaseExpiresAt) >= new Date())) {
         throw new ApiError(409, "REPLAY_STAGE_ACTIVE", "Replay cannot replace an actively leased workflow stage.");
       }
       const institution = input.boundary === "governance" ? "governance" :
         ["library_admission", "published", "completed"].includes(input.boundary) ? "historical_library" : "factory";
-      const nextGeneration = topic.executionGeneration + 1;
-      const key = `${topic.workflowId}:${institution}:${input.boundary}:${nextGeneration}`;
+      const nextGeneration = normalizedTopic.executionGeneration + 1;
+      const key = `${normalizedTopic.workflowId}:${institution}:${input.boundary}:${nextGeneration}`;
       const replay = await tx.unsafe<{ id: string }[]>(
         `INSERT INTO operational_replay_requests
           (topic_id,workflow_id,institution,certified_boundary,status,requested_by,idempotency_key)
          VALUES ($1,$2,$3,$4,'requested',$5,$6)
          ON CONFLICT (idempotency_key) DO NOTHING RETURNING id::text AS id`,
-        [topic.id, topic.workflowId, institution, input.boundary, input.actor, key]
+        [normalizedTopic.id, normalizedTopic.workflowId, institution, input.boundary, input.actor, key]
       );
       if (!replay[0]) throw new ApiError(409, "DUPLICATE_REPLAY", "This certified boundary replay was already requested.");
       const stageContext = stageContextForReplay({
-        stageContext: topic.stageContext,
+        stageContext: normalizedTopic.stageContext,
         boundary: input.boundary,
-        previousGeneration: topic.executionGeneration,
+        previousGeneration: normalizedTopic.executionGeneration,
         nextGeneration,
         replayRequestId: replay[0].id,
         actor: input.actor
@@ -448,10 +469,10 @@ export const factoryOperationsRepository = {
         `UPDATE factory_topic_work_items SET status='queued',current_stage=$1,retry_count=0,execution_generation=$2,stage_context=$3::jsonb,
           lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,next_attempt_at=NOW(),updated_at=NOW()
          WHERE id=$4 AND status <> 'running' AND execution_generation=$5 RETURNING ${topicColumns}`,
-        [input.boundary, nextGeneration, JSON.stringify(stageContext), topic.id, topic.executionGeneration]
+        [input.boundary, nextGeneration, JSON.stringify(stageContext), normalizedTopic.id, normalizedTopic.executionGeneration]
       );
       if (!updated) throw new ApiError(409, "REPLAY_STAGE_ACTIVE", "Replay lost workflow ownership before scheduling.");
-      return updated;
+      return normalizeTopicRow(updated);
     });
   },
 

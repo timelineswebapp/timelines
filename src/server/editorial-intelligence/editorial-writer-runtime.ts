@@ -2,6 +2,7 @@ import type { FactoryRuntimeProvider } from "@/src/server/factory/runtime-provid
 import type { EditorialNarrative } from "@/src/server/editorial-intelligence/editorial-narrative-contracts";
 import type { EditorialNarrativeWriterInput } from "@/src/server/editorial-intelligence/editorial-writer-input";
 import type {
+  GeneratedSection,
   GenerationDiagnostics,
   GenerationUnit,
   ValidatedSection
@@ -86,6 +87,21 @@ function boundedUnitInput(unit: GenerationUnit, input: EditorialNarrativeWriterI
   };
 }
 
+function normalizeGeneratedSectionOrder(generated: GeneratedSection): GeneratedSection {
+  if (!generated.paragraphs) return generated;
+  return {
+    ...generated,
+    paragraphs: generated.paragraphs.map((paragraph, paragraphIndex) => ({
+      ...paragraph,
+      sequence: paragraphIndex + 1,
+      sentences: paragraph.sentences.map((sentence, sentenceIndex) => ({
+        ...sentence,
+        sequence: sentenceIndex + 1
+      }))
+    }))
+  };
+}
+
 export async function runEditorialWriter(
   input: EditorialNarrativeWriterInput,
   options: EditorialWriterRuntimeOptions
@@ -134,7 +150,7 @@ export async function runEditorialWriter(
             providerRuntimeFingerprint: input.providerProvenance.runtimeFingerprint
           }
         });
-        const generated = parseGeneratedSection(unit, response.output);
+        const generated = normalizeGeneratedSectionOrder(parseGeneratedSection(unit, response.output));
         const validated = validateGeneratedSection(generated, input);
         const unitDiagnostics = {
           unitId: unit.unitId,

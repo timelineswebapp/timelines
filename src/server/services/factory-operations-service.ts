@@ -242,7 +242,7 @@ export const factoryOperationsService = {
       }))
     });
     try {
-      const context: Record<string, unknown> = {};
+      const context: Record<string, unknown> = { ...topic.stageContext };
       const pipelineInput: Record<string, unknown> = { subject: topic.title, topic: topic.title, workflowId: topic.workflowId };
       if (from === "extraction") {
         const researchRunId = topic.stageContext.researchPipelineRunId;
@@ -255,13 +255,16 @@ export const factoryOperationsService = {
           extraction: "historical_extraction_pipeline",
           publication_candidate: "publication_candidate_pipeline"
         } as const;
+        const pipelineRunContextKey = `${from.replace("_candidate", "")}PipelineRunId`;
+        const previousPipelineRunId = typeof topic.stageContext[pipelineRunContextKey] === "string"
+          ? topic.stageContext[pipelineRunContextKey] as string
+          : undefined;
+        const retryingFailedStage = "leasedPreviousStatus" in topic && topic.leasedPreviousStatus === "failed";
         const pipelineStartedAt = Date.now();
         const run = await factoryService.startPipeline({
           pipelineId: pipelineIds[from],
           input: pipelineInput,
-          pipelineRunId: typeof topic.stageContext[`${from.replace("_candidate", "")}PipelineRunId`] === "string"
-            ? topic.stageContext[`${from.replace("_candidate", "")}PipelineRunId`] as string
-            : undefined,
+          pipelineRunId: retryingFailedStage ? undefined : previousPipelineRunId,
           maxWorkers: 1,
           actor: "factory-operations",
           reason: `PE-001 workflow ${topic.workflowId}`
@@ -282,7 +285,20 @@ export const factoryOperationsService = {
           elapsedSinceWorkAcquiredMs: pipelineFinishedAt - topicStartedAt
         }));
         if (!run) throw new ApiError(500, "FACTORY_PIPELINE_NO_RESULT", "Factory pipeline returned no persisted run.");
-        context[`${from.replace("_candidate", "")}PipelineRunId`] = run.pipelineRunId;
+        context[pipelineRunContextKey] = run.pipelineRunId;
+        if (retryingFailedStage && previousPipelineRunId && previousPipelineRunId !== run.pipelineRunId) {
+          context.executionLineageHistory = [
+            ...(Array.isArray(topic.stageContext.executionLineageHistory) ? topic.stageContext.executionLineageHistory : []),
+            {
+              boundary: from,
+              previousGeneration: topic.executionGeneration,
+              nextGeneration: topic.executionGeneration,
+              invalidatedActiveLineage: { [pipelineRunContextKey]: previousPipelineRunId },
+              requestedBy: "factory-operations",
+              reason: "automatic_retry_after_failed_pipeline"
+            }
+          ];
+        }
         if (run.status === "running") to = from;
         if (run.packageDraftId) context.factoryPackageDraftId = run.packageDraftId;
         if (from === "publication_candidate" && run.packageDraftId) {

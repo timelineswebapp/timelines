@@ -73,6 +73,17 @@ describe("chronology research quality", () => {
     assert.doesNotMatch(normalized, /RevisionID|12345|dbpedia\\.org/);
   });
 
+  it("rejects ambiguous DBpedia date predicates as historical chronology", () => {
+    const normalized = normalizeStructuredSourceText(JSON.stringify({
+      "http://dbpedia.org/resource/Influenza_pandemic": {
+        "http://dbpedia.org/ontology/abstract": [{ lang: "en", value: "Influenza pandemics are epidemics of influenza that spread worldwide." }],
+        "http://dbpedia.org/property/date": [{ value: "2022-11-23" }]
+      }
+    }), "application/json", "dbpedia");
+    assert.match(normalized, /Description of Influenza pandemic/);
+    assert.doesNotMatch(normalized, /2022-11-23/);
+  });
+
   it("does not return serialized structured payloads when no historical claim exists", () => {
     const normalized = normalizeStructuredSourceText(JSON.stringify({
       "http://dbpedia.org/resource/Unrelated": {

@@ -4,19 +4,28 @@ import test from "node:test";
 import { seedEditorialWriterConfiguration, seededEditorialPromptContent } from "./seed-editorial-writer-configuration-core";
 
 function repositories() {
-  const prompts = new Map<string, any>();
+  const prompts = new Map<string, any[]>();
   let policy: any = null;
   let provider: any = null;
   let binding: any = null;
+  const supersededBindings: any[] = [];
   return {
-    state: { prompts, get policy() { return policy; }, get provider() { return provider; }, get binding() { return binding; } },
+    state: { prompts, supersededBindings, get policy() { return policy; }, get provider() { return provider; }, get binding() { return binding; } },
     dependencies: {
       prompts: {
+        async getActivePrompt(promptKey: string) {
+          return [...prompts.values()].flat().find((item) => item.promptKey === promptKey && item.lifecycle === "active") || null;
+        },
         async createPrompt(input: any) {
-          const existing = prompts.get(input.promptId);
+          const versions = prompts.get(input.promptId) || [];
+          const existing = versions.find((item) => item.version === input.version);
           if (existing) return existing;
-          const value = { ...input, promptVersionId: `version-${input.promptKey}`, lifecycle: "active" };
-          prompts.set(input.promptId, value);
+          if (input.supersedesPromptVersionId) {
+            const superseded = versions.find((item) => item.promptVersionId === input.supersedesPromptVersionId);
+            if (superseded) superseded.lifecycle = "superseded";
+          }
+          const value = { ...input, promptVersionId: `version-${input.promptKey}-${input.version}`, lifecycle: "active" };
+          prompts.set(input.promptId, [...versions, value]);
           return value;
         }
       },
@@ -35,7 +44,11 @@ function repositories() {
       bindings: {
         async getActiveWriterConfigurationBinding() { return binding; },
         async createWriterConfigurationBinding(input: any) {
-          binding ||= { ...input, bindingId: "binding-1", lifecycle: "active" };
+          if (binding && input.supersedesBindingId === binding.bindingId) {
+            supersededBindings.push({ ...binding, lifecycle: "superseded" });
+            binding = null;
+          }
+          binding ||= { ...input, bindingId: `binding-${supersededBindings.length + 1}`, lifecycle: "active" };
           return binding;
         }
       }
@@ -66,17 +79,31 @@ test("seed is idempotent and fingerprints are stable", async () => {
   assert.equal(second.reused, true);
   assert.equal(second.binding.bindingId, first.binding.bindingId);
   assert.equal(store.state.prompts.size, 4);
+  assert.equal([...store.state.prompts.values()].flat().length, 4);
   assert.equal(second.binding.bindingFingerprint, first.binding.bindingFingerprint);
   for (const prompt of first.prompts) {
     assert.equal(prompt.contentFingerprint, createHash("sha256").update(seededEditorialPromptContent[prompt.promptKey as keyof typeof seededEditorialPromptContent]).digest("hex"));
   }
 });
 
+test("seed supersedes active prompts and binding when prompt content changes", async () => {
+  const store = repositories();
+  const first = await seedEditorialWriterConfiguration({ modelName: "qwen2.5:14b", dependencies: store.dependencies });
+  const activeTitle = await store.dependencies.prompts.getActivePrompt("editorial_title");
+  activeTitle.contentFingerprint = "0".repeat(64);
+  const second = await seedEditorialWriterConfiguration({ modelName: "qwen2.5:14b", dependencies: store.dependencies });
+  assert.equal(second.reused, false);
+  assert.notEqual(second.binding.bindingId, first.binding.bindingId);
+  assert.equal((second.binding as any).supersedesBindingId, first.binding.bindingId);
+  assert.equal(second.prompts.find((item) => item.promptKey === "editorial_title")?.version, 2);
+  assert.equal(store.state.supersededBindings.length, 1);
+});
+
 test("seed contains no runtime fallback or client lineage", async () => {
   const source = await import("node:fs").then(({ readFileSync }) =>
     readFileSync("scripts/seed-editorial-writer-configuration-core.ts", "utf8")
   );
-  assert.doesNotMatch(source, /getActivePrompt|process\.env|client|fallback/i);
+  assert.doesNotMatch(source, /process\.env|client|fallback/i);
   assert.match(source, /createWriterConfigurationBinding/);
   assert.match(source, /createProviderConfiguration/);
 });

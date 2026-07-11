@@ -55,6 +55,30 @@ function publicationPackageTitle(payload: Record<string, unknown>): string {
   return inferred?.[1]?.trim() || "Publication Package Timeline";
 }
 
+function canonicalSubjectFromSnapshot(snapshot: PublishedMemorySnapshot): string | null {
+  const payload = projectionPayload(snapshot.snapshot);
+  const provenance = snapshot.snapshot.provenance;
+  for (const candidate of [
+    payload.canonicalSubject,
+    provenance && typeof provenance === "object" && !Array.isArray(provenance)
+      ? (provenance as Record<string, unknown>).canonicalSubject
+      : null
+  ]) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+function admissionTimelineTitle(snapshots: readonly PublishedMemorySnapshot[], fallbackSnapshot: PublishedMemorySnapshot): string {
+  for (const snapshot of snapshots) {
+    const canonicalSubject = canonicalSubjectFromSnapshot(snapshot);
+    if (canonicalSubject) return canonicalSubject;
+  }
+  return publicationPackageTitle(fallbackSnapshot.snapshot);
+}
+
 function isPublicationPackageTimelineSnapshot(snapshot: PublishedMemorySnapshot, payload: Record<string, unknown>): boolean {
   if (snapshot.authorityRef.authorityType !== "publication_package") {
     return false;
@@ -510,7 +534,7 @@ async function generateAdmissionTimeline(input: {
   const events = milestoneSnapshots
     .map((snapshot) => buildMilestoneDto(projectionPayload(snapshot.snapshot), snapshot))
     .sort((left, right) => String(left.date).localeCompare(String(right.date)) || String(left.title).localeCompare(String(right.title)));
-  const title = publicationPackageTitle(anchor.snapshot);
+  const title = admissionTimelineTitle(milestoneSnapshots, anchor);
   const description = packageDescription(anchor.snapshot);
   const slug = slugifyProjection(title);
   const timelinePayload = buildTimelineDto(

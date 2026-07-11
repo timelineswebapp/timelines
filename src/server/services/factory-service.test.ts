@@ -1589,6 +1589,18 @@ describe("factory production memory foundation", () => {
     }
   });
 
+  it("preserves canonical timeline subject lineage while normalizing milestone capitalization", () => {
+    const service = readFileSync("src/server/services/factory-service.ts", "utf8");
+
+    assert.match(service, /normalizeMilestoneTitle/);
+    assert.match(service, /\.replace\(\/\\bflu\\b\/gi, "flu"\)/);
+    assert.match(service, /\.replace\(\/\\bh1n1\\b\/gi, "H1N1"\)/);
+    assert.match(service, /\.replace\(\/\\bcovid-19\\b\/gi, "COVID-19"\)/);
+    assert.match(service, /Pandemic\|Epidemic\|Outbreak/);
+    assert.match(service, /canonicalSubject/);
+    assert.match(service, /\.\.\.\(canonicalSubject \? \{ canonicalSubject \} : \{\}\)/);
+  });
+
   async function withMockedFactoryPipeline<T>(
     outputOverride: Record<string, unknown>,
     run: (state: {

@@ -9,15 +9,16 @@ import {
   editorialWritingPolicyRepository
 } from "@/src/server/repositories/editorial-writer-configuration-repository";
 import { editorialWriterConfigurationBindingRepository } from "@/src/server/repositories/editorial-writer-binding-repository";
+import { editorialWriterPromptAssets } from "@/src/server/editorial-intelligence/editorial-prompt-assets";
 
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const stableHash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 export const seededEditorialPromptContent = Object.freeze({
-  editorial_title: "Write only the requested title unit from the supplied grounded claims. Return structured JSON matching the schema.",
-  editorial_introduction: "Write the introduction from only the supplied grounded claims and milestone references. Return structured JSON matching the schema.",
-  editorial_phase: "Write the requested historical phase in supplied milestone order using only supplied grounded claims. Return structured JSON matching the schema.",
-  editorial_conclusion: "Write the conclusion from only the supplied grounded claims and milestone references. Return structured JSON matching the schema."
+  editorial_title: editorialWriterPromptAssets.editorial_title,
+  editorial_introduction: editorialWriterPromptAssets.editorial_introduction,
+  editorial_phase: editorialWriterPromptAssets.editorial_phase,
+  editorial_conclusion: editorialWriterPromptAssets.editorial_conclusion
 });
 
 const promptIds = {
@@ -82,20 +83,25 @@ export async function seedEditorialWriterConfiguration(input: {
     createdBy: actor
   });
   const promptVersions = await Promise.all(
-    (Object.keys(seededEditorialPromptContent) as Array<keyof typeof seededEditorialPromptContent>).map((promptKey) =>
-      repos.prompts.createPrompt({
+    (Object.keys(seededEditorialPromptContent) as Array<keyof typeof seededEditorialPromptContent>).map(async (promptKey) => {
+      const content = seededEditorialPromptContent[promptKey];
+      const contentFingerprint = hash(content);
+      const activePrompt = await repos.prompts.getActivePrompt(promptKey);
+      if (activePrompt?.contentFingerprint === contentFingerprint) return activePrompt;
+      return repos.prompts.createPrompt({
         promptId: promptIds[promptKey],
         promptKey,
-        version: 1,
-        content: seededEditorialPromptContent[promptKey],
-        contentFingerprint: hash(seededEditorialPromptContent[promptKey]),
+        version: activePrompt ? activePrompt.version + 1 : 1,
+        content,
+        contentFingerprint,
         inputSchemaVersion: "ei-004-writer-input-v1",
         outputSchemaVersion: "ei-004-generation-output-v1",
         policyId: policy.policyId,
         policyVersion: policy.version,
+        supersedesPromptVersionId: activePrompt?.promptVersionId,
         createdBy: actor
-      })
-    )
+      });
+    })
   );
   const provider = fingerprintEditorialProviderProvenance({
     schemaVersion: "ei-004-provider-provenance-v1",
@@ -138,14 +144,14 @@ export async function seedEditorialWriterConfiguration(input: {
   const active = await repos.bindings.getActiveWriterConfigurationBinding();
   const bindingFingerprint = stableHash(bindingIdentity);
   if (active) {
-    if (active.bindingFingerprint !== bindingFingerprint) {
-      throw new Error("An active Writer Configuration Binding exists with different immutable lineage.");
+    if (active.bindingFingerprint === bindingFingerprint) {
+      return { prompts: promptVersions, policy: persistedPolicy, provider: persistedProvider, binding: active, reused: true };
     }
-    return { prompts: promptVersions, policy: persistedPolicy, provider: persistedProvider, binding: active, reused: true };
   }
   const binding = await repos.bindings.createWriterConfigurationBinding({
     ...bindingIdentity,
     bindingFingerprint,
+    supersedesBindingId: active?.bindingId,
     createdBy: actor
   });
   return { prompts: promptVersions, policy: persistedPolicy, provider: persistedProvider, binding, reused: false };
