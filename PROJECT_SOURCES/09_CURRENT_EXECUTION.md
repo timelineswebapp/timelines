@@ -2,7 +2,7 @@
 
 Version: 2.0
 
-Last Updated: 2026-07-07
+Last Updated: 2026-09-05
 
 Purpose:
 
@@ -81,7 +81,7 @@ Validated Evidence
 
 # Current Phase
 
-Production Launch Readiness
+Serverless Production Cutover
 
 Status:
 
@@ -89,7 +89,7 @@ Active
 
 Objective:
 
-Prepare the certified institutional platform for public production launch without changing architecture, authority ownership, or certification standards.
+Complete `TL-SERVERLESS-MIGRATION-001` by promoting the certified serverless backend configuration to the Vercel production application without changing architecture, authority ownership, or certification standards.
 
 ---
 
@@ -125,7 +125,9 @@ Not current work:
 
 # Current Blocker
 
-None.
+Vercel requires interactive two-factor authentication for `timelineswebapp@gmail.com`. The browser is intentionally stopped at the authenticator challenge. Google Cloud deployment, migration parity, live API parity, and non-persisting Vertex generation certification have passed.
+
+Required unblock action: the account owner completes the open Vercel two-factor prompt. After authentication, configure `SERVERLESS_API_BASE_URL` and `BACKEND_SHARED_SECRET`, deploy a preview, run public smoke tests, and promote the verified build to production.
 
 If blocked:
 

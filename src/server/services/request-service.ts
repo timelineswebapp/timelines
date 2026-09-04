@@ -1,7 +1,5 @@
-import { requestRepository } from "@/src/server/repositories/request-repository";
-import type { TimelineRequestType } from "@/src/lib/types";
-
-const MAX_REQUESTS_PER_DAY = 3;
+import type { TimelineRequestSubmission, TimelineRequestType } from "@/src/lib/types";
+import { serverlessBackendClient } from "@/src/server/serverless/backend-client";
 
 export type PublicRequestInput = {
   query: string;
@@ -16,18 +14,18 @@ export type PublicRequestInput = {
 };
 
 export const requestService = {
-  async createTimelineRequest(input: PublicRequestInput) {
-    const ipHash = requestRepository.hashIp(input.ip);
-    const since = new Date();
-    since.setUTCHours(0, 0, 0, 0);
-
-    const totalToday = await requestRepository.countByIpSince(ipHash, since.toISOString());
-    if (totalToday >= MAX_REQUESTS_PER_DAY) {
-      const error = new Error("Rate limit exceeded.");
-      error.name = "RateLimitExceeded";
-      throw error;
-    }
-
-    return requestRepository.create(input);
+  async createTimelineRequest(input: PublicRequestInput): Promise<TimelineRequestSubmission> {
+    const result = await serverlessBackendClient.submitTopic<TimelineRequestSubmission>({
+      query: input.query,
+      language: input.language,
+      requestType: input.requestType,
+      email: input.email,
+      message: input.message,
+      targetTimeline: input.targetTimeline,
+      sourcesScope: input.sourcesScope,
+      metadata: input.metadata
+    }, input.ip);
+    if (!result) throw new Error("Serverless topic intake is unavailable in this environment.");
+    return result;
   }
 };

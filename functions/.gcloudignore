@@ -1,0 +1,7 @@
+.gcloudignore
+.git
+.gitignore
+node_modules
+lib
+src/**/*.test.ts
+npm-debug.log

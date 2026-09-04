@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // All institutional and projection access is server mediated. Public clients
+    // never receive direct Firestore authority or mutation capability.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

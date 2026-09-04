@@ -32,6 +32,8 @@ type Evidence = Readonly<{
   contentService: string;
   readModelService: string;
   readModelRepository: string;
+  serverlessBackendClient: string;
+  serverlessPublicApi: string;
   readModelContracts: string;
   projectionService: string;
   projectionRepository: string;
@@ -71,6 +73,8 @@ function loadEvidence(): Evidence {
     contentService: readFileSync("src/server/services/content-service.ts", "utf8"),
     readModelService: readFileSync("src/server/services/platform-read-model-service.ts", "utf8"),
     readModelRepository: readFileSync("src/server/repositories/platform-read-model-repository.ts", "utf8"),
+    serverlessBackendClient: readFileSync("src/server/serverless/backend-client.ts", "utf8"),
+    serverlessPublicApi: readFileSync("functions/src/public-api.ts", "utf8"),
     readModelContracts: readFileSync("src/server/platform/read-model-contracts.ts", "utf8"),
     projectionService: readFileSync("src/server/services/published-memory-projection-service.ts", "utf8"),
     projectionRepository: readFileSync("src/server/repositories/published-memory-projection-repository.ts", "utf8"),
@@ -110,7 +114,13 @@ function failurePassed(evidence: Evidence, key: PlatformFailureInjectionKey): bo
   const checks: Record<PlatformFailureInjectionKey, boolean> = {
     missing_authority: combined.includes("authorityRef") && combined.includes("PublishedAuthorityRef"),
     broken_lineage: combined.includes("published_memory_projection_lineage") && combined.includes("ON DELETE RESTRICT"),
-    missing_projections: combined.includes("publishedMemoryProjectionRepository.listActiveProjections") && combined.includes("published_memory_projections"),
+    missing_projections: (
+      combined.includes("publishedMemoryProjectionRepository.listActiveProjections") && combined.includes("published_memory_projections")
+    ) || (
+      combined.includes("serverlessBackendClient.listReadModels") &&
+      combined.includes('db.collection("platformReadModels")') &&
+      combined.includes('.where("lifecycle", "==", "active")')
+    ),
     invalid_platform_read_model: combined.includes("PublishedReadModelSnapshot") && combined.includes("projectionToReadModel"),
     broken_routing: combined.includes("resolveTimelineRoute") && combined.includes("notFound()"),
     missing_slug: combined.includes("getPublishedReadModelBySlug") && combined.includes("slug"),

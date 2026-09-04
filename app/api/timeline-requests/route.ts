@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       ...input,
       ip: getClientIp(request)
     });
-    return ok(created, { status: 201 });
+    return ok(created, { status: created.status === "QUEUED" ? 202 : 200 });
   } catch (error) {
     if (error instanceof Error && error.name === "RateLimitExceeded") {
       return fail(429, "Daily request limit exceeded for this IP.");

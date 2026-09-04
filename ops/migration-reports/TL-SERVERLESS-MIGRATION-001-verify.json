@@ -1,0 +1,37 @@
+{
+  "migrationId": "TL-SERVERLESS-MIGRATION-001",
+  "mode": "verify",
+  "startedAt": "2026-09-04T23:01:07.202Z",
+  "completedAt": "2026-09-04T23:01:41.719Z",
+  "verification": {
+    "collectionCounts": {
+      "topicLedgers": 16,
+      "factoryRuns": 57,
+      "factoryObjects": 210,
+      "factoryArtifacts": 2043,
+      "sourceRecords": 94,
+      "sourceSnapshots": 143,
+      "corpusDocuments": 143,
+      "evidenceRecords": 471,
+      "evidenceValidations": 471,
+      "governancePackages": 7,
+      "governanceDecisions": 14,
+      "governanceApprovals": 14,
+      "libraryAdmissions": 7,
+      "publishedMemory": 78,
+      "platformReadModelHistory": 204,
+      "platformReadModels": 43,
+      "searchDocuments": 15,
+      "sitemapDocuments": 15,
+      "auditEvents": 152474
+    },
+    "activeProjectionCount": 43,
+    "postgresActiveProjectionCount": 43,
+    "activeProjectionParity": true,
+    "tableParityPassed": true,
+    "tableMismatches": [],
+    "totalSourceRows": 157868,
+    "totalMigratedRows": 157868,
+    "sourceCounts": null
+  }
+}

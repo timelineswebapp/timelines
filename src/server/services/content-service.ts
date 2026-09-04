@@ -36,10 +36,7 @@ export const contentService = {
   async getHomepageSnapshotSlice(offset = 0, limit = 12, snapshotDate?: string): Promise<HomepageSnapshotSlice> {
     const normalizedOffset = Math.max(0, offset);
     const normalizedLimit = clamp(limit, 1, 24);
-    const items = (await platformReadModelService.listFeaturedTimelines(normalizedOffset + normalizedLimit)).slice(
-      normalizedOffset,
-      normalizedOffset + normalizedLimit
-    );
+    const items = await platformReadModelService.listFeaturedTimelines(normalizedLimit, normalizedOffset);
     return {
       items,
       nextOffset: items.length === normalizedLimit ? normalizedOffset + items.length : null,

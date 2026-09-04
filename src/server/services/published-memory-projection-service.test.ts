@@ -78,9 +78,9 @@ describe("published memory projection system", () => {
   it("requires Platform read models to consume projection records without snapshot fallback", () => {
     const platformRepository = readFileSync("src/server/repositories/platform-read-model-repository.ts", "utf8");
 
-    assert.match(platformRepository, /publishedMemoryProjectionRepository\.listActiveProjections/);
-    assert.match(platformRepository, /getPublishedReadModelBySlug[\s\S]*publishedMemoryProjectionRepository\.getActiveProjectionBySlug/);
-    assert.match(platformRepository, /getLatestContinuityProjection/);
+    assert.match(platformRepository, /serverlessBackendClient\.listReadModels/);
+    assert.match(platformRepository, /getPublishedReadModelBySlug[\s\S]*serverlessBackendClient\.getReadModel/);
+    assert.match(platformRepository, /serverlessBackendClient\.getContinuity/);
     assert.doesNotMatch(platformRepository, /FROM historical_library_published_snapshots|historical_library_merges|historical_library_retirements|getSql|getWriteSql/);
   });
 

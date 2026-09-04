@@ -1,0 +1,100 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "platformReadModels",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "projectionType", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle", "order": "ASCENDING" },
+        { "fieldPath": "sortTimestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "platformReadModels",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "projectionType", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle", "order": "ASCENDING" },
+        { "fieldPath": "publicId", "order": "ASCENDING" },
+        { "fieldPath": "sortTimestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "platformReadModels",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "projectionType", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle", "order": "ASCENDING" },
+        { "fieldPath": "relationshipId", "order": "ASCENDING" },
+        { "fieldPath": "sortTimestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "platformReadModels",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "projectionType", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle", "order": "ASCENDING" },
+        { "fieldPath": "slug", "order": "ASCENDING" },
+        { "fieldPath": "sortTimestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "platformReadModels",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "projectionType", "order": "ASCENDING" },
+        { "fieldPath": "lifecycle", "order": "ASCENDING" },
+        { "fieldPath": "authorityKeys", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "sortTimestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "searchDocuments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "topicLedgers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "nextRetryAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "topicLedgers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "origin", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "sourceSnapshots",
+      "fieldPath": "body",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "corpusDocuments",
+      "fieldPath": "content",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "factoryArtifacts",
+      "fieldPath": "payload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "publishedMemory",
+      "fieldPath": "authorityPayload",
+      "indexes": []
+    }
+  ]
+}

@@ -24,6 +24,17 @@ export type TimelineRequestStatus =
   | "rejected"
   | "completed";
 
+export type TimelineRequestSubmissionStatus = "AVAILABLE" | "QUEUED" | "PROCESSING" | "FAILED" | "CAPTURED";
+
+export interface TimelineRequestSubmission {
+  status: TimelineRequestSubmissionStatus;
+  topicId: string;
+  state?: string;
+  timelineId?: number;
+  route?: string;
+  requestId?: string;
+}
+
 export interface SourceRecord {
   id: number;
   publisher: string;

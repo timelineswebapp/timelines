@@ -19,11 +19,10 @@ describe("platform read models and publication boundary", () => {
       assert.match(contracts, new RegExp(`type ${model}|export type ${model}`));
     }
 
-    assert.match(repository, /publishedMemoryProjectionRepository\.listActiveProjections/);
-    assert.match(repository, /publishedMemoryProjectionRepository\.getActiveProjectionBySlug/);
-    assert.match(repository, /publishedMemoryProjectionRepository\.getLatestContinuityProjection/);
-    assert.match(repository, /publishedMemoryProjectionRepository\.getActiveRelationshipProjectionByRelationshipId/);
-    assert.match(repository, /publishedMemoryProjectionRepository\.listActiveRelationshipProjectionsForAuthorityRef/);
+    assert.match(repository, /serverlessBackendClient\.listReadModels/);
+    assert.match(repository, /serverlessBackendClient\.getReadModel/);
+    assert.match(repository, /serverlessBackendClient\.getContinuity/);
+    assert.match(repository, /serverlessBackendClient\.getRelationships/);
     assert.doesNotMatch(repository, /FROM historical_library_published_snapshots|historical_library_retirements|historical_library_merges|getSql|getWriteSql/);
     assert.doesNotMatch(repository, /factory_objects|factory_package|governance_decisions|governance_publication_packages/);
   });
@@ -70,9 +69,9 @@ describe("platform read models and publication boundary", () => {
     assert.match(readModelService, /resolutionType: "merged"/);
     assert.match(readModelService, /resolutionType: "retired"/);
     assert.match(readModelService, /listPublishedReadModels\("timeline"/);
-    assert.match(readModelService, /listPublishedReadModels\("milestone"/);
+    assert.match(readModelService, /platformReadModelRepository\.getMilestone/);
     assert.match(readModelService, /searchPublishedReadModels/);
-    assert.match(readModelService, /listPublishedReadModels\("sitemap"/);
+    assert.match(readModelService, /platformReadModelRepository\.listSitemapDocuments/);
     assert.match(readModelService, /getRelationshipById/);
     assert.match(readModelService, /listRelationshipsForAuthorityRef/);
     assert.match(readModelService, /listRelatedObjects/);
@@ -85,7 +84,7 @@ describe("platform read models and publication boundary", () => {
     const contracts = readFileSync("src/server/platform/read-model-contracts.ts", "utf8");
     const service = readFileSync("src/server/services/platform-read-model-service.ts", "utf8");
     const platformRepository = readFileSync("src/server/repositories/platform-read-model-repository.ts", "utf8");
-    const projectionRepository = readFileSync("src/server/repositories/published-memory-projection-repository.ts", "utf8");
+    const publicApi = readFileSync("functions/src/public-api.ts", "utf8");
 
     assert.match(contracts, /PublishedAuthorityRef/);
     assert.match(contracts, /RelatedAuthorityReadModel/);
@@ -116,17 +115,14 @@ describe("platform read models and publication boundary", () => {
 
     assert.match(platformRepository, /getRelationshipByRelationshipId/);
     assert.match(platformRepository, /listRelationshipsForAuthorityRef/);
-    assert.match(platformRepository, /publishedMemoryProjectionRepository\.getActiveRelationshipProjectionByRelationshipId/);
-    assert.match(platformRepository, /publishedMemoryProjectionRepository\.listActiveRelationshipProjectionsForAuthorityRef/);
+    assert.match(platformRepository, /serverlessBackendClient\.getRelationships/);
     assert.doesNotMatch(platformRepository, /historicalRelationshipRepository|historicalAuthorityRepository|getSql|getWriteSql/);
 
-    assert.match(projectionRepository, /getActiveRelationshipProjectionByRelationshipId/);
-    assert.match(projectionRepository, /listActiveRelationshipProjectionsForAuthorityRef/);
-    assert.match(projectionRepository, /projection_type = 'relationship'/);
-    assert.match(projectionRepository, /lifecycle = 'active'/);
-    assert.match(projectionRepository, /continuity_type IN \('retired', 'merged'\)/);
-    assert.match(projectionRepository, /LIMIT \$\{input\.limit\}/);
-    assert.doesNotMatch(projectionRepository, /FROM historical_relationships|JOIN historical_relationships/);
+    assert.match(publicApi, /where\("projectionType", "==", "relationship"\)/);
+    assert.match(publicApi, /where\("lifecycle", "==", "active"\)/);
+    assert.match(publicApi, /where\("authorityKeys", "array-contains", key\)/);
+    assert.match(publicApi, /limit\(limit\)/);
+    assert.doesNotMatch(publicApi, /historical_relationships|getSql|getWriteSql/);
   });
 
   it("keeps every public surface projection-only through contentService", () => {

@@ -32,12 +32,26 @@ export function RequestTimelineForm({
         })
       });
 
-      const payload = (await response.json()) as { ok: boolean; error?: { message?: string } };
+      const payload = (await response.json()) as {
+        ok: boolean;
+        data?: { status?: "AVAILABLE" | "QUEUED" | "PROCESSING" | "FAILED"; route?: string };
+        error?: { message?: string };
+      };
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error?.message || "Unable to submit request.");
       }
 
-      setMessage("Request captured. Editorial review will pick it up from the admin queue.");
+      if (payload.data?.status === "AVAILABLE" && payload.data.route) {
+        window.location.assign(payload.data.route);
+        return;
+      }
+      const statusMessages = {
+        AVAILABLE: "This topic is already available.",
+        QUEUED: "Topic queued. TiMELiNES is researching it now.",
+        PROCESSING: "This topic is already being researched.",
+        FAILED: "Research could not be completed. The request is available for editorial review."
+      } as const;
+      setMessage(payload.data?.status ? statusMessages[payload.data.status as keyof typeof statusMessages] : "Topic queued for research.");
       if (variant === "modal") {
         window.setTimeout(() => {
           setIsOpen(false);

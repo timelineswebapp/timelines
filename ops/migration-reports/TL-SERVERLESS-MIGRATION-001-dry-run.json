@@ -1,0 +1,2365 @@
+{
+  "migrationId": "TL-SERVERLESS-MIGRATION-001",
+  "mode": "dry-run",
+  "projectId": "tiimeliines",
+  "startedAt": "2026-09-04T22:02:24.196Z",
+  "completedAt": "2026-09-04T22:06:12.112Z",
+  "inventory": [
+    {
+      "tableName": "ad_campaigns",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "admin_security_audit_events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 152474,
+      "targetCollection": "auditEvents"
+    },
+    {
+      "tableName": "admin_session_revocations",
+      "primaryKeys": [
+        "session_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "analytics_events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "corpus_documents",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 143,
+      "targetCollection": "corpusDocuments"
+    },
+    {
+      "tableName": "editorial_prompt_supersessions",
+      "primaryKeys": [
+        "superseded_prompt_version_id"
+      ],
+      "estimatedRows": 4,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_prompt_versions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 8,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_prompts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 4,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_provider_configurations",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_writer_configuration_binding_supersessions",
+      "primaryKeys": [
+        "superseded_binding_id"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_writer_configuration_bindings",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 2,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_writing_policies",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "event_sources",
+      "primaryKeys": [
+        "event_id",
+        "source_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "event_tags",
+      "primaryKeys": [
+        "event_id",
+        "tag_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "evidence_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 471,
+      "targetCollection": "evidenceRecords"
+    },
+    {
+      "tableName": "evidence_validation_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 471,
+      "targetCollection": "evidenceValidations"
+    },
+    {
+      "tableName": "factory_artifacts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 246,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_audit_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 42,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_authority_preparations",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_confidence_assessments",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_certification_invariant_results",
+      "primaryKeys": [
+        "case_result_id",
+        "invariant_key"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_arc_milestones",
+      "primaryKeys": [
+        "composition_id",
+        "arc_key",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 17,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_arc_phases",
+      "primaryKeys": [
+        "composition_id",
+        "arc_key",
+        "phase_key"
+      ],
+      "estimatedRows": 15,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_arcs",
+      "primaryKeys": [
+        "composition_id",
+        "arc_key"
+      ],
+      "estimatedRows": 8,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_boundaries",
+      "primaryKeys": [
+        "composition_id",
+        "boundary_type"
+      ],
+      "estimatedRows": 16,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_continuity",
+      "primaryKeys": [
+        "composition_id",
+        "sequence"
+      ],
+      "estimatedRows": 9,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_phase_milestones",
+      "primaryKeys": [
+        "composition_id",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 17,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_phases",
+      "primaryKeys": [
+        "composition_id",
+        "phase_key"
+      ],
+      "estimatedRows": 15,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_transitions",
+      "primaryKeys": [
+        "composition_id",
+        "sequence"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_turning_points",
+      "primaryKeys": [
+        "composition_id",
+        "milestone_object_id",
+        "evidence_record_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_compositions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 8,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_decisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 35,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_evidence_set_inputs",
+      "primaryKeys": [
+        "editorial_evidence_set_id",
+        "evidence_record_id"
+      ],
+      "estimatedRows": 252,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_evidence_sets",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 13,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_generation_units",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 51,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_citation_evidence",
+      "primaryKeys": [
+        "narrative_id",
+        "citation_key",
+        "evidence_record_id"
+      ],
+      "estimatedRows": 23,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_citation_sentences",
+      "primaryKeys": [
+        "narrative_id",
+        "citation_key",
+        "sentence_key"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_citations",
+      "primaryKeys": [
+        "narrative_id",
+        "citation_key"
+      ],
+      "estimatedRows": 18,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_paragraph_milestones",
+      "primaryKeys": [
+        "narrative_id",
+        "paragraph_key",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_paragraphs",
+      "primaryKeys": [
+        "narrative_id",
+        "paragraph_key"
+      ],
+      "estimatedRows": 43,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_prompt_refs",
+      "primaryKeys": [
+        "narrative_id",
+        "position"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_provenance",
+      "primaryKeys": [
+        "narrative_id"
+      ],
+      "estimatedRows": 11,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_revisions",
+      "primaryKeys": [
+        "narrative_id"
+      ],
+      "estimatedRows": 11,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_sections",
+      "primaryKeys": [
+        "narrative_id",
+        "section_key"
+      ],
+      "estimatedRows": 42,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_sentence_claims",
+      "primaryKeys": [
+        "narrative_id",
+        "sentence_key",
+        "claim_id"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_sentence_milestones",
+      "primaryKeys": [
+        "narrative_id",
+        "sentence_key",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_sentences",
+      "primaryKeys": [
+        "narrative_id",
+        "sentence_key"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narratives",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 11,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_reviews",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_timeline_candidate_evidence",
+      "primaryKeys": [
+        "candidate_id",
+        "milestone_object_id",
+        "evidence_record_id",
+        "validation_record_id"
+      ],
+      "estimatedRows": 17,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_timeline_candidate_exclusions",
+      "primaryKeys": [
+        "candidate_id",
+        "excluded_milestone_object_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_timeline_candidate_milestones",
+      "primaryKeys": [
+        "candidate_id",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 17,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_timeline_candidates",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 8,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_feedback_consumptions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_governance_handoffs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_governance_submissions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_institutional_events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 86,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_objects",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 210,
+      "targetCollection": "factoryObjects"
+    },
+    {
+      "tableName": "factory_operational_notifications",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 29,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_operations_control",
+      "primaryKeys": [
+        "singleton"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_package_drafts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_package_versions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_pipeline_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 57,
+      "targetCollection": "factoryRuns"
+    },
+    {
+      "tableName": "factory_pipeline_steps",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 269,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_publication_verifications",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_revision_plans",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_audit_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 358,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_executions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_jobs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_prompts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_workers",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_submission_audit_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 14,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_submission_lineage",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 14,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_topic_execution_history",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 668,
+      "targetCollection": "generationJobs"
+    },
+    {
+      "tableName": "factory_topic_work_items",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 11,
+      "targetCollection": "topicLedgers"
+    },
+    {
+      "tableName": "factory_worker_capabilities",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_worker_permissions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_worker_policies",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_worker_versions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "governance_approvals",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 14,
+      "targetCollection": "governanceApprovals"
+    },
+    {
+      "tableName": "governance_audit_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 91,
+      "targetCollection": "governanceAudits"
+    },
+    {
+      "tableName": "governance_decisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 14,
+      "targetCollection": "governanceDecisions"
+    },
+    {
+      "tableName": "governance_disputes",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "governanceAudits"
+    },
+    {
+      "tableName": "governance_feedback_packages",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "governanceAudits"
+    },
+    {
+      "tableName": "governance_publication_packages",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "governancePackages"
+    },
+    {
+      "tableName": "governance_queues",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "governanceQueues"
+    },
+    {
+      "tableName": "historical_library_admissions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "libraryAdmissions"
+    },
+    {
+      "tableName": "historical_library_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_lifecycle_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_continuity_edges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_feedback_links",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_lifecycle_audit",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_preservations",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_published_revisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_published_snapshots",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 78,
+      "targetCollection": "publishedMemory"
+    },
+    {
+      "tableName": "historical_library_retirements",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_split_children",
+      "primaryKeys": [
+        "split_id",
+        "child_published_record_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_splits",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_supersessions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_withdrawals",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_object_aliases",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_object_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_object_retirements",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_object_revisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_objects",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationship_disputes",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationship_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationship_retirements",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationship_revisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationships",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "milestone_participation_disputes",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "milestone_participation_revisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "milestone_participations",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "operational_alert_history",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 39,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "operational_alerts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 9,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "operational_health_assessments",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 90,
+      "targetCollection": "operationalMetrics"
+    },
+    {
+      "tableName": "operational_metric_measurements",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 195,
+      "targetCollection": "operationalMetrics"
+    },
+    {
+      "tableName": "operational_migration_ledger",
+      "primaryKeys": [
+        "migration_id"
+      ],
+      "estimatedRows": 57,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "operational_replay_requests",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 4,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "operational_scheduled_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 68,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "platform_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "platform_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "failureRecords"
+    },
+    {
+      "tableName": "platform_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "platform_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "platform_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "failureRecords"
+    },
+    {
+      "tableName": "projection_engine_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_projection_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_execution_leases",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_execution_limits",
+      "primaryKeys": [
+        "provider_key"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_execution_metrics",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_rate_limit_events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 2,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_runtime_state",
+      "primaryKeys": [
+        "provider"
+      ],
+      "estimatedRows": 4,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "published_memory_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_lifecycle_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_continuity_projections",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_projection_lineage",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 102,
+      "targetCollection": "platformReadModelHistory"
+    },
+    {
+      "tableName": "published_memory_projection_rebuild_reports",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_projections",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 102,
+      "targetCollection": "platformReadModelHistory"
+    },
+    {
+      "tableName": "relationship_recovery_reports",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "failureRecords"
+    },
+    {
+      "tableName": "search_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_search_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "source_authority_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 94,
+      "targetCollection": "sourceRecords"
+    },
+    {
+      "tableName": "source_authority_snapshots",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 143,
+      "targetCollection": "sourceSnapshots"
+    },
+    {
+      "tableName": "source_relevance_diagnostics",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 171,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "sources",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tag_aliases",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tag_governance",
+      "primaryKeys": [
+        "tag_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tag_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tag_redirects",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tags",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "taxonomy_categories",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "taxonomy_category_aliases",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "taxonomy_category_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "taxonomy_category_redirects",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "timeline_events",
+      "primaryKeys": [
+        "timeline_id",
+        "event_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "timeline_requests",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "timeline_slug_history",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "timelines",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    }
+  ],
+  "counts": {
+    "ad_campaigns": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "admin_security_audit_events": {
+      "source": 152474,
+      "written": 0,
+      "hash": "3943d88b3c8af3acc69f1c461d89e49a997d9deaf4d719a9957ef691bca74243"
+    },
+    "admin_session_revocations": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "analytics_events": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "corpus_documents": {
+      "source": 143,
+      "written": 0,
+      "hash": "68f8ad312a91d5001f337fc9ea174cfcf33e720260a0b26ad95c01bc6c3d4ab4"
+    },
+    "editorial_prompt_supersessions": {
+      "source": 4,
+      "written": 0,
+      "hash": "5786a0ce1612547058298b92d28e50b2e7da44e25b641a4f2a259ed0d6d2ae77"
+    },
+    "editorial_prompt_versions": {
+      "source": 8,
+      "written": 0,
+      "hash": "db1850b18ac77da12ced1d3c1b451e6d732c8d1ff8ead91dfe4151e3ff7f0b9b"
+    },
+    "editorial_prompts": {
+      "source": 4,
+      "written": 0,
+      "hash": "e6947cdba9f748923f3fd65d15c8945264c57d52b8cd8eb27caf27dc48ed3a85"
+    },
+    "editorial_provider_configurations": {
+      "source": 1,
+      "written": 0,
+      "hash": "6c62cf8d455013aed562f706eb2bdac71454d3ed31adb83de60488b1f5ff3754"
+    },
+    "editorial_writer_configuration_binding_supersessions": {
+      "source": 1,
+      "written": 0,
+      "hash": "fb2ee91baf4754df6d437c40817ed4d6bccb3cc9f75990da131d525e94ea8f35"
+    },
+    "editorial_writer_configuration_bindings": {
+      "source": 2,
+      "written": 0,
+      "hash": "2a5a744d134b8640f4a4180e90ac40bbbc3331e7caad0b6e99745af8835dc55d"
+    },
+    "editorial_writing_policies": {
+      "source": 1,
+      "written": 0,
+      "hash": "af97d057552d1e760f626458a5ac41aad2c2a2570eae2ece6b516bcc69474f0c"
+    },
+    "event_sources": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "event_tags": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "events": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "evidence_records": {
+      "source": 471,
+      "written": 0,
+      "hash": "d0b1b4cca108d5d05be6e34e6175a0d8e9fbcc2981b6368e9011050d6eedeaf5"
+    },
+    "evidence_validation_records": {
+      "source": 471,
+      "written": 0,
+      "hash": "ccb09f18290dedb1d56e61d0ac80e2af34a14694cc076a22c0f21339a1caae79"
+    },
+    "factory_artifacts": {
+      "source": 246,
+      "written": 0,
+      "hash": "63c10971723056a5df828fb8f76864712f5a29b9b8f5c710ec74cdef39f3172d"
+    },
+    "factory_audit_records": {
+      "source": 42,
+      "written": 0,
+      "hash": "0f92c742e5311cf9b5b2474a8c051c9f2a81a78f04370d1c6a7a393722c55ab0"
+    },
+    "factory_authority_preparations": {
+      "source": 7,
+      "written": 0,
+      "hash": "50a1235779bbb2ebfc1080df6dd74eac28a221ef8082ff572e33fc1174bf263b"
+    },
+    "factory_confidence_assessments": {
+      "source": 7,
+      "written": 0,
+      "hash": "7946f6058e3a7048f593911d10fc26557721d0852274e28c73c83a8397187bb8"
+    },
+    "factory_editorial_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_arc_milestones": {
+      "source": 17,
+      "written": 0,
+      "hash": "d81c547d175fb3653c4a772b766f7bd5ce2d70269c18f075ecaffeaa7431c16d"
+    },
+    "factory_editorial_composition_arc_phases": {
+      "source": 15,
+      "written": 0,
+      "hash": "3d0fba46cac9f826ec4dd975dc373adafbc308c0d3bf74a5e60483c88fae5974"
+    },
+    "factory_editorial_composition_arcs": {
+      "source": 8,
+      "written": 0,
+      "hash": "b5ef0d935603edebfb81b56fcb67142c241a9c4dfa2db3fc025152d237dd0c1d"
+    },
+    "factory_editorial_composition_boundaries": {
+      "source": 16,
+      "written": 0,
+      "hash": "5aa0f5fc9d8e90f416e7eb1b260319bf2f560c8c487e8acf83bc03f2ca468e0d"
+    },
+    "factory_editorial_composition_continuity": {
+      "source": 9,
+      "written": 0,
+      "hash": "530ef4c920eaf55794711903df2d3e6d17d42034eb2f05eb4ce56578fd975fe5"
+    },
+    "factory_editorial_composition_phase_milestones": {
+      "source": 17,
+      "written": 0,
+      "hash": "5aaf45d00a7fbddb093f8e431bd73cfa4d20794f02ad2296582ea0590ab7a74d"
+    },
+    "factory_editorial_composition_phases": {
+      "source": 15,
+      "written": 0,
+      "hash": "fe3062e276ec8bbcbdfc1effc3fb9ab74e211985a2cd1cac68cf019c5e6c9611"
+    },
+    "factory_editorial_composition_transitions": {
+      "source": 7,
+      "written": 0,
+      "hash": "441151bfb59655a3e8b6adf7b4eeb15098952fcea6faf9da96fe84aa39a39072"
+    },
+    "factory_editorial_composition_turning_points": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_compositions": {
+      "source": 8,
+      "written": 0,
+      "hash": "e7b0c6f3de0748ee050b1aa88f6c87c22c0d22001577cde1effe6730449b9bad"
+    },
+    "factory_editorial_decisions": {
+      "source": 35,
+      "written": 0,
+      "hash": "be58e5ceca1178626b6f5f2cc817c710ab4c7ce0eba089748d6ca54779ab6391"
+    },
+    "factory_editorial_evidence_set_inputs": {
+      "source": 252,
+      "written": 0,
+      "hash": "e7570a8d85632c5ded3c187ee59eecbabcbf0eccc7c37625b8718008891f9b02"
+    },
+    "factory_editorial_evidence_sets": {
+      "source": 13,
+      "written": 0,
+      "hash": "11cd0bb6bf9eaf2954cf31a79600b2d7fe56b6484ad1068b086d7789e4188cba"
+    },
+    "factory_editorial_generation_units": {
+      "source": 51,
+      "written": 0,
+      "hash": "0f6cfbc05718880aafbdc36bb555009068fc81d881c638bd14dae4642c0ce738"
+    },
+    "factory_editorial_narrative_citation_evidence": {
+      "source": 23,
+      "written": 0,
+      "hash": "a6045052b8c01e86c29f8cd68985aef1464ca2847470e5034bb38b1b51ef4f7e"
+    },
+    "factory_editorial_narrative_citation_sentences": {
+      "source": 44,
+      "written": 0,
+      "hash": "6bf65040f527e7324bf3226895ddb3d41025688d02083c55d82a289a43bae8ab"
+    },
+    "factory_editorial_narrative_citations": {
+      "source": 18,
+      "written": 0,
+      "hash": "a7b171b7140ce5ce977d72334008c4f557d770cc9dbdc64f47b09353d3a6db84"
+    },
+    "factory_editorial_narrative_paragraph_milestones": {
+      "source": 44,
+      "written": 0,
+      "hash": "6aea2c6c736c8f7ac3dfd681d3e5d68277be4ee9956f7949a0aaf31e1c08b870"
+    },
+    "factory_editorial_narrative_paragraphs": {
+      "source": 43,
+      "written": 0,
+      "hash": "981fb9edc1a73aedf4837851b38c92ee8e2cac10e89bdde8bba97091b825bc00"
+    },
+    "factory_editorial_narrative_prompt_refs": {
+      "source": 44,
+      "written": 0,
+      "hash": "b7844da8b10f1e36d4d0cfc68b087b072b2d79037ddf25e2e1920e0aab3fb2d8"
+    },
+    "factory_editorial_narrative_provenance": {
+      "source": 11,
+      "written": 0,
+      "hash": "3ae556be76ae1835025acbdfded13f6c110fa7d21811a3b27d3539aeae601c3d"
+    },
+    "factory_editorial_narrative_revisions": {
+      "source": 11,
+      "written": 0,
+      "hash": "656857a86af13fdfc3461a1a10198e1a01352438a9b3801773a7b33219b4de9c"
+    },
+    "factory_editorial_narrative_sections": {
+      "source": 42,
+      "written": 0,
+      "hash": "b6b89a9eba517bcec1703b8f93679a2d68fd53b4878126fe4b162ad1a3ccc913"
+    },
+    "factory_editorial_narrative_sentence_claims": {
+      "source": 44,
+      "written": 0,
+      "hash": "43fe71fbdcc2a14abf5a0502de358a9e5001101da8cef7ac41b0a81a3c8b31a4"
+    },
+    "factory_editorial_narrative_sentence_milestones": {
+      "source": 44,
+      "written": 0,
+      "hash": "acc0f29284d5bbc86cfe9aa9376aac5ed3b66b5d8bfe5bc07dfc098ae23a8601"
+    },
+    "factory_editorial_narrative_sentences": {
+      "source": 44,
+      "written": 0,
+      "hash": "a34f44f68f05ecfe699e60bf865da7ea71e1109f08cbede78dfde9d0f9c37eb1"
+    },
+    "factory_editorial_narratives": {
+      "source": 11,
+      "written": 0,
+      "hash": "fc9a6c329e5817a096684f3ce41c8fa821a014d464b4a443218e0fa0c30db97b"
+    },
+    "factory_editorial_reviews": {
+      "source": 7,
+      "written": 0,
+      "hash": "861041e72a2a57bcc3c296b26afa790f04406040fb71756e552eb655b6aa7ce8"
+    },
+    "factory_editorial_timeline_candidate_evidence": {
+      "source": 17,
+      "written": 0,
+      "hash": "80b4a3809adf6eb3dd23c806f3ff0817247ade68106dc0f55bd50950c4b8316f"
+    },
+    "factory_editorial_timeline_candidate_exclusions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_timeline_candidate_milestones": {
+      "source": 17,
+      "written": 0,
+      "hash": "df29f254bd016a5a312f63f4eb3f25354bcb0978b0c0ec44d1c9c743b6d8305d"
+    },
+    "factory_editorial_timeline_candidates": {
+      "source": 8,
+      "written": 0,
+      "hash": "8b2a2c9c952ba15d8fd6c4424240e4a3ee84e1fd4918fc62b230cbd32a58090e"
+    },
+    "factory_feedback_consumptions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_governance_handoffs": {
+      "source": 7,
+      "written": 0,
+      "hash": "5cd91948ede4e82c030448bbdaab4f935bd0c4eed73f6d0b8bb0c8d4fe767116"
+    },
+    "factory_governance_submissions": {
+      "source": 7,
+      "written": 0,
+      "hash": "64b0795d237273926f71013733ec9912edb748c40e02af03d7dbe99f74f6458b"
+    },
+    "factory_institutional_events": {
+      "source": 86,
+      "written": 0,
+      "hash": "181bc923563332e5f2b43b7c99396fb3f7ccd4e552a1d3f0381b87d950027bd1"
+    },
+    "factory_objects": {
+      "source": 210,
+      "written": 0,
+      "hash": "3b958d596bf6c567bb20fc82e9d8ddef2160262f4ca411dea8eb5010a516c085"
+    },
+    "factory_operational_notifications": {
+      "source": 29,
+      "written": 0,
+      "hash": "fec1de9aea31d360c31fb359d0b91a7f4b790085d5fbd1ddf8203461eb811c21"
+    },
+    "factory_operations_control": {
+      "source": 1,
+      "written": 0,
+      "hash": "3d7b692fe1a962dac7e40fbc3e9be63efbf7951d411612ccfa31461c0b669993"
+    },
+    "factory_package_drafts": {
+      "source": 7,
+      "written": 0,
+      "hash": "e53c5b428f0d82fa9ff48293caf58c30407f86aaa7d989fcdf39460f1076e32f"
+    },
+    "factory_package_versions": {
+      "source": 7,
+      "written": 0,
+      "hash": "02dbc3a9db636145ad0fc90790a64c6527ed6cf2b7c33f1a83641b5963455361"
+    },
+    "factory_pipeline_runs": {
+      "source": 57,
+      "written": 0,
+      "hash": "6a4be1df8b785f2277bf57e529a89b26d08b8be8d15f465c14cd906f91274548"
+    },
+    "factory_pipeline_steps": {
+      "source": 269,
+      "written": 0,
+      "hash": "cce7f47394d9cbafdcdd73eadf781f53bd7af126b91a1c2d4cccc0cd6ffc7a6b"
+    },
+    "factory_publication_verifications": {
+      "source": 7,
+      "written": 0,
+      "hash": "67065c94399ab8e46623ce7036d83ce7badc2e8246f4feccd346f413821a1578"
+    },
+    "factory_revision_plans": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_audit_records": {
+      "source": 358,
+      "written": 0,
+      "hash": "68cfa28a33a08ab6840a1d2f8f954ad2687704cb03271cca421ea96765c34a27"
+    },
+    "factory_runtime_executions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_jobs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_prompts": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_workers": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_submission_audit_records": {
+      "source": 14,
+      "written": 0,
+      "hash": "06a4c4e62cb05e76ba768ec81096c0eea0e9091786cfb03347c94eb6239bfd9f"
+    },
+    "factory_submission_lineage": {
+      "source": 14,
+      "written": 0,
+      "hash": "4278d38656a9fefcd1e3b3b8259b5c25de76b9194589d55d57d0a524c23ca28b"
+    },
+    "factory_topic_execution_history": {
+      "source": 668,
+      "written": 0,
+      "hash": "80c410c35401aee85f3fa28e08391d62a4de9fd0fecef52feb49f830ca0ab8e1"
+    },
+    "factory_topic_work_items": {
+      "source": 11,
+      "written": 0,
+      "hash": "30186abf4e87becba3056cef3b66dd440a1411fbe4d81e0dd3475232228a6141"
+    },
+    "factory_worker_capabilities": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_worker_permissions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_worker_policies": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_worker_versions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "governance_approvals": {
+      "source": 14,
+      "written": 0,
+      "hash": "4d911fe38501b80202c6d2f9acf1e6d60046170c21a465cfa4d8efec03b39239"
+    },
+    "governance_audit_records": {
+      "source": 91,
+      "written": 0,
+      "hash": "9aa387103463a0434be2dd8ecb35b683318567ccccbcd0d557e233b12d5c06bc"
+    },
+    "governance_decisions": {
+      "source": 14,
+      "written": 0,
+      "hash": "9a1d60f5084042610f3bf7c91fd899b33d9727a2f24a228d0d5d376b87aa50a9"
+    },
+    "governance_disputes": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "governance_feedback_packages": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "governance_publication_packages": {
+      "source": 7,
+      "written": 0,
+      "hash": "183a78b89cb543229760b74b6fda63d4ca0cff00b88ba9ed86ab54d9933da87d"
+    },
+    "governance_queues": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_admissions": {
+      "source": 7,
+      "written": 0,
+      "hash": "1f77606f31780f8857bbd26ef799bc766b13196b7c67da0c0145f4a35ffe9327"
+    },
+    "historical_library_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_lifecycle_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_continuity_edges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_feedback_links": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_lifecycle_audit": {
+      "source": 7,
+      "written": 0,
+      "hash": "b74e52a5fe2d40265b9be96917cb0e354aaf8a2918a9385f5f2b57dde39d3022"
+    },
+    "historical_library_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_preservations": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_published_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_published_snapshots": {
+      "source": 78,
+      "written": 0,
+      "hash": "a659185cff04c9876eb0f924c623e4a5e8aa1e2fda68ca977a69cbd6c8fd4f79"
+    },
+    "historical_library_retirements": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_split_children": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_splits": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_supersessions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_withdrawals": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_object_aliases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_object_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_object_retirements": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_object_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_objects": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationship_disputes": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationship_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationship_retirements": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationship_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationships": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "milestone_participation_disputes": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "milestone_participation_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "milestone_participations": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_alert_history": {
+      "source": 39,
+      "written": 0,
+      "hash": "e8ca7d31ffa2f1876a63fb3b7bcd21caa2dfc7a65d40737908db824ec1b07ab1"
+    },
+    "operational_alerts": {
+      "source": 9,
+      "written": 0,
+      "hash": "64033534e3494721e72ea97d45ec7a8cb189a2bbce2a0454d36cf9b29a598174"
+    },
+    "operational_health_assessments": {
+      "source": 90,
+      "written": 0,
+      "hash": "e12642d4005fab4fc6e867b64317e3401dc9326fb43251b5a7a6452dfd8517c6"
+    },
+    "operational_metric_measurements": {
+      "source": 195,
+      "written": 0,
+      "hash": "80592bc3e4330dcee002f88c6e2c63704c6a8328607f11beac4fafe54aa14cc4"
+    },
+    "operational_migration_ledger": {
+      "source": 57,
+      "written": 0,
+      "hash": "53a02cd33ddeb0472cada4319ebf88d92d42c5925cfd86f8496c59236377b6e9"
+    },
+    "operational_replay_requests": {
+      "source": 4,
+      "written": 0,
+      "hash": "18eea2d24dcb18864e9c661e97dcff729abc90975da074ef7867dcdf888819b9"
+    },
+    "operational_scheduled_runs": {
+      "source": 68,
+      "written": 0,
+      "hash": "bf14b7045330b68747fa1b9f530aed09395dc3db9c804f232773349aa1799b52"
+    },
+    "platform_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_projection_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "provider_execution_leases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "provider_execution_limits": {
+      "source": 1,
+      "written": 0,
+      "hash": "d6ea79e8d4195be7ac156fd979ede3eea5da0fe8ed95a80fae6e7d50329674b3"
+    },
+    "provider_execution_metrics": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "provider_rate_limit_events": {
+      "source": 2,
+      "written": 0,
+      "hash": "028518a7a8b02b6d55cae756ca5b93b4629a9b052fe4c8e860ac4e8b82a84e00"
+    },
+    "provider_runtime_state": {
+      "source": 4,
+      "written": 0,
+      "hash": "b5478b6803d96bafdcfd94866670b2777f99776091cc8e1239a273b6e9ec99c0"
+    },
+    "published_memory_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_lifecycle_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_continuity_projections": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_projection_lineage": {
+      "source": 102,
+      "written": 0,
+      "hash": "77e9028cf3151f44e78622976bf9611fd51e4992bc7872ee5972b1a1f630204e"
+    },
+    "published_memory_projection_rebuild_reports": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_projections": {
+      "source": 102,
+      "written": 0,
+      "hash": "7a6887a728becb3be075a77c06f4a2d92743f672a8a6d58a1debeb6e5e8b7ff8"
+    },
+    "relationship_recovery_reports": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_search_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "source_authority_records": {
+      "source": 94,
+      "written": 0,
+      "hash": "6cdd5222011a81a8093ff2fb9a962de0cfb565978caa58f3f9aa20a7c90d9483"
+    },
+    "source_authority_snapshots": {
+      "source": 143,
+      "written": 0,
+      "hash": "a91f11316fd71f66f69b7f97ca2341a801254c7705674c685d301cd21aa9c5d1"
+    },
+    "source_relevance_diagnostics": {
+      "source": 171,
+      "written": 0,
+      "hash": "26f1a58428fc40c8f031551e4f9ab789edd761d0d7cb39dfd55dc5a0aee466dc"
+    },
+    "sources": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tag_aliases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tag_governance": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tag_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tag_redirects": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tags": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "taxonomy_categories": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "taxonomy_category_aliases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "taxonomy_category_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "taxonomy_category_redirects": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "timeline_events": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "timeline_requests": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "timeline_slug_history": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "timelines": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "materialized": null,
+  "verification": null
+}

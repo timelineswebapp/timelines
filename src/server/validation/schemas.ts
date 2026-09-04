@@ -138,7 +138,10 @@ export const timelineSchema = z.object({
 
 const requestLanguageSchema = z.string().trim().min(2).max(20).default("en");
 const requestEmailSchema = z.string().trim().email().max(254);
-const requestMetadataSchema = z.record(z.unknown()).default({});
+const requestMetadataSchema = z.record(z.unknown()).default({}).refine(
+  (value) => Object.keys(value).length <= 32 && JSON.stringify(value).length <= 4096,
+  "Metadata must contain at most 32 keys and serialize to at most 4096 characters."
+);
 
 const timelineRequestPayloadSchema = z.discriminatedUnion("requestType", [
   z.object({

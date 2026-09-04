@@ -1,0 +1,1525 @@
+{
+  "migrationId": "TL-SERVERLESS-MIGRATION-001",
+  "mode": "apply",
+  "projectId": "tiimeliines",
+  "startedAt": "2026-09-04T23:00:29.270Z",
+  "completedAt": "2026-09-04T23:01:06.275Z",
+  "inventory": [
+    {
+      "tableName": "ad_campaigns",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "admin_security_audit_events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 152474,
+      "targetCollection": "auditEvents"
+    },
+    {
+      "tableName": "admin_session_revocations",
+      "primaryKeys": [
+        "session_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "analytics_events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "corpus_documents",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 143,
+      "targetCollection": "corpusDocuments"
+    },
+    {
+      "tableName": "editorial_prompt_supersessions",
+      "primaryKeys": [
+        "superseded_prompt_version_id"
+      ],
+      "estimatedRows": 4,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_prompt_versions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 8,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_prompts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 4,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_provider_configurations",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_writer_configuration_binding_supersessions",
+      "primaryKeys": [
+        "superseded_binding_id"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_writer_configuration_bindings",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 2,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "editorial_writing_policies",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "event_sources",
+      "primaryKeys": [
+        "event_id",
+        "source_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "event_tags",
+      "primaryKeys": [
+        "event_id",
+        "tag_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "evidence_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 471,
+      "targetCollection": "evidenceRecords"
+    },
+    {
+      "tableName": "evidence_validation_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 471,
+      "targetCollection": "evidenceValidations"
+    },
+    {
+      "tableName": "factory_artifacts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 246,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_audit_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 42,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_authority_preparations",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_confidence_assessments",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_certification_invariant_results",
+      "primaryKeys": [
+        "case_result_id",
+        "invariant_key"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_arc_milestones",
+      "primaryKeys": [
+        "composition_id",
+        "arc_key",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 17,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_arc_phases",
+      "primaryKeys": [
+        "composition_id",
+        "arc_key",
+        "phase_key"
+      ],
+      "estimatedRows": 15,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_arcs",
+      "primaryKeys": [
+        "composition_id",
+        "arc_key"
+      ],
+      "estimatedRows": 8,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_boundaries",
+      "primaryKeys": [
+        "composition_id",
+        "boundary_type"
+      ],
+      "estimatedRows": 16,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_continuity",
+      "primaryKeys": [
+        "composition_id",
+        "sequence"
+      ],
+      "estimatedRows": 9,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_phase_milestones",
+      "primaryKeys": [
+        "composition_id",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 17,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_phases",
+      "primaryKeys": [
+        "composition_id",
+        "phase_key"
+      ],
+      "estimatedRows": 15,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_transitions",
+      "primaryKeys": [
+        "composition_id",
+        "sequence"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_composition_turning_points",
+      "primaryKeys": [
+        "composition_id",
+        "milestone_object_id",
+        "evidence_record_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_compositions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 8,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_decisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 35,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_evidence_set_inputs",
+      "primaryKeys": [
+        "editorial_evidence_set_id",
+        "evidence_record_id"
+      ],
+      "estimatedRows": 252,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_evidence_sets",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 13,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_generation_units",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 51,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_citation_evidence",
+      "primaryKeys": [
+        "narrative_id",
+        "citation_key",
+        "evidence_record_id"
+      ],
+      "estimatedRows": 23,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_citation_sentences",
+      "primaryKeys": [
+        "narrative_id",
+        "citation_key",
+        "sentence_key"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_citations",
+      "primaryKeys": [
+        "narrative_id",
+        "citation_key"
+      ],
+      "estimatedRows": 18,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_paragraph_milestones",
+      "primaryKeys": [
+        "narrative_id",
+        "paragraph_key",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_paragraphs",
+      "primaryKeys": [
+        "narrative_id",
+        "paragraph_key"
+      ],
+      "estimatedRows": 43,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_prompt_refs",
+      "primaryKeys": [
+        "narrative_id",
+        "position"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_provenance",
+      "primaryKeys": [
+        "narrative_id"
+      ],
+      "estimatedRows": 11,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_revisions",
+      "primaryKeys": [
+        "narrative_id"
+      ],
+      "estimatedRows": 11,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_sections",
+      "primaryKeys": [
+        "narrative_id",
+        "section_key"
+      ],
+      "estimatedRows": 42,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_sentence_claims",
+      "primaryKeys": [
+        "narrative_id",
+        "sentence_key",
+        "claim_id"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_sentence_milestones",
+      "primaryKeys": [
+        "narrative_id",
+        "sentence_key",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narrative_sentences",
+      "primaryKeys": [
+        "narrative_id",
+        "sentence_key"
+      ],
+      "estimatedRows": 44,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_narratives",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 11,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_reviews",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_timeline_candidate_evidence",
+      "primaryKeys": [
+        "candidate_id",
+        "milestone_object_id",
+        "evidence_record_id",
+        "validation_record_id"
+      ],
+      "estimatedRows": 17,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_timeline_candidate_exclusions",
+      "primaryKeys": [
+        "candidate_id",
+        "excluded_milestone_object_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_timeline_candidate_milestones",
+      "primaryKeys": [
+        "candidate_id",
+        "milestone_object_id"
+      ],
+      "estimatedRows": 17,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_editorial_timeline_candidates",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 8,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_feedback_consumptions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_governance_handoffs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_governance_submissions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_institutional_events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 86,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_objects",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 210,
+      "targetCollection": "factoryObjects"
+    },
+    {
+      "tableName": "factory_operational_notifications",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 29,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_operations_control",
+      "primaryKeys": [
+        "singleton"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_package_drafts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_package_versions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_pipeline_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 57,
+      "targetCollection": "factoryRuns"
+    },
+    {
+      "tableName": "factory_pipeline_steps",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 269,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_publication_verifications",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_revision_plans",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_audit_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 358,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_executions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_jobs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_prompts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_runtime_workers",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_submission_audit_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 14,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_submission_lineage",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 14,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_topic_execution_history",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 668,
+      "targetCollection": "generationJobs"
+    },
+    {
+      "tableName": "factory_topic_work_items",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 11,
+      "targetCollection": "topicLedgers"
+    },
+    {
+      "tableName": "factory_worker_capabilities",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_worker_permissions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_worker_policies",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "factory_worker_versions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "factoryArtifacts"
+    },
+    {
+      "tableName": "governance_approvals",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 14,
+      "targetCollection": "governanceApprovals"
+    },
+    {
+      "tableName": "governance_audit_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 91,
+      "targetCollection": "governanceAudits"
+    },
+    {
+      "tableName": "governance_decisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 14,
+      "targetCollection": "governanceDecisions"
+    },
+    {
+      "tableName": "governance_disputes",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "governanceAudits"
+    },
+    {
+      "tableName": "governance_feedback_packages",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "governanceAudits"
+    },
+    {
+      "tableName": "governance_publication_packages",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "governancePackages"
+    },
+    {
+      "tableName": "governance_queues",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "governanceQueues"
+    },
+    {
+      "tableName": "historical_library_admissions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "libraryAdmissions"
+    },
+    {
+      "tableName": "historical_library_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_lifecycle_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_continuity_edges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_feedback_links",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_lifecycle_audit",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 7,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_preservations",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_published_revisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_published_snapshots",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 78,
+      "targetCollection": "publishedMemory"
+    },
+    {
+      "tableName": "historical_library_retirements",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_split_children",
+      "primaryKeys": [
+        "split_id",
+        "child_published_record_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_splits",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_supersessions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_library_withdrawals",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "historical_object_aliases",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_object_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_object_retirements",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_object_revisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_objects",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationship_disputes",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationship_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationship_retirements",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationship_revisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "historical_relationships",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "milestone_participation_disputes",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "milestone_participation_revisions",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "milestone_participations",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "operational_alert_history",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 39,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "operational_alerts",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 9,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "operational_health_assessments",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 90,
+      "targetCollection": "operationalMetrics"
+    },
+    {
+      "tableName": "operational_metric_measurements",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 195,
+      "targetCollection": "operationalMetrics"
+    },
+    {
+      "tableName": "operational_migration_ledger",
+      "primaryKeys": [
+        "migration_id"
+      ],
+      "estimatedRows": 57,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "operational_replay_requests",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 4,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "operational_scheduled_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 68,
+      "targetCollection": "adminOperations"
+    },
+    {
+      "tableName": "platform_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "platform_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "failureRecords"
+    },
+    {
+      "tableName": "platform_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "platform_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "platform_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "failureRecords"
+    },
+    {
+      "tableName": "projection_engine_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_projection_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "projection_engine_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_execution_leases",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_execution_limits",
+      "primaryKeys": [
+        "provider_key"
+      ],
+      "estimatedRows": 1,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_execution_metrics",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_rate_limit_events",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 2,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "provider_runtime_state",
+      "primaryKeys": [
+        "provider"
+      ],
+      "estimatedRows": 4,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "published_memory_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_lifecycle_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_continuity_projections",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_projection_lineage",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 102,
+      "targetCollection": "platformReadModelHistory"
+    },
+    {
+      "tableName": "published_memory_projection_rebuild_reports",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "publicationLifecycle"
+    },
+    {
+      "tableName": "published_memory_projections",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 102,
+      "targetCollection": "platformReadModelHistory"
+    },
+    {
+      "tableName": "relationship_recovery_reports",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_case_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_failure_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "failureRecords"
+    },
+    {
+      "tableName": "search_certification_invariant_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_runs",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_search_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "search_certification_stage_results",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "source_authority_records",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 94,
+      "targetCollection": "sourceRecords"
+    },
+    {
+      "tableName": "source_authority_snapshots",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 143,
+      "targetCollection": "sourceSnapshots"
+    },
+    {
+      "tableName": "source_relevance_diagnostics",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 171,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "sources",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tag_aliases",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tag_governance",
+      "primaryKeys": [
+        "tag_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tag_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tag_redirects",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "tags",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "taxonomy_categories",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "taxonomy_category_aliases",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "taxonomy_category_merges",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "taxonomy_category_redirects",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "timeline_events",
+      "primaryKeys": [
+        "timeline_id",
+        "event_id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "timeline_requests",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "timeline_slug_history",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    },
+    {
+      "tableName": "timelines",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 0,
+      "targetCollection": "institutionalArchive"
+    }
+  ],
+  "counts": {
+    "timelines": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "materialized": {
+    "activeProjections": 73,
+    "continuity": 0,
+    "maxTimelineId": 1469121843,
+    "maxEventId": 1936504816,
+    "maxSourceId": 0,
+    "maxTagId": 0,
+    "categories": 1,
+    "tags": 0
+  },
+  "verification": {
+    "collectionCounts": {
+      "topicLedgers": 16,
+      "factoryRuns": 57,
+      "factoryObjects": 210,
+      "factoryArtifacts": 2043,
+      "sourceRecords": 94,
+      "sourceSnapshots": 143,
+      "corpusDocuments": 143,
+      "evidenceRecords": 471,
+      "evidenceValidations": 471,
+      "governancePackages": 7,
+      "governanceDecisions": 14,
+      "governanceApprovals": 14,
+      "libraryAdmissions": 7,
+      "publishedMemory": 78,
+      "platformReadModelHistory": 204,
+      "platformReadModels": 43,
+      "searchDocuments": 15,
+      "sitemapDocuments": 15,
+      "auditEvents": 152474
+    },
+    "activeProjectionCount": 43,
+    "postgresActiveProjectionCount": 43,
+    "activeProjectionParity": true,
+    "tableParityPassed": true,
+    "tableMismatches": [],
+    "totalSourceRows": 157868,
+    "totalMigratedRows": 157868,
+    "sourceCounts": {
+      "timelines": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  }
+}

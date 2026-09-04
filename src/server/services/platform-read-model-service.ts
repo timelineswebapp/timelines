@@ -164,8 +164,8 @@ export const platformReadModelService = {
     return timelines.length > 0;
   },
 
-  async listFeaturedTimelines(limit = 12): Promise<TimelineSummary[]> {
-    const snapshots = await platformReadModelRepository.listPublishedReadModels("timeline", limit);
+  async listFeaturedTimelines(limit = 12, offset = 0): Promise<TimelineSummary[]> {
+    const snapshots = await platformReadModelRepository.listPublishedReadModels("timeline", limit, offset);
     return snapshots.map((snapshot) => snapshot.payload as unknown as TimelineDetail | TimelineSummary);
   },
 
@@ -184,103 +184,42 @@ export const platformReadModelService = {
   },
 
   async listSitemapEntries(): Promise<Array<{ slug: string; updatedAt: string }>> {
-    const sitemapSnapshots = await platformReadModelRepository.listPublishedReadModels("sitemap", 5000);
-    const projectedEntries = sitemapSnapshots.flatMap((snapshot) => sitemapEntriesFromProjection(snapshot.payload).timelines);
-    if (projectedEntries.length > 0) {
-      return projectedEntries;
-    }
-
-    const snapshots = await platformReadModelRepository.listPublishedReadModels("timeline", 5000);
-    return snapshots
-      .filter((snapshot) => snapshot.slug)
-      .map((snapshot) => ({
-        slug: snapshot.slug as string,
-        updatedAt: snapshot.createdAt || new Date(0).toISOString()
-      }));
+    const documents = await platformReadModelRepository.listSitemapDocuments();
+    return documents
+      .filter((document) => document.kind === "timeline" && typeof document.slug === "string")
+      .map((document) => ({ slug: document.slug as string, updatedAt: String(document.updatedAt || new Date(0).toISOString()) }));
   },
 
   async listMilestoneSitemapEntries(): Promise<Array<{ id: number; title: string; updatedAt: string }>> {
-    const sitemapSnapshots = await platformReadModelRepository.listPublishedReadModels("sitemap", 5000);
-    const projectedEntries = sitemapSnapshots.flatMap((snapshot) => sitemapEntriesFromProjection(snapshot.payload).milestones);
-    if (projectedEntries.length > 0) {
-      return projectedEntries;
-    }
-
-    const snapshots = await platformReadModelRepository.listPublishedReadModels("milestone", 5000);
-    return snapshots.map((snapshot) => {
-      const payload = snapshot.payload as { id: number; title: string; updatedAt?: string };
-      return {
-        id: payload.id,
-        title: payload.title,
-        updatedAt: payload.updatedAt || snapshot.createdAt || new Date(0).toISOString()
-      };
-    });
+    const documents = await platformReadModelRepository.listSitemapDocuments();
+    return documents
+      .filter((document) => document.kind === "milestone" && typeof document.id === "number" && typeof document.title === "string")
+      .map((document) => ({ id: document.id as number, title: document.title as string, updatedAt: String(document.updatedAt || new Date(0).toISOString()) }));
   },
 
   async listCategoryEntries(): Promise<CategoryEntry[]> {
-    const timelines = await platformReadModelService.listFeaturedTimelines(5000);
-    const entries = new Map<string, CategoryEntry>();
-    for (const timeline of timelines) {
-      const slug = timeline.category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-      const existing = entries.get(slug);
-      if (!existing) {
-        entries.set(slug, {
-          slug,
-          name: timeline.category,
-          count: 1,
-          updatedAt: timeline.updatedAt
-        });
-      } else {
-        existing.count += 1;
-        if (timeline.updatedAt > existing.updatedAt) {
-          existing.updatedAt = timeline.updatedAt;
-        }
-      }
-    }
-    return Array.from(entries.values()).sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+    return platformReadModelRepository.listCategories();
   },
 
   async listTags(): Promise<TagRecord[]> {
-    const timelines = await platformReadModelService.listFeaturedTimelines(5000);
-    const tags = new Map<number, TagRecord>();
-    for (const timeline of timelines) {
-      for (const tag of timeline.tags) {
-        tags.set(tag.id, tag);
-      }
-    }
-    return Array.from(tags.values()).sort((left, right) => left.name.localeCompare(right.name));
+    return platformReadModelRepository.listTags();
   },
 
   async getCategoryDetail(slug: string): Promise<CategoryDetail | null> {
-    const entries = await platformReadModelService.listCategoryEntries();
-    const category = entries.find((entry) => entry.slug === slug);
-    if (!category) {
-      return null;
-    }
-    const timelines = (await platformReadModelService.listFeaturedTimelines(5000)).filter(
-      (timeline) => timeline.category === category.name
-    );
-    return { category, timelines };
+    return platformReadModelRepository.getCategoryDetail(slug);
   },
 
   async getTagDetail(slug: string): Promise<TagDetail | null> {
-    const timelines = (await platformReadModelService.listFeaturedTimelines(5000)).filter((timeline) =>
-      timeline.tags.some((tag) => tag.slug === slug)
-    );
-    const tag = timelines.flatMap((timeline) => timeline.tags).find((item) => item.slug === slug);
-    return tag ? { tag, timelines } : null;
+    return platformReadModelRepository.getTagDetail(slug);
   },
 
   async getMilestone(eventId: number): Promise<EventRecord | null> {
-    const snapshots = await platformReadModelRepository.listPublishedReadModels("milestone", 5000);
-    const match = snapshots.find((snapshot) => (snapshot.payload as { id?: number }).id === eventId);
-    return match ? (match.payload as unknown as EventRecord) : null;
+    return platformReadModelRepository.getMilestone(eventId);
   },
 
   async getMilestoneContext(eventId: number): Promise<MilestoneContext | null> {
-    const snapshots = await platformReadModelRepository.listPublishedReadModels("milestone", 5000);
-    const match = snapshots.find((snapshot) => (snapshot.payload as { id?: number }).id === eventId);
-    const context = match ? (match.payload as { historicalContext?: unknown }).historicalContext : null;
+    const milestone = await platformReadModelRepository.getMilestone(eventId);
+    const context = milestone?.historicalContext;
     return context ? (context as MilestoneContext) : null;
   },
 
@@ -317,22 +256,11 @@ export const platformReadModelService = {
   },
 
   async getEventShareContext(eventId: number): Promise<EventShareContext | null> {
-    const timelines = await platformReadModelService.listFeaturedTimelines(5000);
-    for (const timeline of timelines as TimelineDetail[]) {
-      const event = timeline.events?.find((item) => item.id === eventId);
-      if (event) {
-        return {
-          event,
-          timeline: {
-            id: timeline.id,
-            slug: timeline.slug,
-            title: timeline.title,
-            category: timeline.category
-          }
-        };
-      }
-    }
-    return null;
+    const event = await platformReadModelRepository.getMilestone(eventId);
+    const link = event?.timelineLinks?.[0];
+    if (!event || !link) return null;
+    const timeline = await platformReadModelService.getTimelineBySlug(link.slug);
+    return timeline ? { event, timeline: { id: timeline.id, slug: timeline.slug, title: timeline.title, category: timeline.category } } : null;
   },
 
   async searchKnowledge(query: string, limit = 12, offset = 0): Promise<SearchResult> {

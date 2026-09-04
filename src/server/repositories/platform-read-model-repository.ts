@@ -3,15 +3,21 @@ import type {
   PublishedReadModelSnapshot,
   PublishedReadModelType
 } from "@/src/server/platform/read-model-contracts";
-import { publishedMemoryProjectionRepository } from "@/src/server/repositories/published-memory-projection-repository";
+import type { CategoryDetail, CategoryEntry, EventRecord, SearchResult, TagDetail, TagRecord } from "@/src/lib/types";
+import { serverlessBackendClient } from "@/src/server/serverless/backend-client";
 
-function projectionToReadModel(projection: Awaited<ReturnType<typeof publishedMemoryProjectionRepository.listActiveProjections>>[number]): PublishedReadModelSnapshot {
+type BackendProjection = {
+  publishedSnapshotId: string;
+  projectionType: PublishedReadModelType;
+  slug: string | null;
+  payload: Record<string, unknown>;
+  createdAt?: string;
+};
+
+function projectionToReadModel(projection: BackendProjection): PublishedReadModelSnapshot {
   return {
     snapshotId: projection.publishedSnapshotId,
-    authorityRef: {
-      authorityType: projection.projectionType,
-      authorityId: projection.publishedSnapshotId
-    },
+    authorityRef: { authorityType: projection.projectionType, authorityId: projection.publishedSnapshotId },
     readModelType: projection.projectionType,
     slug: projection.slug,
     payload: projection.payload,
@@ -19,58 +25,102 @@ function projectionToReadModel(projection: Awaited<ReturnType<typeof publishedMe
   };
 }
 
-async function listPublishedReadModels(type: PublishedReadModelType, limit: number): Promise<PublishedReadModelSnapshot[]> {
-  const projections = await publishedMemoryProjectionRepository.listActiveProjections(type, limit);
-  return projections.map(projectionToReadModel);
+async function listPublishedReadModels(type: PublishedReadModelType, limit: number, offset = 0): Promise<PublishedReadModelSnapshot[]> {
+  const projections = await serverlessBackendClient.listReadModels<BackendProjection>(type, limit, offset);
+  return (projections || []).map(projectionToReadModel);
 }
 
 export const platformReadModelRepository = {
   listPublishedReadModels,
 
   async searchPublishedReadModels(query: string, limit: number, offset: number) {
-    const projections = await publishedMemoryProjectionRepository.searchActiveProjections(query, limit, offset);
-    return projections.map((projection) => ({ snapshot: projectionToReadModel(projection), rank: projection.rank, total: projection.total }));
+    const result = await serverlessBackendClient.search<SearchResult>(query, limit, offset);
+    if (!result) return [];
+    return result.items.map((item) => ({
+      snapshot: projectionToReadModel({
+        publishedSnapshotId: `${item.type}:${item.id}`,
+        projectionType: "search",
+        slug: item.type === "timeline" ? item.timeline.slug : null,
+        payload: item as unknown as Record<string, unknown>
+      }),
+      rank: item.rank,
+      total: result.total
+    }));
   },
 
   async getPublishedReadModelBySlug(type: PublishedReadModelType, slug: string): Promise<PublishedReadModelSnapshot | null> {
-    const projection = await publishedMemoryProjectionRepository.getActiveProjectionBySlug(type, slug);
+    const projection = await serverlessBackendClient.getReadModel<BackendProjection>(type, { slug });
     return projection ? projectionToReadModel(projection) : null;
+  },
+
+  async getMilestone(eventId: number): Promise<EventRecord | null> {
+    const projection = await serverlessBackendClient.getReadModel<BackendProjection>("milestone", { id: eventId });
+    return projection ? (projection.payload as unknown as EventRecord) : null;
   },
 
   async getRelationshipByRelationshipId(relationshipId: string): Promise<PublishedReadModelSnapshot | null> {
-    const projection = await publishedMemoryProjectionRepository.getActiveRelationshipProjectionByRelationshipId(relationshipId);
-    return projection ? projectionToReadModel(projection) : null;
+    const projection = await serverlessBackendClient.getRelationships<BackendProjection>({ relationshipId });
+    return projection && !Array.isArray(projection) ? projectionToReadModel(projection) : null;
   },
 
   async listRelationshipsForAuthorityRef(authorityRef: PublishedAuthorityRef, limit: number): Promise<PublishedReadModelSnapshot[]> {
-    const projections = await publishedMemoryProjectionRepository.listActiveRelationshipProjectionsForAuthorityRef({
-      authorityType: authorityRef.authorityType,
-      authorityId: authorityRef.authorityId,
+    const projections = await serverlessBackendClient.getRelationships<BackendProjection>({
+      authorityKey: `${authorityRef.authorityType}:${authorityRef.authorityId}`,
       limit
     });
-    return projections.map(projectionToReadModel);
+    return (Array.isArray(projections) ? projections : []).map(projectionToReadModel);
   },
 
-  async getMergeContinuity(sourcePublishedRecordId: string) {
-    const projection = await publishedMemoryProjectionRepository.getLatestContinuityProjection(sourcePublishedRecordId);
-    if (projection?.continuityType !== "merged") {
-      return null;
-    }
-    return {
-      sourcePublishedRecordId: projection.sourcePublishedSnapshotId,
-      targetPublishedRecordId: projection.targetPublishedSnapshotId,
-      continuityPath: projection.continuityPath
-    };
+  async listCategories(): Promise<CategoryEntry[]> {
+    return (await serverlessBackendClient.listCategories<CategoryEntry>()) || [];
   },
 
-  async getRetirementContinuity(publishedSnapshotId: string) {
-    const projection = await publishedMemoryProjectionRepository.getLatestContinuityProjection(publishedSnapshotId);
-    if (projection?.continuityType !== "retired") {
-      return null;
-    }
-    return {
-      sourcePublishedRecordId: projection.sourcePublishedSnapshotId,
-      continuityPath: projection.continuityPath
-    };
+  async listTags(): Promise<TagRecord[]> {
+    return (await serverlessBackendClient.listTags<TagRecord>()) || [];
+  },
+
+  getCategoryDetail(slug: string): Promise<CategoryDetail | null> {
+    return serverlessBackendClient.getCategory<CategoryDetail>(slug);
+  },
+
+  getTagDetail(slug: string): Promise<TagDetail | null> {
+    return serverlessBackendClient.getTag<TagDetail>(slug);
+  },
+
+  async listSitemapDocuments() {
+    return (await serverlessBackendClient.listSitemap<Record<string, unknown>>()) || [];
+  },
+
+  async getMergeContinuity(sourcePublishedRecordId: string): Promise<{
+    sourcePublishedRecordId: string;
+    targetPublishedRecordId: string | null;
+    continuityPath: Record<string, unknown>;
+  } | null> {
+    const continuity = await serverlessBackendClient.getContinuity<{
+      sourcePublishedSnapshotId: string;
+      targetPublishedSnapshotId: string | null;
+      continuityType: "merged" | "retired";
+      continuityPath: Record<string, unknown>;
+    }>(sourcePublishedRecordId);
+    return continuity?.continuityType === "merged" ? {
+      sourcePublishedRecordId: continuity.sourcePublishedSnapshotId,
+      targetPublishedRecordId: continuity.targetPublishedSnapshotId,
+      continuityPath: continuity.continuityPath
+    } : null;
+  },
+
+  async getRetirementContinuity(publishedSnapshotId: string): Promise<{
+    sourcePublishedRecordId: string;
+    continuityPath: Record<string, unknown>;
+  } | null> {
+    const continuity = await serverlessBackendClient.getContinuity<{
+      sourcePublishedSnapshotId: string;
+      continuityType: "merged" | "retired";
+      continuityPath: Record<string, unknown>;
+    }>(publishedSnapshotId);
+    return continuity?.continuityType === "retired" ? {
+      sourcePublishedRecordId: continuity.sourcePublishedSnapshotId,
+      continuityPath: continuity.continuityPath
+    } : null;
   }
 };

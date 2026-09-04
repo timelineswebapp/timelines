@@ -1,0 +1,47 @@
+{
+  "migrationId": "TL-SERVERLESS-MIGRATION-001",
+  "checkedAt": "2026-09-04T23:38:51.144Z",
+  "apiBaseUrl": "https://us-central1-tiimeliines.cloudfunctions.net/timelines-public-api",
+  "apiVersion": "serverless-public-api-v1",
+  "readModels": [
+    {
+      "type": "timeline",
+      "source": 7,
+      "target": 7,
+      "payloadHashSet": "fe850ab030eefe95c06343e7da65cdda9ca07c9f23faa8a16c3a573cac1463a0"
+    },
+    {
+      "type": "milestone",
+      "source": 15,
+      "target": 15,
+      "payloadHashSet": "1651f9cb95627bb0043a4eb5b5257f9b21aeaa685b389e898fc8dd0dea81dcc6"
+    },
+    {
+      "type": "historical_object",
+      "source": 7,
+      "target": 7,
+      "payloadHashSet": "793d3be4e4eb4fd1034e33795be4a91e54783cd65e79e3aac0da8d5ded77065e"
+    },
+    {
+      "type": "relationship",
+      "source": 14,
+      "target": 14,
+      "payloadHashSet": "cec2ea3a2b1d4f4a553ad93639ede80db5aae84a099dd20393111d8515aea6e6"
+    }
+  ],
+  "sitemap": {
+    "source": 15,
+    "target": 15,
+    "payloadHashSet": "bc29598855ce01181584e4e1c3502221cc8d21cb1eab660ca273c8cd29d1a83a"
+  },
+  "duplicateSlugResolution": {
+    "timeline": "history-of-pandemics",
+    "historicalObject": "pandemic"
+  },
+  "search": {
+    "query": "pandemic",
+    "total": 8,
+    "returned": 8
+  },
+  "passed": true
+}

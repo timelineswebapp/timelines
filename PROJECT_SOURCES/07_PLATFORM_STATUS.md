@@ -6,7 +6,7 @@ Status: ACTIVE
 
 Authority: Tier 1
 
-Last Updated: 2026-07-07
+Last Updated: 2026-09-05
 
 ---
 
@@ -184,7 +184,7 @@ Status: Certified
 Capabilities:
 
 * projection-backed search intake;
-* PostgreSQL indexed search;
+* Firestore projection-backed search for the active public runtime;
 * entity, timeline, milestone, chronology, relationship, and canonical identity indexing;
 * deterministic rebuild, replay, recovery, and query consistency.
 
@@ -211,6 +211,10 @@ Capabilities:
 
 Institutional architecture: Complete and certified.
 
+Serverless GCP data and execution migration: Deployed and certified.
+
+Production Vercel application cutover: Blocked on interactive account 2FA.
+
 Production engineering: Active.
 
 Launch readiness: Active.
@@ -233,6 +237,24 @@ Remaining work belongs to:
 
 # Current Priority
 
-Production Launch Readiness.
+Complete Vercel environment configuration and production promotion for `TL-SERVERLESS-MIGRATION-001`, then execute public deployment smoke tests.
 
 Future engineering must preserve institutional authority, provenance, governance, reproducibility, and the certified architecture.
+
+---
+
+# Serverless Production Runtime
+
+The active serverless backend is deployed in Google Cloud project `tiimeliines`:
+
+* Firestore Native mode with PITR and delete protection;
+* Firebase Cloud Functions v2 on Node.js 22;
+* Cloud Tasks with dedicated authenticated invoker identity;
+* Cloud Scheduler with dedicated authenticated invoker identity;
+* Vertex AI `gemini-2.5-flash` with Google Search grounding;
+* private, versioned institutional source archive;
+* public application access exclusively through the backend API.
+
+Migration parity is certified at 157,868 source and target rows with zero table mismatches. Public API payload-hash parity, sitemap parity, duplicate-slug resolution, and search certification pass. PostgreSQL remains intact as the controlled rollback source during the cutover observation window.
+
+Authoritative migration record: `docs/migrations/TL-SERVERLESS-MIGRATION-001.md`.
