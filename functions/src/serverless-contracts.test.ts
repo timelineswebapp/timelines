@@ -101,7 +101,7 @@ test("serverless implementation retains institutional separation and bounded exe
   const config = readFileSync("src/config.ts", "utf8");
   const corpus = readFileSync("src/corpus.ts", "utf8");
   const index = readFileSync("src/index.ts", "utf8");
-  for (const collection of ["factoryObjects", "corpusDocuments", "evidenceRecords", "evidenceValidations", "governancePackages", "governanceDecisions", "libraryAdmissions", "publishedMemory", "platformReadModels"]) {
+  for (const collection of ["factoryObjects", "corpusDocuments", "evidenceRecords", "evidenceValidations", "sourceAuthorityArtifacts", "governancePackages", "governanceDecisions", "libraryAdmissions", "publishedMemory", "platformReadModels"]) {
     assert.match(pipeline, new RegExp(`\"${collection}\"`));
   }
   assert.match(vertex, /tools: \[\{ googleSearch: \{\} \}\]/);
@@ -109,6 +109,9 @@ test("serverless implementation retains institutional separation and bounded exe
   assert.match(vertex, /normalizeGeneratedTimeline/);
   assert.match(vertex, /timelineEditorialPlanSchema\.parse/);
   assert.match(pipeline, /qualityArtifactRef/);
+  assert.match(pipeline, /sourceAuthorityArtifactRef/);
+  assert.match(pipeline, /sourceAuthorityVerdict !== "passed"/);
+  assert.match(pipeline, /Candidate and Source Authority snapshot lineage do not match/);
   assert.match(pipeline, /reassessPersistedGeneration/);
   assert.match(pipeline, /Persisted reassessment requires an AWAITING_REVIEW topic/);
   assert.match(pipeline, /priorQualityArtifactId/);

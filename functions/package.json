@@ -9,9 +9,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "gcp-build": "npm run build",
-    "test": "ACTIVE_CORPUS_ID=test-clean-corpus PUBLIC_ID_BASE=4000000000 tsx --test src/serverless-contracts.test.ts src/quality.test.ts",
+    "test": "ACTIVE_CORPUS_ID=test-clean-corpus PUBLIC_ID_BASE=4000000000 tsx --test src/serverless-contracts.test.ts src/quality.test.ts src/source-authority.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "quality:fixture": "tsx src/run-quality-fixture.ts",
+    "source-authority:fixture": "tsx src/run-source-authority-fixture.ts",
     "quality:reassess": "tsx src/run-quality-reassessment.ts",
     "start": "functions-framework --source=lib/index.js --target=publicApi"
   },

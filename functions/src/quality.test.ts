@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assessEditorialPlan, assessTimelineQuality, classifyOmission, normalizeGeneratedTimeline } from "./quality";
 import { evaluateRoutinePolicy } from "./pipeline";
+import { SOURCE_AUTHORITY_POLICY_VERSION, type SourceAuthorityAssessment } from "./source-authority";
 import type { GeneratedTimeline, TimelineEditorialPlan } from "./schemas";
 
 const significance = { consequence: 5, structuralChange: 4, innovation: 4, adoption: 4, institutionalImportance: 4, socialImpact: 4, persistence: 5 };
@@ -128,9 +129,15 @@ test("Governance routes failed editorial quality to human review and accepts a p
   const value = fixture({ topic: "A Governed Institution", type: "institution", ongoing: true, start: 1900, end: null, eras: [{ id: "formation", start: 1900, end: 1949 }, { id: "growth", start: 1950, end: 1999 }, { id: "modern", start: 2000, end: 2026 }], events: [{ year: 1900, title: "The institution is founded", era: "formation" }, { year: 1930, title: "Its mandate expands", era: "formation" }, { year: 1960, title: "A new charter is adopted", era: "growth" }, { year: 1990, title: "International operations begin", era: "growth" }, { year: 2010, title: "Digital services launch", era: "modern" }, { year: 2024, title: "Modern governance is established", era: "modern" }] });
   const quality = assess(value);
   const sources = ["source-1", "source-2"].map((sourceId, index) => ({ sourceId, title: `Source ${index + 1}`, url: `https://example${index + 1}.com/source`, publisher: `Publisher ${index + 1}`, publisherOrigin: "grounding_metadata" as const, retrievedAt: "2026-01-01T00:00:00.000Z", groundingChunkIndex: index }));
-  assert.equal(evaluateRoutinePolicy(value.timeline, sources, quality).outcome, "routine");
+  const sourceAuthority = {
+    policyVersion: SOURCE_AUTHORITY_POLICY_VERSION, sourceInventory: [], claims: [],
+    sourceDiversity: { publisherCount: 2, sourceTypeCount: 2, primarySourceCount: 1, secondarySourceCount: 1, wikipediaSourceCount: 0, geographicContextCount: 2 },
+    conflictFindings: [], unresolvedSourceIssues: [], policyLimitations: [], overallVerdict: "passed"
+  } as SourceAuthorityAssessment;
+  assert.equal(evaluateRoutinePolicy(value.timeline, sources, quality, sourceAuthority).outcome, "routine");
+  assert.match(evaluateRoutinePolicy(value.timeline, sources, quality).reasons.join(" "), /missing_v2_assessment/);
   const failedQuality = { ...quality, verdict: "failed" as const, unresolvedReasons: ["eraCoverage:missing modern era"] };
-  const decision = evaluateRoutinePolicy(value.timeline, sources, failedQuality);
+  const decision = evaluateRoutinePolicy(value.timeline, sources, failedQuality, sourceAuthority);
   assert.equal(decision.outcome, "exceptional");
   assert.match(decision.reasons.join(" "), /timeline_quality:eraCoverage/);
 });

@@ -48,6 +48,7 @@
     "serverless:migrate:dry-run": "tsx scripts/migrate-postgres-to-firestore.ts",
     "serverless:migrate:apply": "tsx scripts/migrate-postgres-to-firestore.ts --apply",
     "serverless:migrate:verify": "tsx scripts/migrate-postgres-to-firestore.ts --verify",
+    "source-authority:audit": "tsx scripts/audit-source-authority-v2.ts",
     "corpus:reset:plan": "tsx scripts/activate-clean-corpus.ts",
     "corpus:reset:apply": "tsx scripts/activate-clean-corpus.ts --apply",
     "corpus:reset:verify": "tsx scripts/activate-clean-corpus.ts --verify",

@@ -15,11 +15,31 @@ import { assertActiveCorpus, corpusCollection, corpusRecord, requireTaskCorpus, 
 import { hashValue, slugifyTopic } from "./normalization";
 import type { GeneratedTimeline, SourceCandidate, TaskPayload } from "./schemas";
 import { generatedTimelineSchema, sourceCandidateSchema, timelineEditorialPlanSchema } from "./schemas";
+import { groundedEvidenceSegmentSchema } from "./schemas";
 import { enqueueInstitutionalTask } from "./tasks";
 import { assessEditorialPlan, assessTimelineQuality, type TimelineQualityAssessment } from "./quality";
-import { generateEditorialPlan, generateStructuredTimeline, researchTopic, type EditorialPlanResult, type GenerationResult, type ResearchResult } from "./vertex";
+import {
+  assessSourceAuthority,
+  selectAuthoritativeEvidence,
+  SOURCE_AUTHORITY_POLICY_VERSION,
+  type SourceAuthorityAssessment
+} from "./source-authority";
+import {
+  generateEditorialPlan,
+  generateStructuredTimeline,
+  mergeResearchResults,
+  researchAuthorityGaps,
+  researchTopic,
+  type EditorialPlanResult,
+  type GenerationResult,
+  type ResearchResult
+} from "./vertex";
 
 type LeaseResult = { acquired: true; displayTitle: string; normalizedTitle: string; attemptCount: number } | { acquired: false; reason: string };
+
+function applyAuthorityEvidenceSelection(generation: GenerationResult, research: ResearchResult): GenerationResult {
+  return { ...generation, timeline: selectAuthoritativeEvidence({ timeline: generation.timeline, sources: research.sources, evidenceSegments: research.evidenceSegments }) };
+}
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
@@ -133,6 +153,7 @@ async function persistResearch(payload: TaskPayload, research: ResearchResult) {
     generation: payload.generation,
     pipelineVersion: PIPELINE_VERSION,
     modelProvenance: research.execution,
+    researchMetrics: research.researchMetrics,
     state: "RESEARCH_COMPLETED",
     createdAt: Timestamp.now()
   });
@@ -150,6 +171,7 @@ async function persistResearch(payload: TaskPayload, research: ResearchResult) {
     sources: research.sources,
     evidenceSegments: research.evidenceSegments,
     modelProvenance: research.execution,
+    researchMetrics: research.researchMetrics,
     immutable: true,
     createdAt: Timestamp.now()
   });
@@ -180,28 +202,62 @@ async function persistResearch(payload: TaskPayload, research: ResearchResult) {
     }, { merge: true });
   }
   await batch.commit();
-  await createIfAbsent("factoryArtifacts", authorityId(payload.jobId, "research-artifact"), {
-    artifactId: authorityId(payload.jobId, "research-artifact"),
+  const researchArtifactId = authorityId(payload.jobId, "research-artifact", snapshotId);
+  await createIfAbsent("factoryArtifacts", researchArtifactId, {
+    artifactId: researchArtifactId,
     runId,
     topicId: payload.topicId,
     artifactType: "grounded_research",
     sourceSnapshotId: snapshotId,
     sourceRefs: research.sources.map((source) => authorityId("source", source.url)),
     contentHash: research.execution.responseHash,
-    payload: { execution: research.execution, groundingMetadata: research.groundingMetadata },
+    payload: { execution: research.execution, groundingMetadata: research.groundingMetadata, researchMetrics: research.researchMetrics },
     immutable: true,
     createdAt: Timestamp.now()
   });
+  return snapshotId;
 }
 
-async function persistFactoryCandidate(payload: TaskPayload, research: ResearchResult, generation: GenerationResult) {
+async function loadResearchSnapshot(sourceSnapshotId: string): Promise<ResearchResult> {
+  const snapshot = await corpusCollection("sourceSnapshots").doc(sourceSnapshotId).get();
+  if (!snapshot.exists) throw new Error("Exact Source Authority research snapshot is missing.");
+  const data = snapshot.data()!;
+  return {
+    body: String(data.body || ""),
+    sources: Array.isArray(data.sources) ? data.sources.map((source: unknown) => sourceCandidateSchema.parse(source)) : [],
+    evidenceSegments: Array.isArray(data.evidenceSegments) ? data.evidenceSegments.map((segment: unknown) => groundedEvidenceSegmentSchema.parse(segment)) : [],
+    groundingMetadata: data.groundingMetadata || {},
+    execution: data.modelProvenance as ResearchResult["execution"],
+    researchMetrics: data.researchMetrics || { groundedSearchCallCount: 1, additionalVertexCallCount: 0, repairCallCount: 0 }
+  };
+}
+
+async function resolveCandidateResearchSnapshot(topicId: string, jobId: string, candidate: FirebaseFirestore.DocumentData) {
+  const directRef = typeof candidate.sourceSnapshotId === "string" ? candidate.sourceSnapshotId : null;
+  if (directRef) return { sourceSnapshotId: directRef, research: await loadResearchSnapshot(directRef) };
+  const evidence = await corpusCollection("evidenceRecords").where("topicId", "==", topicId).limit(500).get();
+  const references = new Set(evidence.docs
+    .filter((document) => !document.data().jobId || document.data().jobId === jobId)
+    .map((document) => document.data().sourceSnapshotId)
+    .filter((value): value is string => typeof value === "string" && value.length > 0));
+  if (references.size !== 1) throw new Error("Legacy candidate research lineage is missing or ambiguous; routine publication fails closed.");
+  const sourceSnapshotId = [...references][0]!;
+  return { sourceSnapshotId, research: await loadResearchSnapshot(sourceSnapshotId) };
+}
+
+async function persistFactoryCandidate(payload: TaskPayload, research: ResearchResult, generation: GenerationResult, sourceSnapshotId: string) {
   const timeline = generatedTimelineSchema.parse(generation.timeline);
   const sourceMap = new Map(research.sources.map((source) => [source.sourceId, source]));
   const evidenceMap = new Map(research.evidenceSegments.map((segment) => [segment.evidenceRef, segment]));
   const timelineObjectId = authorityId(payload.jobId, "timeline-candidate");
   const existing = await corpusCollection("factoryObjects").doc(timelineObjectId).get();
   if (existing.exists) {
-    return { timelineObjectId, timeline: generatedTimelineSchema.parse(existing.data()!.payload) };
+    const resolved = await resolveCandidateResearchSnapshot(payload.topicId, payload.jobId, existing.data()!);
+    return {
+      timelineObjectId,
+      timeline: generatedTimelineSchema.parse(existing.data()!.payload),
+      sourceSnapshotId: resolved.sourceSnapshotId
+    };
   }
   const batch = db.batch();
   batch.create(corpusCollection("factoryObjects").doc(timelineObjectId), {
@@ -212,6 +268,7 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
     schemaVersion: SCHEMA_VERSION,
     payload: timeline,
     payloadHash: hashValue(stableJson(timeline)),
+    sourceSnapshotId,
     modelProvenance: generation.execution,
     authorityState: "FACTORY_CANDIDATE",
     immutable: true,
@@ -227,6 +284,7 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
       objectType: "candidate_milestone",
       payload: event,
       payloadHash: hashValue(stableJson(event)),
+      sourceSnapshotId,
       authorityState: "FACTORY_CANDIDATE",
       immutable: true,
       createdAt: Timestamp.now()
@@ -239,11 +297,11 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
       const sourceIds = sources.map((source) => authorityId("source", source!.url));
       const evidenceId = authorityId(payload.jobId, "evidence", String(eventIndex), evidenceRef);
       const validationId = authorityId(evidenceId, GOVERNANCE_POLICY_VERSION);
-      const sourceSnapshotId = authorityId(payload.jobId, "grounded-research", research.execution.responseHash);
       const corpusDocumentId = authorityId(sourceSnapshotId, "research-corpus");
       batch.create(corpusCollection("evidenceRecords").doc(evidenceId), {
         evidenceId,
         topicId: payload.topicId,
+        jobId: payload.jobId,
         sourceId: sourceIds[0],
         sourceIds,
         claim: event.description,
@@ -291,7 +349,7 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
     createdAt: Timestamp.now()
   });
   await batch.commit();
-  return { timelineObjectId, timeline };
+  return { timelineObjectId, timeline, sourceSnapshotId };
 }
 
 async function persistQualityArtifact(
@@ -348,7 +406,68 @@ async function persistQualityArtifact(
   return qualityArtifactId;
 }
 
-export function evaluateRoutinePolicy(timeline: GeneratedTimeline, sources: SourceCandidate[], quality: TimelineQualityAssessment) {
+async function persistSourceAuthorityArtifact(
+  payload: TaskPayload,
+  timelineObjectId: string,
+  sourceSnapshotId: string,
+  assessment: SourceAuthorityAssessment,
+  research: ResearchResult
+) {
+  const sourceAuthorityArtifactId = authorityId(payload.jobId, "source-authority", SOURCE_AUTHORITY_POLICY_VERSION);
+  const artifactPayload = {
+    policyVersion: assessment.policyVersion,
+    sourceSnapshotRef: sourceSnapshotId,
+    sourceInventory: assessment.sourceInventory,
+    claims: assessment.claims,
+    sourceDiversity: assessment.sourceDiversity,
+    conflictFindings: assessment.conflictFindings,
+    unresolvedSourceIssues: assessment.unresolvedSourceIssues,
+    policyLimitations: assessment.policyLimitations,
+    overallVerdict: assessment.overallVerdict,
+    researchCost: {
+      groundedSearchCallCount: research.researchMetrics.groundedSearchCallCount,
+      sourcesEvaluated: research.sources.length,
+      additionalVertexCallCount: research.researchMetrics.additionalVertexCallCount,
+      repairCallCount: research.researchMetrics.repairCallCount,
+      usageMetadata: research.execution.usageMetadata
+    }
+  };
+  await createIfAbsent("sourceAuthorityArtifacts", sourceAuthorityArtifactId, {
+    sourceAuthorityArtifactId,
+    runId: payload.jobId,
+    topicId: payload.topicId,
+    objectRef: timelineObjectId,
+    sourceSnapshotRef: sourceSnapshotId,
+    artifactType: "source_authority_v2_assessment",
+    policyVersion: SOURCE_AUTHORITY_POLICY_VERSION,
+    payload: artifactPayload,
+    payloadHash: hashValue(stableJson(artifactPayload)),
+    deterministic: true,
+    immutable: true,
+    createdAt: Timestamp.now()
+  });
+  await createIfAbsent("factoryArtifacts", authorityId(payload.jobId, "source-authority-artifact", SOURCE_AUTHORITY_POLICY_VERSION), {
+    artifactId: authorityId(payload.jobId, "source-authority-artifact", SOURCE_AUTHORITY_POLICY_VERSION),
+    runId: payload.jobId,
+    topicId: payload.topicId,
+    artifactType: "source_authority_v2_assessment",
+    objectRef: timelineObjectId,
+    sourceAuthorityArtifactRef: sourceAuthorityArtifactId,
+    sourceSnapshotRef: sourceSnapshotId,
+    policyVersion: SOURCE_AUTHORITY_POLICY_VERSION,
+    contentHash: hashValue(stableJson(artifactPayload)),
+    immutable: true,
+    createdAt: Timestamp.now()
+  });
+  return sourceAuthorityArtifactId;
+}
+
+export function evaluateRoutinePolicy(
+  timeline: GeneratedTimeline,
+  sources: SourceCandidate[],
+  quality: TimelineQualityAssessment,
+  sourceAuthority?: SourceAuthorityAssessment
+) {
   const sourceIds = new Set(sources.map((source) => source.sourceId));
   const reasons: string[] = [];
   if (sources.length < 2) reasons.push("fewer_than_two_grounded_sources");
@@ -358,15 +477,75 @@ export function evaluateRoutinePolicy(timeline: GeneratedTimeline, sources: Sour
     reasons.push("duplicate_milestone_signature");
   }
   if (quality.verdict !== "passed") reasons.push(...quality.unresolvedReasons.map((reason) => `timeline_quality:${reason}`));
+  if (!sourceAuthority) reasons.push("source_authority:missing_v2_assessment");
+  else if (sourceAuthority.overallVerdict !== "passed") {
+    reasons.push(`source_authority:${sourceAuthority.overallVerdict}`);
+    reasons.push(...sourceAuthority.unresolvedSourceIssues.map((reason) => `source_authority:${reason}`));
+    reasons.push(...sourceAuthority.conflictFindings.map((reason) => `source_authority_conflict:${reason}`));
+  }
   return reasons.length === 0
-    ? { outcome: "routine" as const, reasons: ["Validated evidence, source diversity, chronology, and duplicate gates passed."] }
+    ? { outcome: "routine" as const, reasons: ["Timeline Quality, claim-level Source Authority, evidence lineage, chronology, and duplicate gates passed."] }
     : { outcome: "exceptional" as const, reasons };
 }
 
-async function createGovernancePackage(payload: TaskPayload, timelineObjectId: string, timeline: GeneratedTimeline, sources: SourceCandidate[], quality: TimelineQualityAssessment, qualityArtifactId: string) {
+export function sourceAuthorityPublicationDefects(input: {
+  topicId: string;
+  jobId: string;
+  timelineObjectId: string;
+  sourceSnapshotId: string;
+  timeline: GeneratedTimeline;
+  artifact: FirebaseFirestore.DocumentData;
+}): string[] {
+  const defects: string[] = [];
+  const { artifact } = input;
+  const assessment = artifact.payload as (SourceAuthorityAssessment & { sourceSnapshotRef?: string }) | undefined;
+  if (artifact.topicId !== input.topicId || artifact.runId !== input.jobId || artifact.objectRef !== input.timelineObjectId) {
+    defects.push("Source Authority artifact ownership does not match the candidate generation.");
+  }
+  if (artifact.sourceSnapshotRef !== input.sourceSnapshotId || assessment?.sourceSnapshotRef !== input.sourceSnapshotId) {
+    defects.push("Source Authority artifact snapshot lineage does not match the candidate.");
+  }
+  if (artifact.policyVersion !== SOURCE_AUTHORITY_POLICY_VERSION || assessment?.policyVersion !== SOURCE_AUTHORITY_POLICY_VERSION) {
+    defects.push("Source Authority artifact policy version is stale.");
+  }
+  if (!assessment || artifact.payloadHash !== hashValue(stableJson(assessment))) defects.push("Source Authority artifact payload integrity check failed.");
+  if (!assessment || assessment.overallVerdict !== "passed" || assessment.unresolvedSourceIssues.length > 0 || assessment.conflictFindings.length > 0) {
+    defects.push("Source Authority artifact is not a clean passing verdict.");
+  }
+  if (!assessment || assessment.claims.length !== input.timeline.events.length) {
+    defects.push("Source Authority claim inventory does not cover every candidate event.");
+  } else {
+    input.timeline.events.forEach((event, eventIndex) => {
+      const claim = assessment.claims[eventIndex];
+      const assessedEvidenceRefs = new Set(claim?.evidence.map((evidence) => evidence.evidenceRef) || []);
+      const assessedSourceRefs = new Set(claim?.evidence.map((evidence) => evidence.sourceRef) || []);
+      if (!claim || claim.eventIndex !== eventIndex || claim.eventTitle !== event.title || claim.verdict !== "passed" ||
+        claim.unresolvedIssues.length > 0 || claim.conflictFindings.length > 0) {
+        defects.push(`Source Authority claim ${eventIndex + 1} is missing, stale, or non-passing.`);
+      }
+      if (event.evidenceRefs.some((evidenceRef) => !assessedEvidenceRefs.has(evidenceRef)) ||
+        event.sourceRefs.some((sourceRef) => !assessedSourceRefs.has(sourceRef))) {
+        defects.push(`Source Authority claim ${eventIndex + 1} does not cover the candidate evidence lineage.`);
+      }
+    });
+  }
+  return defects;
+}
+
+async function createGovernancePackage(
+  payload: TaskPayload,
+  timelineObjectId: string,
+  timeline: GeneratedTimeline,
+  sources: SourceCandidate[],
+  quality: TimelineQualityAssessment,
+  qualityArtifactId: string,
+  sourceAuthority: SourceAuthorityAssessment,
+  sourceAuthorityArtifactId: string,
+  sourceSnapshotId: string
+) {
   const packageId = deterministicUuid(payload.jobId, "governance-package", GOVERNANCE_POLICY_VERSION);
   const queueId = authorityId(packageId, "publication-readiness-queue");
-  const policy = evaluateRoutinePolicy(timeline, sources, quality);
+  const policy = evaluateRoutinePolicy(timeline, sources, quality, sourceAuthority);
   const now = Timestamp.now();
   await db.runTransaction(async (transaction) => {
     const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
@@ -384,6 +563,10 @@ async function createGovernancePackage(payload: TaskPayload, timelineObjectId: s
         origin: payload.origin,
         factoryObjectRefs: [timelineObjectId],
         qualityArtifactRef: qualityArtifactId,
+        sourceAuthorityArtifactRef: sourceAuthorityArtifactId,
+        sourceSnapshotRef: sourceSnapshotId,
+        sourceAuthorityPolicyVersion: SOURCE_AUTHORITY_POLICY_VERSION,
+        sourceAuthorityVerdict: sourceAuthority.overallVerdict,
         qualityPolicyVersion: quality.policyVersion,
         qualityVerdict: quality.verdict,
         evidenceQuery: { topicId: payload.topicId, validationResult: "PASSED" },
@@ -423,8 +606,8 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
   const lease = await acquireLease(payload, leaseOwner);
   if (!lease.acquired) return { status: "NO_OP", reason: lease.reason };
   try {
-    const research = await researchTopic(lease.displayTitle);
-    await persistResearch(payload, research);
+    let research = await researchTopic(lease.displayTitle);
+    let sourceSnapshotId = await persistResearch(payload, research);
     await setStage(payload, "editorial_scope_planning");
     let planResult = await generateEditorialPlan(lease.displayTitle, research);
     let planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
@@ -434,7 +617,7 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
       planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
     }
     await setStage(payload, "editorial_intelligence");
-    let generation = await generateStructuredTimeline(lease.displayTitle, research, planResult.plan);
+    let generation = applyAuthorityEvidenceSelection(await generateStructuredTimeline(lease.displayTitle, research, planResult.plan), research);
     let assessment = assessTimelineQuality({
       plan: planResult.plan,
       timeline: generation.timeline,
@@ -444,7 +627,7 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
     for (let editorialRepair = 1; assessment.verdict === "failed" && editorialRepair <= 2; editorialRepair += 1) {
       await setStage(payload, `editorial_quality_repair_${editorialRepair}`);
       planResult = await generateEditorialPlan(lease.displayTitle, research, assessment.unresolvedReasons.join("\n"));
-      generation = await generateStructuredTimeline(lease.displayTitle, research, planResult.plan);
+      generation = applyAuthorityEvidenceSelection(await generateStructuredTimeline(lease.displayTitle, research, planResult.plan), research);
       assessment = assessTimelineQuality({
         plan: planResult.plan,
         timeline: generation.timeline,
@@ -452,17 +635,61 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
         allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef))
       });
     }
-    const candidate = await persistFactoryCandidate(payload, research, generation);
+    let preliminaryAuthority = assessSourceAuthority({ timeline: generation.timeline, sources: research.sources, evidenceSegments: research.evidenceSegments });
+    if (assessment.verdict === "passed" && preliminaryAuthority.overallVerdict !== "passed") {
+      await setStage(payload, "source_authority_research_repair");
+      const supplemental = await researchAuthorityGaps(lease.displayTitle, generation.timeline, [
+        ...preliminaryAuthority.unresolvedSourceIssues,
+        ...preliminaryAuthority.conflictFindings
+      ]);
+      research = mergeResearchResults(research, supplemental);
+      sourceSnapshotId = await persistResearch(payload, research);
+      generation = applyAuthorityEvidenceSelection(await generateStructuredTimeline(lease.displayTitle, research, planResult.plan, preliminaryAuthority.unresolvedSourceIssues), research);
+      assessment = assessTimelineQuality({
+        plan: planResult.plan,
+        timeline: generation.timeline,
+        allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)),
+        allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef))
+      });
+      preliminaryAuthority = assessSourceAuthority({ timeline: generation.timeline, sources: research.sources, evidenceSegments: research.evidenceSegments });
+    }
+    const candidate = await persistFactoryCandidate(payload, research, generation, sourceSnapshotId);
+    const authorityInput = candidate.sourceSnapshotId === sourceSnapshotId
+      ? { sourceSnapshotId, research }
+      : { sourceSnapshotId: candidate.sourceSnapshotId, research: await loadResearchSnapshot(candidate.sourceSnapshotId) };
     await setStage(payload, "quality_validation");
     assessment = assessTimelineQuality({
       plan: planResult.plan,
       timeline: candidate.timeline,
-      allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)),
-      allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef))
+      allowedSourceRefs: new Set(authorityInput.research.sources.map((source) => source.sourceId)),
+      allowedEvidenceRefs: new Set(authorityInput.research.evidenceSegments.map((segment) => segment.evidenceRef))
     });
     const qualityArtifactId = await persistQualityArtifact(payload, planResult, assessment, candidate.timelineObjectId);
+    await setStage(payload, "source_authority_validation");
+    const sourceAuthority = candidate.sourceSnapshotId === sourceSnapshotId ? preliminaryAuthority : assessSourceAuthority({
+      timeline: candidate.timeline,
+      sources: authorityInput.research.sources,
+      evidenceSegments: authorityInput.research.evidenceSegments
+    });
+    const sourceAuthorityArtifactId = await persistSourceAuthorityArtifact(
+      payload,
+      candidate.timelineObjectId,
+      authorityInput.sourceSnapshotId,
+      sourceAuthority,
+      authorityInput.research
+    );
     await setStage(payload, "governance_handoff");
-    const governance = await createGovernancePackage(payload, candidate.timelineObjectId, candidate.timeline, research.sources, assessment, qualityArtifactId);
+    const governance = await createGovernancePackage(
+      payload,
+      candidate.timelineObjectId,
+      candidate.timeline,
+      authorityInput.research.sources,
+      assessment,
+      qualityArtifactId,
+      sourceAuthority,
+      sourceAuthorityArtifactId,
+      authorityInput.sourceSnapshotId
+    );
     if (governance.policy.outcome === "routine") {
       await enqueueInstitutionalTask({ ...payload, packageId: governance.packageId, decision: "routine" });
       return { status: "GOVERNANCE_QUEUED", packageId: governance.packageId };
@@ -475,26 +702,36 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
 }
 
 export async function executeNonPublicQualityFixture(displayTitle: string, fixtureClass: string, requestedJobId = randomUUID()) {
+  const fixtureStartedAt = Date.now();
   await assertActiveCorpus();
   const jobId = requestedJobId;
   const topicId = authorityId("quality-fixture", displayTitle.toLocaleLowerCase("en-US"));
   const payload: TaskPayload = { corpusId: ACTIVE_CORPUS_ID, topicId, jobId, generation: 1, origin: "founder" };
-  const research = await researchTopic(displayTitle);
-  await persistResearch(payload, research);
+  let research = await researchTopic(displayTitle);
+  let sourceSnapshotId = await persistResearch(payload, research);
   let planResult = await generateEditorialPlan(displayTitle, research);
   let planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
   for (let planRepair = 1; planReasons.length > 0 && planRepair <= 2; planRepair += 1) {
     planResult = await generateEditorialPlan(displayTitle, research, planReasons.join("\n"));
     planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
   }
-  let generation = await generateStructuredTimeline(displayTitle, research, planResult.plan);
+  let generation = applyAuthorityEvidenceSelection(await generateStructuredTimeline(displayTitle, research, planResult.plan), research);
   let assessment = assessTimelineQuality({ plan: planResult.plan, timeline: generation.timeline, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
   for (let editorialRepair = 1; assessment.verdict === "failed" && editorialRepair <= 2; editorialRepair += 1) {
     planResult = await generateEditorialPlan(displayTitle, research, assessment.unresolvedReasons.join("\n"));
-    generation = await generateStructuredTimeline(displayTitle, research, planResult.plan);
+    generation = applyAuthorityEvidenceSelection(await generateStructuredTimeline(displayTitle, research, planResult.plan), research);
     assessment = assessTimelineQuality({ plan: planResult.plan, timeline: generation.timeline, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
   }
-  const candidate = await persistFactoryCandidate(payload, research, generation);
+  let sourceAuthority = assessSourceAuthority({ timeline: generation.timeline, sources: research.sources, evidenceSegments: research.evidenceSegments });
+  if (assessment.verdict === "passed" && sourceAuthority.overallVerdict !== "passed") {
+    const supplemental = await researchAuthorityGaps(displayTitle, generation.timeline, [...sourceAuthority.unresolvedSourceIssues, ...sourceAuthority.conflictFindings]);
+    research = mergeResearchResults(research, supplemental);
+    sourceSnapshotId = await persistResearch(payload, research);
+    generation = applyAuthorityEvidenceSelection(await generateStructuredTimeline(displayTitle, research, planResult.plan, sourceAuthority.unresolvedSourceIssues), research);
+    assessment = assessTimelineQuality({ plan: planResult.plan, timeline: generation.timeline, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
+    sourceAuthority = assessSourceAuthority({ timeline: generation.timeline, sources: research.sources, evidenceSegments: research.evidenceSegments });
+  }
+  const candidate = await persistFactoryCandidate(payload, research, generation, sourceSnapshotId);
   assessment = assessTimelineQuality({
     plan: planResult.plan,
     timeline: candidate.timeline,
@@ -502,13 +739,24 @@ export async function executeNonPublicQualityFixture(displayTitle: string, fixtu
     allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef))
   });
   const qualityArtifactId = await persistQualityArtifact(payload, planResult, assessment, candidate.timelineObjectId);
-  const governancePreview = evaluateRoutinePolicy(candidate.timeline, research.sources, assessment);
+  if (candidate.sourceSnapshotId !== sourceSnapshotId) {
+    const exactResearch = await loadResearchSnapshot(candidate.sourceSnapshotId);
+    sourceAuthority = assessSourceAuthority({ timeline: candidate.timeline, sources: exactResearch.sources, evidenceSegments: exactResearch.evidenceSegments });
+    research = exactResearch;
+    sourceSnapshotId = candidate.sourceSnapshotId;
+  }
+  const sourceAuthorityArtifactId = await persistSourceAuthorityArtifact(payload, candidate.timelineObjectId, sourceSnapshotId, sourceAuthority, research);
+  const governancePreview = evaluateRoutinePolicy(candidate.timeline, research.sources, assessment, sourceAuthority);
   await corpusCollection("factoryRuns").doc(jobId).update({
-    state: assessment.verdict === "passed" ? "QUALITY_FIXTURE_PASSED" : "QUALITY_FIXTURE_FAILED",
+    state: assessment.verdict === "passed" && sourceAuthority.overallVerdict === "passed" ? "AUTHORITY_FIXTURE_PASSED" : "AUTHORITY_FIXTURE_FAILED",
     fixtureClass,
     publicationEligible: false,
     qualityArtifactId,
+    sourceAuthorityArtifactId,
+    sourceAuthorityVerdict: sourceAuthority.overallVerdict,
+    researchMetrics: research.researchMetrics,
     governancePreview,
+    durationMs: Date.now() - fixtureStartedAt,
     completedAt: Timestamp.now()
   });
   await createIfAbsent("factoryArtifacts", authorityId(jobId, "non-public-certification"), {
@@ -520,6 +768,8 @@ export async function executeNonPublicQualityFixture(displayTitle: string, fixtu
     publicationEligible: false,
     objectRef: candidate.timelineObjectId,
     qualityArtifactRef: qualityArtifactId,
+    sourceAuthorityArtifactRef: sourceAuthorityArtifactId,
+    sourceAuthorityVerdict: sourceAuthority.overallVerdict,
     governancePreview,
     immutable: true,
     createdAt: Timestamp.now()
@@ -529,11 +779,16 @@ export async function executeNonPublicQualityFixture(displayTitle: string, fixtu
     topicId,
     timelineObjectId: candidate.timelineObjectId,
     qualityArtifactId,
+    sourceAuthorityArtifactId,
     fixtureClass,
     eventCount: candidate.timeline.events.length,
     firstYear: candidate.timeline.events[0]?.sortYear,
     lastYear: candidate.timeline.events.at(-1)?.sortYear,
     verdict: assessment.verdict,
+    sourceAuthorityVerdict: sourceAuthority.overallVerdict,
+    sourceAuthorityIssues: sourceAuthority.unresolvedSourceIssues,
+    researchMetrics: research.researchMetrics,
+    durationMs: Date.now() - fixtureStartedAt,
     reasons: assessment.unresolvedReasons,
     governanceOutcome: governancePreview.outcome,
     publicationEligible: false
@@ -553,16 +808,87 @@ export async function recordNonPublicQualityFixtureFailure(jobId: string, fixtur
   });
 }
 
+export async function executeNonPublicSourceAuthorityClaimFixture(input: {
+  displayTitle: string;
+  fixtureClass: string;
+  event: GeneratedTimeline["events"][number];
+  requestedJobId?: string;
+}) {
+  await assertActiveCorpus();
+  const startedAt = Date.now();
+  const jobId = input.requestedJobId || randomUUID();
+  const topicId = authorityId("source-authority-fixture", input.displayTitle.toLocaleLowerCase("en-US"));
+  const payload: TaskPayload = { corpusId: ACTIVE_CORPUS_ID, topicId, jobId, generation: 1, origin: "founder" };
+  const fixtureTimeline = {
+    title: input.displayTitle,
+    description: `A non-public claim-level Source Authority V2 fixture for ${input.displayTitle}.`,
+    category: "Certification",
+    tags: ["source authority", input.fixtureClass],
+    events: [{ ...input.event, sourceRefs: ["pending-source"], evidenceRefs: ["pending-evidence"] }]
+  } as GeneratedTimeline;
+  const targetedResearch = await researchAuthorityGaps(input.displayTitle, fixtureTimeline, ["Establish claim-relevant authority and required independent corroboration for this exact material claim."]);
+  const research: ResearchResult = {
+    ...targetedResearch,
+    researchMetrics: {
+      groundedSearchCallCount: targetedResearch.researchMetrics.groundedSearchCallCount,
+      additionalVertexCallCount: Math.max(0, targetedResearch.researchMetrics.groundedSearchCallCount - 1),
+      repairCallCount: 0
+    }
+  };
+  const sourceSnapshotId = await persistResearch(payload, research);
+  const selectedTimeline = selectAuthoritativeEvidence({ timeline: fixtureTimeline, sources: research.sources, evidenceSegments: research.evidenceSegments });
+  const assessment = assessSourceAuthority({ timeline: selectedTimeline, sources: research.sources, evidenceSegments: research.evidenceSegments });
+  const objectId = authorityId(jobId, "source-authority-live-fixture");
+  await createIfAbsent("factoryObjects", objectId, {
+    objectId,
+    runId: jobId,
+    topicId,
+    objectType: "source_authority_live_fixture",
+    fixtureClass: input.fixtureClass,
+    payload: selectedTimeline,
+    sourceSnapshotId,
+    publicationEligible: false,
+    immutable: true,
+    createdAt: Timestamp.now()
+  });
+  const sourceAuthorityArtifactId = await persistSourceAuthorityArtifact(payload, objectId, sourceSnapshotId, assessment, research);
+  const durationMs = Date.now() - startedAt;
+  await corpusCollection("factoryRuns").doc(jobId).update({
+    state: assessment.overallVerdict === "passed" ? "AUTHORITY_FIXTURE_PASSED" : "AUTHORITY_FIXTURE_FAILED",
+    fixtureClass: input.fixtureClass,
+    sourceAuthorityArtifactId,
+    sourceAuthorityVerdict: assessment.overallVerdict,
+    publicationEligible: false,
+    researchMetrics: research.researchMetrics,
+    durationMs,
+    completedAt: Timestamp.now()
+  });
+  return {
+    jobId,
+    topicId,
+    objectId,
+    sourceSnapshotId,
+    sourceAuthorityArtifactId,
+    fixtureClass: input.fixtureClass,
+    sourceAuthorityVerdict: assessment.overallVerdict,
+    sourceAuthorityIssues: assessment.unresolvedSourceIssues,
+    conflictFindings: assessment.conflictFindings,
+    sourceDiversity: assessment.sourceDiversity,
+    researchMetrics: research.researchMetrics,
+    durationMs,
+    publicationEligible: false
+  };
+}
+
 export async function reassessPersistedGeneration(payload: TaskPayload, priorQualityArtifactId: string) {
   requireTaskCorpus(payload.corpusId);
   await assertActiveCorpus();
-  const [ledger, priorQuality, candidateQuery, researchQuery] = await Promise.all([
+  const [ledger, priorQuality, candidateQuery] = await Promise.all([
     corpusCollection("topicLedgers").doc(payload.topicId).get(),
     corpusCollection("qualityArtifacts").doc(priorQualityArtifactId).get(),
-    corpusCollection("factoryObjects").where("runId", "==", payload.jobId).where("objectType", "==", "candidate_timeline").limit(1).get(),
-    corpusCollection("sourceSnapshots").where("jobId", "==", payload.jobId).limit(1).get()
+    corpusCollection("factoryObjects").where("runId", "==", payload.jobId).where("objectType", "==", "candidate_timeline").limit(1).get()
   ]);
-  if (!ledger.exists || !priorQuality.exists || candidateQuery.empty || researchQuery.empty) throw new Error("Persisted reassessment input is incomplete.");
+  if (!ledger.exists || !priorQuality.exists || candidateQuery.empty) throw new Error("Persisted reassessment input is incomplete.");
   if (ledger.data()?.activeJobId !== payload.jobId || ledger.data()?.generation !== payload.generation) throw new Error("Persisted reassessment does not own the active generation.");
   if (ledger.data()?.state !== "AWAITING_REVIEW") throw new Error("Persisted reassessment requires an AWAITING_REVIEW topic.");
   const prior = priorQuality.data()!;
@@ -579,12 +905,14 @@ export async function reassessPersistedGeneration(payload: TaskPayload, priorQua
     redundancyReview: qualityPayload.redundancyAssessment?.review,
     omissionReview: qualityPayload.omissionAssessment?.review
   });
-  const timelineObjectId = candidateQuery.docs[0]!.id;
+  const candidateDocument = candidateQuery.docs[0]!;
+  const timelineObjectId = candidateDocument.id;
   if (prior.objectRef !== timelineObjectId) throw new Error("Prior quality artifact does not reference the persisted timeline candidate.");
-  const timeline = generatedTimelineSchema.parse(candidateQuery.docs[0]!.data().payload);
-  const research = researchQuery.docs[0]!.data();
-  const sources = Array.isArray(research.sources) ? research.sources.map((source: unknown) => sourceCandidateSchema.parse(source)) : [];
-  const evidenceSegments = Array.isArray(research.evidenceSegments) ? research.evidenceSegments : [];
+  const timeline = generatedTimelineSchema.parse(candidateDocument.data().payload);
+  const resolvedResearch = await resolveCandidateResearchSnapshot(payload.topicId, payload.jobId, candidateDocument.data());
+  const research = resolvedResearch.research;
+  const sources = research.sources;
+  const evidenceSegments = research.evidenceSegments;
   const assessment = assessTimelineQuality({
     plan,
     timeline,
@@ -594,7 +922,25 @@ export async function reassessPersistedGeneration(payload: TaskPayload, priorQua
   if (assessment.verdict !== "passed") return { status: "AWAITING_REVIEW" as const, assessment };
   const planResult = { plan, execution: prior.modelProvenance } as EditorialPlanResult;
   const qualityArtifactId = await persistQualityArtifact(payload, planResult, assessment, timelineObjectId);
-  const governance = await createGovernancePackage(payload, timelineObjectId, timeline, sources, assessment, qualityArtifactId);
+  const sourceAuthority = assessSourceAuthority({ timeline, sources, evidenceSegments });
+  const sourceAuthorityArtifactId = await persistSourceAuthorityArtifact(
+    payload,
+    timelineObjectId,
+    resolvedResearch.sourceSnapshotId,
+    sourceAuthority,
+    research
+  );
+  const governance = await createGovernancePackage(
+    payload,
+    timelineObjectId,
+    timeline,
+    sources,
+    assessment,
+    qualityArtifactId,
+    sourceAuthority,
+    sourceAuthorityArtifactId,
+    resolvedResearch.sourceSnapshotId
+  );
   if (governance.policy.outcome !== "routine") return { status: "AWAITING_REVIEW" as const, assessment, qualityArtifactId, packageId: governance.packageId };
   await enqueueInstitutionalTask({ ...payload, packageId: governance.packageId, decision: "routine" });
   const reviewQueueSnapshot = await corpusCollection("governanceQueues").where("topicId", "==", payload.topicId).limit(20).get();
@@ -618,7 +964,7 @@ export async function reassessPersistedGeneration(payload: TaskPayload, priorQua
     createdAt: now
   });
   await batch.commit();
-  return { status: "GOVERNANCE_QUEUED" as const, assessment, qualityArtifactId, packageId: governance.packageId, supersededReviewCount: supersededQueues.length };
+  return { status: "GOVERNANCE_QUEUED" as const, assessment, qualityArtifactId, sourceAuthorityArtifactId, packageId: governance.packageId, supersededReviewCount: supersededQueues.length };
 }
 
 async function recordFailure(payload: TaskPayload, error: unknown) {
@@ -743,20 +1089,96 @@ function buildProjection(payload: TaskPayload, topic: FirebaseFirestore.Document
 export async function executeInstitutionalTransition(payload: TaskPayload & { packageId: string; decision: "routine" | "exceptional" }) {
   requireTaskCorpus(payload.corpusId);
   if (payload.decision !== "routine") return { status: "AWAITING_REVIEW" };
-  const [ledger, packageSnapshot, candidateQuery, researchArtifact] = await Promise.all([
+  const [ledger, packageSnapshot, candidateQuery] = await Promise.all([
     corpusCollection("topicLedgers").doc(payload.topicId).get(),
     corpusCollection("governancePackages").doc(payload.packageId).get(),
-    corpusCollection("factoryObjects").where("runId", "==", payload.jobId).where("objectType", "==", "candidate_timeline").limit(1).get(),
-    corpusCollection("sourceSnapshots").where("jobId", "==", payload.jobId).limit(1).get()
+    corpusCollection("factoryObjects").where("runId", "==", payload.jobId).where("objectType", "==", "candidate_timeline").limit(1).get()
   ]);
   if (!ledger.exists || !packageSnapshot.exists || candidateQuery.empty) throw new Error("Institutional transition input is incomplete.");
   if (ledger.data()?.state === "PUBLISHED") return { status: "NO_OP", reason: "already_published" };
   if (ledger.data()?.activeJobId !== payload.jobId || ledger.data()?.generation !== payload.generation) return { status: "NO_OP", reason: "stale_generation" };
-  const timeline = generatedTimelineSchema.parse(candidateQuery.docs[0]!.data().payload);
-  const sources = Array.isArray(researchArtifact.docs[0]?.data().sources)
-    ? (researchArtifact.docs[0]!.data().sources as unknown[]).map((source) => sourceCandidateSchema.parse(source))
-    : [];
+  const packageData = packageSnapshot.data()!;
+  if (
+    packageData.topicId !== payload.topicId ||
+    packageData.jobId !== payload.jobId ||
+    packageData.generation !== payload.generation ||
+    packageData.lifecycle !== "GOVERNANCE_READY" ||
+    packageData.policyEvaluation?.outcome !== "routine" ||
+    packageData.policyVersion !== GOVERNANCE_POLICY_VERSION ||
+    packageData.qualityVerdict !== "passed" ||
+    packageData.qualityPolicyVersion !== QUALITY_POLICY_VERSION ||
+    packageData.sourceAuthorityVerdict !== "passed" ||
+    packageData.sourceAuthorityPolicyVersion !== SOURCE_AUTHORITY_POLICY_VERSION ||
+    typeof packageData.sourceAuthorityArtifactRef !== "string" ||
+    typeof packageData.qualityArtifactRef !== "string" ||
+    typeof packageData.sourceSnapshotRef !== "string"
+  ) throw new Error("Governance package lacks a passing current Source Authority V2 verdict.");
+  const candidateDocument = candidateQuery.docs[0]!;
+  if (!Array.isArray(packageData.factoryObjectRefs) || !packageData.factoryObjectRefs.includes(candidateDocument.id)) {
+    throw new Error("Governance package does not reference the candidate timeline object.");
+  }
+  const timeline = generatedTimelineSchema.parse(candidateDocument.data().payload);
+  const [sourceAuthorityArtifact, qualityArtifact, research] = await Promise.all([
+    corpusCollection("sourceAuthorityArtifacts").doc(packageData.sourceAuthorityArtifactRef).get(),
+    corpusCollection("qualityArtifacts").doc(packageData.qualityArtifactRef).get(),
+    loadResearchSnapshot(packageData.sourceSnapshotRef)
+  ]);
+  if (
+    !qualityArtifact.exists ||
+    qualityArtifact.data()?.topicId !== payload.topicId ||
+    qualityArtifact.data()?.runId !== payload.jobId ||
+    qualityArtifact.data()?.objectRef !== candidateDocument.id ||
+    qualityArtifact.data()?.payload?.qualityPolicyVersion !== QUALITY_POLICY_VERSION ||
+    qualityArtifact.data()?.payload?.finalQualityVerdict !== "passed" ||
+    qualityArtifact.data()?.payloadHash !== hashValue(stableJson(qualityArtifact.data()?.payload))
+  ) throw new Error("Timeline Quality artifact lineage is missing, stale, non-passing, or corrupted.");
+  if (!sourceAuthorityArtifact.exists) throw new Error("Source Authority V2 artifact lineage is missing.");
+  if (candidateDocument.data().sourceSnapshotId !== packageData.sourceSnapshotRef) throw new Error("Candidate and Source Authority snapshot lineage do not match.");
+  if (candidateDocument.data().payloadHash !== hashValue(stableJson(timeline))) throw new Error("Candidate timeline payload integrity check failed.");
+  const authorityDefects = sourceAuthorityPublicationDefects({
+    topicId: payload.topicId,
+    jobId: payload.jobId,
+    timelineObjectId: candidateDocument.id,
+    sourceSnapshotId: packageData.sourceSnapshotRef,
+    timeline,
+    artifact: sourceAuthorityArtifact.data()!
+  });
+  if (authorityDefects.length > 0) throw new Error(`Source Authority V2 publication gate failed: ${authorityDefects.join(" ")}`);
+  const sources = research.sources;
   if (sources.length < 2) throw new Error("Institutional transition cannot resolve required source lineage.");
+  const researchSourceRefs = new Set(sources.map((source) => source.sourceId));
+  if (timeline.events.some((event) => event.sourceRefs.some((sourceRef) => !researchSourceRefs.has(sourceRef)))) {
+    throw new Error("Candidate source references do not resolve in the certified research snapshot.");
+  }
+  const evidenceLineage = timeline.events.flatMap((event, eventIndex) => event.evidenceRefs.map((evidenceRef) => {
+    const evidenceId = authorityId(payload.jobId, "evidence", String(eventIndex), evidenceRef);
+    const validationId = authorityId(evidenceId, GOVERNANCE_POLICY_VERSION);
+    const claimLinkId = authorityId(payload.jobId, "claim-link", String(eventIndex), evidenceRef);
+    return { eventIndex, evidenceRef, evidenceId, validationId, claimLinkId };
+  }));
+  const lineageSnapshots = await db.getAll(...evidenceLineage.flatMap((lineage) => [
+    corpusCollection("evidenceRecords").doc(lineage.evidenceId),
+    corpusCollection("evidenceValidations").doc(lineage.validationId),
+    corpusCollection("claimLinks").doc(lineage.claimLinkId)
+  ]));
+  for (let index = 0; index < evidenceLineage.length; index += 1) {
+    const lineage = evidenceLineage[index]!;
+    const evidence = lineageSnapshots[index * 3];
+    const validation = lineageSnapshots[index * 3 + 1];
+    const claimLink = lineageSnapshots[index * 3 + 2];
+    const expectedEventObjectId = authorityId(payload.jobId, "event", String(lineage.eventIndex));
+    if (!evidence?.exists || evidence.data()?.topicId !== payload.topicId || evidence.data()?.jobId !== payload.jobId ||
+      evidence.data()?.sourceSnapshotId !== packageData.sourceSnapshotRef || evidence.data()?.groundingSegment?.evidenceRef !== lineage.evidenceRef) {
+      throw new Error(`Evidence lineage ${lineage.evidenceId} is missing or does not match the certified snapshot.`);
+    }
+    if (!validation?.exists || validation.data()?.evidenceId !== lineage.evidenceId || validation.data()?.policyVersion !== GOVERNANCE_POLICY_VERSION || validation.data()?.result !== "PASSED") {
+      throw new Error(`Evidence validation ${lineage.validationId} is missing, stale, or non-passing.`);
+    }
+    if (!claimLink?.exists || claimLink.data()?.topicId !== payload.topicId || claimLink.data()?.factoryObjectId !== expectedEventObjectId ||
+      claimLink.data()?.evidenceId !== lineage.evidenceId || claimLink.data()?.validationId !== lineage.validationId) {
+      throw new Error(`Claim link ${lineage.claimLinkId} is missing or stale.`);
+    }
+  }
   const decisionId = authorityId(payload.packageId, "routine-decision");
   const approvalId = authorityId(decisionId, "approval");
   const admissionId = authorityId(payload.packageId, "library-admission");
@@ -776,7 +1198,9 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
   });
   await createIfAbsent("libraryAdmissions", admissionId, {
     admissionId, topicId: payload.topicId, packageId: payload.packageId, decisionId, approvalId, generation: payload.generation,
-    lifecycle: "ADMITTED", authorityRefs: [candidateQuery.docs[0]!.id], evidenceQuery: { topicId: payload.topicId, result: "PASSED" }, immutable: true, createdAt: now
+    lifecycle: "ADMITTED", authorityRefs: [candidateDocument.id], evidenceQuery: { topicId: payload.topicId, result: "PASSED" },
+    sourceAuthorityArtifactRef: packageData.sourceAuthorityArtifactRef, sourceAuthorityPolicyVersion: SOURCE_AUTHORITY_POLICY_VERSION,
+    sourceAuthorityVerdict: "passed", sourceSnapshotRef: packageData.sourceSnapshotRef, immutable: true, createdAt: now
   });
   const ids = await allocatePublicIds(payload, timeline, sources);
   const projection = buildProjection(payload, ledger.data()!, timeline, sources, ids);
@@ -787,7 +1211,13 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
   if (!existingPublished.exists) {
     batch.create(publishedRef, {
       publishedMemoryId, topicId: payload.topicId, admissionId, packageId: payload.packageId, decisionId, approvalId,
-      generation: payload.generation, version: 1, authorityPayload: { timeline, sourceRefs: sources.map((source) => authorityId("source", source.url)) },
+      generation: payload.generation, version: 1, authorityPayload: {
+        timeline,
+        sourceRefs: sources.map((source) => authorityId("source", source.url)),
+        sourceSnapshotRef: packageData.sourceSnapshotRef,
+        sourceAuthorityArtifactRef: packageData.sourceAuthorityArtifactRef,
+        sourceAuthorityPolicyVersion: SOURCE_AUTHORITY_POLICY_VERSION
+      },
       authorityHash: hashValue(stableJson({ timeline, sources })), lifecycle: "ACTIVE", immutable: true, createdAt: now
     });
   }
@@ -836,7 +1266,12 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
   batch.update(corpusCollection("generationJobs").doc(payload.jobId), { state: "PUBLISHED", currentStage: "published", completedAt: now, updatedAt: now });
   batch.create(corpusCollection("auditEvents").doc(randomUUID()), {
     institution: "published_memory", topicId: payload.topicId, jobId: payload.jobId, packageId: payload.packageId, admissionId,
-    eventType: "PUBLICATION_COMPLETED", lineage: { decisionId, approvalId, publishedMemoryId, projectionHash }, immutable: true, createdAt: now
+    eventType: "PUBLICATION_COMPLETED", lineage: {
+      decisionId, approvalId, publishedMemoryId, projectionHash,
+      sourceAuthorityArtifactRef: packageData.sourceAuthorityArtifactRef,
+      sourceSnapshotRef: packageData.sourceSnapshotRef,
+      sourceAuthorityPolicyVersion: SOURCE_AUTHORITY_POLICY_VERSION
+    }, immutable: true, createdAt: now
   });
   await batch.commit();
   return { status: "PUBLISHED", topicId: payload.topicId, timelineId: ids.timelineId, route: `/timeline/${ledger.data()!.slug}` };

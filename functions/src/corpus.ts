@@ -31,6 +31,7 @@ export const CORPUS_COLLECTIONS = [
   "searchDocuments",
   "sitemapDocuments",
   "sourceRecords",
+  "sourceAuthorityArtifacts",
   "sourceSnapshots",
   "tagDocuments",
   "topicLedgers"
