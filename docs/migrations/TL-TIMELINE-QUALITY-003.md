@@ -77,6 +77,40 @@ Therefore:
 - **TIMELINE QUALITY V3: NOT CERTIFIED** — the required new live request did not pass reader-level publication certification.
 - **SOURCE AUTHORITY V2 LIVE PUBLICATION: NOT CERTIFIED** — the same live request failed Source Authority and never published.
 
+## Authorized additional live certification
+
+On 2026-09-05 the founder authorized exactly one additional genuine priority request while requiring the Cuban Missile Crisis review item to remain intact as negative evidence. The selected topic is **The Apollo 13 Mission**. Before submission, exact active-ledger, public-projection, and search-document checks all returned zero matches.
+
+Selection rationale: Apollo 13 is a historically meaningful closed episode with defensible mission boundaries in April 1970, multiple discrete and precisely dated operational events, extensive primary NASA mission/history records, and independent institutional coverage such as the Smithsonian. It therefore exercises V3 event semantics, closed-episode boundaries, day precision, same-day stability, and Source Authority V2 without requiring a broad or artificially expanded scope.
+
+The request was submitted once through the production priority intake and progressed naturally without replay, manual advancement, data edits, fixture shortcuts, or out-of-band regeneration.
+
+| Field | Result |
+|---|---|
+| Topic | The Apollo 13 Mission |
+| Topic ID | `8f8c58de52e5e8b8d1f6efbb16fb98c62c0ed47f` |
+| Job ID | `1190ca33-e1cc-4e30-b3da-f0d0268989ae` |
+| Intake | 2026-09-05T19:24:35.604Z |
+| Worker start | 2026-09-05T19:24:38.819Z |
+| Review transition | 2026-09-05T19:34:27.044Z |
+| Duration | 591.440 seconds intake-to-review; attempt 1 of 5 |
+| Final state | `AWAITING_REVIEW` / `governance_review`; no active or stale ledger lease; no task retry or last error |
+| Candidate | `e2c9bab2a4a1fff371736ac51642a3fa4ae09611`, 19 events |
+| Source snapshot | `8f10d51d571f5e5ec86daa2449596a8192d619b7`, 17 sources and 38 grounded evidence segments |
+| Evidence | 48 evidence records, 48 claim links, and 48 PASSED evidence validations |
+| Quality artifact | `97ba4f0173b807777b67ca4d747055eca0c9c41c` — failed |
+| Source Authority artifact | `a9be11177b0e05bc3a9cd639d10b35e986fbc197` — failed |
+| Governance package | `7ea8c2c1-562a-5390-a146-c55627791d16` — exceptional |
+
+Event semantics behaved correctly: all 19 selected chronology items were `EVENT`, while three preservation/ongoing-impact candidates were retained privately as excluded `STATE_LEGACY` items. V3 nevertheless rejected the candidate because the model silently expanded the mission scope through a 1995 cultural-impact event, then supplied only year precision for boundary-year events that could not be proven inside its own partial-year boundaries. Two candidates also referenced a dimension absent from the declared dimension map. Source Authority separately lacked sufficient independent strong claim-relevant support for several major operational milestones and lacked any strong support for two routine claims.
+
+This is a material provider/model planning-reliability and evidence-authority failure. It is not a policy escape: date precision, scope, evidence-reference, Source Authority, and Governance gates all failed closed. The candidate remains intact in exceptional review, has no public projection, and was not tuned or promoted.
+
+Final certification remains:
+
+- **TIMELINE QUALITY V3: NOT CERTIFIED** — the additional authorized live request also failed before publication and reader-level review.
+- **SOURCE AUTHORITY V2 LIVE PUBLICATION: NOT CERTIFIED** — the additional live candidate did not meet Source Authority and never entered Historical Library or Published Memory.
+
 ## Verification
 
 | Gate | Result |
@@ -107,4 +141,4 @@ Therefore:
 
 ## Remaining risks
 
-The live run exposed that the editorial-plan schema bounded total inventory but did not reject more than 20 selected candidates until deterministic quality assessment. The schema now rejects over-selection before candidate composition so bounded model repair receives the defect directly; regression coverage reproduces the exact 27-selected failure. Source coverage for broad closed episodes can still remain insufficient after the bounded authority repair. Both conditions fail closed and remain operationally visible in Governance review. No additional production request is authorized under this certification run, so a future explicitly authorized certification is required before discovery can resume or V3 can be declared certified.
+The Cuban Missile Crisis run exposed that the editorial-plan schema bounded total inventory but did not reject more than 20 selected candidates until deterministic quality assessment. The schema now rejects over-selection before candidate composition so bounded model repair receives the defect directly; regression coverage reproduces the exact 27-selected failure. The subsequently authorized Apollo 13 run proved that provider output can still repeatedly violate date-precision and scope instructions, and that one grounded research pass may not yield sufficient independent claim-level authority for every selected operational milestone. These conditions fail closed and remain operationally visible in Governance review. Both authorized live requests have now been consumed, so another future certification would require new explicit authorization before discovery can resume or V3 can be declared certified.
