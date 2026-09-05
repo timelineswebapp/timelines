@@ -4,7 +4,7 @@ import { buildMilestonePath, buildTimelinePath } from "@/src/lib/share";
 import { formatDisplayDate } from "@/src/lib/utils";
 import { contentService } from "@/src/server/services/content-service";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 type HistoricalObjectPageParams = {
   slug: string;

@@ -8,7 +8,7 @@ import { formatDisplayDate } from "@/src/lib/utils";
 import { contentService } from "@/src/server/services/content-service";
 import { HistoricalContextSection } from "@/components/timeline/HistoricalContextSection";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 type MilestonePageParams = {
   id: string;

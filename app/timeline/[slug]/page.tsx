@@ -8,16 +8,7 @@ import { slugify } from "@/src/lib/utils";
 import { adsService } from "@/src/server/services/ads-service";
 import { contentService } from "@/src/server/services/content-service";
 
-export const revalidate = 3600;
-
-export async function generateStaticParams() {
-  try {
-    const slugs = await contentService.listStaticSlugs(50);
-    return slugs.map((slug) => ({ slug }));
-  } catch {
-    return [];
-  }
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,

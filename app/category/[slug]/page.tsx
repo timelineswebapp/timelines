@@ -6,7 +6,7 @@ import { buildPublicUrl } from "@/src/lib/public-site";
 import { buildCategoryJsonLd, sanitizeJsonLd } from "@/src/lib/timeline-jsonld";
 import { contentService } from "@/src/server/services/content-service";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 const CATEGORY_INTROS: Record<string, string> = {
   war: "Explore military campaigns, conflicts, turning points, and postwar consequences through structured timeline pages.",
@@ -19,15 +19,6 @@ const CATEGORY_INTROS: Record<string, string> = {
 
 function getCategoryIntro(slug: string, categoryName: string) {
   return CATEGORY_INTROS[slug] || `Explore ${categoryName.toLowerCase()} timelines through structured chronology pages connected by shared themes, events, and developments.`;
-}
-
-export async function generateStaticParams() {
-  try {
-    const categories = await contentService.listCategoryEntries();
-    return categories.map((category) => ({ slug: category.slug }));
-  } catch {
-    return [];
-  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

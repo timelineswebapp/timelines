@@ -7,7 +7,7 @@ import { adsService } from "@/src/server/services/ads-service";
 import { buildHomePageJsonLd, sanitizeJsonLd } from "@/src/lib/timeline-jsonld";
 import { contentService } from "@/src/server/services/content-service";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 const SHOW_HOME_TAXONOMY_SECTION = false;
 

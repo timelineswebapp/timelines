@@ -11,7 +11,7 @@ import { formatDisplayDate, truncate } from "@/src/lib/utils";
 import { adsService } from "@/src/server/services/ads-service";
 import { contentService } from "@/src/server/services/content-service";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 function MilestoneSearchCard({ milestone }: { milestone: MilestoneSearchSummary }) {
   const displayDate = formatDisplayDate(milestone.date, milestone.datePrecision, {
