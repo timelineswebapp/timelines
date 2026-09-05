@@ -66,11 +66,11 @@ export function enqueueGenerationTask(payload: TaskPayload, priority: boolean, s
   });
 }
 
-export function enqueueInstitutionalTask(payload: TaskPayload & { packageId: string; decision: "routine" | "exceptional" }) {
+export function enqueueInstitutionalTask(payload: TaskPayload & { packageId: string; decision: "routine" | "exceptional" }, deliverySuffix = "institutional") {
   return createHttpTask({
     queue: QUEUES.institutional,
     functionName: FUNCTION_NAMES.institutionalWorker,
-    taskId: `${ACTIVE_CORPUS_ID}-${payload.topicId}-g${payload.generation}-institutional`,
+    taskId: `${ACTIVE_CORPUS_ID}-${payload.topicId}-g${payload.generation}-${deliverySuffix}`,
     payload,
     deadlineSeconds: 900
   });

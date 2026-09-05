@@ -6,7 +6,7 @@ export const FIRESTORE_DATABASE = "(default)";
 export const PIPELINE_VERSION = "serverless-pipeline-v4-source-authority";
 export const PROMPT_VERSION = "historical-research-v4.1-source-authority";
 export const SCHEMA_VERSION = "generated-timeline-v2";
-export const QUALITY_POLICY_VERSION = "timeline-quality-v2-omission-semantics";
+export const QUALITY_POLICY_VERSION = "timeline-quality-v3-event-semantics";
 export const GOVERNANCE_POLICY_VERSION = "routine-governance-v4-source-authority";
 export const PUBLIC_API_VERSION = "serverless-public-api-v2-clean-corpus";
 

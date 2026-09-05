@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { normalizeTopic } from "./normalization";
-import { generatedTimelineSchema, taskPayloadSchema, topicRequestSchema } from "./schemas";
+import { generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
 
 function event(sortYear: number, title: string) {
@@ -57,6 +57,13 @@ test("generation schema accepts BCE chronology and rejects out-of-order authorit
 test("task payload rejects stale or unbounded identities", () => {
   assert.equal(taskPayloadSchema.safeParse({ topicId: "bad", jobId: "bad", generation: 0, origin: "user" }).success, false);
   assert.equal(taskPayloadSchema.safeParse({ corpusId: ACTIVE_CORPUS_ID, topicId: "a".repeat(40), jobId: "4af86d2f-1596-4b8c-a927-42e9e25b646d", generation: 1, origin: "user" }).success, true);
+});
+
+test("institutional tasks admit bounded content-addressed policy revisions without widening generation jobs", () => {
+  const revision = { corpusId: ACTIVE_CORPUS_ID, topicId: "a".repeat(40), jobId: "b".repeat(40), generation: 2, origin: "founder", packageId: "dc01e8c2-fba4-55e3-9dd2-407af7dd3fee", decision: "routine" };
+  assert.equal(taskPayloadSchema.safeParse(revision).success, false);
+  assert.equal(institutionalTaskPayloadSchema.safeParse(revision).success, true);
+  assert.equal(institutionalTaskPayloadSchema.safeParse({ ...revision, jobId: "b".repeat(41) }).success, false);
 });
 
 test("visitor request contracts remain compatible and metadata is bounded", () => {

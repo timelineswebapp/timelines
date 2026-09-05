@@ -48,6 +48,9 @@ export const taskPayloadSchema = z.object({
 });
 
 export const institutionalTaskPayloadSchema = taskPayloadSchema.extend({
+  // Deterministic policy revisions use a content-addressed run identifier. Normal
+  // generation jobs remain UUID-only through taskPayloadSchema.
+  jobId: z.union([z.string().uuid(), z.string().regex(/^[a-f0-9]{40}$/)]),
   packageId: z.string().uuid(),
   decision: z.enum(["routine", "exceptional"])
 });
@@ -87,7 +90,37 @@ export const generatedEventSchema = z.object({
 }).refine((event) => event.evidenceSummary.toLocaleLowerCase("en-US") !== event.description.toLocaleLowerCase("en-US"), {
   path: ["evidenceSummary"],
   message: "Evidence summary must be distinct from the public event description."
+}).superRefine((event, context) => {
+  if (event.datePrecision === "day" && (event.sortMonth === null || event.sortDay === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["datePrecision"], message: "Day precision requires sortMonth and sortDay." });
+  }
+  if (event.datePrecision === "month" && (event.sortMonth === null || event.sortDay !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["datePrecision"], message: "Month precision requires sortMonth and no sortDay." });
+  }
+  if ((event.datePrecision === "year" || event.datePrecision === "approximate") && (event.sortMonth !== null || event.sortDay !== null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["datePrecision"], message: "Year and approximate precision cannot invent month or day components." });
+  }
 });
+
+function temporalInterval(event: { sortYear: number; sortMonth: number | null; sortDay: number | null }) {
+  const month = event.sortMonth;
+  const day = event.sortDay;
+  const start = event.sortYear * 10_000 + (month ?? 1) * 100 + (day ?? 1);
+  const endMonth = month ?? 12;
+  const endDay = day ?? new Date(Date.UTC(event.sortYear, endMonth, 0)).getUTCDate();
+  return { start, end: event.sortYear * 10_000 + endMonth * 100 + endDay };
+}
+
+export function compareHistoricalDates(
+  left: { sortYear: number; sortMonth: number | null; sortDay: number | null },
+  right: { sortYear: number; sortMonth: number | null; sortDay: number | null }
+) {
+  const l = temporalInterval(left);
+  const r = temporalInterval(right);
+  if (l.end < r.start) return -1;
+  if (r.end < l.start) return 1;
+  return 0;
+}
 
 export const generatedTimelineSchema = z.object({
   title: boundedText(3, 160),
@@ -96,19 +129,10 @@ export const generatedTimelineSchema = z.object({
   tags: z.array(boundedText(2, 80)).min(2).max(12),
   events: z.array(generatedEventSchema).min(6).max(20)
 }).superRefine((timeline, context) => {
-  const compareChronology = (left: z.infer<typeof generatedEventSchema>, right: z.infer<typeof generatedEventSchema>) => {
-    const leftKey = [left.sortYear, left.sortMonth ?? 0, left.sortDay ?? 0];
-    const rightKey = [right.sortYear, right.sortMonth ?? 0, right.sortDay ?? 0];
-    for (let index = 0; index < leftKey.length; index += 1) {
-      if (leftKey[index]! < rightKey[index]!) return -1;
-      if (leftKey[index]! > rightKey[index]!) return 1;
-    }
-    return 0;
-  };
   for (let index = 1; index < timeline.events.length; index += 1) {
     const previous = timeline.events[index - 1]!;
     const current = timeline.events[index]!;
-    if (compareChronology(previous, current) > 0) {
+    if (compareHistoricalDates(previous, current) > 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["events", index],
@@ -150,7 +174,11 @@ export const timelineCandidateSchema = z.object({
   candidateId: boundedText(1, 100),
   title: boundedText(3, 240),
   date: boundedText(1, 100),
+  datePrecision: z.enum(["year", "month", "day", "approximate"]),
   sortYear: z.number().int().min(-10000).max(3000),
+  sortMonth: z.number().int().min(1).max(12).nullable(),
+  sortDay: z.number().int().min(1).max(31).nullable(),
+  semanticType: z.enum(["EVENT", "STATE_LEGACY", "CONTEXT", "FUTURE"]),
   eraIds: z.array(boundedText(2, 80)).min(1).max(4),
   dimensionIds: z.array(boundedText(2, 80)).min(1).max(8),
   significance: z.object({
@@ -168,12 +196,18 @@ export const timelineCandidateSchema = z.object({
   selected: z.boolean(),
   rejectionReason: z.string().trim().min(10).max(600).nullable()
 }).superRefine((candidate, context) => {
+  if (candidate.selected && candidate.semanticType !== "EVENT") {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["selected"], message: "Only EVENT candidates are eligible for chronological selection." });
+  }
   if (candidate.selected && candidate.rejectionReason !== null) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Selected candidates cannot have a rejection reason." });
   }
   if (!candidate.selected && candidate.rejectionReason === null) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Rejected candidates require a reason." });
   }
+  if (candidate.datePrecision === "day" && (candidate.sortMonth === null || candidate.sortDay === null)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["datePrecision"], message: "Day precision requires month and day." });
+  if (candidate.datePrecision === "month" && (candidate.sortMonth === null || candidate.sortDay !== null)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["datePrecision"], message: "Month precision requires month and no day." });
+  if ((candidate.datePrecision === "year" || candidate.datePrecision === "approximate") && (candidate.sortMonth !== null || candidate.sortDay !== null)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["datePrecision"], message: "Coarse precision cannot carry invented month/day values." });
 });
 
 const omissionReviewItemSchema = z.object({

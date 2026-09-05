@@ -17,7 +17,7 @@ import type { GeneratedTimeline, SourceCandidate, TaskPayload } from "./schemas"
 import { generatedTimelineSchema, sourceCandidateSchema, timelineEditorialPlanSchema } from "./schemas";
 import { groundedEvidenceSegmentSchema } from "./schemas";
 import { enqueueInstitutionalTask } from "./tasks";
-import { assessEditorialPlan, assessTimelineQuality, type TimelineQualityAssessment } from "./quality";
+import { assessEditorialPlan, assessTimelineQuality, selectV3Chronology, upgradeLegacyPlanForV3, type TimelineQualityAssessment } from "./quality";
 import {
   assessSourceAuthority,
   selectAuthoritativeEvidence,
@@ -375,6 +375,12 @@ async function persistQualityArtifact(
     coverageAssessment: { eraDistribution: assessment.eraDistribution, eventDistribution: assessment.eventDistribution, checks: { eraCoverage: assessment.checks.eraCoverage, temporalBalance: assessment.checks.temporalBalance, endpointCoverage: assessment.checks.endpointCoverage } },
     redundancyAssessment: { review: planResult.plan.redundancyReview, result: assessment.checks.redundancy },
     omissionAssessment: { review: planResult.plan.omissionReview, classifications: assessment.omissionAssessments, result: assessment.checks.omissions },
+    eventSemanticAssessment: {
+      selectedEvents: planResult.plan.candidates.filter((candidate) => candidate.selected).map((candidate) => ({ candidateId: candidate.candidateId, semanticType: candidate.semanticType })),
+      excludedItems: planResult.plan.candidates.filter((candidate) => !candidate.selected).map((candidate) => ({ candidateId: candidate.candidateId, semanticType: candidate.semanticType, reason: candidate.rejectionReason })),
+      result: assessment.checks.eventSemantics
+    },
+    datePrecisionAssessment: { result: assessment.checks.datePrecision },
     finalQualityVerdict: assessment.verdict,
     unresolvedReasons: assessment.unresolvedReasons,
     qualityPolicyVersion: assessment.policyVersion
@@ -808,6 +814,197 @@ export async function recordNonPublicQualityFixtureFailure(jobId: string, fixtur
   });
 }
 
+async function loadPersistedV3RevisionInputs(topicId: string, priorQualityArtifactId: string) {
+  const [ledger, priorQuality] = await Promise.all([
+    corpusCollection("topicLedgers").doc(topicId).get(),
+    corpusCollection("qualityArtifacts").doc(priorQualityArtifactId).get()
+  ]);
+  if (!ledger.exists || ledger.data()?.state !== "PUBLISHED") throw new Error("V3 revision preview requires an actively published topic.");
+  if (!priorQuality.exists || priorQuality.data()?.topicId !== topicId) throw new Error("V3 revision preview quality lineage is missing or mismatched.");
+  const priorJobId = String(priorQuality.data()?.runId || "");
+  const candidateQuery = await corpusCollection("factoryObjects").where("runId", "==", priorJobId).where("objectType", "==", "candidate_timeline").limit(2).get();
+  if (candidateQuery.size !== 1) throw new Error("V3 revision preview requires exactly one immutable prior candidate.");
+  const priorCandidate = candidateQuery.docs[0]!;
+  if (priorQuality.data()?.objectRef !== priorCandidate.id) throw new Error("V3 revision preview candidate does not match the prior quality artifact.");
+  const priorTimeline = generatedTimelineSchema.parse(priorCandidate.data().payload);
+  const qualityPayload = priorQuality.data()!.payload as {
+    scopeAssessment?: unknown;
+    candidateEventInventory?: unknown;
+    redundancyAssessment?: { review?: unknown };
+    omissionAssessment?: { review?: unknown };
+  };
+  const plan = upgradeLegacyPlanForV3({
+    scope: qualityPayload.scopeAssessment,
+    candidates: qualityPayload.candidateEventInventory,
+    redundancyReview: qualityPayload.redundancyAssessment?.review,
+    omissionReview: qualityPayload.omissionAssessment?.review
+  }, priorTimeline);
+  const timeline = selectV3Chronology(plan, priorTimeline);
+  const resolvedResearch = await resolveCandidateResearchSnapshot(topicId, priorJobId, priorCandidate.data());
+  return { ledger, priorQuality, priorCandidate, priorJobId, priorTimeline, plan, timeline, ...resolvedResearch };
+}
+
+export async function executePersistedV3RevisionPreview(topicId: string, priorQualityArtifactId: string) {
+  await assertActiveCorpus();
+  const input = await loadPersistedV3RevisionInputs(topicId, priorQualityArtifactId);
+  const jobId = authorityId(topicId, QUALITY_POLICY_VERSION, "revision-preview");
+  const generation = Number(input.ledger.data()?.generation || 0) + 1;
+  const payload: TaskPayload = { corpusId: ACTIVE_CORPUS_ID, topicId, jobId, generation, origin: "founder" };
+  const now = Timestamp.now();
+  await createIfAbsent("factoryRuns", jobId, {
+    runId: jobId,
+    topicId,
+    jobId,
+    generation,
+    pipelineVersion: PIPELINE_VERSION,
+    qualityPolicyVersion: QUALITY_POLICY_VERSION,
+    fixtureClass: "persisted_apollo_v3_revision_preview",
+    publicationEligible: false,
+    state: "QUALITY_FIXTURE_RUNNING",
+    sourceJobId: input.priorJobId,
+    sourceCandidateId: input.priorCandidate.id,
+    sourceSnapshotId: input.sourceSnapshotId,
+    createdAt: now
+  });
+  const execution = {
+    projectId: "deterministic",
+    location: "local-policy",
+    model: "deterministic-policy-transform",
+    promptVersion: QUALITY_POLICY_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    promptHash: hashValue(stableJson({ priorQualityArtifactId, priorCandidateId: input.priorCandidate.id })),
+    responseHash: hashValue(stableJson(input.timeline)),
+    startedAt: now.toDate().toISOString(),
+    completedAt: now.toDate().toISOString(),
+    usageMetadata: { vertexCalls: 0 }
+  };
+  const candidate = await persistFactoryCandidate(payload, input.research, { timeline: input.timeline, execution }, input.sourceSnapshotId);
+  const assessment = assessTimelineQuality({
+    plan: input.plan,
+    timeline: candidate.timeline,
+    allowedSourceRefs: new Set(input.research.sources.map((source) => source.sourceId)),
+    allowedEvidenceRefs: new Set(input.research.evidenceSegments.map((segment) => segment.evidenceRef))
+  });
+  const planResult: EditorialPlanResult = { plan: input.plan, execution };
+  const qualityArtifactId = await persistQualityArtifact(payload, planResult, assessment, candidate.timelineObjectId);
+  const sourceAuthority = assessSourceAuthority({ timeline: candidate.timeline, sources: input.research.sources, evidenceSegments: input.research.evidenceSegments });
+  const sourceAuthorityArtifactId = await persistSourceAuthorityArtifact(payload, candidate.timelineObjectId, input.sourceSnapshotId, sourceAuthority, input.research);
+  const governancePreview = evaluateRoutinePolicy(candidate.timeline, input.research.sources, assessment, sourceAuthority);
+  await corpusCollection("factoryRuns").doc(jobId).update({
+    state: assessment.verdict === "passed" && sourceAuthority.overallVerdict === "passed" && governancePreview.outcome === "routine" ? "QUALITY_FIXTURE_PASSED" : "QUALITY_FIXTURE_FAILED",
+    qualityArtifactId,
+    sourceAuthorityArtifactId,
+    qualityVerdict: assessment.verdict,
+    sourceAuthorityVerdict: sourceAuthority.overallVerdict,
+    governancePreview,
+    originalEventCount: input.priorTimeline.events.length,
+    correctedEventCount: candidate.timeline.events.length,
+    excludedItems: input.plan.candidates.filter((item) => !item.selected).map((item) => ({ candidateId: item.candidateId, title: item.title, semanticType: item.semanticType, reason: item.rejectionReason })),
+    completedAt: Timestamp.now()
+  });
+  await createIfAbsent("factoryArtifacts", authorityId(jobId, "non-public-v3-revision-preview"), {
+    artifactId: authorityId(jobId, "non-public-v3-revision-preview"),
+    runId: jobId,
+    topicId,
+    artifactType: "non_public_v3_revision_preview",
+    publicationEligible: false,
+    sourceJobId: input.priorJobId,
+    sourceCandidateId: input.priorCandidate.id,
+    sourceSnapshotId: input.sourceSnapshotId,
+    objectRef: candidate.timelineObjectId,
+    qualityArtifactRef: qualityArtifactId,
+    sourceAuthorityArtifactRef: sourceAuthorityArtifactId,
+    governancePreview,
+    immutable: true,
+    createdAt: Timestamp.now()
+  });
+  return {
+    jobId,
+    generation,
+    timelineObjectId: candidate.timelineObjectId,
+    sourceSnapshotId: input.sourceSnapshotId,
+    qualityArtifactId,
+    sourceAuthorityArtifactId,
+    qualityVerdict: assessment.verdict,
+    sourceAuthorityVerdict: sourceAuthority.overallVerdict,
+    governanceOutcome: governancePreview.outcome,
+    originalEventCount: input.priorTimeline.events.length,
+    correctedEventCount: candidate.timeline.events.length,
+    eventTitles: candidate.timeline.events.map((event) => event.title),
+    excludedItems: input.plan.candidates.filter((item) => !item.selected && input.priorTimeline.events.some((event) => event.title === item.title)).map((item) => ({ title: item.title, semanticType: item.semanticType, reason: item.rejectionReason })),
+    reasons: assessment.unresolvedReasons,
+    publicationEligible: false
+  };
+}
+
+export async function promotePersistedV3Revision(topicId: string, priorQualityArtifactId: string) {
+  await assertActiveCorpus();
+  const preview = await executePersistedV3RevisionPreview(topicId, priorQualityArtifactId);
+  if (preview.qualityVerdict !== "passed" || preview.sourceAuthorityVerdict !== "passed" || preview.governanceOutcome !== "routine") {
+    throw new Error("Non-public V3 revision preview is not eligible for institutional promotion.");
+  }
+  const input = await loadPersistedV3RevisionInputs(topicId, priorQualityArtifactId);
+  const payload: TaskPayload = { corpusId: ACTIVE_CORPUS_ID, topicId, jobId: preview.jobId, generation: preview.generation, origin: "founder" };
+  const candidate = (await corpusCollection("factoryObjects").doc(preview.timelineObjectId).get()).data()!;
+  const timeline = generatedTimelineSchema.parse(candidate.payload);
+  const assessment = assessTimelineQuality({ plan: input.plan, timeline, allowedSourceRefs: new Set(input.research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(input.research.evidenceSegments.map((segment) => segment.evidenceRef)) });
+  const sourceAuthority = assessSourceAuthority({ timeline, sources: input.research.sources, evidenceSegments: input.research.evidenceSegments });
+  const now = Timestamp.now();
+  await db.runTransaction(async (transaction) => {
+    const ledgerRef = corpusCollection("topicLedgers").doc(topicId);
+    const ledger = await transaction.get(ledgerRef);
+    if (ledger.data()?.state !== "PUBLISHED" || ledger.data()?.generation !== preview.generation - 1 || ledger.data()?.publishedMemoryId !== `${topicId}--g${preview.generation - 1}`) {
+      throw new Error("Published topic changed after V3 preview; revision promotion fails closed.");
+    }
+    transaction.create(corpusCollection("generationJobs").doc(preview.jobId), corpusRecord({
+      jobId: preview.jobId, topicId, generation: preview.generation, origin: "founder", priority: 1000,
+      state: "PROCESSING", currentStage: "governance_handoff", attemptCount: 0, maximumAttempts: MAX_TOPIC_ATTEMPTS,
+      revisionOfPublishedMemoryId: ledger.data()!.publishedMemoryId, sourceCandidateId: input.priorCandidate.id, sourceSnapshotId: input.sourceSnapshotId,
+      createdAt: now, startedAt: now, updatedAt: now
+    }));
+    transaction.update(ledgerRef, {
+      state: "PROCESSING", currentStage: "governance_handoff", activeJobId: preview.jobId, generation: preview.generation,
+      deterministicTaskIdentity: `${ACTIVE_CORPUS_ID}-${topicId}-g${preview.generation}`, attemptCount: 0,
+      leaseOwner: null, leaseExpiresAt: null, lastError: null, updatedAt: now
+    });
+  });
+  const governance = await createGovernancePackage(payload, preview.timelineObjectId, timeline, input.research.sources, assessment, preview.qualityArtifactId, sourceAuthority, preview.sourceAuthorityArtifactId, input.sourceSnapshotId);
+  if (governance.policy.outcome !== "routine") throw new Error("V3 revision Governance package is exceptional after passing preview.");
+  await enqueueInstitutionalTask({ ...payload, packageId: governance.packageId, decision: "routine" });
+  await corpusCollection("generationJobs").doc(preview.jobId).update({ packageId: governance.packageId, state: "GOVERNANCE_QUEUED", currentStage: "governance", updatedAt: Timestamp.now() });
+  await corpusCollection("topicLedgers").doc(topicId).update({ state: "GOVERNANCE_QUEUED", currentStage: "governance", updatedAt: Timestamp.now() });
+  await createIfAbsent("auditEvents", randomUUID(), {
+    institution: "factory", topicId, jobId: preview.jobId, packageId: governance.packageId,
+    eventType: "TIMELINE_QUALITY_V3_REVISION_PROMOTED",
+    lineage: { priorPublishedMemoryId: `${topicId}--g${preview.generation - 1}`, priorQualityArtifactId, qualityArtifactId: preview.qualityArtifactId, sourceCandidateId: input.priorCandidate.id, revisedCandidateId: preview.timelineObjectId, sourceSnapshotId: input.sourceSnapshotId, qualityPolicyVersion: QUALITY_POLICY_VERSION },
+    immutable: true, createdAt: Timestamp.now()
+  });
+  return { ...preview, packageId: governance.packageId, status: "GOVERNANCE_QUEUED" as const };
+}
+
+export async function resumePersistedV3InstitutionalTransition(topicId: string) {
+  await assertActiveCorpus();
+  const ledger = await corpusCollection("topicLedgers").doc(topicId).get();
+  const data = ledger.data();
+  if (!ledger.exists || data?.state !== "GOVERNANCE_QUEUED" || data?.currentStage !== "governance") {
+    throw new Error("V3 institutional resume requires an unchanged GOVERNANCE_QUEUED ledger.");
+  }
+  const jobId = String(data.activeJobId || "");
+  const generation = Number(data.generation || 0);
+  const job = await corpusCollection("generationJobs").doc(jobId).get();
+  if (!job.exists || job.data()?.state !== "GOVERNANCE_QUEUED" || job.data()?.generation !== generation) {
+    throw new Error("V3 institutional resume job lineage is missing or no longer queued.");
+  }
+  const packageId = String(job.data()?.packageId || "");
+  const governancePackage = await corpusCollection("governancePackages").doc(packageId).get();
+  if (!governancePackage.exists || governancePackage.data()?.policyEvaluation?.outcome !== "routine") {
+    throw new Error("V3 institutional resume requires the existing routine Governance package.");
+  }
+  const payload: TaskPayload = { corpusId: ACTIVE_CORPUS_ID, topicId, jobId, generation, origin: "founder" };
+  const delivery = await enqueueInstitutionalTask({ ...payload, packageId, decision: "routine" }, "institutional-v3-schema-recovery");
+  return { topicId, jobId, generation, packageId, delivery };
+}
+
 export async function executeNonPublicSourceAuthorityClaimFixture(input: {
   displayTitle: string;
   fixtureClass: string;
@@ -1009,10 +1206,15 @@ type PublicIdAllocation = { timelineId: number; eventIds: number[]; sourceIds: R
 async function allocatePublicIds(payload: TaskPayload, timeline: GeneratedTimeline, sources: SourceCandidate[]): Promise<PublicIdAllocation> {
   const jobRef = corpusCollection("generationJobs").doc(payload.jobId);
   const counterRef = corpusCollection("counters").doc("publicIds");
+  const ledgerSnapshot = await corpusCollection("topicLedgers").doc(payload.topicId).get();
+  const existingTimelineRef = typeof ledgerSnapshot.data()?.slug === "string"
+    ? corpusCollection("platformReadModels").doc(`timeline--${ledgerSnapshot.data()!.slug}`)
+    : null;
   return db.runTransaction(async (transaction) => {
-    const snapshots = await transaction.getAll(jobRef, counterRef);
+    const snapshots = await transaction.getAll(jobRef, counterRef, ...(existingTimelineRef ? [existingTimelineRef] : []));
     const job = snapshots[0]!;
     const counter = snapshots[1]!;
+    const existingTimeline = snapshots[2]?.data()?.payload as { id?: number; events?: Array<{ id?: number; date?: string; title?: string; sources?: Array<{ id?: number; url?: string }>; tags?: Array<{ id?: number; slug?: string }> }>; tags?: Array<{ id?: number; slug?: string }> } | undefined;
     if (job.data()?.publicIds) return job.data()!.publicIds as PublicIdAllocation;
     const current = counter.data() || {};
     let timelineCursor = Number(current.timeline ?? PUBLIC_ID_BASE);
@@ -1020,12 +1222,18 @@ async function allocatePublicIds(payload: TaskPayload, timeline: GeneratedTimeli
     let sourceCursor = Number(current.source ?? PUBLIC_ID_BASE);
     let tagCursor = Number(current.tag ?? PUBLIC_ID_BASE);
     const sourceIds: Record<string, number> = {};
-    for (const source of sources) sourceIds[source.sourceId] = ++sourceCursor;
+    const existingSourceIds = new Map((existingTimeline?.events || []).flatMap((event) => event.sources || []).filter((source) => typeof source.id === "number" && typeof source.url === "string").map((source) => [source.url!, source.id!]));
+    for (const source of sources) sourceIds[source.sourceId] = existingSourceIds.get(source.url) || ++sourceCursor;
     const tagIds: Record<string, number> = {};
-    for (const tag of Array.from(new Set([...timeline.tags, ...timeline.events.flatMap((event) => event.tags)]))) tagIds[slugifyTopic(tag)] = ++tagCursor;
+    const existingTagIds = new Map([...(existingTimeline?.tags || []), ...(existingTimeline?.events || []).flatMap((event) => event.tags || [])].filter((tag) => typeof tag.id === "number" && typeof tag.slug === "string").map((tag) => [tag.slug!, tag.id!]));
+    for (const tag of Array.from(new Set([...timeline.tags, ...timeline.events.flatMap((event) => event.tags)]))) {
+      const slug = slugifyTopic(tag);
+      tagIds[slug] = existingTagIds.get(slug) || ++tagCursor;
+    }
+    const existingEventIds = new Map((existingTimeline?.events || []).filter((event) => typeof event.id === "number").map((event) => [`${event.date}:${String(event.title).toLocaleLowerCase("en-US")}`, event.id!]));
     const allocation: PublicIdAllocation = {
-      timelineId: ++timelineCursor,
-      eventIds: timeline.events.map(() => ++eventCursor),
+      timelineId: typeof existingTimeline?.id === "number" ? existingTimeline.id : ++timelineCursor,
+      eventIds: timeline.events.map((event) => existingEventIds.get(`${event.date}:${event.title.toLocaleLowerCase("en-US")}`) || ++eventCursor),
       sourceIds,
       tagIds
     };
@@ -1211,7 +1419,7 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
   if (!existingPublished.exists) {
     batch.create(publishedRef, {
       publishedMemoryId, topicId: payload.topicId, admissionId, packageId: payload.packageId, decisionId, approvalId,
-      generation: payload.generation, version: 1, authorityPayload: {
+      generation: payload.generation, version: payload.generation, authorityPayload: {
         timeline,
         sourceRefs: sources.map((source) => authorityId("source", source.url)),
         sourceSnapshotRef: packageData.sourceSnapshotRef,
@@ -1222,6 +1430,15 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
     });
   }
   const timelineDoc = corpusCollection("platformReadModels").doc(`timeline--${ledger.data()!.slug}`);
+  const priorTimelineProjection = await timelineDoc.get();
+  const priorPayload = priorTimelineProjection.data()?.payload as { events?: Array<{ id?: number }> } | undefined;
+  const activeEventIds = new Set(ids.eventIds);
+  for (const priorEvent of priorPayload?.events || []) {
+    if (typeof priorEvent.id !== "number" || activeEventIds.has(priorEvent.id)) continue;
+    batch.set(corpusCollection("platformReadModels").doc(`milestone--${priorEvent.id}`), { lifecycle: "superseded", supersededByPublishedMemoryId: publishedMemoryId, updatedAt: now }, { merge: true });
+    batch.set(corpusCollection("searchDocuments").doc(`milestone--${priorEvent.id}`), { published: false, supersededByPublishedMemoryId: publishedMemoryId, updatedAt: now }, { merge: true });
+    batch.set(corpusCollection("sitemapDocuments").doc(`milestone--${priorEvent.id}`), { published: false, supersededByPublishedMemoryId: publishedMemoryId, updatedAt: projection.createdAt }, { merge: true });
+  }
   batch.set(timelineDoc, {
     projectionType: "timeline", lifecycle: "active", slug: ledger.data()!.slug, publicId: ids.timelineId,
     categorySlug: slugifyTopic(timeline.category), tagSlugs: projection.tagRecords.map((tag) => tag.slug), payload: projection.detail,
@@ -1248,16 +1465,18 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
     published: true, publishedMemoryId, updatedAt: now
   });
   batch.set(corpusCollection("sitemapDocuments").doc(`timeline--${ids.timelineId}`), { kind: "timeline", id: ids.timelineId, title: timeline.title, slug: ledger.data()!.slug, updatedAt: projection.createdAt, published: true });
-  batch.set(corpusCollection("categoryDocuments").doc(slugifyTopic(timeline.category)), {
-    slug: slugifyTopic(timeline.category),
-    name: timeline.category,
-    count: FieldValue.increment(1),
-    updatedAt: now
-  }, { merge: true });
+  if (payload.generation === 1) {
+    batch.set(corpusCollection("categoryDocuments").doc(slugifyTopic(timeline.category)), {
+      slug: slugifyTopic(timeline.category),
+      name: timeline.category,
+      count: FieldValue.increment(1),
+      updatedAt: now
+    }, { merge: true });
+  }
   for (const tag of projection.tagRecords) batch.set(corpusCollection("tagDocuments").doc(tag.slug), { ...tag, updatedAt: now }, { merge: true });
   batch.set(corpusCollection("publicationLifecycle").doc(`active--${payload.topicId}`), {
     topicId: payload.topicId, publishedMemoryId, timelineId: ids.timelineId, slug: ledger.data()!.slug, generation: payload.generation,
-    lifecycle: "ACTIVE", projectionHash, updatedAt: now
+    priorPublishedMemoryId: ledger.data()?.publishedMemoryId || null, lifecycle: "ACTIVE", projectionHash, updatedAt: now
   });
   batch.update(corpusCollection("topicLedgers").doc(payload.topicId), {
     state: "PUBLISHED", currentStage: "published", timelineId: ids.timelineId, publishedMemoryId, publishedAt: now,
@@ -1268,6 +1487,7 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
     institution: "published_memory", topicId: payload.topicId, jobId: payload.jobId, packageId: payload.packageId, admissionId,
     eventType: "PUBLICATION_COMPLETED", lineage: {
       decisionId, approvalId, publishedMemoryId, projectionHash,
+      priorPublishedMemoryId: ledger.data()?.publishedMemoryId || null,
       sourceAuthorityArtifactRef: packageData.sourceAuthorityArtifactRef,
       sourceSnapshotRef: packageData.sourceSnapshotRef,
       sourceAuthorityPolicyVersion: SOURCE_AUTHORITY_POLICY_VERSION

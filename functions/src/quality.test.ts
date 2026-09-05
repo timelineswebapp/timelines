@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessEditorialPlan, assessTimelineQuality, classifyOmission, normalizeGeneratedTimeline } from "./quality";
+import { assessEditorialPlan, assessTimelineQuality, classifyOmission, inferLegacyCandidateSemanticType, normalizeGeneratedTimeline, selectV3Chronology, upgradeLegacyPlanForV3 } from "./quality";
 import { evaluateRoutinePolicy } from "./pipeline";
 import { SOURCE_AUTHORITY_POLICY_VERSION, type SourceAuthorityAssessment } from "./source-authority";
 import type { GeneratedTimeline, TimelineEditorialPlan } from "./schemas";
@@ -25,7 +25,7 @@ function fixture(input: { topic: string; type: TimelineEditorialPlan["scope"]["t
       knownCoverageRisks: ["Available evidence may emphasize the best documented early period."]
     },
     candidates: input.events.map((event, index) => ({
-      candidateId: `candidate-${index + 1}`, title: event.title, date: String(event.year), sortYear: event.year,
+      candidateId: `candidate-${index + 1}`, title: event.title, date: String(event.year), datePrecision: "year", sortYear: event.year, sortMonth: null, sortDay: null, semanticType: "EVENT",
       eraIds: [event.era], dimensionIds: [index % 2 ? "social" : "political"], significance,
       significanceRationale: "This milestone materially changes the later development and understanding of the subject.",
       sourceRefs: ["source-1"], evidenceRefs: ["evidence-1"], selected: true, rejectionReason: null
@@ -152,4 +152,92 @@ test("future projections cannot pass as historical events", () => {
   const value = fixture({ topic: "An Ongoing Institution", type: "institution", ongoing: true, start: 2000, end: null, eras: [{ id: "formation", start: 2000, end: 2008 }, { id: "growth", start: 2009, end: 2017 }, { id: "current", start: 2018, end: 2026 }], events: [{ year: 2000, title: "The institution begins", era: "formation" }, { year: 2008, title: "The first mandate is completed", era: "formation" }, { year: 2012, title: "Operations expand", era: "growth" }, { year: 2017, title: "A structural reform is adopted", era: "growth" }, { year: 2024, title: "A modern program launches", era: "current" }, { year: 2033, title: "A projected mission will end", era: "current" }] });
   assert.match(assessEditorialPlan({ plan: value.plan, allowedSourceRefs: new Set(["source-1"]), allowedEvidenceRefs: new Set(["evidence-1"]), currentYear: 2026 }).join(" "), /future-dated 2033/);
   assert.equal(assess(value).checks.scope.status, "failed");
+});
+
+test("event semantics distinguish discrete events from state, context, and future material", () => {
+  assert.equal(inferLegacyCandidateSemanticType({ title: "Apollo 11 launches" }), "EVENT");
+  assert.equal(inferLegacyCandidateSemanticType({ title: "Command Module Columbia remains on display" }), "STATE_LEGACY");
+  assert.equal(inferLegacyCandidateSemanticType({ title: "Geopolitical context of the mission" }), "CONTEXT");
+  assert.equal(inferLegacyCandidateSemanticType({ title: "A planned future mission will launch" }), "FUTURE");
+});
+
+test("Apollo 11 V3 regression excludes all three legacy states before chronology selection", () => {
+  const mission = fixture({ topic: "The Apollo 11 Mission", type: "closed_episode", ongoing: false, start: 1969, end: 1969,
+    eras: [{ id: "prelaunch", start: 1969, end: 1969 }, { id: "transit", start: 1969, end: 1969 }, { id: "surface", start: 1969, end: 1969 }, { id: "return", start: 1969, end: 1969 }],
+    events: [
+      { year: 1969, title: "Command Module Columbia on Display", era: "return" },
+      { year: 1969, title: "Legacy of Scientific Instruments on Moon", era: "surface" },
+      { year: 1969, title: "Ongoing Study of Lunar Samples", era: "surface" },
+      { year: 1969, title: "Apollo 11 Crew Announced", era: "prelaunch" },
+      { year: 1969, title: "Apollo 11 Launches", era: "transit" },
+      { year: 1969, title: "Apollo 11 Enters Lunar Orbit", era: "transit" },
+      { year: 1969, title: "Eagle Lands on the Moon", era: "surface" },
+      { year: 1969, title: "Armstrong Takes First Step", era: "surface" },
+      { year: 1969, title: "Lunar EVA Conducted", era: "surface" },
+      { year: 1969, title: "Eagle Lifts Off", era: "surface" },
+      { year: 1969, title: "Eagle Redocks with Columbia", era: "surface" },
+      { year: 1969, title: "Transearth Injection Begins", era: "return" },
+      { year: 1969, title: "Apollo 11 Splashes Down", era: "return" }
+    ] });
+  mission.plan.scope.startBoundary = "January 9, 1969";
+  mission.plan.scope.endBoundary = "July 24, 1969";
+  const dates = ["1969", "1969", "1969", "January 9, 1969", "July 16, 1969", "July 19, 1969", "July 20, 1969", "July 20, 1969", "July 21, 1969", "July 21, 1969", "July 21, 1969", "July 22, 1969", "July 24, 1969"];
+  mission.timeline.events.forEach((event, index) => {
+    event.date = dates[index]!;
+    event.description = index === 0 ? "The command module remains on display as a preserved artifact after the mission concluded."
+      : index === 1 ? "Scientific instruments continue to provide a lasting legacy after the mission."
+      : index === 2 ? "Ongoing study of lunar samples continues after the mission ended."
+      : event.description;
+    if (index >= 3) {
+      const parsed = new Date(`${dates[index]} UTC`);
+      event.datePrecision = "day";
+      event.sortMonth = parsed.getUTCMonth() + 1;
+      event.sortDay = parsed.getUTCDate();
+    }
+  });
+  const legacyPlan = structuredClone(mission.plan) as unknown as { candidates: Array<Record<string, unknown>> } & Record<string, unknown>;
+  for (const candidate of legacyPlan.candidates) {
+    delete candidate.semanticType;
+    delete candidate.datePrecision;
+    delete candidate.sortMonth;
+    delete candidate.sortDay;
+  }
+  const upgraded = upgradeLegacyPlanForV3(legacyPlan, mission.timeline);
+  const corrected = selectV3Chronology(upgraded, mission.timeline);
+  assert.deepEqual(upgraded.candidates.slice(0, 3).map((candidate) => candidate.semanticType), ["STATE_LEGACY", "STATE_LEGACY", "STATE_LEGACY"]);
+  assert.deepEqual(upgraded.candidates.slice(0, 3).map((candidate) => candidate.selected), [false, false, false]);
+  assert.equal(corrected.events.length, 10);
+  assert.equal(corrected.events[0]!.title, "Apollo 11 Crew Announced");
+  const assessment = assessTimelineQuality({ plan: upgraded, timeline: corrected, allowedSourceRefs: new Set(["source-1"]), allowedEvidenceRefs: new Set(["evidence-1"]), currentYear: 2026 });
+  assert.equal(assessment.verdict, "passed", assessment.unresolvedReasons.join("\n"));
+});
+
+test("partial-year closed episodes fail closed for ambiguous year-only events", () => {
+  const value = fixture({ topic: "A Bounded Crisis", type: "closed_episode", ongoing: false, start: 1962, end: 1962,
+    eras: [{ id: "opening", start: 1962, end: 1962 }, { id: "middle", start: 1962, end: 1962 }, { id: "closing", start: 1962, end: 1962 }],
+    events: [1, 2, 3, 4, 5, 6].map((index) => ({ year: 1962, title: `Crisis event ${index}`, era: index < 3 ? "opening" : index < 5 ? "middle" : "closing" })) });
+  value.plan.scope.startBoundary = "October 16, 1962";
+  value.plan.scope.endBoundary = "October 28, 1962";
+  const result = assess(value);
+  assert.equal(result.verdict, "failed");
+  assert.equal(result.checks.datePrecision.status, "failed");
+  assert.match(result.checks.datePrecision.reasons.join(" "), /not defensibly contained/);
+});
+
+test("mixed precision does not silently treat a year-only item as January 1", () => {
+  const normalized = normalizeGeneratedTimeline({
+    title: "Mixed Precision History", description: "A sufficiently detailed historical timeline containing legitimate mixed date precision without invented ordering.", category: "History", tags: ["history", "precision"],
+    events: [
+      { date: "July 20, 1969", datePrecision: "day", sortYear: 1969, sortMonth: 7, sortDay: 20, title: "Precisely dated event", description: "A precisely dated historical occurrence with sufficient descriptive detail for publication.", evidenceSummary: "Grounded evidence establishes the exact day of this occurrence.", importance: 5, location: null, sourceRefs: ["source-1"], evidenceRefs: ["evidence-1"], tags: ["history"] },
+      ...["Year-level occurrence", "Later year event", "Third later event", "Fourth later event", "Fifth later event"].map((title, index) => ({ date: String(1969 + index), datePrecision: "year" as const, sortYear: 1969 + index, sortMonth: null, sortDay: null, title, description: `A legitimate long-duration historical occurrence described at evidenced year precision for ${title}.`, evidenceSummary: "Grounded evidence establishes only the historical year without false precision.", importance: 4, location: null, sourceRefs: ["source-1"], evidenceRefs: ["evidence-1"], tags: ["history"] }))
+    ]
+  }, [{ evidenceRef: "evidence-1", exactEvidence: "Grounded evidence supporting the historical occurrence and its stated date precision.", sourceRefs: ["source-1"], startIndex: null, endIndex: null }]);
+  assert.equal(normalized.events[0]!.title, "Precisely dated event");
+  assert.equal(normalized.events[1]!.title, "Year-level occurrence");
+});
+
+test("same-day event order remains stable without fabricated clock times", () => {
+  const events = ["Günter Schabowski press conference", "Berlin Wall opens"].map((title) => ({ date: "November 9, 1989", datePrecision: "day" as const, sortYear: 1989, sortMonth: 11, sortDay: 9, title, description: `A discrete Berlin historical event with enough detail for chronology: ${title}.`, evidenceSummary: "Grounded evidence establishes the same calendar day but no fabricated clock time.", importance: 5, location: "Berlin", sourceRefs: ["source-1"], evidenceRefs: ["evidence-1"], tags: ["Berlin"] }));
+  const normalized = normalizeGeneratedTimeline({ title: "Berlin Wall Same-Day Regression", description: "A regression timeline preserving evidence-backed same-day order without inventing unsupported clock times.", category: "History", tags: ["Berlin", "history"], events: [...events, ...[1985, 1986, 1987, 1988].map((year, index) => ({ ...events[0]!, date: String(year), datePrecision: "year" as const, sortYear: year, sortMonth: null, sortDay: null, title: `Earlier event ${index + 1}` }))] }, [{ evidenceRef: "evidence-1", exactEvidence: "Grounded evidence supporting the event and its calendar-date chronology.", sourceRefs: ["source-1"], startIndex: null, endIndex: null }]);
+  assert.deepEqual(normalized.events.slice(-2).map((event) => event.title), ["Günter Schabowski press conference", "Berlin Wall opens"]);
 });
