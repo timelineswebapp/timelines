@@ -13,6 +13,20 @@ export type QualityCheck = {
   reasons: string[];
 };
 
+export type OmissionClassification =
+  | "missing_material_milestone"
+  | "contextual_non_event_theme"
+  | "outside_declared_scope"
+  | "inappropriate_for_granularity"
+  | "already_adequately_represented";
+
+export type OmissionAssessment = {
+  development: string;
+  classification: OmissionClassification;
+  blocking: boolean;
+  basis: "explicit" | "resolution" | "legacy_semantic" | "fail_closed_default";
+};
+
 export type TimelineQualityAssessment = {
   policyVersion: string;
   verdict: "passed" | "failed";
@@ -29,8 +43,40 @@ export type TimelineQualityAssessment = {
   };
   eraDistribution: Record<string, number>;
   eventDistribution: Record<string, number>;
+  omissionAssessments: OmissionAssessment[];
   unresolvedReasons: string[];
 };
+
+const LEGACY_OUTSIDE_SCOPE = /(?:outside|beyond) (?:the )?(?:declared )?scope|not (?:within|part of) (?:the )?(?:declared )?scope|cannot be adequately represented[\s\S]{0,120}within the scope/iu;
+const LEGACY_CONTEXTUAL_THEME = /broad theme|context(?:ual)?|daily realit|social experience|non-event/iu;
+const LEGACY_GRANULARITY = /declared granularity|inappropriate for (?:the )?(?:declared )?granularity|too (?:broad|narrow|granular)|single (?:event|milestone)/iu;
+
+export function classifyOmission(
+  omission: TimelineEditorialPlan["omissionReview"][number]
+): OmissionAssessment {
+  if (omission.resolution === "represented" || omission.resolution === "grounded_candidate_added") {
+    return { development: omission.development, classification: "already_adequately_represented", blocking: false, basis: "resolution" };
+  }
+  if (omission.classification) {
+    return {
+      development: omission.development,
+      classification: omission.classification,
+      blocking: omission.classification === "missing_material_milestone",
+      basis: "explicit"
+    };
+  }
+  const semanticText = `${omission.development}\n${omission.significance}\n${omission.rationale}`;
+  if (LEGACY_OUTSIDE_SCOPE.test(semanticText)) {
+    return { development: omission.development, classification: "outside_declared_scope", blocking: false, basis: "legacy_semantic" };
+  }
+  if (LEGACY_CONTEXTUAL_THEME.test(semanticText)) {
+    return { development: omission.development, classification: "contextual_non_event_theme", blocking: false, basis: "legacy_semantic" };
+  }
+  if (LEGACY_GRANULARITY.test(semanticText) || omission.resolution === "not_applicable") {
+    return { development: omission.development, classification: "inappropriate_for_granularity", blocking: false, basis: "legacy_semantic" };
+  }
+  return { development: omission.development, classification: "missing_material_milestone", blocking: true, basis: "fail_closed_default" };
+}
 
 export function assessEditorialPlan(input: {
   plan: TimelineEditorialPlan;
@@ -67,7 +113,10 @@ export function assessEditorialPlan(input: {
   const maximumEraCount = Math.max(0, ...eraCounts.values());
   if (selected.length >= 10 && plan.scope.majorEras.length >= 3 && maximumEraCount / selected.length > 0.65) reasons.push(`temporalBalance: a single era contains ${Math.round(maximumEraCount / selected.length * 100)}% of selected events.`);
   for (const review of plan.redundancyReview) if (review.resolution === "excessive_unresolved") reasons.push(`redundancy: unresolved cluster ${review.candidateIds.join(", ")}.`);
-  for (const omission of plan.omissionReview) if (omission.resolution === "unresolved") reasons.push(`omissions: unresolved major omission ${omission.development}.`);
+  for (const omission of plan.omissionReview) {
+    const assessment = classifyOmission(omission);
+    if (assessment.blocking) reasons.push(`omissions: unresolved material milestone ${omission.development}.`);
+  }
   if (plan.scope.isOngoing && selected.length) {
     const lastYear = Math.max(...selected.map((candidate) => candidate.sortYear));
     const span = plan.scope.startYear === null ? null : Math.max(1, currentYear - plan.scope.startYear);
@@ -214,7 +263,8 @@ export function assessTimelineQuality(input: {
     : [];
   const duplicateSignatures = input.timeline.events.length - new Set(input.timeline.events.map((event) => `${event.sortYear}:${titleKey(event.title)}`)).size;
   const unresolvedRedundancy = plan.redundancyReview.filter((item) => item.resolution === "excessive_unresolved");
-  const unresolvedOmissions = plan.omissionReview.filter((item) => item.resolution === "unresolved").map((item) => item.development);
+  const omissionAssessments = plan.omissionReview.map(classifyOmission);
+  const unresolvedOmissions = omissionAssessments.filter((item) => item.blocking);
   const lastYear = Math.max(...input.timeline.events.map((event) => event.sortYear));
   const scopeSpan = plan.scope.startYear === null ? null : Math.max(1, currentYear - plan.scope.startYear);
   const endpointTolerance = scopeSpan === null ? 15 : Math.max(10, Math.min(25, Math.ceil(scopeSpan * 0.2)));
@@ -245,7 +295,9 @@ export function assessTimelineQuality(input: {
         ...(duplicateSignatures ? [`${duplicateSignatures} duplicate event signatures detected.`] : []),
         ...unresolvedRedundancy.map((item) => `Unresolved excessive cluster: ${item.candidateIds.join(", ")} — ${item.rationale}`)
       ]),
-    omissions: unresolvedOmissions.length === 0 ? passed() : failed(unresolvedOmissions.map((item) => `Unresolved major omission: ${item}`)),
+    omissions: unresolvedOmissions.length === 0
+      ? passed(omissionAssessments.length === 0 ? ["passed"] : omissionAssessments.map((item) => `${item.classification}: ${item.development}`))
+      : failed(unresolvedOmissions.map((item) => `Unresolved material milestone: ${item.development}`)),
     endpointCoverage: endpointReasons.length === 0 ? passed() : failed(endpointReasons),
     selectionIntegrity: selected.length >= 6 && selected.length <= 20 && missingSelected.length === 0 && unplannedEvents.length === 0 && input.timeline.events.length === selected.length
       ? passed([`${selected.length} significant planned events were composed without padding.`])
@@ -269,6 +321,7 @@ export function assessTimelineQuality(input: {
     checks,
     eraDistribution,
     eventDistribution,
+    omissionAssessments,
     unresolvedReasons
   };
 }

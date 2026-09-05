@@ -83,6 +83,34 @@ export async function topicDiscovery(request: Request, response: Response) {
   try {
     await assertActiveCorpus();
     const requeued = await retryDeferredEnqueues();
+    const reviewSnapshot = await corpusCollection("topicLedgers")
+      .where("state", "==", "AWAITING_REVIEW")
+      .limit(200)
+      .get();
+    const autonomousReviewBacklog = reviewSnapshot.docs
+      .filter((document) => document.data().origin === "autonomous")
+      .map((document) => ({ topicId: document.id, displayTitle: String(document.data().displayTitle || document.data().normalizedTitle) }));
+    if (autonomousReviewBacklog.length > 0) {
+      console.warn(JSON.stringify({
+        severity: "WARNING",
+        component: "topic_discovery",
+        action: "promotions_suppressed_for_exceptional_review_backlog",
+        autonomousReviewCount: autonomousReviewBacklog.length,
+        topicIds: autonomousReviewBacklog.map((item) => item.topicId)
+      }));
+      await corpusCollection("adminOperations").doc(`discovery--${Date.now()}`).create(corpusRecord({
+        operationType: "autonomous_topic_discovery",
+        candidateCount: 0,
+        promoted: [],
+        requeued,
+        promotionsSuppressed: true,
+        suppressionReason: "AUTONOMOUS_EXCEPTIONAL_REVIEW_BACKLOG",
+        autonomousReviewBacklog,
+        createdAt: Timestamp.now()
+      }));
+      response.status(200).json({ ok: true, data: { evaluated: 0, promoted: [], requeued, promotionsSuppressed: true, autonomousReviewCount: autonomousReviewBacklog.length } });
+      return;
+    }
     const known = await corpusCollection("topicLedgers").orderBy("updatedAt", "desc").limit(200).get();
     const knownSummary = known.docs.map((document) => String(document.data().displayTitle || document.data().normalizedTitle)).join(", ");
     const discovered = await discoverTopics(knownSummary);

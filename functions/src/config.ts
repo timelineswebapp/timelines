@@ -6,8 +6,8 @@ export const FIRESTORE_DATABASE = "(default)";
 export const PIPELINE_VERSION = "serverless-pipeline-v3-timeline-quality";
 export const PROMPT_VERSION = "historical-research-v3-quality-plan";
 export const SCHEMA_VERSION = "generated-timeline-v2";
-export const QUALITY_POLICY_VERSION = "timeline-quality-v1";
-export const GOVERNANCE_POLICY_VERSION = "routine-governance-v2-quality";
+export const QUALITY_POLICY_VERSION = "timeline-quality-v2-omission-semantics";
+export const GOVERNANCE_POLICY_VERSION = "routine-governance-v3-omission-semantics";
 export const PUBLIC_API_VERSION = "serverless-public-api-v2-clean-corpus";
 
 const activeCorpusId = process.env.ACTIVE_CORPUS_ID || "";

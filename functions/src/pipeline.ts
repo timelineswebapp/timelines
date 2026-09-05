@@ -14,7 +14,7 @@ import {
 import { assertActiveCorpus, corpusCollection, corpusRecord, requireTaskCorpus, type CorpusCollectionName } from "./corpus";
 import { hashValue, slugifyTopic } from "./normalization";
 import type { GeneratedTimeline, SourceCandidate, TaskPayload } from "./schemas";
-import { generatedTimelineSchema, sourceCandidateSchema } from "./schemas";
+import { generatedTimelineSchema, sourceCandidateSchema, timelineEditorialPlanSchema } from "./schemas";
 import { enqueueInstitutionalTask } from "./tasks";
 import { assessEditorialPlan, assessTimelineQuality, type TimelineQualityAssessment } from "./quality";
 import { generateEditorialPlan, generateStructuredTimeline, researchTopic, type EditorialPlanResult, type GenerationResult, type ResearchResult } from "./vertex";
@@ -316,7 +316,7 @@ async function persistQualityArtifact(
     rejectedCandidates: planResult.plan.candidates.filter((candidate) => !candidate.selected).map((candidate) => ({ candidateId: candidate.candidateId, reason: candidate.rejectionReason })),
     coverageAssessment: { eraDistribution: assessment.eraDistribution, eventDistribution: assessment.eventDistribution, checks: { eraCoverage: assessment.checks.eraCoverage, temporalBalance: assessment.checks.temporalBalance, endpointCoverage: assessment.checks.endpointCoverage } },
     redundancyAssessment: { review: planResult.plan.redundancyReview, result: assessment.checks.redundancy },
-    omissionAssessment: { review: planResult.plan.omissionReview, result: assessment.checks.omissions },
+    omissionAssessment: { review: planResult.plan.omissionReview, classifications: assessment.omissionAssessments, result: assessment.checks.omissions },
     finalQualityVerdict: assessment.verdict,
     unresolvedReasons: assessment.unresolvedReasons,
     qualityPolicyVersion: assessment.policyVersion
@@ -381,6 +381,7 @@ async function createGovernancePackage(payload: TaskPayload, timelineObjectId: s
         topicId: payload.topicId,
         jobId: payload.jobId,
         generation: payload.generation,
+        origin: payload.origin,
         factoryObjectRefs: [timelineObjectId],
         qualityArtifactRef: qualityArtifactId,
         qualityPolicyVersion: quality.policyVersion,
@@ -400,6 +401,7 @@ async function createGovernancePackage(payload: TaskPayload, timelineObjectId: s
           queueType: "publication_readiness",
           targetPackageId: packageId,
           topicId: payload.topicId,
+          origin: payload.origin,
           allowedActions: ["approve", "reject", "request_revision", "escalate"],
           lifecycle: "ENTERED",
           reasons: policy.reasons,
@@ -549,6 +551,74 @@ export async function recordNonPublicQualityFixtureFailure(jobId: string, fixtur
     lastError: (error instanceof Error ? error.message : String(error)).slice(0, 2000),
     completedAt: Timestamp.now()
   });
+}
+
+export async function reassessPersistedGeneration(payload: TaskPayload, priorQualityArtifactId: string) {
+  requireTaskCorpus(payload.corpusId);
+  await assertActiveCorpus();
+  const [ledger, priorQuality, candidateQuery, researchQuery] = await Promise.all([
+    corpusCollection("topicLedgers").doc(payload.topicId).get(),
+    corpusCollection("qualityArtifacts").doc(priorQualityArtifactId).get(),
+    corpusCollection("factoryObjects").where("runId", "==", payload.jobId).where("objectType", "==", "candidate_timeline").limit(1).get(),
+    corpusCollection("sourceSnapshots").where("jobId", "==", payload.jobId).limit(1).get()
+  ]);
+  if (!ledger.exists || !priorQuality.exists || candidateQuery.empty || researchQuery.empty) throw new Error("Persisted reassessment input is incomplete.");
+  if (ledger.data()?.activeJobId !== payload.jobId || ledger.data()?.generation !== payload.generation) throw new Error("Persisted reassessment does not own the active generation.");
+  if (ledger.data()?.state !== "AWAITING_REVIEW") throw new Error("Persisted reassessment requires an AWAITING_REVIEW topic.");
+  const prior = priorQuality.data()!;
+  if (prior.topicId !== payload.topicId || prior.runId !== payload.jobId) throw new Error("Prior quality artifact lineage does not match the requested generation.");
+  const qualityPayload = prior.payload as {
+    scopeAssessment?: unknown;
+    candidateEventInventory?: unknown;
+    redundancyAssessment?: { review?: unknown };
+    omissionAssessment?: { review?: unknown };
+  };
+  const plan = timelineEditorialPlanSchema.parse({
+    scope: qualityPayload.scopeAssessment,
+    candidates: qualityPayload.candidateEventInventory,
+    redundancyReview: qualityPayload.redundancyAssessment?.review,
+    omissionReview: qualityPayload.omissionAssessment?.review
+  });
+  const timelineObjectId = candidateQuery.docs[0]!.id;
+  if (prior.objectRef !== timelineObjectId) throw new Error("Prior quality artifact does not reference the persisted timeline candidate.");
+  const timeline = generatedTimelineSchema.parse(candidateQuery.docs[0]!.data().payload);
+  const research = researchQuery.docs[0]!.data();
+  const sources = Array.isArray(research.sources) ? research.sources.map((source: unknown) => sourceCandidateSchema.parse(source)) : [];
+  const evidenceSegments = Array.isArray(research.evidenceSegments) ? research.evidenceSegments : [];
+  const assessment = assessTimelineQuality({
+    plan,
+    timeline,
+    allowedSourceRefs: new Set(sources.map((source) => source.sourceId)),
+    allowedEvidenceRefs: new Set(evidenceSegments.map((segment: { evidenceRef?: unknown }) => String(segment.evidenceRef || "")))
+  });
+  if (assessment.verdict !== "passed") return { status: "AWAITING_REVIEW" as const, assessment };
+  const planResult = { plan, execution: prior.modelProvenance } as EditorialPlanResult;
+  const qualityArtifactId = await persistQualityArtifact(payload, planResult, assessment, timelineObjectId);
+  const governance = await createGovernancePackage(payload, timelineObjectId, timeline, sources, assessment, qualityArtifactId);
+  if (governance.policy.outcome !== "routine") return { status: "AWAITING_REVIEW" as const, assessment, qualityArtifactId, packageId: governance.packageId };
+  await enqueueInstitutionalTask({ ...payload, packageId: governance.packageId, decision: "routine" });
+  const reviewQueueSnapshot = await corpusCollection("governanceQueues").where("topicId", "==", payload.topicId).limit(20).get();
+  const supersededQueues = reviewQueueSnapshot.docs.filter((document) => document.data().lifecycle === "ENTERED");
+  const now = Timestamp.now();
+  const batch = db.batch();
+  for (const document of supersededQueues) batch.update(document.ref, {
+    lifecycle: "SUPERSEDED",
+    resolution: "QUALITY_POLICY_REASSESSMENT_PASSED",
+    supersededByPackageId: governance.packageId,
+    resolvedAt: now
+  });
+  batch.create(corpusCollection("auditEvents").doc(randomUUID()), {
+    institution: "governance",
+    topicId: payload.topicId,
+    jobId: payload.jobId,
+    packageId: governance.packageId,
+    eventType: "QUALITY_POLICY_REASSESSMENT_PASSED",
+    lineage: { priorQualityArtifactId, qualityArtifactId, policyVersion: QUALITY_POLICY_VERSION },
+    immutable: true,
+    createdAt: now
+  });
+  await batch.commit();
+  return { status: "GOVERNANCE_QUEUED" as const, assessment, qualityArtifactId, packageId: governance.packageId, supersededReviewCount: supersededQueues.length };
 }
 
 async function recordFailure(payload: TaskPayload, error: unknown) {

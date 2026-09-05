@@ -12,6 +12,7 @@
     "test": "ACTIVE_CORPUS_ID=test-clean-corpus PUBLIC_ID_BASE=4000000000 tsx --test src/serverless-contracts.test.ts src/quality.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "quality:fixture": "tsx src/run-quality-fixture.ts",
+    "quality:reassess": "tsx src/run-quality-reassessment.ts",
     "start": "functions-framework --source=lib/index.js --target=publicApi"
   },
   "dependencies": {

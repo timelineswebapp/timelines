@@ -283,7 +283,7 @@ function editorialPlanJsonSchema() {
         }
       },
       redundancyReview: { type: "array", items: { type: "object", additionalProperties: false, required: ["candidateIds", "resolution", "rationale"], properties: { candidateIds: { type: "array", items: { type: "string" } }, resolution: { type: "string", enum: ["distinct", "merged", "excluded", "excessive_unresolved"] }, rationale: { type: "string" } } } },
-      omissionReview: { type: "array", items: { type: "object", additionalProperties: false, required: ["development", "significance", "resolution", "candidateId", "evidenceRefs", "rationale"], properties: { development: { type: "string" }, significance: { type: "string" }, resolution: { type: "string", enum: ["represented", "grounded_candidate_added", "not_applicable", "unresolved"] }, candidateId: { anyOf: [{ type: "string" }, { type: "null" }] }, evidenceRefs: { type: "array", items: { type: "string" } }, rationale: { type: "string" } } } }
+      omissionReview: { type: "array", items: { type: "object", additionalProperties: false, required: ["development", "significance", "resolution", "classification", "candidateId", "evidenceRefs", "rationale"], properties: { development: { type: "string" }, significance: { type: "string" }, resolution: { type: "string", enum: ["represented", "grounded_candidate_added", "not_applicable", "unresolved"] }, classification: { type: "string", enum: ["missing_material_milestone", "contextual_non_event_theme", "outside_declared_scope", "inappropriate_for_granularity", "already_adequately_represented"] }, candidateId: { anyOf: [{ type: "string" }, { type: "null" }] }, evidenceRefs: { type: "array", items: { type: "string" } }, rationale: { type: "string" } } } }
     }
   };
 }
@@ -297,7 +297,10 @@ export async function generateEditorialPlan(displayTitle: string, research: Rese
     "Build 10-20 concise grounded candidate milestones when evidence permits. Score historical significance, then select only the strongest 6-20 appropriate to standard public-product granularity.",
     "Keep every rationale under 30 words. Redundancy review entries must contain at least two candidates; omit singleton entries.",
     "Every selected major era must have representation. Reject true but minor or redundant candidates with explicit reasons. Avoid over-granular clusters.",
-    "Perform an explicit redundancy review of candidate clusters and an explicit major-omission review. A missing development may be added only when supported by allowed evidence. Mark unsupported major gaps unresolved; never invent a filler event.",
+    "Perform an explicit redundancy review of candidate clusters and an explicit omission review. Classify each potential omission as missing_material_milestone, contextual_non_event_theme, outside_declared_scope, inappropriate_for_granularity, or already_adequately_represented.",
+    "Use missing_material_milestone only for a significant event or turning point that materially belongs inside the declared scope and granularity. Such an item remains unresolved unless represented by a grounded selected candidate.",
+    "Contextual themes that are not events, developments outside the declared boundaries, material inappropriate for the declared granularity, and already represented developments are non-blocking classifications. Never use them to excuse a genuinely missing required milestone or era.",
+    "A missing development may be added only when supported by allowed evidence. Never invent a filler event.",
     "For ongoing topics, the endpoint must adequately represent the modern state; it need not be the current year. For biographies and closed episodes, use justified terminal boundaries.",
     "Use only IDs from the catalogs. Preserve all useful source and evidence references in candidates; public presentation limits are applied later.",
     `Topic: ${displayTitle}`,

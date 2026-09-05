@@ -176,6 +176,33 @@ export const timelineCandidateSchema = z.object({
   }
 });
 
+const omissionReviewItemSchema = z.object({
+  development: boundedText(3, 300),
+  significance: boundedText(10, 600),
+  resolution: z.enum(["represented", "grounded_candidate_added", "not_applicable", "unresolved"]),
+  classification: z.enum([
+    "missing_material_milestone",
+    "contextual_non_event_theme",
+    "outside_declared_scope",
+    "inappropriate_for_granularity",
+    "already_adequately_represented"
+  ]).optional(),
+  candidateId: z.string().trim().min(1).max(100).nullable(),
+  evidenceRefs: z.array(boundedText(3, 100)).max(50),
+  rationale: boundedText(10, 800)
+}).superRefine((omission, context) => {
+  const represented = omission.resolution === "represented" || omission.resolution === "grounded_candidate_added";
+  if (represented && omission.classification && omission.classification !== "already_adequately_represented") {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["classification"], message: "Represented omissions must be classified as already adequately represented." });
+  }
+  if (omission.classification === "already_adequately_represented" && (!represented || omission.candidateId === null)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["classification"], message: "Already represented omissions require a represented resolution and candidate." });
+  }
+  if (omission.classification === "missing_material_milestone" && omission.resolution !== "unresolved") {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["resolution"], message: "A missing material milestone must remain unresolved." });
+  }
+});
+
 export const timelineEditorialPlanSchema = z.object({
   scope: timelineScopePlanSchema,
   candidates: z.array(timelineCandidateSchema).min(6).max(60),
@@ -184,14 +211,7 @@ export const timelineEditorialPlanSchema = z.object({
     resolution: z.enum(["distinct", "merged", "excluded", "excessive_unresolved"]),
     rationale: boundedText(20, 800)
   })).max(20),
-  omissionReview: z.array(z.object({
-    development: boundedText(3, 300),
-    significance: boundedText(10, 600),
-    resolution: z.enum(["represented", "grounded_candidate_added", "not_applicable", "unresolved"]),
-    candidateId: z.string().trim().min(1).max(100).nullable(),
-    evidenceRefs: z.array(boundedText(3, 100)).max(50),
-    rationale: boundedText(10, 800)
-  })).max(20)
+  omissionReview: z.array(omissionReviewItemSchema).max(20)
 });
 
 export const discoverySchema = z.object({

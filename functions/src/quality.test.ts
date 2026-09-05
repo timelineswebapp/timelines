@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessEditorialPlan, assessTimelineQuality, normalizeGeneratedTimeline } from "./quality";
+import { assessEditorialPlan, assessTimelineQuality, classifyOmission, normalizeGeneratedTimeline } from "./quality";
 import { evaluateRoutinePolicy } from "./pipeline";
 import type { GeneratedTimeline, TimelineEditorialPlan } from "./schemas";
 
@@ -69,6 +69,45 @@ test("heterogeneous closed, long-duration, and biography fixtures pass", () => {
     fixture({ topic: "The Life of Marie Curie", type: "biography", ongoing: false, start: 1867, end: 1934, eras: [{ id: "formation", start: 1867, end: 1894 }, { id: "discovery", start: 1895, end: 1906 }, { id: "leadership", start: 1907, end: 1934 }], events: [{ year: 1867, title: "Maria Skłodowska is born", era: "formation" }, { year: 1891, title: "She begins study in Paris", era: "formation" }, { year: 1898, title: "Polonium and radium are announced", era: "discovery" }, { year: 1903, title: "The Nobel Prize recognizes radiation research", era: "discovery" }, { year: 1914, title: "Curie directs wartime radiology work", era: "leadership" }, { year: 1934, title: "Marie Curie dies", era: "leadership" }] })
   ];
   for (const value of fixtures) assert.equal(assess(value).verdict, "passed", value.plan.scope.topic);
+});
+
+test("Berlin Wall legacy omission semantics do not block contextual or out-of-scope material", () => {
+  const value = fixture({ topic: "The Fall of the Berlin Wall", type: "closed_episode", ongoing: false, start: 1961, end: 1994,
+    eras: [{ id: "division", start: 1961, end: 1988 }, { id: "collapse", start: 1989, end: 1989 }, { id: "reunification", start: 1990, end: 1994 }],
+    events: [{ year: 1961, title: "Berlin Wall Construction Begins", era: "division" }, { year: 1987, title: "Pressure for political change intensifies", era: "division" }, { year: 1989, title: "Peaceful Revolution Protests Escalate", era: "collapse" }, { year: 1989, title: "Berlin Wall Opens", era: "collapse" }, { year: 1990, title: "German Reunification", era: "reunification" }, { year: 1994, title: "Demolition of Berlin Wall Completed", era: "reunification" }] });
+  value.plan.omissionReview = [
+    { development: "Daily realities of life under the Wall", significance: "High, as it provides context for the desire for freedom and the Wall's impact.", resolution: "unresolved", candidateId: null, evidenceRefs: ["evidence-1"], rationale: "This is a broad theme difficult to capture with a single milestone at standard granularity. No specific event is provided." },
+    { development: "Complexities of post-reunification integration", significance: "High, as it addresses the long-term consequences and challenges of reunification.", resolution: "unresolved", candidateId: null, evidenceRefs: ["evidence-1"], rationale: "This is a complex, ongoing issue that cannot be adequately represented by a single event within the scope of the Wall's fall. No specific event is provided." }
+  ];
+  const result = assess(value);
+  assert.equal(result.verdict, "passed");
+  assert.deepEqual(result.omissionAssessments.map((item) => item.classification), ["contextual_non_event_theme", "outside_declared_scope"]);
+});
+
+test("explicit omission semantics distinguish all non-blocking classes", () => {
+  const base = { development: "Potential development", significance: "Potentially relevant to historical context.", resolution: "unresolved" as const, candidateId: null, evidenceRefs: ["evidence-1"], rationale: "The classification is explicitly recorded for deterministic assessment." };
+  for (const classification of ["contextual_non_event_theme", "outside_declared_scope", "inappropriate_for_granularity"] as const) {
+    assert.equal(classifyOmission({ ...base, classification }).blocking, false, classification);
+  }
+  assert.equal(classifyOmission({ ...base, resolution: "represented", classification: "already_adequately_represented", candidateId: "candidate-1" }).blocking, false);
+});
+
+test("missing material milestone remains fail-closed and blocks routine quality", () => {
+  const value = fixture({ topic: "A Revolution", type: "closed_episode", ongoing: false, start: 1900, end: 1910,
+    eras: [{ id: "opening", start: 1900, end: 1903 }, { id: "turning", start: 1904, end: 1907 }, { id: "closing", start: 1908, end: 1910 }],
+    events: [{ year: 1900, title: "The crisis begins", era: "opening" }, { year: 1903, title: "Opposition consolidates", era: "opening" }, { year: 1904, title: "The first uprising occurs", era: "turning" }, { year: 1907, title: "The regime loses control", era: "turning" }, { year: 1908, title: "A transitional authority forms", era: "closing" }, { year: 1910, title: "The settlement takes effect", era: "closing" }] });
+  value.plan.omissionReview = [{ development: "The decisive constitutional turning point", significance: "A required material event that changes the governing system.", resolution: "unresolved", classification: "missing_material_milestone", candidateId: null, evidenceRefs: ["evidence-1"], rationale: "Grounded evidence identifies a decisive in-scope event, but no selected candidate represents it." }];
+  const result = assess(value);
+  assert.equal(result.verdict, "failed");
+  assert.equal(result.checks.omissions.status, "failed");
+  assert.match(result.unresolvedReasons.join(" "), /Unresolved material milestone/);
+});
+
+test("ambiguous legacy unresolved omission remains blocking by default", () => {
+  const assessment = classifyOmission({ development: "A decisive treaty", significance: "This treaty materially changed the outcome.", resolution: "unresolved", candidateId: null, evidenceRefs: ["evidence-1"], rationale: "Evidence supports the event but it is absent from the selected candidates." });
+  assert.equal(assessment.classification, "missing_material_milestone");
+  assert.equal(assessment.blocking, true);
+  assert.equal(assessment.basis, "fail_closed_default");
 });
 
 test("deterministic normalization sorts events and retains strongest three attributable references", () => {

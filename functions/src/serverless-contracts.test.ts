@@ -109,6 +109,9 @@ test("serverless implementation retains institutional separation and bounded exe
   assert.match(vertex, /normalizeGeneratedTimeline/);
   assert.match(vertex, /timelineEditorialPlanSchema\.parse/);
   assert.match(pipeline, /qualityArtifactRef/);
+  assert.match(pipeline, /reassessPersistedGeneration/);
+  assert.match(pipeline, /Persisted reassessment requires an AWAITING_REVIEW topic/);
+  assert.match(pipeline, /priorQualityArtifactId/);
   assert.match(ledger, /runTransaction/);
   assert.match(config, /priority-topic-generation/);
   assert.match(config, /autonomous-topic-generation/);
@@ -121,6 +124,9 @@ test("serverless implementation retains institutional separation and bounded exe
   assert.match(ledger, /priority: 1000/);
   assert.match(ledger, /enqueueGenerationTask\(result\.task, true\)/);
   assert.match(ledger, /data\.origin !== "autonomous"/);
+  assert.match(index, /promotions_suppressed_for_exceptional_review_backlog/);
+  assert.match(index, /AUTONOMOUS_EXCEPTIONAL_REVIEW_BACKLOG/);
+  assert.match(index, /autonomousReviewBacklog/);
   assert.match(publicApi, /input\.requestType === "timeline_request"/);
   assert.match(publicApi, /captureVisitorRequest/);
   assert.match(publicApi, /\.offset\(offset\)\s*\.limit\(limit\)/);
