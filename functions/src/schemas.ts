@@ -246,6 +246,15 @@ export const timelineEditorialPlanSchema = z.object({
     rationale: boundedText(20, 800)
   })).max(20),
   omissionReview: z.array(omissionReviewItemSchema).max(20)
+}).superRefine((plan, context) => {
+  const selectedCount = plan.candidates.filter((candidate) => candidate.selected).length;
+  if (selectedCount < 6 || selectedCount > 20) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["candidates"],
+      message: `Editorial plans must select between 6 and 20 EVENT candidates; received ${selectedCount}.`
+    });
+  }
 });
 
 export const discoverySchema = z.object({

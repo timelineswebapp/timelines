@@ -81,7 +81,7 @@ Therefore:
 
 | Gate | Result |
 |---|---|
-| Functions quality/contract/Source Authority | 41/41 passed |
+| Functions quality/contract/Source Authority | 42/42 passed |
 | Application suite | 249/249 passed |
 | Editorial certification | 68/68 passed |
 | Historical Library | 7/7 passed |
@@ -97,8 +97,8 @@ Therefore:
 
 ## Deployment and operations
 
-- Priority worker: `priority-topic-generation-00010-fuf`, active, 100% traffic.
-- Autonomous worker: `autonomous-topic-generation-00010-yiw`, active, 100% traffic.
+- Priority worker: `priority-topic-generation-00011-jon`, active, 100% traffic.
+- Autonomous worker: `autonomous-topic-generation-00011-haf`, active, 100% traffic.
 - Institutional worker: `institutional-transitions-00009-joc`, active, 100% traffic.
 - All three Cloud Tasks queues are `RUNNING`, bounded to five attempts.
 - Worker runtime identity remains `timelines-runtime@tiimeliines.iam.gserviceaccount.com`; institutional invocation is not public.
@@ -107,4 +107,4 @@ Therefore:
 
 ## Remaining risks
 
-The principal blocker is model reliability under the enlarged V3 planning contract: repeated repair calls can still return an over-selected plan. Source coverage for broad closed episodes can also remain insufficient after the bounded authority repair. Both conditions fail closed and remain operationally visible in Governance review. No additional production request is authorized under this certification run, so a future explicitly authorized certification is required before discovery can resume or V3 can be declared certified.
+The live run exposed that the editorial-plan schema bounded total inventory but did not reject more than 20 selected candidates until deterministic quality assessment. The schema now rejects over-selection before candidate composition so bounded model repair receives the defect directly; regression coverage reproduces the exact 27-selected failure. Source coverage for broad closed episodes can still remain insufficient after the bounded authority repair. Both conditions fail closed and remain operationally visible in Governance review. No additional production request is authorized under this certification run, so a future explicitly authorized certification is required before discovery can resume or V3 can be declared certified.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { normalizeTopic } from "./normalization";
-import { generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, topicRequestSchema } from "./schemas";
+import { generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
 
 function event(sortYear: number, title: string) {
@@ -64,6 +64,51 @@ test("institutional tasks admit bounded content-addressed policy revisions witho
   assert.equal(taskPayloadSchema.safeParse(revision).success, false);
   assert.equal(institutionalTaskPayloadSchema.safeParse(revision).success, true);
   assert.equal(institutionalTaskPayloadSchema.safeParse({ ...revision, jobId: "b".repeat(41) }).success, false);
+});
+
+test("editorial plans reject provider over-selection before candidate composition", () => {
+  const candidate = (index: number) => ({
+    candidateId: `candidate-${index}`,
+    title: `Material event ${index}`,
+    date: String(1900 + index),
+    datePrecision: "year" as const,
+    sortYear: 1900 + index,
+    sortMonth: null,
+    sortDay: null,
+    semanticType: "EVENT" as const,
+    eraIds: ["era-1"],
+    dimensionIds: ["dimension-1"],
+    significance: { consequence: 4, structuralChange: 3, innovation: 2, adoption: 2, institutionalImportance: 3, socialImpact: 3, persistence: 3 },
+    significanceRationale: "A materially significant event supported by the evidence.",
+    sourceRefs: ["source-1"],
+    evidenceRefs: ["evidence-1"],
+    selected: true,
+    rejectionReason: null
+  });
+  const scope = {
+    topic: "Bounded historical episode",
+    scopeSummary: "A sufficiently detailed closed historical episode used to validate bounded editorial selection behavior.",
+    topicType: "closed_episode" as const,
+    startBoundary: "1901",
+    startYear: 1901,
+    endBoundary: "1927",
+    endYear: 1927,
+    isOngoing: false,
+    granularity: "standard" as const,
+    majorEras: [
+      { eraId: "era-1", label: "First era", startYear: 1901, endYear: 1913, rationale: "The opening phase contains the initial material developments." },
+      { eraId: "era-2", label: "Second era", startYear: 1914, endYear: 1927, rationale: "The concluding phase contains the terminal material developments." }
+    ],
+    majorDimensions: [
+      { dimensionId: "dimension-1", label: "Political", rationale: "Political decisions materially shaped this historical episode." },
+      { dimensionId: "dimension-2", label: "Social", rationale: "Social consequences materially shaped this historical episode." }
+    ],
+    selectionPrinciples: ["Select materially significant chronological events.", "Retain complete evidence-backed era coverage."],
+    knownCoverageRisks: []
+  };
+  const plan = { scope, candidates: Array.from({ length: 27 }, (_, index) => candidate(index + 1)), redundancyReview: [], omissionReview: [] };
+  assert.equal(timelineEditorialPlanSchema.safeParse(plan).success, false);
+  assert.equal(timelineEditorialPlanSchema.safeParse({ ...plan, candidates: plan.candidates.slice(0, 20) }).success, true);
 });
 
 test("visitor request contracts remain compatible and metadata is bounded", () => {
