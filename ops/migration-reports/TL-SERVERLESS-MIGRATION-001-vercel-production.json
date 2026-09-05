@@ -34,6 +34,52 @@
     "secretTransfer": "exact-byte-preserving-from-secret-manager",
     "databaseUrlPreservedForRollback": true
   },
+  "liveInfrastructure": {
+    "functions": {
+      "count": 5,
+      "runtime": "nodejs22",
+      "state": "ACTIVE",
+      "runtimeServiceAccount": "timelines-runtime@tiimeliines.iam.gserviceaccount.com"
+    },
+    "queues": {
+      "count": 3,
+      "state": "RUNNING",
+      "maximumAttempts": 5,
+      "minimumBackoffSeconds": 30,
+      "maximumBackoffSeconds": 900
+    },
+    "scheduler": {
+      "name": "topic-discovery-daily",
+      "state": "ENABLED",
+      "schedule": "0 3 * * *",
+      "timeZone": "UTC"
+    },
+    "firestore": {
+      "database": "(default)",
+      "type": "FIRESTORE_NATIVE",
+      "location": "nam5",
+      "pointInTimeRecovery": "ENABLED",
+      "deleteProtection": "ENABLED",
+      "readyCompositeIndexes": 9
+    },
+    "archive": {
+      "bucket": "gs://tiimeliines-institutional-archive",
+      "objects": 78,
+      "uniformBucketLevelAccess": true,
+      "publicAccessPrevention": "enforced",
+      "versioning": true,
+      "retentionSeconds": 31557600
+    }
+  },
+  "securityBoundaryChecks": [
+    { "name": "public-api-anonymous", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "priority-worker-anonymous", "expectedStatus": 403, "actualStatus": 403 },
+    { "name": "autonomous-worker-anonymous", "expectedStatus": 403, "actualStatus": 403 },
+    { "name": "institutional-worker-anonymous", "expectedStatus": 403, "actualStatus": 403 },
+    { "name": "discovery-function-anonymous", "expectedStatus": 403, "actualStatus": 403 },
+    { "name": "firestore-direct-anonymous", "expectedStatus": 403, "actualStatus": 403 },
+    { "name": "archive-bucket-direct-anonymous", "expectedStatus": 403, "actualStatus": 403 }
+  ],
   "fixture": {
     "timelineId": 1469121846,
     "timelineSlug": "the-cold-war-and-its-contemporary-echoes",
