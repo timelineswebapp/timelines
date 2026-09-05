@@ -64,8 +64,14 @@ Current code also supports import parsing, validation, duplicate detection, rela
 ## Future Architecture
 Factory architecture is valid only when it preserves Factory/Library memory separation, Publication Package handoff, Feedback Package return, Tiered Source Authority, and permanent Factory object identities.
 
+The locked evidence-first sequencing, Scope Contract, Research Map, atomic-claim, canonical-event-candidate, event-lock, and constrained-writer contracts are specified in `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`. They are subordinate to the institutional and Factory constitutions and are not implemented by this documentation change.
+
+The implementation order, additive Firestore transition, shadow boundary, certification gates, and cutover conditions are specified in `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`. That roadmap may not alter this architecture.
+
 ## Dependencies
 - `docs/factory/FACTORY_CONSTITUTION.md`
+- `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`
+- `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`
 - `docs/factory/FACTORY_ARTIFACT_MODEL.md`
 - `docs/factory/PUBLICATION_PIPELINE.md`
 - `docs/factory/RESEARCH_PIPELINE.md`

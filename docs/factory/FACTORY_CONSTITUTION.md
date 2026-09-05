@@ -15,8 +15,8 @@ TiMELiNES is a Chronological Knowledge Platform. The Factory exists to produce c
 
 ## Documentation Authority Hierarchy
 - Tier 1 Constitutional Authority: `FACTORY_CONSTITUTION.md`.
-- Tier 2 Architecture Authority: `FACTORY_ARCHITECTURE.md`, `FACTORY_ARTIFACT_MODEL.md`, `PUBLICATION_PIPELINE.md`, `RESEARCH_PIPELINE.md`, `VALIDATION_PIPELINE.md`.
-- Tier 3 Operational Authority: `FACTORY_LIFECYCLE.md`, `FACTORY_AUDIT_MODEL.md`, `FACTORY_ERROR_TAXONOMY.md`, `TOPIC_GENERATION.md`.
+- Tier 2 Architecture Authority: `FACTORY_ARCHITECTURE.md`, `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`, `FACTORY_ARTIFACT_MODEL.md`, `PUBLICATION_PIPELINE.md`, `RESEARCH_PIPELINE.md`, `VALIDATION_PIPELINE.md`.
+- Tier 3 Operational Authority: `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`, `FACTORY_LIFECYCLE.md`, `FACTORY_AUDIT_MODEL.md`, `FACTORY_ERROR_TAXONOMY.md`, `TOPIC_GENERATION.md`.
 - Implementation Guidance: `IMPORT_BATCH_MODEL.md`.
 
 When Factory documents conflict, this constitution wins. Import batches, validation reports, and audit records are subordinate to Factory objects and Publication Packages.
@@ -79,9 +79,15 @@ Existing import, validation, chronology, relationship recovery, and audit concep
 ## Future Architecture
 All Factory documents must align to this doctrine: Historical Objects -> Milestones -> Timeline Views, with Milestones as central relationship nodes and the publication flow Factory -> Publication Package -> Historical Library -> Platform.
 
+The locked next-generation Factory methodology is defined by `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`. It changes Factory sequencing and artifacts only. It does not move institutional authority, authorize implementation, or modify production runtime.
+
+The dependency-ordered implementation and certification program is defined by `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`. The roadmap is operational authority only and grants no production execution authority.
+
 ## Dependencies
 - `docs/authority/AUTHORITY_INDEX.md`
 - `docs/factory/FACTORY_ARCHITECTURE.md`
+- `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`
+- `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`
 - `docs/factory/PUBLICATION_PIPELINE.md`
 - `docs/factory/FACTORY_ARTIFACT_MODEL.md`
 - `docs/governance/PROVENANCE_POLICY.md`
