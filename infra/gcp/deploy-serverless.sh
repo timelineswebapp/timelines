@@ -138,13 +138,13 @@ gcloud storage buckets update "gs://${ARCHIVE_BUCKET}" --versioning --retention-
 firebase deploy --only firestore:rules,firestore:indexes --project "${PROJECT_ID}" --account "${DEPLOY_ACCOUNT}" --non-interactive
 gcloud firestore databases update --database='(default)' --project="${PROJECT_ID}" --enable-pitr --delete-protection --quiet >/dev/null
 
-deploy_function timelines-public-api publicApi 60s 512Mi 80 20 \
-  --set-secrets="IP_HASH_SALT=IP_HASH_SALT:latest,BACKEND_SHARED_SECRET=BACKEND_SHARED_SECRET:latest" \
-  --allow-unauthenticated
 deploy_function priority-topic-generation priorityTopicGeneration 1800s 1Gi 1 5 --no-allow-unauthenticated
 deploy_function autonomous-topic-generation autonomousTopicGeneration 1800s 1Gi 1 2 --no-allow-unauthenticated
 deploy_function institutional-transitions institutionalTransitions 900s 1Gi 10 10 --no-allow-unauthenticated
 deploy_function topic-discovery topicDiscovery 900s 1Gi 1 1 --no-allow-unauthenticated
+deploy_function timelines-public-api publicApi 60s 512Mi 80 20 \
+  --set-secrets="IP_HASH_SALT=IP_HASH_SALT:latest,BACKEND_SHARED_SECRET=BACKEND_SHARED_SECRET:latest" \
+  --allow-unauthenticated
 
 for service in priority-topic-generation autonomous-topic-generation institutional-transitions; do
   gcloud run services add-iam-policy-binding "${service}" --region="${REGION}" --project="${PROJECT_ID}" \
