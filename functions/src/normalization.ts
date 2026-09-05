@@ -29,7 +29,7 @@ export function slugifyTopic(value: string) {
     .slice(0, 120);
 }
 
-export function normalizeTopic(input: string, language = "en"): NormalizedTopic {
+export function normalizeTopic(input: string, language: string, corpusId: string): NormalizedTopic {
   const displayTitle = normalizeSpaces(input.normalize("NFKC"));
   const punctuationNormalized = normalizeSpaces(
     displayTitle
@@ -39,7 +39,7 @@ export function normalizeTopic(input: string, language = "en"): NormalizedTopic 
   );
   const withoutPrefix = normalizeSpaces(punctuationNormalized.replace(TOPIC_PREFIX_PATTERN, ""));
   const normalizedTitle = withoutPrefix || punctuationNormalized;
-  const scope = `${language.toLocaleLowerCase("en-US")}:timeline:${normalizedTitle}`;
+  const scope = `${corpusId}:${language.toLocaleLowerCase("en-US")}:timeline:${normalizedTitle}`;
   const topicId = createHash("sha256").update(scope).digest("hex").slice(0, 40);
   const aliases = Array.from(new Set([punctuationNormalized, normalizedTitle])).filter(Boolean);
 

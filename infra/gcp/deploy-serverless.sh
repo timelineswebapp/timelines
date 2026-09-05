@@ -8,6 +8,17 @@ RUNTIME_SA="timelines-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 TASKS_SA="timelines-tasks-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
 SCHEDULER_SA="timelines-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
 ARCHIVE_BUCKET="${PROJECT_ID}-institutional-archive"
+ACTIVE_CORPUS_ID="${ACTIVE_CORPUS_ID:-}"
+PUBLIC_ID_BASE="${PUBLIC_ID_BASE:-}"
+
+if [[ ! "${ACTIVE_CORPUS_ID}" =~ ^[a-z0-9][a-z0-9-]{2,62}$ ]]; then
+  echo "Refusing deployment: set ACTIVE_CORPUS_ID to the activated clean corpus identifier." >&2
+  exit 1
+fi
+if [[ ! "${PUBLIC_ID_BASE}" =~ ^[0-9]+$ ]] || (( PUBLIC_ID_BASE < 1000000000 )); then
+  echo "Refusing deployment: set PUBLIC_ID_BASE to the reserved clean-corpus numeric ID base." >&2
+  exit 1
+fi
 
 active_project="$(gcloud config get-value project 2>/dev/null)"
 if [[ "${active_project}" != "${PROJECT_ID}" ]]; then
@@ -96,7 +107,7 @@ deploy_function() {
     --cpu=1 \
     --concurrency="${concurrency}" \
     --max-instances="${max_instances}" \
-    --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},FUNCTION_REGION=${REGION},VERTEX_LOCATION=global,VERTEX_MODEL=gemini-2.5-flash,TASK_INVOKER_EMAIL=${TASKS_SA}" \
+    --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},FUNCTION_REGION=${REGION},VERTEX_LOCATION=global,VERTEX_MODEL=gemini-2.5-flash,TASK_INVOKER_EMAIL=${TASKS_SA},ACTIVE_CORPUS_ID=${ACTIVE_CORPUS_ID},PUBLIC_ID_BASE=${PUBLIC_ID_BASE}" \
     "$@" \
     --quiet
 }

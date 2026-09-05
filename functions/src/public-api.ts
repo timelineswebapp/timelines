@@ -2,8 +2,8 @@ import type { Request, Response } from "express";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Timestamp } from "firebase-admin/firestore";
 import { z } from "zod";
-import { db } from "./firestore";
-import { PUBLIC_API_VERSION } from "./config";
+import { ACTIVE_CORPUS_ID, PUBLIC_API_VERSION } from "./config";
+import { assertActiveCorpus, corpusCollection } from "./corpus";
 import { normalizeTopic } from "./normalization";
 import { topicRequestSchema } from "./schemas";
 import { captureVisitorRequest, intakeTopic } from "./topic-ledger";
@@ -67,7 +67,7 @@ async function listReadModels(request: Request, response: Response) {
   if (!readModelTypes.has(type)) return failure(response, 400, "VALIDATION_FAILED", "Invalid read-model type.");
   const limit = Math.max(1, boundedInteger(request.query.limit, 12, 200));
   const offset = boundedInteger(request.query.offset, 0, 10_000);
-  const snapshot = await db.collection("platformReadModels")
+  const snapshot = await corpusCollection("platformReadModels")
     .where("projectionType", "==", type)
     .where("lifecycle", "==", "active")
     .orderBy("sortTimestamp", "desc")
@@ -84,9 +84,9 @@ async function getReadModel(request: Request, response: Response) {
   if (!readModelTypes.has(type)) return failure(response, 400, "VALIDATION_FAILED", "Invalid read-model type.");
   const documentId = type === "milestone" && id > 0 ? `milestone--${id}` : slug ? `${type.replace("historical_object", "historical-object")}--${slug}` : "";
   if (!documentId) return failure(response, 400, "VALIDATION_FAILED", "A slug or numeric milestone ID is required.");
-  let snapshot = await db.collection("platformReadModels").doc(documentId).get();
+  let snapshot = await corpusCollection("platformReadModels").doc(documentId).get();
   if (!snapshot.exists && (slug || id > 0)) {
-    let lookup: FirebaseFirestore.Query = db.collection("platformReadModels").where("projectionType", "==", type).where("lifecycle", "==", "active");
+    let lookup: FirebaseFirestore.Query = corpusCollection("platformReadModels").where("projectionType", "==", type).where("lifecycle", "==", "active");
     lookup = slug ? lookup.where("slug", "==", slug) : lookup.where("publicId", "==", id);
     const query = await lookup.orderBy("sortTimestamp", "desc").limit(1).get();
     snapshot = query.docs[0] || snapshot;
@@ -105,7 +105,7 @@ async function search(request: Request, response: Response) {
   const limit = Math.max(1, boundedInteger(request.query.limit, 12, 50));
   const offset = boundedInteger(request.query.offset, 0, 10_000);
   const anchor = [...tokens].sort((left, right) => right.length - left.length || left.localeCompare(right))[0]!;
-  const snapshot = await db.collection("searchDocuments").where("tokens", "array-contains", anchor).where("published", "==", true).orderBy("updatedAt", "desc").limit(200).get();
+  const snapshot = await corpusCollection("searchDocuments").where("tokens", "array-contains", anchor).where("published", "==", true).orderBy("updatedAt", "desc").limit(200).get();
   const ranked = snapshot.docs.map((document) => {
     const data = document.data();
     const documentTokens = new Set<string>(Array.isArray(data.tokens) ? data.tokens : []);
@@ -121,7 +121,7 @@ async function search(request: Request, response: Response) {
 async function listTaxonomy(request: Request, response: Response, kind: "category" | "tag") {
   const collection = kind === "category" ? "categoryDocuments" : "tagDocuments";
   const limit = Math.max(1, boundedInteger(request.query.limit, 200, 500));
-  const snapshot = await db.collection(collection).orderBy("updatedAt", "desc").limit(limit).get();
+  const snapshot = await corpusCollection(collection).orderBy("updatedAt", "desc").limit(limit).get();
   return success(response, snapshot.docs.map((document) => document.data()));
 }
 
@@ -129,9 +129,9 @@ async function taxonomyDetail(request: Request, response: Response, kind: "categ
   const slug = String(request.query.slug || "");
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug)) return failure(response, 400, "VALIDATION_FAILED", "Invalid taxonomy slug.");
   const collection = kind === "category" ? "categoryDocuments" : "tagDocuments";
-  const taxonomy = await db.collection(collection).doc(slug).get();
+  const taxonomy = await corpusCollection(collection).doc(slug).get();
   if (!taxonomy.exists) return failure(response, 404, "NOT_FOUND", `${kind} not found.`);
-  let query: FirebaseFirestore.Query = db.collection("platformReadModels").where("projectionType", "==", "timeline").where("lifecycle", "==", "active");
+  let query: FirebaseFirestore.Query = corpusCollection("platformReadModels").where("projectionType", "==", "timeline").where("lifecycle", "==", "active");
   query = kind === "category" ? query.where("categorySlug", "==", slug) : query.where("tagSlugs", "array-contains", slug);
   const timelines = await query.limit(200).get();
   const summaries = timelines.docs.map((document) => {
@@ -145,7 +145,7 @@ async function taxonomyDetail(request: Request, response: Response, kind: "categ
 }
 
 async function listSitemap(response: Response) {
-  const snapshot = await db.collection("sitemapDocuments").where("published", "==", true).limit(5_000).get();
+  const snapshot = await corpusCollection("sitemapDocuments").where("published", "==", true).limit(5_000).get();
   return success(response, snapshot.docs.map((document) => document.data()));
 }
 
@@ -154,7 +154,7 @@ async function continuity(request: Request, response: Response) {
   if (!/^[A-Za-z0-9-]{1,128}$/u.test(sourcePublishedSnapshotId)) {
     return failure(response, 400, "VALIDATION_FAILED", "Invalid published snapshot ID.");
   }
-  const snapshot = await db.collection("continuityDocuments").doc(sourcePublishedSnapshotId).get();
+  const snapshot = await corpusCollection("continuityDocuments").doc(sourcePublishedSnapshotId).get();
   return snapshot.exists ? success(response, snapshot.data()) : success(response, null);
 }
 
@@ -162,23 +162,26 @@ async function relationships(request: Request, response: Response) {
   const key = String(request.query.authorityKey || "");
   const relationshipId = String(request.query.relationshipId || "");
   if (relationshipId) {
-    let snapshot = await db.collection("platformReadModels").doc(`relationship--${relationshipId}`).get();
+    let snapshot = await corpusCollection("platformReadModels").doc(`relationship--${relationshipId}`).get();
     if (!snapshot.exists) {
-      const query = await db.collection("platformReadModels").where("projectionType", "==", "relationship").where("lifecycle", "==", "active").where("relationshipId", "==", relationshipId).orderBy("sortTimestamp", "desc").limit(1).get();
+      const query = await corpusCollection("platformReadModels").where("projectionType", "==", "relationship").where("lifecycle", "==", "active").where("relationshipId", "==", relationshipId).orderBy("sortTimestamp", "desc").limit(1).get();
       snapshot = query.docs[0] || snapshot;
     }
     return snapshot.exists ? success(response, readModelSnapshot(snapshot)) : failure(response, 404, "NOT_FOUND", "Relationship not found.");
   }
   if (!/^[a-z_]+:[A-Za-z0-9-]+$/u.test(key)) return failure(response, 400, "VALIDATION_FAILED", "Invalid authority key.");
   const limit = Math.max(1, boundedInteger(request.query.limit, 25, 100));
-  const snapshot = await db.collection("platformReadModels").where("projectionType", "==", "relationship").where("lifecycle", "==", "active").where("authorityKeys", "array-contains", key).orderBy("sortTimestamp", "desc").limit(limit).get();
+  const snapshot = await corpusCollection("platformReadModels").where("projectionType", "==", "relationship").where("lifecycle", "==", "active").where("authorityKeys", "array-contains", key).orderBy("sortTimestamp", "desc").limit(limit).get();
   return success(response, snapshot.docs.map(readModelSnapshot));
 }
 
 export async function handlePublicApi(request: Request, response: Response) {
-  response.set("Cache-Control", request.method === "GET" ? "public, max-age=60, s-maxage=300, stale-while-revalidate=86400" : "no-store");
+  response.set("Cache-Control", "no-store");
   try {
-    if (request.method === "GET" && (request.path === "/" || request.path === "/health")) return success(response, { status: "ok", project: "tiimeliines" });
+    const registry = await assertActiveCorpus();
+    if (request.method === "GET" && (request.path === "/" || request.path === "/health")) {
+      return success(response, { status: "ok", project: "tiimeliines", activeCorpusId: registry.corpusId, isolationPolicy: registry.isolationPolicy });
+    }
     if (request.method === "GET" && request.path === "/read-models") return await listReadModels(request, response);
     if (request.method === "GET" && request.path === "/read-model") return await getReadModel(request, response);
     if (request.method === "GET" && request.path === "/search") return await search(request, response);
@@ -191,8 +194,8 @@ export async function handlePublicApi(request: Request, response: Response) {
     if (request.method === "GET" && request.path === "/continuity") return await continuity(request, response);
     if (request.method === "GET" && request.path === "/topic-status") {
       const query = String(request.query.q || "");
-      const topic = normalizeTopic(query);
-      const ledger = await db.collection("topicLedgers").doc(topic.topicId).get();
+      const topic = normalizeTopic(query, "en", ACTIVE_CORPUS_ID);
+      const ledger = await corpusCollection("topicLedgers").doc(topic.topicId).get();
       if (!ledger.exists) return failure(response, 404, "NOT_FOUND", "Topic not found.");
       const data = ledger.data()!;
       return success(response, {

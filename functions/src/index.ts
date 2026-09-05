@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { Timestamp } from "firebase-admin/firestore";
-import { db } from "./firestore";
-import { MAX_DISCOVERY_CANDIDATES, MAX_DISCOVERY_PROMOTIONS } from "./config";
+import { ACTIVE_CORPUS_ID, MAX_DISCOVERY_CANDIDATES, MAX_DISCOVERY_PROMOTIONS } from "./config";
+import { assertActiveCorpus, corpusCollection, corpusRecord, requireTaskCorpus } from "./corpus";
 import { handlePublicApi } from "./public-api";
 import { executeGeneration, executeInstitutionalTransition } from "./pipeline";
 import { institutionalTaskPayloadSchema, taskPayloadSchema } from "./schemas";
@@ -29,7 +29,19 @@ async function generationWorker(request: Request, response: Response) {
   const leaseOwner = requireTask(request, response);
   if (!leaseOwner) return;
   try {
-    const payload = taskPayloadSchema.parse(request.body);
+    const parsed = taskPayloadSchema.safeParse(request.body);
+    if (!parsed.success) {
+      console.warn(JSON.stringify({ severity: "WARNING", component: "generation_worker", taskName: leaseOwner, action: "discard_unscoped_task" }));
+      response.status(200).json({ ok: true, data: { status: "REJECTED_UNSCOPED_TASK" } });
+      return;
+    }
+    const payload = parsed.data;
+    if (payload.corpusId !== ACTIVE_CORPUS_ID) {
+      response.status(200).json({ ok: true, data: { status: "REJECTED_INACTIVE_CORPUS" } });
+      return;
+    }
+    requireTaskCorpus(payload.corpusId);
+    await assertActiveCorpus();
     const result = await executeGeneration(payload, leaseOwner);
     response.status(200).json({ ok: true, data: result });
   } catch (error) {
@@ -45,7 +57,15 @@ export async function institutionalTransitions(request: Request, response: Respo
   const delivery = requireTask(request, response);
   if (!delivery) return;
   try {
-    const payload = institutionalTaskPayloadSchema.parse(request.body);
+    const parsed = institutionalTaskPayloadSchema.safeParse(request.body);
+    if (!parsed.success || parsed.data.corpusId !== ACTIVE_CORPUS_ID) {
+      console.warn(JSON.stringify({ severity: "WARNING", component: "institutional_worker", taskName: delivery, action: "discard_unscoped_or_inactive_task" }));
+      response.status(200).json({ ok: true, data: { status: "REJECTED_INACTIVE_CORPUS" } });
+      return;
+    }
+    const payload = parsed.data;
+    requireTaskCorpus(payload.corpusId);
+    await assertActiveCorpus();
     const result = await executeInstitutionalTransition(payload);
     response.status(200).json({ ok: true, data: result });
   } catch (error) {
@@ -61,8 +81,9 @@ export async function topicDiscovery(request: Request, response: Response) {
     return;
   }
   try {
+    await assertActiveCorpus();
     const requeued = await retryDeferredEnqueues();
-    const known = await db.collection("topicLedgers").orderBy("updatedAt", "desc").limit(200).get();
+    const known = await corpusCollection("topicLedgers").orderBy("updatedAt", "desc").limit(200).get();
     const knownSummary = known.docs.map((document) => String(document.data().displayTitle || document.data().normalizedTitle)).join(", ");
     const discovered = await discoverTopics(knownSummary);
     const candidates = discovered.candidates
@@ -74,14 +95,14 @@ export async function topicDiscovery(request: Request, response: Response) {
       const task = await claimAutonomousTopic(candidate.title, candidate.significance, candidate.relevanceScore);
       if (task) promoted.push({ title: candidate.title, topicId: task.topicId });
     }
-    await db.collection("adminOperations").doc(`discovery--${Date.now()}`).create({
+    await corpusCollection("adminOperations").doc(`discovery--${Date.now()}`).create(corpusRecord({
       operationType: "autonomous_topic_discovery",
       candidateCount: candidates.length,
       promoted,
       modelProvenance: discovered.execution,
       researchHash: discovered.execution.responseHash,
       createdAt: Timestamp.now()
-    });
+    }));
     response.status(200).json({ ok: true, data: { evaluated: candidates.length, promoted, requeued } });
   } catch (error) {
     console.error(JSON.stringify({ severity: "ERROR", component: "topic_discovery", message: error instanceof Error ? error.message : String(error) }));

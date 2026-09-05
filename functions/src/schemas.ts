@@ -40,6 +40,7 @@ export const topicRequestSchema = z.discriminatedUnion("requestType", [
 ]);
 
 export const taskPayloadSchema = z.object({
+  corpusId: z.string().regex(/^[a-z0-9][a-z0-9-]{2,62}$/),
   topicId: z.string().regex(/^[a-f0-9]{40}$/),
   jobId: z.string().uuid(),
   generation: z.number().int().positive(),

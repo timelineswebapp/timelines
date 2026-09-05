@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { normalizeTopic } from "./normalization";
 import { generatedTimelineSchema, taskPayloadSchema, topicRequestSchema } from "./schemas";
+import { ACTIVE_CORPUS_ID } from "./config";
 
 function event(sortYear: number, title: string) {
   return {
@@ -27,11 +28,18 @@ test("topic normalization is Unicode, punctuation, prefix, and whitespace stable
     "History of the Printing Press",
     "  HISTORY—OF: the   Printing Press  ",
     "Timeline of the printing press"
-  ].map((value) => normalizeTopic(value));
+  ].map((value) => normalizeTopic(value, "en", ACTIVE_CORPUS_ID));
   assert.equal(variants[0]!.topicId, variants[1]!.topicId);
   assert.equal(variants[0]!.topicId, variants[2]!.topicId);
   assert.equal(variants[0]!.normalizedTitle, "the printing press");
   assert.equal(variants[0]!.slug, "the-printing-press");
+});
+
+test("topic identity is isolated across corpus namespaces", () => {
+  const clean = normalizeTopic("History of the Printing Press", "en", ACTIVE_CORPUS_ID);
+  const legacy = normalizeTopic("History of the Printing Press", "en", "legacy-root");
+  assert.notEqual(clean.topicId, legacy.topicId);
+  assert.match(clean.scope, new RegExp(`^${ACTIVE_CORPUS_ID}:`));
 });
 
 test("generation schema accepts BCE chronology and rejects out-of-order authority", () => {
@@ -48,6 +56,7 @@ test("generation schema accepts BCE chronology and rejects out-of-order authorit
 
 test("task payload rejects stale or unbounded identities", () => {
   assert.equal(taskPayloadSchema.safeParse({ topicId: "bad", jobId: "bad", generation: 0, origin: "user" }).success, false);
+  assert.equal(taskPayloadSchema.safeParse({ corpusId: ACTIVE_CORPUS_ID, topicId: "a".repeat(40), jobId: "4af86d2f-1596-4b8c-a927-42e9e25b646d", generation: 1, origin: "user" }).success, true);
 });
 
 test("visitor request contracts remain compatible and metadata is bounded", () => {
@@ -90,6 +99,8 @@ test("serverless implementation retains institutional separation and bounded exe
   const publicApi = readFileSync("src/public-api.ts", "utf8");
   const tasks = readFileSync("src/tasks.ts", "utf8");
   const config = readFileSync("src/config.ts", "utf8");
+  const corpus = readFileSync("src/corpus.ts", "utf8");
+  const index = readFileSync("src/index.ts", "utf8");
   for (const collection of ["factoryObjects", "corpusDocuments", "evidenceRecords", "evidenceValidations", "governancePackages", "governanceDecisions", "libraryAdmissions", "publishedMemory", "platformReadModels"]) {
     assert.match(pipeline, new RegExp(`\"${collection}\"`));
   }
@@ -107,4 +118,9 @@ test("serverless implementation retains institutional separation and bounded exe
   assert.match(publicApi, /input\.requestType === "timeline_request"/);
   assert.match(publicApi, /captureVisitorRequest/);
   assert.match(publicApi, /\.offset\(offset\)\s*\.limit\(limit\)/);
+  assert.match(corpus, /db\.collection\("corpora"\)\.doc\(ACTIVE_CORPUS_ID\)\.collection\(name\)/);
+  assert.match(corpus, /NO_LEGACY_CONTENT_REUSE/);
+  assert.match(corpus, /VERTEX_GOOGLE_SEARCH_GROUNDING/);
+  assert.match(index, /discard_unscoped_task/);
+  for (const source of [pipeline, ledger, publicApi, index]) assert.doesNotMatch(source, /db\.collection\(/);
 });

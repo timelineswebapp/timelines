@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { db } from "./firestore";
 import {
+  PUBLIC_ID_BASE,
   GOVERNANCE_POLICY_VERSION,
   LEASE_DURATION_MS,
   MAX_TOPIC_ATTEMPTS,
   PIPELINE_VERSION,
   SCHEMA_VERSION
 } from "./config";
+import { corpusCollection, corpusRecord, requireTaskCorpus, type CorpusCollectionName } from "./corpus";
 import { hashValue, slugifyTopic } from "./normalization";
 import type { GeneratedTimeline, SourceCandidate, TaskPayload } from "./schemas";
 import { generatedTimelineSchema, sourceCandidateSchema } from "./schemas";
@@ -39,10 +41,10 @@ function deterministicUuid(...parts: string[]) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-async function createIfAbsent(collection: string, id: string, data: Record<string, unknown>) {
-  const ref = db.collection(collection).doc(id);
+async function createIfAbsent(collection: CorpusCollectionName, id: string, data: Record<string, unknown>) {
+  const ref = corpusCollection(collection).doc(id);
   try {
-    await ref.create(data);
+    await ref.create(corpusRecord(data));
     return true;
   } catch (error) {
     const code = (error as { code?: number | string }).code;
@@ -52,8 +54,8 @@ async function createIfAbsent(collection: string, id: string, data: Record<strin
 }
 
 async function acquireLease(payload: TaskPayload, leaseOwner: string): Promise<LeaseResult> {
-  const ledgerRef = db.collection("topicLedgers").doc(payload.topicId);
-  const jobRef = db.collection("generationJobs").doc(payload.jobId);
+  const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
+  const jobRef = corpusCollection("generationJobs").doc(payload.jobId);
   return db.runTransaction(async (transaction) => {
     const snapshots = await transaction.getAll(ledgerRef, jobRef);
     const ledger = snapshots[0]!;
@@ -109,13 +111,13 @@ async function setStage(payload: TaskPayload, stage: string) {
   const now = Timestamp.now();
   const lease = Timestamp.fromMillis(Date.now() + LEASE_DURATION_MS);
   await db.runTransaction(async (transaction) => {
-    const ledgerRef = db.collection("topicLedgers").doc(payload.topicId);
+    const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
     const ledger = await transaction.get(ledgerRef);
     if (!ledger.exists || ledger.data()?.activeJobId !== payload.jobId || ledger.data()?.generation !== payload.generation) {
       throw new Error("Topic ledger ownership changed during execution.");
     }
     transaction.update(ledgerRef, { currentStage: stage, leaseExpiresAt: lease, updatedAt: now });
-    transaction.update(db.collection("generationJobs").doc(payload.jobId), { currentStage: stage, leaseExpiresAt: lease, updatedAt: now });
+    transaction.update(corpusCollection("generationJobs").doc(payload.jobId), { currentStage: stage, leaseExpiresAt: lease, updatedAt: now });
   });
 }
 
@@ -163,7 +165,7 @@ async function persistResearch(payload: TaskPayload, research: ResearchResult) {
   const batch = db.batch();
   for (const source of research.sources) {
     const sourceId = authorityId("source", source.url);
-    batch.set(db.collection("sourceRecords").doc(sourceId), {
+    batch.set(corpusCollection("sourceRecords").doc(sourceId), {
       sourceId,
       canonicalUrl: source.url,
       title: source.title,
@@ -194,12 +196,12 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
   const sourceMap = new Map(research.sources.map((source) => [source.sourceId, source]));
   const evidenceMap = new Map(research.evidenceSegments.map((segment) => [segment.evidenceRef, segment]));
   const timelineObjectId = authorityId(payload.jobId, "timeline-candidate");
-  const existing = await db.collection("factoryObjects").doc(timelineObjectId).get();
+  const existing = await corpusCollection("factoryObjects").doc(timelineObjectId).get();
   if (existing.exists) {
     return { timelineObjectId, timeline: generatedTimelineSchema.parse(existing.data()!.payload) };
   }
   const batch = db.batch();
-  batch.create(db.collection("factoryObjects").doc(timelineObjectId), {
+  batch.create(corpusCollection("factoryObjects").doc(timelineObjectId), {
     objectId: timelineObjectId,
     runId: payload.jobId,
     topicId: payload.topicId,
@@ -214,7 +216,7 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
   });
   timeline.events.forEach((event, eventIndex) => {
     const eventObjectId = authorityId(payload.jobId, "event", String(eventIndex));
-    batch.create(db.collection("factoryObjects").doc(eventObjectId), {
+    batch.create(corpusCollection("factoryObjects").doc(eventObjectId), {
       objectId: eventObjectId,
       runId: payload.jobId,
       topicId: payload.topicId,
@@ -236,7 +238,7 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
       const validationId = authorityId(evidenceId, GOVERNANCE_POLICY_VERSION);
       const sourceSnapshotId = authorityId(payload.jobId, "grounded-research", research.execution.responseHash);
       const corpusDocumentId = authorityId(sourceSnapshotId, "research-corpus");
-      batch.create(db.collection("evidenceRecords").doc(evidenceId), {
+      batch.create(corpusCollection("evidenceRecords").doc(evidenceId), {
         evidenceId,
         topicId: payload.topicId,
         sourceId: sourceIds[0],
@@ -253,7 +255,7 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
         immutable: true,
         createdAt: Timestamp.now()
       });
-      batch.create(db.collection("evidenceValidations").doc(validationId), {
+      batch.create(corpusCollection("evidenceValidations").doc(validationId), {
         validationId,
         evidenceId,
         policyVersion: GOVERNANCE_POLICY_VERSION,
@@ -262,7 +264,7 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
         immutable: true,
         createdAt: Timestamp.now()
       });
-      batch.create(db.collection("claimLinks").doc(authorityId(payload.jobId, "claim-link", String(eventIndex), evidenceRef)), {
+      batch.create(corpusCollection("claimLinks").doc(authorityId(payload.jobId, "claim-link", String(eventIndex), evidenceRef)), {
         topicId: payload.topicId,
         factoryObjectId: eventObjectId,
         evidenceId,
@@ -274,7 +276,7 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
       });
     });
   });
-  batch.create(db.collection("factoryArtifacts").doc(authorityId(payload.jobId, "structured-generation")), {
+  batch.create(corpusCollection("factoryArtifacts").doc(authorityId(payload.jobId, "structured-generation")), {
     artifactId: authorityId(payload.jobId, "structured-generation"),
     runId: payload.jobId,
     topicId: payload.topicId,
@@ -309,8 +311,8 @@ async function createGovernancePackage(payload: TaskPayload, timelineObjectId: s
   const policy = evaluateRoutinePolicy(timeline, sources);
   const now = Timestamp.now();
   await db.runTransaction(async (transaction) => {
-    const ledgerRef = db.collection("topicLedgers").doc(payload.topicId);
-    const packageRef = db.collection("governancePackages").doc(packageId);
+    const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
+    const packageRef = corpusCollection("governancePackages").doc(packageId);
     const snapshots = await transaction.getAll(ledgerRef, packageRef);
     const ledger = snapshots[0]!;
     const existingPackage = snapshots[1]!;
@@ -332,7 +334,7 @@ async function createGovernancePackage(payload: TaskPayload, timelineObjectId: s
     }
     if (policy.outcome === "exceptional") {
       if (!existingPackage.exists) {
-        transaction.create(db.collection("governanceQueues").doc(queueId), {
+        transaction.create(corpusCollection("governanceQueues").doc(queueId), {
           queueId,
           queueType: "publication_readiness",
           targetPackageId: packageId,
@@ -344,16 +346,17 @@ async function createGovernancePackage(payload: TaskPayload, timelineObjectId: s
         });
       }
       transaction.update(ledgerRef, { state: "AWAITING_REVIEW", currentStage: "governance_review", leaseOwner: null, leaseExpiresAt: null, updatedAt: now });
-      transaction.update(db.collection("generationJobs").doc(payload.jobId), { state: "AWAITING_REVIEW", currentStage: "governance_review", updatedAt: now });
+      transaction.update(corpusCollection("generationJobs").doc(payload.jobId), { state: "AWAITING_REVIEW", currentStage: "governance_review", updatedAt: now });
     } else {
       transaction.update(ledgerRef, { currentStage: "governance", updatedAt: now });
-      transaction.update(db.collection("generationJobs").doc(payload.jobId), { currentStage: "governance", packageId, updatedAt: now });
+      transaction.update(corpusCollection("generationJobs").doc(payload.jobId), { currentStage: "governance", packageId, updatedAt: now });
     }
   });
   return { packageId, policy };
 }
 
 export async function executeGeneration(payload: TaskPayload, leaseOwner: string) {
+  requireTaskCorpus(payload.corpusId);
   const lease = await acquireLease(payload, leaseOwner);
   if (!lease.acquired) return { status: "NO_OP", reason: lease.reason };
   try {
@@ -378,7 +381,7 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
 async function recordFailure(payload: TaskPayload, error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   await db.runTransaction(async (transaction) => {
-    const ledgerRef = db.collection("topicLedgers").doc(payload.topicId);
+    const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
     const ledger = await transaction.get(ledgerRef);
     if (!ledger.exists || ledger.data()?.activeJobId !== payload.jobId) return;
     const attempts = Number(ledger.data()?.attemptCount || 0);
@@ -393,12 +396,12 @@ async function recordFailure(payload: TaskPayload, error: unknown) {
       leaseExpiresAt: null,
       updatedAt: now
     });
-    transaction.update(db.collection("generationJobs").doc(payload.jobId), {
+    transaction.update(corpusCollection("generationJobs").doc(payload.jobId), {
       state: terminal ? "FAILED" : "RETRY_SCHEDULED",
       lastError: message.slice(0, 2000),
       updatedAt: now
     });
-    transaction.create(db.collection("failureRecords").doc(randomUUID()), {
+    transaction.create(corpusCollection("failureRecords").doc(randomUUID()), {
       topicId: payload.topicId,
       jobId: payload.jobId,
       generation: payload.generation,
@@ -415,18 +418,18 @@ async function recordFailure(payload: TaskPayload, error: unknown) {
 type PublicIdAllocation = { timelineId: number; eventIds: number[]; sourceIds: Record<string, number>; tagIds: Record<string, number> };
 
 async function allocatePublicIds(payload: TaskPayload, timeline: GeneratedTimeline, sources: SourceCandidate[]): Promise<PublicIdAllocation> {
-  const jobRef = db.collection("generationJobs").doc(payload.jobId);
-  const counterRef = db.collection("counters").doc("publicIds");
+  const jobRef = corpusCollection("generationJobs").doc(payload.jobId);
+  const counterRef = corpusCollection("counters").doc("publicIds");
   return db.runTransaction(async (transaction) => {
     const snapshots = await transaction.getAll(jobRef, counterRef);
     const job = snapshots[0]!;
     const counter = snapshots[1]!;
     if (job.data()?.publicIds) return job.data()!.publicIds as PublicIdAllocation;
     const current = counter.data() || {};
-    let timelineCursor = Number(current.timeline || 0);
-    let eventCursor = Number(current.event || 0);
-    let sourceCursor = Number(current.source || 0);
-    let tagCursor = Number(current.tag || 0);
+    let timelineCursor = Number(current.timeline ?? PUBLIC_ID_BASE);
+    let eventCursor = Number(current.event ?? PUBLIC_ID_BASE);
+    let sourceCursor = Number(current.source ?? PUBLIC_ID_BASE);
+    let tagCursor = Number(current.tag ?? PUBLIC_ID_BASE);
     const sourceIds: Record<string, number> = {};
     for (const source of sources) sourceIds[source.sourceId] = ++sourceCursor;
     const tagIds: Record<string, number> = {};
@@ -495,12 +498,13 @@ function buildProjection(payload: TaskPayload, topic: FirebaseFirestore.Document
 }
 
 export async function executeInstitutionalTransition(payload: TaskPayload & { packageId: string; decision: "routine" | "exceptional" }) {
+  requireTaskCorpus(payload.corpusId);
   if (payload.decision !== "routine") return { status: "AWAITING_REVIEW" };
   const [ledger, packageSnapshot, candidateQuery, researchArtifact] = await Promise.all([
-    db.collection("topicLedgers").doc(payload.topicId).get(),
-    db.collection("governancePackages").doc(payload.packageId).get(),
-    db.collection("factoryObjects").where("runId", "==", payload.jobId).where("objectType", "==", "candidate_timeline").limit(1).get(),
-    db.collection("sourceSnapshots").where("jobId", "==", payload.jobId).limit(1).get()
+    corpusCollection("topicLedgers").doc(payload.topicId).get(),
+    corpusCollection("governancePackages").doc(payload.packageId).get(),
+    corpusCollection("factoryObjects").where("runId", "==", payload.jobId).where("objectType", "==", "candidate_timeline").limit(1).get(),
+    corpusCollection("sourceSnapshots").where("jobId", "==", payload.jobId).limit(1).get()
   ]);
   if (!ledger.exists || !packageSnapshot.exists || candidateQuery.empty) throw new Error("Institutional transition input is incomplete.");
   if (ledger.data()?.state === "PUBLISHED") return { status: "NO_OP", reason: "already_published" };
@@ -535,7 +539,7 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
   const projection = buildProjection(payload, ledger.data()!, timeline, sources, ids);
   const projectionHash = hashValue(stableJson(projection.detail));
   const batch = db.batch();
-  const publishedRef = db.collection("publishedMemory").doc(publishedMemoryId);
+  const publishedRef = corpusCollection("publishedMemory").doc(publishedMemoryId);
   const existingPublished = await publishedRef.get();
   if (!existingPublished.exists) {
     batch.create(publishedRef, {
@@ -544,7 +548,7 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
       authorityHash: hashValue(stableJson({ timeline, sources })), lifecycle: "ACTIVE", immutable: true, createdAt: now
     });
   }
-  const timelineDoc = db.collection("platformReadModels").doc(`timeline--${ledger.data()!.slug}`);
+  const timelineDoc = corpusCollection("platformReadModels").doc(`timeline--${ledger.data()!.slug}`);
   batch.set(timelineDoc, {
     projectionType: "timeline", lifecycle: "active", slug: ledger.data()!.slug, publicId: ids.timelineId,
     categorySlug: slugifyTopic(timeline.category), tagSlugs: projection.tagRecords.map((tag) => tag.slug), payload: projection.detail,
@@ -552,42 +556,42 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
   });
   projection.events.forEach((event) => {
     const eventHash = hashValue(stableJson(event));
-    batch.set(db.collection("platformReadModels").doc(`milestone--${event.id}`), {
+    batch.set(corpusCollection("platformReadModels").doc(`milestone--${event.id}`), {
       projectionType: "milestone", lifecycle: "active", slug: slugifyTopic(event.title), publicId: event.id, payload: event,
       publishedMemoryId, projectionHash: eventHash, sortTimestamp: now, authorityKeys: [`milestone:${event.id}`, `timeline:${ids.timelineId}`], updatedAt: now
     });
-    batch.set(db.collection("searchDocuments").doc(`milestone--${event.id}`), {
+    batch.set(corpusCollection("searchDocuments").doc(`milestone--${event.id}`), {
       type: "milestone", publicId: event.id, slug: slugifyTopic(event.title), title: event.title,
       searchableText: `${event.title} ${event.description} ${event.tags.map((tag) => tag.name).join(" ")}`,
       tokens: tokenize(`${event.title} ${event.description} ${event.tags.map((tag) => tag.name).join(" ")}`), payload: { type: "milestone", id: event.id, milestone: event },
       published: true, publishedMemoryId, updatedAt: now
     });
-    batch.set(db.collection("sitemapDocuments").doc(`milestone--${event.id}`), { kind: "milestone", id: event.id, title: event.title, slug: slugifyTopic(event.title), updatedAt: projection.createdAt, published: true });
+    batch.set(corpusCollection("sitemapDocuments").doc(`milestone--${event.id}`), { kind: "milestone", id: event.id, title: event.title, slug: slugifyTopic(event.title), updatedAt: projection.createdAt, published: true });
   });
-  batch.set(db.collection("searchDocuments").doc(`timeline--${ids.timelineId}`), {
+  batch.set(corpusCollection("searchDocuments").doc(`timeline--${ids.timelineId}`), {
     type: "timeline", publicId: ids.timelineId, slug: ledger.data()!.slug, title: timeline.title,
     searchableText: `${timeline.title} ${timeline.description} ${timeline.tags.join(" ")}`,
     tokens: tokenize(`${timeline.title} ${timeline.description} ${timeline.tags.join(" ")}`), payload: { type: "timeline", id: ids.timelineId, timeline: timelineSummary(projection.detail) },
     published: true, publishedMemoryId, updatedAt: now
   });
-  batch.set(db.collection("sitemapDocuments").doc(`timeline--${ids.timelineId}`), { kind: "timeline", id: ids.timelineId, title: timeline.title, slug: ledger.data()!.slug, updatedAt: projection.createdAt, published: true });
-  batch.set(db.collection("categoryDocuments").doc(slugifyTopic(timeline.category)), {
+  batch.set(corpusCollection("sitemapDocuments").doc(`timeline--${ids.timelineId}`), { kind: "timeline", id: ids.timelineId, title: timeline.title, slug: ledger.data()!.slug, updatedAt: projection.createdAt, published: true });
+  batch.set(corpusCollection("categoryDocuments").doc(slugifyTopic(timeline.category)), {
     slug: slugifyTopic(timeline.category),
     name: timeline.category,
     count: FieldValue.increment(1),
     updatedAt: now
   }, { merge: true });
-  for (const tag of projection.tagRecords) batch.set(db.collection("tagDocuments").doc(tag.slug), { ...tag, updatedAt: now }, { merge: true });
-  batch.set(db.collection("publicationLifecycle").doc(`active--${payload.topicId}`), {
+  for (const tag of projection.tagRecords) batch.set(corpusCollection("tagDocuments").doc(tag.slug), { ...tag, updatedAt: now }, { merge: true });
+  batch.set(corpusCollection("publicationLifecycle").doc(`active--${payload.topicId}`), {
     topicId: payload.topicId, publishedMemoryId, timelineId: ids.timelineId, slug: ledger.data()!.slug, generation: payload.generation,
     lifecycle: "ACTIVE", projectionHash, updatedAt: now
   });
-  batch.update(db.collection("topicLedgers").doc(payload.topicId), {
+  batch.update(corpusCollection("topicLedgers").doc(payload.topicId), {
     state: "PUBLISHED", currentStage: "published", timelineId: ids.timelineId, publishedMemoryId, publishedAt: now,
     leaseOwner: null, leaseExpiresAt: null, lastError: null, updatedAt: now
   });
-  batch.update(db.collection("generationJobs").doc(payload.jobId), { state: "PUBLISHED", currentStage: "published", completedAt: now, updatedAt: now });
-  batch.create(db.collection("auditEvents").doc(randomUUID()), {
+  batch.update(corpusCollection("generationJobs").doc(payload.jobId), { state: "PUBLISHED", currentStage: "published", completedAt: now, updatedAt: now });
+  batch.create(corpusCollection("auditEvents").doc(randomUUID()), {
     institution: "published_memory", topicId: payload.topicId, jobId: payload.jobId, packageId: payload.packageId, admissionId,
     eventType: "PUBLICATION_COMPLETED", lineage: { decisionId, approvalId, publishedMemoryId, projectionHash }, immutable: true, createdAt: now
   });

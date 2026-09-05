@@ -3,11 +3,23 @@ export const COMPUTE_REGION = process.env.FUNCTION_REGION || "us-central1";
 export const VERTEX_LOCATION = process.env.VERTEX_LOCATION || "global";
 export const VERTEX_MODEL = process.env.VERTEX_MODEL || "gemini-2.5-flash";
 export const FIRESTORE_DATABASE = "(default)";
-export const PIPELINE_VERSION = "serverless-pipeline-v1";
+export const PIPELINE_VERSION = "serverless-pipeline-v2-clean-corpus";
 export const PROMPT_VERSION = "historical-research-v2";
 export const SCHEMA_VERSION = "generated-timeline-v2";
 export const GOVERNANCE_POLICY_VERSION = "routine-governance-v1";
-export const PUBLIC_API_VERSION = "serverless-public-api-v1";
+export const PUBLIC_API_VERSION = "serverless-public-api-v2-clean-corpus";
+
+const activeCorpusId = process.env.ACTIVE_CORPUS_ID || "";
+if (!/^[a-z0-9][a-z0-9-]{2,62}$/u.test(activeCorpusId)) {
+  throw new Error("ACTIVE_CORPUS_ID must be an explicit 3-63 character lowercase corpus identifier.");
+}
+export const ACTIVE_CORPUS_ID = activeCorpusId;
+
+const publicIdBase = Number(process.env.PUBLIC_ID_BASE);
+if (!Number.isSafeInteger(publicIdBase) || publicIdBase < 1_000_000_000 || publicIdBase > Number.MAX_SAFE_INTEGER - 1_000_000) {
+  throw new Error("PUBLIC_ID_BASE must be an explicit safe integer with at least one million IDs of headroom.");
+}
+export const PUBLIC_ID_BASE = publicIdBase;
 
 export const QUEUES = {
   priority: "priority-topic-generation",

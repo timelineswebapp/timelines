@@ -1,5 +1,5 @@
 import { CloudTasksClient, protos } from "@google-cloud/tasks";
-import { COMPUTE_REGION, FUNCTION_NAMES, PROJECT_ID, QUEUES, TASK_INVOKER_EMAIL } from "./config";
+import { ACTIVE_CORPUS_ID, COMPUTE_REGION, FUNCTION_NAMES, PROJECT_ID, QUEUES, TASK_INVOKER_EMAIL } from "./config";
 import type { TaskPayload } from "./schemas";
 
 const client = new CloudTasksClient();
@@ -59,7 +59,7 @@ export function enqueueGenerationTask(payload: TaskPayload, priority: boolean, s
   return createHttpTask({
     queue,
     functionName,
-    taskId: `${payload.topicId}-g${payload.generation}`,
+    taskId: `${ACTIVE_CORPUS_ID}-${payload.topicId}-g${payload.generation}`,
     payload,
     deadlineSeconds: 1800,
     scheduleTime
@@ -70,7 +70,7 @@ export function enqueueInstitutionalTask(payload: TaskPayload & { packageId: str
   return createHttpTask({
     queue: QUEUES.institutional,
     functionName: FUNCTION_NAMES.institutionalWorker,
-    taskId: `${payload.topicId}-g${payload.generation}-institutional`,
+    taskId: `${ACTIVE_CORPUS_ID}-${payload.topicId}-g${payload.generation}-institutional`,
     payload,
     deadlineSeconds: 900
   });
