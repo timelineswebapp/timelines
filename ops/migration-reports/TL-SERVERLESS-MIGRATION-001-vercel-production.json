@@ -1,0 +1,71 @@
+{
+  "migrationId": "TL-SERVERLESS-MIGRATION-001",
+  "checkedAt": "2026-09-05T06:51:47Z",
+  "applicationCommit": "4cf45ff6df12c881fe400839c4d8d7cb88f7eb1e",
+  "project": "timelines-app/timelines",
+  "preview": {
+    "deploymentId": "dpl_FizZbtGbhKFEP54J1UKrSLULxdjk",
+    "url": "https://timelines-9kaklpstm-timelines-app.vercel.app",
+    "readyState": "READY",
+    "signedExistingTopicIntake": "PASS"
+  },
+  "production": {
+    "deploymentId": "dpl_9ScCbDkQ9qfgQp8orCnhtUHzdyGP",
+    "deploymentUrl": "https://timelines-n64s85ffm-timelines-app.vercel.app",
+    "canonicalUrl": "https://www.timelines.sbs",
+    "readyState": "READY",
+    "aliases": [
+      "https://www.timelines.sbs",
+      "https://timelines.sbs",
+      "https://timelines-orpin.vercel.app",
+      "https://timelines-timelines-app.vercel.app"
+    ]
+  },
+  "environment": {
+    "serverlessApiBaseUrl": "https://us-central1-tiimeliines.cloudfunctions.net/timelines-public-api",
+    "serverlessApiConfiguredFor": [
+      "preview",
+      "production"
+    ],
+    "backendSharedSecretConfiguredFor": [
+      "preview",
+      "production"
+    ],
+    "secretTransfer": "exact-byte-preserving-from-secret-manager",
+    "databaseUrlPreservedForRollback": true
+  },
+  "fixture": {
+    "timelineId": 1469121846,
+    "timelineSlug": "the-cold-war-and-its-contemporary-echoes",
+    "eventId": 1936504852,
+    "tagSlug": "cold-war",
+    "publishedTopicId": "de152bd854e7e73edabdf01cb8ebeef58eb798fb"
+  },
+  "performance": {
+    "maximumDurationMs": 2624,
+    "p95DurationMs": 2624
+  },
+  "checks": [
+    { "name": "timeline-list-api", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "timeline-detail-api", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "search-api-eight-result-parity", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "homepage-api-pagination", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "tag-api", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "homepage-page-and-metadata", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "timeline-page-jsonld-and-opengraph", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "milestone-page-and-jsonld", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "category-page", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "tag-page", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "search-page", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "sitemap-active-timeline", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "robots", "expectedStatus": 200, "actualStatus": 200 },
+    { "name": "invalid-topic-request-fails-closed", "expectedStatus": 400, "actualStatus": 400 },
+    { "name": "signed-existing-topic-intake-no-generation", "expectedStatus": 200, "actualStatus": 200, "result": "AVAILABLE" }
+  ],
+  "postconditions": {
+    "publishedTopicLedgerState": "PUBLISHED",
+    "matchingPriorityTaskPresent": false,
+    "newGenerationEnqueued": false
+  },
+  "passed": true
+}

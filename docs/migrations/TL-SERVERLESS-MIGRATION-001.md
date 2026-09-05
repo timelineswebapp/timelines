@@ -1,6 +1,6 @@
 # TL-SERVERLESS-MIGRATION-001
 
-Status: GCP migration certified; Vercel application cutover blocked on account 2FA
+Status: Complete; GCP migration and Vercel production cutover certified
 
 Executed: 2026-09-04 UTC
 
@@ -65,6 +65,7 @@ Evidence files:
 - `ops/migration-reports/TL-SERVERLESS-MIGRATION-001-apply.json`
 - `ops/migration-reports/TL-SERVERLESS-MIGRATION-001-verify.json`
 - `ops/migration-reports/TL-SERVERLESS-MIGRATION-001-public-api.json`
+- `ops/migration-reports/TL-SERVERLESS-MIGRATION-001-vercel-production.json`
 
 ## Public compatibility certification
 
@@ -105,6 +106,7 @@ Prompts, provider responses, model identity, location, schema version, and promp
 2. Firestore rejected nested arrays. The encoding was changed to canonical JSON plus integrity hash, and the run resumed.
 3. Legacy active projections contained duplicate slugs. Projection document identities were made unique while newest-by-slug API behavior remained deterministic.
 4. A materialization attempt included stale search/sitemap projection artifacts. Parity validation detected the 73-versus-43 discrepancy, and only artifacts owned by this migration were removed before a clean rebuild.
+5. The first Vercel secret transfer used shell command substitution, which removed the Secret Manager value's terminal line feed. Public reads remained healthy, but the signed intake smoke test failed closed with HTTP 401. The exact 65-byte value was transferred without shell normalization, Preview and Production were redeployed, and signed existing-topic intake then returned `AVAILABLE` without enqueuing generation.
 
 No PostgreSQL production rows were modified by these recoveries.
 
@@ -114,11 +116,21 @@ Rollback reference: annotated Git tag `pre-serverless-migration-001` at pre-migr
 
 PostgreSQL and its legacy administration paths remain intact during the observation window. `DATABASE_URL` must not be removed until production cutover has been observed and rollback authority explicitly closes the window. Application rollback is a Vercel promotion to the pre-migration release; serverless resources and migrated Firestore data must be preserved for investigation rather than destructively removed.
 
-## Remaining production action
+## Vercel production cutover evidence
 
-The Vercel project `timelines` still requires interactive two-factor authentication before these server-side environment variables can be set and the production application can be promoted:
+Production cutover completed on 2026-09-05 from application code commit `4cf45ff6df12c881fe400839c4d8d7cb88f7eb1e`.
 
-- `SERVERLESS_API_BASE_URL`
-- `BACKEND_SHARED_SECRET`
+| Check | Result |
+|---|---|
+| Vercel project | `timelines-app/timelines` |
+| Preview deployment | `dpl_FizZbtGbhKFEP54J1UKrSLULxdjk` — READY |
+| Production deployment | `dpl_9ScCbDkQ9qfgQp8orCnhtUHzdyGP` — READY |
+| Canonical production URL | `https://www.timelines.sbs` |
+| Production aliases | `www.timelines.sbs`, `timelines.sbs`, and Vercel project aliases |
+| Preview smoke certification | Pass — public compatibility plus signed intake |
+| Production smoke certification | Pass — 15 application/API checks |
+| Production cold-cache maximum / p95 | 2,624 ms / 2,624 ms |
 
-Secret values are managed externally and must never be committed, logged, or copied into this record.
+`SERVERLESS_API_BASE_URL` and `BACKEND_SHARED_SECRET` are configured for both Preview and Production. The signing secret was transferred directly from Google Secret Manager using a short-lived shell variable; it was not printed, written to the repository, or recorded in deployment documentation. `DATABASE_URL` remains configured solely to preserve the documented observation and rollback boundary.
+
+The production smoke certification verified the homepage, timeline, milestone, category, tag, and search pages; timeline list/detail, homepage, tag, and search API contracts; sitemap and robots output; numeric DTO identities; SEO metadata; JSON-LD; Open Graph metadata; fail-closed request validation; and the signed Vercel-to-Functions topic-intake boundary. All expected success routes returned HTTP 200, the invalid topic request returned HTTP 400 without persistence, the certified `pandemic` search fixture returned eight results, and a certification request for an existing published topic returned `AVAILABLE` without enqueuing generation.

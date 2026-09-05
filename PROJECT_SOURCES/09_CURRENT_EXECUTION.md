@@ -85,11 +85,11 @@ Serverless Production Cutover
 
 Status:
 
-Active
+Complete
 
 Objective:
 
-Complete `TL-SERVERLESS-MIGRATION-001` by promoting the certified serverless backend configuration to the Vercel production application without changing architecture, authority ownership, or certification standards.
+`TL-SERVERLESS-MIGRATION-001` is complete. The certified serverless backend configuration is deployed to the Vercel production application without changing architecture, authority ownership, or certification standards.
 
 ---
 
@@ -123,18 +123,11 @@ Not current work:
 
 ---
 
-# Current Blocker
+# Current Release State
 
-Vercel requires interactive two-factor authentication for `timelineswebapp@gmail.com`. The browser is intentionally stopped at the authenticator challenge. Google Cloud deployment, migration parity, live API parity, and non-persisting Vertex generation certification have passed.
+No migration blocker remains.
 
-Required unblock action: the account owner completes the open Vercel two-factor prompt. After authentication, configure `SERVERLESS_API_BASE_URL` and `BACKEND_SHARED_SECRET`, deploy a preview, run public smoke tests, and promote the verified build to production.
-
-If blocked:
-
-1. Stop immediately.
-2. Report the first repository-backed blocker.
-3. Identify root cause.
-4. Recommend the smallest architecturally correct fix.
+Production deployment `dpl_9ScCbDkQ9qfgQp8orCnhtUHzdyGP` is READY and serves `https://www.timelines.sbs`. Preview deployment `dpl_FizZbtGbhKFEP54J1UKrSLULxdjk` passed public compatibility and signed-intake checks; production passed the 15-check public route, API, SEO, validation, and signed-intake certification. Google Cloud deployment, Firestore migration parity, live API parity, grounded Vertex generation certification, rollback preservation, and Vercel production cutover have all passed.
 
 ---
 

@@ -213,7 +213,7 @@ Institutional architecture: Complete and certified.
 
 Serverless GCP data and execution migration: Deployed and certified.
 
-Production Vercel application cutover: Blocked on interactive account 2FA.
+Production Vercel application cutover: Deployed and certified at `https://www.timelines.sbs`.
 
 Production engineering: Active.
 
@@ -221,7 +221,6 @@ Launch readiness: Active.
 
 Remaining work belongs to:
 
-* production deployment;
 * performance and scale hardening;
 * observability and alerting;
 * operational excellence;
