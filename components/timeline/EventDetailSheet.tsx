@@ -16,7 +16,14 @@ export function EventDetailSheet({
   onClose: () => void;
 }) {
   const touchStartY = useRef<number | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const [dragOffset, setDragOffset] = useState(0);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) {
@@ -24,20 +31,23 @@ export function EventDetailSheet({
     }
 
     const previousOverflow = document.body.style.overflow;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
       }
     };
 
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
+    closeButtonRef.current?.focus();
 
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
+      previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open || !event) {
     return null;
@@ -47,7 +57,7 @@ export function EventDetailSheet({
     <div className="sheet-backdrop" onClick={onClose}>
       <section
         aria-modal="true"
-        aria-label={event.title}
+        aria-labelledby={`event-sheet-title-${event.id}`}
         className="event-sheet glass"
         role="dialog"
         style={{ transform: `translateY(${dragOffset}px)` }}
@@ -90,14 +100,14 @@ export function EventDetailSheet({
               sortDay: event.sortDay
             })}
           </span>
-          <button type="button" className="sheet-icon-button" onClick={onClose} aria-label="Close event details">
+          <button ref={closeButtonRef} type="button" className="sheet-icon-button" onClick={onClose} aria-label="Close event details">
             <CloseIcon />
           </button>
         </div>
 
         <div className="stack" style={{ gap: 20 }}>
           <div className="stack" style={{ gap: 10 }}>
-            <h2 className="sheet-title">{event.title}</h2>
+            <h2 id={`event-sheet-title-${event.id}`} className="sheet-title">{event.title}</h2>
             <p className="sheet-description">{event.description}</p>
           </div>
 
@@ -110,14 +120,13 @@ export function EventDetailSheet({
                 event.sources.map((source) => (
                   <a
                     key={source.id}
-	                    href={source.url}
-	                    target="_blank"
-	                    rel="noreferrer noopener"
-	                    className="sheet-link"
-	                  >
-	                    <span>{source.publisher}</span>
-	                    <span>Confidence {Math.round(source.credibilityScore * 100)}%</span>
-	                  </a>
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="sheet-link"
+                  >
+                    <span>{source.publisher}</span>
+                  </a>
                 ))
               ) : (
                 <p className="muted" style={{ margin: 0 }}>

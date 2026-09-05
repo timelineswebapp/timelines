@@ -1,6 +1,4 @@
 import { EventShareButton } from "@/components/timeline/EventShareButton";
-import Link from "next/link";
-import { buildMilestonePath } from "@/src/lib/share";
 import type { EventRecord } from "@/src/lib/types";
 import { formatDisplayDate, truncate } from "@/src/lib/utils";
 
@@ -23,6 +21,7 @@ export function EventRow({
         type="button"
         className={`event-row${summaryLines > 1 ? " event-row-expanded" : ""}`}
         onClick={() => onOpen(event.id)}
+        aria-label={`Open details for ${event.title}`}
         style={{ ["--event-row-summary-lines" as string]: String(summaryLines) }}
       >
         <span className="event-row-date">
@@ -41,9 +40,6 @@ export function EventRow({
           <span className="event-row-summary">{truncate(event.description, summaryMaxLength)}</span>
         </span>
       </button>
-      <Link href={buildMilestonePath(event.id, event.title)} className="event-row-milestone-link">
-        View canonical milestone
-      </Link>
       <EventShareButton timelineSlug={timelineSlug} eventId={event.id} eventTitle={event.title} />
     </div>
   );

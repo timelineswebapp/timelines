@@ -189,7 +189,7 @@ function invariantResults(value: PlatformCertificationCase, evidence: Evidence, 
     inv("api_serialization_deterministic", combined.includes("return ok(timelines)") && combined.includes("fromError"), true, "API response wrapper", "Public API serialization must be deterministic and fail closed."),
     inv("timeline_resolution_deterministic", combined.includes("resolveTimelineRoute") && combined.includes("getTimelineBySlug"), true, "timeline resolution", "Timeline resolution must be deterministic."),
     inv("event_rendering_grounded", combined.includes("EventRow") && combined.includes("formatDisplayDate"), true, "event row", "Event rendering must be grounded in timeline events."),
-    inv("milestone_rendering_grounded", combined.includes("buildMilestonePath") && combined.includes("View canonical milestone"), true, "milestone link", "Milestone rendering must be grounded in event identity."),
+    inv("milestone_rendering_grounded", combined.includes('url.searchParams.set("event"') && combined.includes("onOpen={openEvent}"), true, "event-card deep link", "Milestone rendering must preserve an accessible event-detail interaction grounded in event identity."),
     inv("public_boundary_excludes_admin", combined.includes("!file.includes(\"/api/admin/\")") && combined.includes("doesNotMatch(source, /factoryRepository|governanceRepository|getWriteSql/)"), true, "admin excluded", "Public certification must exclude admin/founder surfaces."),
     inv("certification_persistence", true, true, "immutable certification repository", "Platform certification must persist immutable evidence.")
   ].map((result) => result.invariantKey === "certification_persistence" ? result : result)
