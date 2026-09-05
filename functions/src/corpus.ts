@@ -39,7 +39,47 @@ export const CORPUS_COLLECTIONS = [
 
 export type CorpusCollectionName = (typeof CORPUS_COLLECTIONS)[number];
 
+export const V2_CORPUS_COLLECTIONS = [
+  "v2ScopeContracts",
+  "v2ScopeAmendmentProposals",
+  "v2ResearchMaps",
+  "v2ResearchTasks",
+  "v2QueryPlans",
+  "v2AcquisitionRuns",
+  "v2PublisherAuthorityRecords",
+  "v2PublisherAuthorityVersions",
+  "v2SourceDocuments",
+  "v2SourceSnapshots",
+  "v2EvidenceSegments",
+  "v2AtomicClaims",
+  "v2AtomicClaimVersions",
+  "v2ClaimEvidence",
+  "v2ClaimAuthorityVerdicts",
+  "v2ClaimConflictSets",
+  "v2CanonicalEntities",
+  "v2CanonicalEntityVersions",
+  "v2EntityAliases",
+  "v2CanonicalEvents",
+  "v2CanonicalEventVersions",
+  "v2EventClaims",
+  "v2EventEntities",
+  "v2EventRelations",
+  "v2ModelExecutions",
+  "v2FailureRecords",
+  "v2AuditRecords",
+  "v2TopicOperations",
+  "v2ReconnaissanceRecords",
+  "v2AcquisitionDiscoveries"
+] as const;
+
+export type V2CorpusCollectionName = (typeof V2_CORPUS_COLLECTIONS)[number];
+
 export function corpusCollection(name: CorpusCollectionName): CollectionReference {
+  return db.collection("corpora").doc(ACTIVE_CORPUS_ID).collection(name);
+}
+
+/** Server-only V2 Production Memory. Kept separate so public repositories cannot import it accidentally. */
+export function v2CorpusCollection(name: V2CorpusCollectionName): CollectionReference {
   return db.collection("corpora").doc(ACTIVE_CORPUS_ID).collection(name);
 }
 

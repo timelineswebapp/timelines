@@ -73,6 +73,128 @@
         { "fieldPath": "origin", "order": "ASCENDING" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "v2ScopeContracts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "topicId", "order": "ASCENDING" },
+        { "fieldPath": "generation", "order": "ASCENDING" },
+        { "fieldPath": "version", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2ResearchTasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "runId", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "priority", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2QueryPlans",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "researchMapId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2SourceSnapshots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sourceId", "order": "ASCENDING" },
+        { "fieldPath": "retrievedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2SourceSnapshots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "topicId", "order": "ASCENDING" },
+        { "fieldPath": "retrievalDisposition", "order": "ASCENDING" },
+        { "fieldPath": "retrievedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2AtomicClaimVersions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "topicId", "order": "ASCENDING" },
+        { "fieldPath": "validationState", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2AtomicClaimVersions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "scopeContractId", "order": "ASCENDING" },
+        { "fieldPath": "risk", "order": "ASCENDING" },
+        { "fieldPath": "validationState", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2ClaimConflictSets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "topicId", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2CanonicalEntities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "canonicalNameKey", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2EntityAliases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "aliasKey", "order": "ASCENDING" },
+        { "fieldPath": "language", "order": "ASCENDING" },
+        { "fieldPath": "entityType", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2CanonicalEventVersions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "topicId", "order": "ASCENDING" },
+        { "fieldPath": "authorityState", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2CanonicalEventVersions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventIdentityKey", "order": "ASCENDING" },
+        { "fieldPath": "canonicalizationState", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2TopicOperations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "origin", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "v2FailureRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "failureClass", "order": "ASCENDING" },
+        { "fieldPath": "severity", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -94,6 +216,26 @@
     {
       "collectionGroup": "publishedMemory",
       "fieldPath": "authorityPayload",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "v2SourceSnapshots",
+      "fieldPath": "boundedExtractedText",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "v2EvidenceSegments",
+      "fieldPath": "exactText",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "v2AtomicClaimVersions",
+      "fieldPath": "normalizedAssertion",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "v2FailureRecords",
+      "fieldPath": "message",
       "indexes": []
     }
   ]

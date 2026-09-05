@@ -9,10 +9,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "gcp-build": "npm run build",
-    "test": "ACTIVE_CORPUS_ID=test-clean-corpus PUBLIC_ID_BASE=4000000000 tsx --test src/serverless-contracts.test.ts src/quality.test.ts src/source-authority.test.ts",
+    "test": "ACTIVE_CORPUS_ID=test-clean-corpus PUBLIC_ID_BASE=4000000000 tsx --test src/serverless-contracts.test.ts src/quality.test.ts src/source-authority.test.ts src/factory-v2/contracts.test.ts src/factory-v2/acquisition.test.ts src/factory-v2/authority.test.ts src/factory-v2/resolution.test.ts src/factory-v2/vertex.test.ts src/factory-v2/config.test.ts",
+    "test:v2a": "ACTIVE_CORPUS_ID=test-clean-corpus PUBLIC_ID_BASE=4000000000 tsx --test src/factory-v2/contracts.test.ts src/factory-v2/acquisition.test.ts src/factory-v2/authority.test.ts src/factory-v2/resolution.test.ts src/factory-v2/vertex.test.ts src/factory-v2/config.test.ts",
+    "test:v2a:emulator": "firebase emulators:exec --only firestore --project tiimeliines 'ACTIVE_CORPUS_ID=test-clean-corpus PUBLIC_ID_BASE=4000000000 tsx --test src/factory-v2/repositories/firestore.emulator.test.ts src/factory-v2/orchestrator.emulator.test.ts src/factory-v2/firestore-rules.emulator.test.ts'",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "quality:fixture": "tsx src/run-quality-fixture.ts",
     "source-authority:fixture": "tsx src/run-source-authority-fixture.ts",
+    "v2a:bootstrap-shadow": "tsx ../scripts/factory-v2/bootstrap-shadow.ts",
+    "v2a:fixtures": "tsx ../scripts/factory-v2/run-shadow-fixtures.ts",
     "quality:reassess": "tsx src/run-quality-reassessment.ts",
     "start": "functions-framework --source=lib/index.js --target=publicApi"
   },

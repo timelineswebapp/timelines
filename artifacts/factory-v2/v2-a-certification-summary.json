@@ -1,0 +1,55 @@
+{
+  "goal": "TL-KF-V2-A",
+  "verdict": "TL-KF-V2-A: NOT CERTIFIED",
+  "executionMode": "SHADOW",
+  "fixtureSuiteGeneratedAt": "2026-09-05T23:41:45.035Z",
+  "fixtureSuiteArtifact": "v2-a-shadow-fixtures-1788651705035.json",
+  "passed": 0,
+  "total": 5,
+  "fixtures": [
+    {
+      "title": "The History of the World Wide Web",
+      "status": "FAIL",
+      "blockingGates": ["NO_SUPPORTED_CLAIMS", "NO_RESOLVED_EVENT_CANDIDATES"],
+      "executionMs": 884321,
+      "sourceSnapshots": 54,
+      "claimsExtracted": 1,
+      "claimsSupported": 0,
+      "resolvedEventCandidates": 0
+    },
+    {
+      "title": "The Fall of the Berlin Wall",
+      "status": "FAIL",
+      "blockingGates": ["ENTITY_IDENTITY_EVIDENCE_DUPLICATE_REJECTED"]
+    },
+    {
+      "title": "The Apollo 11 Mission",
+      "status": "FAIL",
+      "blockingGates": ["RESEARCH_MAP_SCHEMA_REPAIR_EXHAUSTED"]
+    },
+    {
+      "title": "The Cuban Missile Crisis",
+      "status": "FAIL",
+      "blockingGates": ["ENTITY_IDENTITY_EVIDENCE_DUPLICATE_REJECTED"]
+    },
+    {
+      "title": "The Apollo 13 Mission",
+      "status": "FAIL",
+      "blockingGates": ["RESEARCH_MAP_SCHEMA_REPAIR_EXHAUSTED"]
+    }
+  ],
+  "globalBlockingGates": [
+    "FIXTURE_ACCEPTANCE_0_OF_5",
+    "RESEARCH_MAP_PROVIDER_CONTRACT_NOT_RELIABLE",
+    "SUPPORTED_CLAIM_YIELD_INSUFFICIENT",
+    "POST_FIX_FIVE_FIXTURE_RERUN_NOT_PASSED",
+    "DURABLE_RESEARCH_TASK_QUEUE_NOT_WIRED",
+    "SOURCE_CACHE_REUSE_NOT_WIRED",
+    "WHOLE_RUN_DEADLINE_NOT_ENFORCED",
+    "FUTURE_P95_12_MINUTE_TARGET_NOT_PLAUSIBLE_FROM_MEASURED_FIXTURE"
+  ],
+  "v2BAuthorized": false,
+  "autonomousDiscoveryEnabled": false,
+  "publicationEnabled": false,
+  "governanceSubmissionEnabled": false
+}

@@ -1,0 +1,96 @@
+{
+  "generatedAt": "2026-09-05T23:41:45.035Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The History of the World Wide Web",
+      "context": {
+        "corpusId": "timelines-clean-2026-09-v1",
+        "topicId": "36d6d69aa3bce5d0e65dbf435da523a49bec3035f7c0cc7a96a678c9e793c297",
+        "runId": "f7e05763-35ed-4aca-b3c0-5e3258cb4609",
+        "generation": 1,
+        "createdAt": "2026-09-05T22:56:58.654Z"
+      },
+      "scopeContractId": "scope-c6d9b1b9a68bcb79460cb7d75152901a156d95fdd1023f1a03e24aee3cbf357e",
+      "researchMapId": "research-map-50b83052264bc8c5056647a511120d32d10deb81e94033db691772b36d1eefff",
+      "queryPlanId": "query-plan-254b63865af50293e10900e8ba2dd5377d3e6ce22662ec8fc9b0f2d83bd3f493",
+      "eventVersionIds": [],
+      "metrics": {
+        "totalExecutionMs": 884321,
+        "scopeContractModelCalls": 1,
+        "researchMapModelCalls": 2,
+        "queryPlanModelCalls": 1,
+        "groundingCalls": 5,
+        "providerReportedSearchQueries": 21,
+        "directRetrievalAttempts": 60,
+        "retrievalSuccesses": 54,
+        "retrievalFailures": 6,
+        "sourceDocumentsDiscovered": 75,
+        "sourceDocumentsSnapshotted": 54,
+        "cacheHits": 0,
+        "sourceClasses": [
+          "EDITED_REFERENCE",
+          "OTHER",
+          "PRIMARY_INSTITUTIONAL",
+          "WIKIPEDIA"
+        ],
+        "publisherIdentities": 37,
+        "claimsExtracted": 1,
+        "claimsSupported": 0,
+        "claimsRejected": 6,
+        "claimsRequiringReview": 0,
+        "conflictsDetected": 0,
+        "conflictsResolved": 0,
+        "conflictsUnresolved": 0,
+        "entityCandidates": 6,
+        "resolvedEntities": 6,
+        "eventCandidates": 0,
+        "resolvedCanonicalEventCandidates": 0,
+        "nonEventKnowledgeItems": 0,
+        "reusedExistingKnowledge": 0,
+        "newKnowledge": 7,
+        "modelRepairAttempts": 9,
+        "infrastructureRetries": 0,
+        "inputTokens": 60799,
+        "outputTokens": 108134,
+        "monetaryCost": null,
+        "monetaryCostMeasurement": "NOT_MEASURABLE",
+        "firestoreWrites": 5413,
+        "cloudStorageWrites": 16,
+        "finalV2AVerdict": "FAIL"
+      },
+      "blockingReasons": [
+        "NO_SUPPORTED_CLAIMS",
+        "NO_RESOLVED_EVENT_CANDIDATES"
+      ]
+    },
+    {
+      "title": "The Fall of the Berlin Wall",
+      "error": "V2_A_RUN_FAILED:e00f78c6-3196-407e-ae25-b3b80f9d8af2:[\n  {\n    \"code\": \"custom\",\n    \"message\": \"Invalid input\",\n    \"path\": [\n      \"identityEvidenceSegmentIds\"\n    ]\n  }\n]",
+      "metrics": {
+        "finalV2AVerdict": "FAIL"
+      }
+    },
+    {
+      "title": "The Apollo 11 Mission",
+      "error": "V2_A_RUN_FAILED:77bcb1e2-35d7-48e3-8397-2c8f0d527934:MODEL_SCHEMA_VALIDATION_EXHAUSTED:RESEARCH_MAP:[\n  {\n    \"code\": \"too_small\",\n    \"minimum\": 3,\n    \"type\": \"string\",\n    \"inclusive\": true,\n    \"exact\": false,\n    \"message\": \"String must contain at least 3 character(s)\",\n    \"path\": [\n      \"questions\",\n      0,\n      \"questionId\"\n    ]\n  },\n  {\n    \"code\": \"too_small\",\n    \"minimum\": 3,\n    \"type\": \"string\",\n    \"inclusive\": true,\n    \"exact\": false,\n    \"message\": \"String must contain at least 3 character(s)\",\n    \"path\": [\n      \"questions\",\n      1,\n      \"questionId\"\n    ]\n  },\n  {\n    \"code\": \"too_small\",\n    \"minimum\": 3,\n    \"type\": \"string\",\n    \"inclusive\": true,\n    \"exact\": false,\n    \"message\": \"String must contain at least 3 character(s)\",\n    \"path\": [\n      \"questions\",\n      2,\n      \"questionId\"\n    ]\n  },\n  {\n    \"code\": \"too_small\",\n    \"minimum\": 3,\n    \"type\": \"string\",\n    \"inclusive\": true,\n    \"exact\": false,\n    \"message\": \"String must contain at least 3 character(s)\",\n    \"path\": [\n      \"questions\",\n      3,\n      \"questionId\"\n    ]\n  },\n  {\n    \"received\": \"DESCRIPTION\",\n    \"code\": \"invalid_enum_value\",\n    \"options\": [\n      \"OCCURRENCE\",\n      \"DATE\",\n      \"IDENTITY\",\n      \"LOCATION\",\n      \"QUANTITY\",\n      \"INSTITUTIONAL_ACTION\",\n      \"RELATIONSHIP\",\n      \"ATTRIBUTION\",\n      \"QUOTATION\",\n      \"CAUSATION\",\n      \"INTERPRETATION\",\n      \"CONSEQUENCE\"\n    ],\n    \"path\": [\n      \"questions\",\n      3,\n      \"claimTypesExpected\",\n      0\n    ],\n    \"message\": \"Invalid enum value. Expected 'OCCURRENCE' | 'DATE' | 'IDENTITY' | 'LOCATION' | 'QUANTITY' | 'INSTITUTIONAL_ACTION' | 'RELATIONSHIP' | 'ATTRIBUTION' | 'QUOTATION' | 'CAUSATION' | 'INTERPRETATION' | 'CONSEQUENCE', received 'DESCRIPTION'\"\n  },\n  {\n    \"code\": \"too_small\",\n    \"minimum\": 3,\n    \"type\": \"string\",\n    \"inclusive\": true,\n    \"exact\": false,\n    \"message\": \"String must contain at least 3 character(s)\",\n    \"path\": [\n ",
+      "metrics": {
+        "finalV2AVerdict": "FAIL"
+      }
+    },
+    {
+      "title": "The Cuban Missile Crisis",
+      "error": "V2_A_RUN_FAILED:3539d04c-10ab-4422-a014-464cde2b5049:[\n  {\n    \"code\": \"custom\",\n    \"message\": \"Invalid input\",\n    \"path\": [\n      \"identityEvidenceSegmentIds\"\n    ]\n  }\n]",
+      "metrics": {
+        "finalV2AVerdict": "FAIL"
+      }
+    },
+    {
+      "title": "The Apollo 13 Mission",
+      "error": "V2_A_RUN_FAILED:fd0ecb9b-ab3a-4485-b5b3-a5bceb7d1091:MODEL_SCHEMA_VALIDATION_EXHAUSTED:RESEARCH_MAP:[\n  {\n    \"received\": \"FACTUAL\",\n    \"code\": \"invalid_enum_value\",\n    \"options\": [\n      \"OCCURRENCE\",\n      \"DATE\",\n      \"IDENTITY\",\n      \"LOCATION\",\n      \"QUANTITY\",\n      \"INSTITUTIONAL_ACTION\",\n      \"RELATIONSHIP\",\n      \"ATTRIBUTION\",\n      \"QUOTATION\",\n      \"CAUSATION\",\n      \"INTERPRETATION\",\n      \"CONSEQUENCE\"\n    ],\n    \"path\": [\n      \"questions\",\n      0,\n      \"claimTypesExpected\",\n      0\n    ],\n    \"message\": \"Invalid enum value. Expected 'OCCURRENCE' | 'DATE' | 'IDENTITY' | 'LOCATION' | 'QUANTITY' | 'INSTITUTIONAL_ACTION' | 'RELATIONSHIP' | 'ATTRIBUTION' | 'QUOTATION' | 'CAUSATION' | 'INTERPRETATION' | 'CONSEQUENCE', received 'FACTUAL'\"\n  },\n  {\n    \"received\": \"FACTUAL\",\n    \"code\": \"invalid_enum_value\",\n    \"options\": [\n      \"OCCURRENCE\",\n      \"DATE\",\n      \"IDENTITY\",\n      \"LOCATION\",\n      \"QUANTITY\",\n      \"INSTITUTIONAL_ACTION\",\n      \"RELATIONSHIP\",\n      \"ATTRIBUTION\",\n      \"QUOTATION\",\n      \"CAUSATION\",\n      \"INTERPRETATION\",\n      \"CONSEQUENCE\"\n    ],\n    \"path\": [\n      \"questions\",\n      1,\n      \"claimTypesExpected\",\n      0\n    ],\n    \"message\": \"Invalid enum value. Expected 'OCCURRENCE' | 'DATE' | 'IDENTITY' | 'LOCATION' | 'QUANTITY' | 'INSTITUTIONAL_ACTION' | 'RELATIONSHIP' | 'ATTRIBUTION' | 'QUOTATION' | 'CAUSATION' | 'INTERPRETATION' | 'CONSEQUENCE', received 'FACTUAL'\"\n  },\n  {\n    \"received\": \"CAUSAL\",\n    \"code\": \"invalid_enum_value\",\n    \"options\": [\n      \"OCCURRENCE\",\n      \"DATE\",\n      \"IDENTITY\",\n      \"LOCATION\",\n      \"QUANTITY\",\n      \"INSTITUTIONAL_ACTION\",\n      \"RELATIONSHIP\",\n      \"ATTRIBUTION\",\n      \"QUOTATION\",\n      \"CAUSATION\",\n      \"INTERPRETATION\",\n      \"CONSEQUENCE\"\n    ],\n    \"path\": [\n      \"questions\",\n      2,\n      \"claimTypesExpected\",\n      0\n    ],\n    \"message\": \"Invalid enum value. Expected 'OCCURRENCE' | 'DATE' | 'IDENTITY' | 'LOCATION' | ",
+      "metrics": {
+        "finalV2AVerdict": "FAIL"
+      }
+    }
+  ]
+}
