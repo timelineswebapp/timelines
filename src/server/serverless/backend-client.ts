@@ -12,7 +12,7 @@ function baseUrl() {
   return null;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T | null> {
+async function request<T>(path: string, init?: RequestInit, allowNotFound = false): Promise<T | null> {
   const base = baseUrl();
   if (!base) return null;
   const response = await fetch(`${base}${path}`, {
@@ -22,6 +22,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T | null> {
     cache: "no-store"
   });
   const payload = (await response.json()) as BackendEnvelope<T>;
+  if (allowNotFound && response.status === 404) return null;
   if (!response.ok || !payload.ok) {
     const error = payload.ok ? null : payload.error;
     throw new ApiError(response.status, error?.code || "SERVERLESS_BACKEND_ERROR", error?.message || "Serverless backend request failed.", error?.details);
@@ -40,7 +41,7 @@ export const serverlessBackendClient = {
     return request<T[]>(`/read-models?${query({ type, limit, offset })}`);
   },
   getReadModel<T>(type: string, input: { slug?: string; id?: number }) {
-    return request<T>(`/read-model?${query({ type, ...input })}`);
+    return request<T>(`/read-model?${query({ type, ...input })}`, undefined, true);
   },
   search<T>(searchQuery: string, limit: number, offset: number) {
     return request<T>(`/search?${query({ q: searchQuery, limit, offset })}`);
@@ -52,16 +53,16 @@ export const serverlessBackendClient = {
     return request<T[]>("/tags?limit=500");
   },
   getCategory<T>(slug: string) {
-    return request<T>(`/category?${query({ slug })}`);
+    return request<T>(`/category?${query({ slug })}`, undefined, true);
   },
   getTag<T>(slug: string) {
-    return request<T>(`/tag?${query({ slug })}`);
+    return request<T>(`/tag?${query({ slug })}`, undefined, true);
   },
   listSitemap<T>() {
     return request<T[]>("/sitemap");
   },
   getRelationships<T>(input: { authorityKey?: string; relationshipId?: string; limit?: number }) {
-    return request<T | T[]>(`/relationships?${query(input)}`);
+    return request<T | T[]>(`/relationships?${query(input)}`, undefined, Boolean(input.relationshipId));
   },
   getContinuity<T>(sourcePublishedSnapshotId: string) {
     return request<T>(`/continuity?${query({ sourcePublishedSnapshotId })}`);

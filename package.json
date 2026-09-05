@@ -51,6 +51,7 @@
     "corpus:reset:plan": "tsx scripts/activate-clean-corpus.ts",
     "corpus:reset:apply": "tsx scripts/activate-clean-corpus.ts --apply",
     "corpus:reset:verify": "tsx scripts/activate-clean-corpus.ts --verify",
+    "corpus:reset:certify": "tsx scripts/certify-content-reset.ts",
     "serverless:api:verify": "tsx scripts/verify-serverless-public-api.ts",
     "serverless:functions:test": "npm --prefix functions test",
     "serverless:functions:build": "npm --prefix functions run build"

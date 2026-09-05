@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { sampleTimelines } from "@/src/server/dev/sample-data";
+import { readFileSync } from "node:fs";
 import { fail, ok } from "@/src/server/api/responses";
 import type { SearchResult, TimelineDetail, TimelineSummary } from "@/src/lib/types";
 
@@ -57,6 +58,12 @@ test("public API success and failure envelopes remain stable", async () => {
     ok: false,
     error: { code: "NOT_FOUND", message: "Timeline not found." }
   });
+});
+
+test("serverless missing records resolve as null instead of a production 500", () => {
+  const client = readFileSync("src/server/serverless/backend-client.ts", "utf8");
+  assert.match(client, /allowNotFound && response\.status === 404/);
+  assert.match(client, /getReadModel[\s\S]*undefined, true/);
 });
 
 test("public search DTO retains its discriminated result union and numeric identities", () => {
