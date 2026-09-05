@@ -66,6 +66,21 @@ As of 2026-07-07, TiMELiNES has a certified institutional publication path from 
 
 This maturity note does not change authority ordering: Factory Production Memory remains separate from Historical Library Published Memory, Governance remains the sole authority boundary for approval and publication-readiness decisions, and Historical Library remains the authority owner for Published Memory.
 
+## Registered Institutional and Factory Authorities
+
+These repository authorities remain subordinate to the directly governing Knowledge canon for their domains:
+
+| Document | Authority role | Status |
+|---|---|---|
+| `docs/architecture/INSTITUTIONAL_ARCHITECTURE.md` | Tier-1 institutional ownership and publication flow | Locked |
+| `docs/architecture/PUBLICATION_CONSTITUTION.md` | Tier-1 historical publication boundary | Locked, reconciled by `TL-KF-V2-000` |
+| `docs/constitution/HISTORICAL_OBJECT_CONSTITUTION.md` | Tier-1 Historical Object doctrine | Locked |
+| `docs/constitution/HISTORICAL_LIBRARY_CONSTITUTION.md` | Tier-1 admission and Published Memory doctrine | Locked |
+| `docs/factory/FACTORY_CONSTITUTION.md` | Factory constitutional doctrine | Locked |
+| `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md` | Tier-2 Factory architecture beneath constitutions | Locked design authority |
+| `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md` | Tier-3 implementation/certification sequence | Locked execution roadmap |
+| `docs/factory/TL-KF-V2-000_AUTHORITY_RECONCILIATION.md` | Tier-3 reconciliation certificate and audit record | Certification record |
+
 ## Certification Ledger
 | Certification | Current Status | Notes |
 |---|---|---|
@@ -100,6 +115,10 @@ This maturity note does not change authority ordering: Factory Production Memory
 - `docs/architecture/DOMAIN_MODEL.md`
 - `docs/constitution/HISTORICAL_OBJECT_CONSTITUTION.md`
 - `docs/constitution/HISTORICAL_LIBRARY_CONSTITUTION.md`
+- `docs/factory/FACTORY_CONSTITUTION.md`
+- `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`
+- `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`
+- `docs/factory/TL-KF-V2-000_AUTHORITY_RECONCILIATION.md`
 
 ## Change Management
 Changes to this index must:

@@ -17,17 +17,17 @@ TiMELiNES is a Chronological Knowledge Platform. Publication exists to move appr
 The constitutional publication model is:
 
 ```text
-Factory -> Publication Package -> Historical Library -> Platform
+Factory -> Publication Package -> Governance -> Historical Library -> Published Memory -> Projection -> Platform
 ```
 
 ## Factory Doctrine
-Factory owns Production Memory and prepares Publication Packages.
+Factory owns Production Memory and prepares immutable candidate Publication Packages. Factory canonicalization does not create canonical historical authority.
 
 ## Historical Library Doctrine
-Historical Library owns Published Memory and admits Publication Packages into the permanent published collection.
+Governance approves or rejects candidate Publication Packages. Historical Library owns Published Memory and alone admits Governance-approved package authority into the permanent published collection.
 
 ## Publication Package Doctrine
-A Publication Package is the only constitutional handoff unit from Factory to Historical Library. It may contain Historical Objects, Milestones, Timeline Views, relationships, sources, source tier evidence, validation records, and audit references.
+A Publication Package is the constitutional transfer artifact from Factory through Governance to Historical Library. Its canonical-authority envelope may contain candidate Historical Objects, Milestones, Atomic Claims, relationships, sources, source-tier evidence, validation records, and audit references. A Timeline View Specification is carried only by immutable reference and hash as non-factual technical/editorial lineage for reproducible Projection.
 
 ## Feedback Package Doctrine
 Editorial amendments after Library admission return through:

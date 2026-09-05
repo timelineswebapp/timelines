@@ -128,6 +128,8 @@ Certified early runtime evidence:
 Boundary rule:
 Factory-generated records remain Factory Production Memory candidates until Governance approval and Historical Library admission. Factory does not approve Governance decisions, admit Historical Library records, own Published Memory, or own Platform read models. Governance approval requires source-grounded validated evidence, and package acceptance requires the `library_review` lifecycle state before `accepted`.
 
+Timeline View Specifications and membership edges are immutable Factory-owned technical/editorial lineage, not historical-fact authority. Published Memory preserves their exact approved references and hashes; Projection Engine may only materialize them after validating every referenced admitted authority version. Projection may not select Milestones, invent membership, reinterpret significance, or create authority.
+
 ## References
 - `AUTHORITY_INDEX.md`
 - `01_PRODUCT_CONSTITUTION_V2.md`

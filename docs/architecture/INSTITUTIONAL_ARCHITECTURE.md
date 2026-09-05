@@ -112,6 +112,8 @@ Factory never bypasses Governance.
 
 The Historical Publication Package is the constitutional transfer artifact between Factory and Governance.
 
+Factory prepares and submits its candidate form. Governance approval makes the immutable package eligible for Historical Library admission; Historical Library alone admits its approved historical records as canonical authority.
+
 It contains:
 
 * candidate Historical Objects;
@@ -121,6 +123,7 @@ It contains:
 * candidate Context;
 * candidate Sources;
 * validated Evidence references;
+* immutable Timeline View Specification references and hashes as non-factual technical/editorial lineage;
 * artifact lineage;
 * governance lineage;
 * publication lineage.
@@ -147,7 +150,7 @@ Editorial Intelligence remains excluded from Governance authority mapping except
 
 Governance owns editorial authority.
 
-Governance evaluates canonical historical knowledge.
+Governance evaluates Factory candidate historical knowledge and determines whether it is eligible for canonical admission. Canonical historical authority exists only after the Historical Library admits the approved package.
 
 Governance may:
 
@@ -207,8 +210,8 @@ Projection Engine owns deterministic transformation.
 
 Projection Engine derives:
 
-* Timeline Views;
-* Timeline Membership;
+* Timeline Views materialized from preserved approved view specifications;
+* Timeline Membership materialized from preserved approved view specifications;
 * Search Documents;
 * SEO Documents;
 * Platform Read Models;
@@ -219,6 +222,8 @@ Projection Engine creates presentation only.
 Projection Engine never creates authority.
 
 Projection Engine never modifies historical knowledge.
+
+Projection Engine never selects milestones, changes milestone identity or chronology, invents membership, interprets significance, creates historical relationships, or creates canonical authority.
 
 ⸻
 
@@ -291,7 +296,7 @@ In the current implementation, Milestones are persisted as Events.
 
 Timeline Views are derived.
 
-Timeline Membership is derived.
+Timeline View selection and membership are Factory-owned technical/editorial specification, not historical-fact authority. Their immutable references and hashes are preserved through approved package lineage so Projection can reproduce the exact view; Projection does not derive or invent those choices.
 
 ⸻
 
@@ -347,6 +352,8 @@ Law 5
 
 Published Memory contains only admitted canonical authority.
 
+It may preserve non-authoritative technical lineage references required to reproduce the approved Timeline View, provided those references cannot introduce historical facts or bypass admitted authority.
+
 ⸻
 
 Law 6
@@ -354,6 +361,8 @@ Law 6
 Projection derives presentation.
 
 Projection never derives authority.
+
+Projection materializes view selection only from an exact approved and preserved Timeline View Specification.
 
 ⸻
 

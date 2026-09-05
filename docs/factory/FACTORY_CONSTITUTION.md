@@ -16,7 +16,7 @@ TiMELiNES is a Chronological Knowledge Platform. The Factory exists to produce c
 ## Documentation Authority Hierarchy
 - Tier 1 Constitutional Authority: `FACTORY_CONSTITUTION.md`.
 - Tier 2 Architecture Authority: `FACTORY_ARCHITECTURE.md`, `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`, `FACTORY_ARTIFACT_MODEL.md`, `PUBLICATION_PIPELINE.md`, `RESEARCH_PIPELINE.md`, `VALIDATION_PIPELINE.md`.
-- Tier 3 Operational Authority: `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`, `FACTORY_LIFECYCLE.md`, `FACTORY_AUDIT_MODEL.md`, `FACTORY_ERROR_TAXONOMY.md`, `TOPIC_GENERATION.md`.
+- Tier 3 Operational Authority: `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`, `TL-KF-V2-000_AUTHORITY_RECONCILIATION.md`, `FACTORY_LIFECYCLE.md`, `FACTORY_AUDIT_MODEL.md`, `FACTORY_ERROR_TAXONOMY.md`, `TOPIC_GENERATION.md`.
 - Implementation Guidance: `IMPORT_BATCH_MODEL.md`.
 
 When Factory documents conflict, this constitution wins. Import batches, validation reports, and audit records are subordinate to Factory objects and Publication Packages.
@@ -39,8 +39,12 @@ Historical Objects provide context. They are not Timeline Views and they are not
 ## Milestone Doctrine
 A Milestone is the canonical chronological knowledge unit. Milestones carry chronology. Factory output must preserve Milestone identity and must not treat a Timeline View as the source of milestone truth.
 
+Within Factory Production Memory, resolved Historical Objects and Milestones—including records named Canonical Event Candidates in implementation—are canonicalized candidates only. Canonical historical authority begins only after Governance approval and Historical Library admission. `Event` is the implementation/persistence/public alias for Milestone chronology, not a second domain authority.
+
 ## Timeline View Doctrine
 A Timeline View is a curated narrative view built from Milestones and Historical Objects. Timeline Views provide narrative organization. They are not canonical knowledge containers.
+
+A Timeline View Specification and its Timeline Event Membership records are immutable Factory-owned technical/editorial artifacts. They define selection, order, phase/dimension placement, significance classification and rationale, and timeline-specific context. They are not historical-fact authority, but their exact references and hashes must be preserved so an approved public view is reproducible without Projection inventing editorial choices.
 
 ## Historical Library Doctrine
 The Historical Library is the permanent published collection of TiMELiNES. It owns Published Memory. Neon/PostgreSQL may serve as the published library target, but Published Memory is conceptually distinct from Factory Production Memory.
@@ -49,7 +53,7 @@ The Historical Library is the permanent published collection of TiMELiNES. It ow
 The Factory is the Chronological Knowledge Factory. It owns Production Memory. Production Memory includes Factory objects, evidence, research artifacts, validation records, Publication Packages, Feedback Packages, and audit history before or after publication.
 
 ## Publication Package Doctrine
-A Publication Package is the authorized handoff from Factory to Historical Library. It contains the Factory-approved representation of Historical Objects, Milestones, Timeline Views, relationships, sources, and validation evidence that may enter Published Memory.
+A Publication Package is Factory's immutable candidate handoff to Governance and, after Governance approval, the only package eligible for Historical Library admission. Its canonical-authority envelope contains candidate Historical Objects, Milestones, claims, relationships, sources, and validation evidence. Timeline View Specifications may be carried only as exact non-factual lineage references and hashes. Factory approval never creates canonical authority.
 
 ## Feedback Package Doctrine
 A Feedback Package is the authorized return path from Historical Library to Factory. Editorial amendments, corrections, disputes, or quality signals from Published Memory must be preserved as Feedback Packages so Factory Production Memory learns from published amendments.
@@ -58,8 +62,8 @@ A Feedback Package is the authorized return path from Historical Library to Fact
 Factory evidence is governed by Tiered Source Authority. Sources provide evidence; publishers provide evidence authority. Research and validation language must distinguish source material from publisher authority and must not treat all sources as equal.
 
 ## Core Separation of Concerns
-- Historical Objects: context.
-- Milestones: chronology.
+- Historical Objects: context after admission; canonicalized candidates before admission.
+- Milestones: chronology after admission; Canonical Event/Milestone Candidates before admission.
 - Timeline Views: narrative.
 - Sources: evidence.
 - Publishers: evidence authority.
@@ -77,7 +81,7 @@ Publication Candidate Pipeline completion, Governance handoff, Historical Librar
 Existing import, validation, chronology, relationship recovery, and audit concepts remain useful precedents but are not the Factory constitutional model.
 
 ## Future Architecture
-All Factory documents must align to this doctrine: Historical Objects -> Milestones -> Timeline Views, with Milestones as central relationship nodes and the publication flow Factory -> Publication Package -> Historical Library -> Platform.
+All Factory documents must align to this doctrine: Historical Objects -> Milestones -> Timeline Views, with Milestones as central relationship nodes and the publication flow Factory -> Publication Package -> Governance -> Historical Library -> Published Memory -> Projection -> Platform.
 
 The locked next-generation Factory methodology is defined by `EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`. It changes Factory sequencing and artifacts only. It does not move institutional authority, authorize implementation, or modify production runtime.
 
@@ -88,6 +92,7 @@ The dependency-ordered implementation and certification program is defined by `E
 - `docs/factory/FACTORY_ARCHITECTURE.md`
 - `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`
 - `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`
+- `docs/factory/TL-KF-V2-000_AUTHORITY_RECONCILIATION.md`
 - `docs/factory/PUBLICATION_PIPELINE.md`
 - `docs/factory/FACTORY_ARTIFACT_MODEL.md`
 - `docs/governance/PROVENANCE_POLICY.md`

@@ -30,8 +30,9 @@ Canonical data ownership:
 
 | Domain | Owner | Notes |
 |---|---|---|
-| Timeline Views | Chronology platform | Narrative projections over milestones. |
-| Milestones | Chronology authority | Canonical chronological knowledge units. |
+| Timeline Views | Chronology platform | Narrative organizations over admitted Milestones; factual content remains owned by admitted authority. |
+| Timeline View Specifications and Membership | Factory Editorial Intelligence | Immutable technical/editorial selection, ordering, placement, significance, rationale, and context lineage; not historical-fact authority. |
+| Milestones / admitted Event versions | Chronology authority after Historical Library admission | Canonical chronological knowledge units; `Event` is the implementation/persistence/public alias, not a second authority. |
 | Historical Objects | Historical Object Registry | Durable historical identity. |
 | Participation | Historical Authority | Meaning between objects and milestones. |
 | Sources | Evidence authority | Source links and credibility. |
@@ -73,6 +74,8 @@ Contributors:
 - Factory owns Production Memory.
 - Governance owns publication readiness, library review, and authority-bearing decisions.
 - Platform presents published read models derived from Historical Library Published Memory.
+- Factory canonicalized candidates remain Production Memory until Governance approval and Historical Library admission.
+- Projection materializes only admitted authority and exact approved Timeline View Specifications; it creates neither historical authority nor editorial membership.
 
 ## References
 - `AUTHORITY_INDEX.md`

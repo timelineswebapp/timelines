@@ -51,11 +51,14 @@ Contributors:
 - Chronology is the primary product structure.
 - Milestones are the canonical chronological knowledge unit.
 - Timeline Views provide narrative.
+- Timeline View selection and membership organize narrative; they do not create historical truth.
 - Historical Context enriches chronology.
 - Historical Objects provide context and remain secondary surfaces.
 - Participation provides historical meaning.
 - Search, discovery, graph, intelligence, and AI features must not dilute chronology-first identity.
 - Public experience must privilege understanding over browsing volume.
+
+Canonical authority boundary: Factory may resolve canonicalized candidate identities, but Historical Objects and Milestones become canonical historical authority only after Governance approval and Historical Library admission. `Event` may represent Milestone chronology in implementation and public DTOs without creating a second product concept.
 
 ## Product Locks
 - Timeline-first navigation is the default.

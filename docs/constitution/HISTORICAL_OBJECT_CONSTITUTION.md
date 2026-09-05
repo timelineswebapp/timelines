@@ -17,6 +17,8 @@ Historical Objects provide context for chronological knowledge. They establish t
 ## Historical Object Definition
 A Historical Object is a canonical historical entity that persists through time and participates in Milestones.
 
+This definition applies after Governance approval and Historical Library admission. A Factory Historical Object Candidate may have a resolved or canonicalized candidate identity, but it remains Production Memory and is not canonical historical authority before admission.
+
 ## Historical Object Role
 Historical Objects provide context. Participation provides historical meaning. Milestones provide chronology. Timeline Views provide narrative.
 

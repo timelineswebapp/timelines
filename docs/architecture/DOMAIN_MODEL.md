@@ -6,7 +6,7 @@ Status: LOCKED ARCHITECTURAL AUTHORITY
 Describes: Future Architecture
 
 ## Scope
-This document defines the official TiMELiNES domain model beneath the constitutional authorities. It governs the meaning and architectural boundaries of Historical Objects, Participation, Milestones, Timeline Views, Sources, Publishers, Production Memory, Published Memory, Publication Packages, Feedback Packages, and Platform responsibilities.
+This document defines the official TiMELiNES domain model beneath the constitutional authorities. It governs the meaning and architectural boundaries of Historical Objects, Participation, Milestones, Events, Timeline Views, Timeline View Specifications, Sources, Publishers, Production Memory, Published Memory, Publication Packages, Feedback Packages, and Platform responsibilities.
 
 ## Non-Scope
 This document does not define database schemas, APIs, migrations, storage models, search indexes, UI components, infrastructure, or implementation details.
@@ -81,6 +81,8 @@ Milestone authority:
 
 Milestones are central relationship nodes. Relationships exist to explain history.
 
+`Event` is the implementation, persistence, and public-DTO representation of Milestone chronology. A Canonical Event Candidate is a Factory-canonicalized candidate Milestone before admission; despite its implementation name, it is not canonical historical authority. After Governance approval and Historical Library admission, its admitted Event version represents the same domain authority as a Milestone. Event does not create a parallel domain authority, and this terminology decision requires no runtime rename.
+
 ## Timeline View Doctrine
 A Timeline View is a curated narrative view built from Milestones and Historical Objects.
 
@@ -91,6 +93,8 @@ Timeline View authority:
 - Consumes Historical Objects.
 - Consumes Participations.
 - Consumes Milestones.
+
+A Timeline View Specification is an immutable Factory-owned technical/editorial artifact that records selected candidate or admitted Milestone versions, ordering, phase/dimension placement, significance class and rationale, and timeline-specific context references. Timeline Event Membership is an edge within that specification. Neither is independent historical-fact authority. Governance verifies references and supported selection; approved package lineage and Published Memory preserve exact references and hashes so Projection can reproduce the view without choosing it.
 
 ## Source Doctrine
 Sources provide evidence. Sources support historical knowledge but do not create historical authority by themselves.
@@ -138,7 +142,7 @@ Published Memory:
 - Owner: Historical Library.
 - Contains published historical objects.
 - Contains published milestones.
-- Contains published timeline views.
+- Preserves admitted claims/evidence and exact approved Timeline View Specification references/hashes needed to reproduce published timeline views.
 - Contains published relationships.
 - Contains published sources.
 - Contains published publishers.
@@ -147,10 +151,10 @@ Published Memory:
 The publication model is:
 
 ```text
-Factory -> Publication Package -> Historical Library -> Platform
+Factory -> Publication Package -> Governance -> Historical Library -> Published Memory -> Projection -> Platform
 ```
 
-Factory produces. Historical Library preserves. Platform presents.
+Factory produces candidates and technical/editorial view specifications. Governance approves or rejects candidate packages. Historical Library alone admits canonical authority. Published Memory preserves admitted authority and exact approved view-specification lineage. Projection deterministically materializes read models. Platform presents.
 
 ## Feedback Model
 The feedback model is:
@@ -172,6 +176,8 @@ The Platform owns:
 
 The Platform presents knowledge. It does not create domain authority.
 
+Projection is likewise non-authoritative. It may transform and denormalize admitted authority, order it according to the exact approved Timeline View Specification, and generate public/search/sitemap/relationship read models. It may not select Milestones, change identity or dates, invent membership or relationships, reinterpret significance, or create canonical authority.
+
 ## Required Domain Diagrams
 Evidence authority chain:
 
@@ -188,7 +194,7 @@ Historical Object -> Participation -> Milestone -> Timeline View
 Memory and publication model:
 
 ```text
-Factory -> Publication Package -> Historical Library -> Platform
+Factory -> Publication Package -> Governance -> Historical Library -> Published Memory -> Projection -> Platform
 ```
 
 ## Architectural Principles
@@ -228,4 +234,4 @@ If this document conflicts with a constitutional authority, the constitutional a
 - Which source tiers are authoritative for Library admission?
 
 ## Future Evolution
-This document is locked as architectural authority. Future changes must preserve the domain order Historical Object -> Participation -> Milestone -> Timeline View and must preserve the memory separation Factory -> Publication Package -> Historical Library -> Platform.
+This document is locked as architectural authority. Future changes must preserve the domain order Historical Object -> Participation -> Milestone -> Timeline View and must preserve the authority flow Factory -> Publication Package -> Governance -> Historical Library -> Published Memory -> Projection -> Platform.

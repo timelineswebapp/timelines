@@ -72,6 +72,7 @@ When documentation conflicts, use this order:
 - Source: `docs/data/SOURCE_MODEL.md` owns current `sources` and `event_sources`; `docs/graph/SOURCE_REGISTRY.md` owns future source document registry; `docs/governance/SOURCE_CREDIBILITY_POLICY.md` owns credibility policy.
 - Milestone: `docs/data/MILESTONE_MODEL.md` owns current event-as-milestone data; `docs/graph/MILESTONE_REGISTRY.md` owns future canonical milestone registry.
 - Publication: `docs/governance/PUBLICATION_LIFECYCLE.md` owns publication states; `docs/factory/PUBLICATION_PIPELINE.md` owns future factory projection after approval.
+- Evidence-First Factory V2: `docs/factory/FACTORY_CONSTITUTION.md` remains Factory constitutional authority; `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md` is subordinate Tier-2 architecture; `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md` is subordinate Tier-3 execution order; `docs/factory/TL-KF-V2-000_AUTHORITY_RECONCILIATION.md` records reconciliation evidence and creates no higher authority.
 - Design: `docs/design/DESIGN_SYSTEM_CONSTITUTION.md` owns design principles; foundation/component/pattern docs own lower-level usage.
 
 ## Dependencies
@@ -82,6 +83,12 @@ When documentation conflicts, use this order:
 - `src/server/services/*`
 - `src/server/repositories/*`
 - Existing root authority documents.
+- `docs/architecture/INSTITUTIONAL_ARCHITECTURE.md`
+- `docs/architecture/PUBLICATION_CONSTITUTION.md`
+- `docs/constitution/HISTORICAL_LIBRARY_CONSTITUTION.md`
+- `docs/factory/FACTORY_CONSTITUTION.md`
+- `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2.md`
+- `docs/factory/EVIDENCE_FIRST_KNOWLEDGE_FACTORY_V2_ROADMAP.md`
 
 ## Open Questions
 - Which registry format becomes the future system of record: database tables, versioned files, or both?

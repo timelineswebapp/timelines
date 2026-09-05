@@ -19,8 +19,11 @@ The approved architecture is:
 ```text
 Factory
   -> Publication Package
-    -> Historical Library
-      -> Platform
+    -> Governance
+      -> Historical Library
+        -> Published Memory
+          -> Projection
+            -> Platform
 ```
 
 The amendment path is:
@@ -47,6 +50,10 @@ Historical Objects -> Milestones -> Timeline Views
 - Historical Objects provide context.
 - Milestones provide chronology and serve as central relationship nodes.
 - Timeline Views provide curated narrative.
+
+Factory-resolved Historical Objects and Milestones are canonicalized candidates until Governance approval and Historical Library admission. `Canonical Event` is permitted implementation terminology for the Milestone representation, not a parallel domain authority.
+
+Timeline View Specifications and Timeline Event Membership are immutable Factory-owned technical/editorial artifacts. Approved package lineage preserves their exact references and hashes for deterministic Projection, but neither the specification nor Projection owns historical facts, membership invention, significance interpretation, or canonical admission.
 
 ## Relationship Doctrine
 Relationships exist to explain history. Relationship architecture must center Milestones and must not treat Timeline Views as the canonical relationship container.

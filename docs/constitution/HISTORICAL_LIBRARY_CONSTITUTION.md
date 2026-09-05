@@ -23,24 +23,31 @@ Published Memory is the authoritative published memory of TiMELiNES.
 Published Memory may contain:
 - Published historical objects.
 - Published milestones.
-- Published timeline views.
+- Published Timeline Views reproduced from exact approved Timeline View Specification references and hashes.
 - Published relationships.
 - Published sources.
 - Published publishers.
 
 ## Admission Doctrine
-Published knowledge enters the Historical Library through Publication Packages.
+Governance-approved knowledge enters the Historical Library through Publication Packages.
 
-Factory proposes knowledge. Historical Library accepts knowledge.
+Factory proposes candidate knowledge. Governance approves or rejects it. Historical Library alone admits approved knowledge as canonical historical authority.
+
+Factory canonicalization resolves candidate identity; it does not perform canonical admission. A `canonicalized candidate`, including a Canonical Event Candidate, remains Factory Production Memory until Governance approval and Historical Library admission.
 
 ## Publication Doctrine
 The constitutional publication model is:
 
 ```text
-Factory -> Publication Package -> Historical Library -> Platform
+Factory -> Publication Package -> Governance -> Historical Library -> Published Memory -> Projection -> Platform
 ```
 
 The Historical Library preserves. The Platform presents.
+
+## Timeline View Preservation Doctrine
+Timeline View selection, ordering, phase/dimension placement, significance classification and rationale, and timeline-specific context are Factory-owned technical/editorial specification rather than independent historical-fact authority.
+
+Historical Library admission verifies that an approved Timeline View Specification references admitted Historical Objects, Milestones, claims, evidence, participations, and relationships. Published Memory preserves the exact specification reference and hash needed for deterministic reproduction. This preservation does not convert editorial metadata into canonical historical facts and does not authorize Projection to invent membership or significance.
 
 ## Editorial Authority
 Editorial authority belongs to the Historical Library after knowledge enters Published Memory.
@@ -99,8 +106,8 @@ Factory owns Production Memory. Historical Library owns Published Memory. Platfo
 - HL-LOCK-010: Historical Library is independent from Factory.
 - HL-LOCK-011: Historical Library is independent from Platform.
 - HL-LOCK-012: Platform consumes Published Memory.
-- HL-LOCK-013: Factory proposes knowledge.
-- HL-LOCK-014: Historical Library accepts knowledge.
+- HL-LOCK-013: Factory proposes candidate knowledge.
+- HL-LOCK-014: Historical Library alone admits Governance-approved knowledge as canonical authority.
 - HL-LOCK-015: Historical Library preserves.
 - HL-LOCK-016: Platform presents.
 
