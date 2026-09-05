@@ -1,6 +1,6 @@
 # TL-CONTENT-RESET-001 — Clean active corpus isolation
 
-Status: implementation validated; production activation pending
+Status: certified complete in production on 2026-09-05
 
 ## Decision
 
@@ -51,9 +51,9 @@ Autonomous discovery reads only active-corpus topic ledgers. An empty clean corp
 8. Redeploy the Next.js application to eliminate pre-reset static/ISR output.
 9. Certify public API and website reads contain no legacy projections, search results, sitemap entries, taxonomy, or legacy topic status.
 
-## Pre-activation evidence
+## Certification evidence
 
-- Root application tests: 244/244 passed.
+- Root application tests: 245/245 passed.
 - Serverless corpus and institutional contract tests: 7/7 passed.
 - Root and functions TypeScript checks: passed.
 - Root lint: passed.
@@ -61,5 +61,20 @@ Autonomous discovery reads only active-corpus topic ledgers. An empty clean corp
 - Target namespace inventory: empty.
 - Legacy collection inventory hash: `08bb46bb865a34911d93ca77143f8959bc09abdecfe6fdb8457653f621b85981`.
 - Plan report: `ops/migration-reports/TL-CONTENT-RESET-001-plan.json`.
-
-Production deployment and post-cutover evidence will be appended after activation.
+- Activation report: `ops/migration-reports/TL-CONTENT-RESET-001-apply.json`.
+- Independent activation verification: `ops/migration-reports/TL-CONTENT-RESET-001-verify.json`.
+- Production certification: `ops/migration-reports/TL-CONTENT-RESET-001-production-certification.json`.
+- Preserved legacy inventory: 158,783 documents across 31 root collections; all pre/post counts match the activation record.
+- Clean public inventory at certification: zero timelines, milestones, historical objects, relationships, search entries, sitemap entries, categories, and tags.
+- Production homepage: HTTP 200 with zero legacy timeline links.
+- Sampled legacy routes: 10 checked, all HTTP 404, zero exposed.
+- Public serverless API version: `serverless-public-api-v2-clean-corpus`.
+- Public function revision: `timelines-public-api-00006-tey`.
+- Generation revisions: `priority-topic-generation-00005-bid`, `autonomous-topic-generation-00005-naj`.
+- Institutional revision: `institutional-transitions-00005-vik`.
+- Discovery revision: `topic-discovery-00004-yeb`.
+- Vercel production deployment: `dpl_cRzWEckHX7NbsUHvFmGqfkZykmQV`, aliased to `https://www.timelines.sbs`.
+- Three Cloud Tasks queues are `RUNNING`; grounded discovery is `ENABLED` daily at 03:00 UTC.
+- Anonymous access: private functions and Firestore return 403; archive bucket listing returns 401; only the public API is anonymous.
+- Firestore remains Native mode in `nam5` with PITR and delete protection enabled.
+- Dependency audits have no high or critical findings. Remaining findings are moderate transitive dependencies or development-only tooling and require breaking upstream downgrades to auto-remediate.

@@ -1,6 +1,6 @@
 {
   "resetId": "TL-CONTENT-RESET-001",
-  "checkedAt": "2026-09-05T07:29:28.365Z",
+  "checkedAt": "2026-09-05T07:32:33.052Z",
   "projectId": "tiimeliines",
   "corpusId": "timelines-clean-2026-09-v1",
   "apiBaseUrl": "https://us-central1-tiimeliines.cloudfunctions.net/timelines-public-api",
