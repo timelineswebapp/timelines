@@ -158,7 +158,7 @@ if gcloud scheduler jobs describe topic-discovery-daily --location="${REGION}" -
   gcloud scheduler jobs update http topic-discovery-daily --location="${REGION}" --project="${PROJECT_ID}" \
     --schedule="0 3 * * *" --time-zone=UTC --uri="${DISCOVERY_URL}" --http-method=POST \
     --oidc-service-account-email="${SCHEDULER_SA}" --oidc-token-audience="${DISCOVERY_URL}" \
-    --headers="X-CloudScheduler=true,Content-Type=application/json" --message-body='{}' --quiet
+    --update-headers="X-CloudScheduler=true,Content-Type=application/json" --message-body='{}' --quiet
 else
   gcloud scheduler jobs create http topic-discovery-daily --location="${REGION}" --project="${PROJECT_ID}" \
     --schedule="0 3 * * *" --time-zone=UTC --uri="${DISCOVERY_URL}" --http-method=POST \

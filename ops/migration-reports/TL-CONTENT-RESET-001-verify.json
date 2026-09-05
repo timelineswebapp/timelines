@@ -1,0 +1,147 @@
+{
+  "resetId": "TL-CONTENT-RESET-001",
+  "mode": "verify",
+  "projectId": "tiimeliines",
+  "corpusId": "timelines-clean-2026-09-v1",
+  "publicIdBase": 4000000000,
+  "startedAt": "2026-09-05T07:21:24.696Z",
+  "completedAt": "2026-09-05T07:21:30.052Z",
+  "legacyInventoryBefore": {
+    "adminOperations": 180,
+    "auditEvents": 152477,
+    "categoryDocuments": 3,
+    "claimLinks": 59,
+    "corpusDocuments": 147,
+    "counters": 1,
+    "evidenceRecords": 530,
+    "evidenceValidations": 530,
+    "factoryArtifacts": 2049,
+    "factoryObjects": 265,
+    "factoryRuns": 60,
+    "failureRecords": 1,
+    "generationJobs": 671,
+    "governanceApprovals": 17,
+    "governanceAudits": 94,
+    "governanceDecisions": 17,
+    "governancePackages": 10,
+    "institutionalArchive": 199,
+    "libraryAdmissions": 10,
+    "operationalMetrics": 285,
+    "platformReadModelHistory": 204,
+    "platformReadModels": 98,
+    "publicationLifecycle": 10,
+    "publishedMemory": 81,
+    "rateLimits": 2,
+    "searchDocuments": 70,
+    "sitemapDocuments": 70,
+    "sourceRecords": 269,
+    "sourceSnapshots": 147,
+    "tagDocuments": 208,
+    "topicLedgers": 19
+  },
+  "legacyInventoryAfter": {
+    "adminOperations": 180,
+    "auditEvents": 152477,
+    "categoryDocuments": 3,
+    "claimLinks": 59,
+    "corpusDocuments": 147,
+    "counters": 1,
+    "evidenceRecords": 530,
+    "evidenceValidations": 530,
+    "factoryArtifacts": 2049,
+    "factoryObjects": 265,
+    "factoryRuns": 60,
+    "failureRecords": 1,
+    "generationJobs": 671,
+    "governanceApprovals": 17,
+    "governanceAudits": 94,
+    "governanceDecisions": 17,
+    "governancePackages": 10,
+    "institutionalArchive": 199,
+    "libraryAdmissions": 10,
+    "operationalMetrics": 285,
+    "platformReadModelHistory": 204,
+    "platformReadModels": 98,
+    "publicationLifecycle": 10,
+    "publishedMemory": 81,
+    "rateLimits": 2,
+    "searchDocuments": 70,
+    "sitemapDocuments": 70,
+    "sourceRecords": 269,
+    "sourceSnapshots": 147,
+    "tagDocuments": 208,
+    "topicLedgers": 19
+  },
+  "legacyInventoryHash": "08bb46bb865a34911d93ca77143f8959bc09abdecfe6fdb8457653f621b85981",
+  "activeInventoryBefore": {},
+  "activeInventoryAfter": {},
+  "stateBefore": {
+    "pointer": {
+      "activeCorpusId": "timelines-clean-2026-09-v1",
+      "activationId": "TL-CONTENT-RESET-001--timelines-clean-2026-09-v1",
+      "publicIdBase": 4000000000,
+      "activatedAt": {
+        "_seconds": 1788592868,
+        "_nanoseconds": 536000000
+      }
+    },
+    "registry": {
+      "corpusId": "timelines-clean-2026-09-v1",
+      "lifecycle": "ACTIVE",
+      "isolationPolicy": "NO_LEGACY_CONTENT_REUSE",
+      "pipelineEntry": "VERTEX_GOOGLE_SEARCH_GROUNDING",
+      "authorityChain": [
+        "EVIDENCE_PROVENANCE",
+        "FACTORY",
+        "GOVERNANCE",
+        "HISTORICAL_LIBRARY",
+        "PUBLISHED_MEMORY",
+        "PROJECTIONS"
+      ],
+      "storageRoot": "corpora/timelines-clean-2026-09-v1",
+      "publicIdBase": 4000000000,
+      "legacyRootDisposition": "PRESERVED_READ_ONLY_ROLLBACK_ARCHIVE",
+      "resetId": "TL-CONTENT-RESET-001",
+      "createdAt": {
+        "_seconds": 1788592868,
+        "_nanoseconds": 536000000
+      }
+    }
+  },
+  "stateAfter": {
+    "pointer": {
+      "activeCorpusId": "timelines-clean-2026-09-v1",
+      "activationId": "TL-CONTENT-RESET-001--timelines-clean-2026-09-v1",
+      "publicIdBase": 4000000000,
+      "activatedAt": {
+        "_seconds": 1788592868,
+        "_nanoseconds": 536000000
+      }
+    },
+    "registry": {
+      "corpusId": "timelines-clean-2026-09-v1",
+      "lifecycle": "ACTIVE",
+      "isolationPolicy": "NO_LEGACY_CONTENT_REUSE",
+      "pipelineEntry": "VERTEX_GOOGLE_SEARCH_GROUNDING",
+      "authorityChain": [
+        "EVIDENCE_PROVENANCE",
+        "FACTORY",
+        "GOVERNANCE",
+        "HISTORICAL_LIBRARY",
+        "PUBLISHED_MEMORY",
+        "PROJECTIONS"
+      ],
+      "storageRoot": "corpora/timelines-clean-2026-09-v1",
+      "publicIdBase": 4000000000,
+      "legacyRootDisposition": "PRESERVED_READ_ONLY_ROLLBACK_ARCHIVE",
+      "resetId": "TL-CONTENT-RESET-001",
+      "createdAt": {
+        "_seconds": 1788592868,
+        "_nanoseconds": 536000000
+      }
+    }
+  },
+  "legacyPreserved": true,
+  "targetWasEmpty": true,
+  "passed": true
+}
