@@ -36,6 +36,13 @@ async function api<T>(path: string): Promise<T> {
   return envelope.data;
 }
 
+async function siteApi<T>(path: string): Promise<T> {
+  const response = await fetch(`${SITE_URL}${path}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+  const envelope = await response.json() as { ok: boolean; data?: T };
+  if (!response.ok || !envelope.ok || envelope.data === undefined) throw new Error(`Production site API certification failed for ${path}: ${response.status}.`);
+  return envelope.data;
+}
+
 async function currentLegacyInventory() {
   const control = new Set(["corpora", "corpusRegistry", "corpusActivations", "runtimeConfiguration"]);
   const collections = (await db.listCollections()).map((entry) => entry.id).filter((name) => !control.has(name)).sort();
@@ -62,7 +69,7 @@ async function main() {
   const activeInventory = Object.fromEntries(await Promise.all(activeCollections.map(async (collection) => [collection.id, (await collection.count().get()).data().count] as const)));
   if (Object.values(activeInventory).some((count) => count !== 0)) throw new Error("Active corpus was not empty at initial public-read certification.");
 
-  const [health, timelines, milestones, objects, relationships, search, sitemap, categories, tags, homepage] = await Promise.all([
+  const [health, timelines, milestones, objects, relationships, search, sitemap, categories, tags, homepage, siteTimelines, siteSearch, siteHomepage, siteSitemap] = await Promise.all([
     api<{ activeCorpusId: string; isolationPolicy: string }>("/health"),
     api<unknown[]>("/read-models?type=timeline&limit=200"),
     api<unknown[]>("/read-models?type=milestone&limit=200"),
@@ -72,16 +79,26 @@ async function main() {
     api<unknown[]>("/sitemap"),
     api<unknown[]>("/categories"),
     api<unknown[]>("/tags"),
-    fetch(`${SITE_URL}/?reset-certification=${Date.now()}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) })
+    fetch(`${SITE_URL}/?reset-certification=${Date.now()}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) }),
+    siteApi<unknown[]>("/api/timelines?limit=50"),
+    siteApi<{ total: number; items: unknown[] }>("/api/search?q=pandemic&limit=50&offset=0"),
+    siteApi<{ items: unknown[] }>("/api/homepage/timelines?limit=24&offset=0"),
+    fetch(`${SITE_URL}/sitemap.xml?reset-certification=${Date.now()}`, { cache: "no-store", signal: AbortSignal.timeout(15_000) })
   ]);
   if (health.activeCorpusId !== corpusId || health.isolationPolicy !== "NO_LEGACY_CONTENT_REUSE") throw new Error("Public health corpus identity mismatch.");
   if ([timelines, milestones, objects, relationships, sitemap, categories, tags].some((items) => items.length !== 0) || search.total !== 0 || search.items.length !== 0) {
     throw new Error("A public endpoint exposed content during clean-corpus certification.");
   }
   if (!homepage.ok) throw new Error(`Production homepage failed with ${homepage.status}.`);
+  if (siteTimelines.length !== 0 || siteSearch.total !== 0 || siteSearch.items.length !== 0 || siteHomepage.items.length !== 0) {
+    throw new Error("A production Next.js API exposed content during clean-corpus certification.");
+  }
+  if (!siteSitemap.ok) throw new Error(`Production sitemap failed with ${siteSitemap.status}.`);
   const homepageHtml = await homepage.text();
+  const sitemapXml = await siteSitemap.text();
   const legacySlugs = legacyTimelines.docs.map((document) => String(document.data().slug || "")).filter(Boolean);
   if (legacySlugs.some((slug) => homepageHtml.includes(`/timeline/${slug}`))) throw new Error("Production homepage contains a legacy timeline route.");
+  if (legacySlugs.some((slug) => sitemapXml.includes(`/timeline/${slug}`))) throw new Error("Production sitemap contains a legacy timeline route.");
   const legacyRouteChecks = await Promise.all(legacySlugs.slice(0, 25).map(async (slug) => {
     const response = await fetch(`${SITE_URL}/timeline/${encodeURIComponent(slug)}`, { cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(15_000) });
     return { slug, status: response.status };
@@ -102,6 +119,7 @@ async function main() {
     legacyDocumentCount: Object.values(actualLegacyInventory).reduce((total, count) => total + count, 0),
     activeInventory,
     publicReadCounts: { timelines: timelines.length, milestones: milestones.length, objects: objects.length, relationships: relationships.length, search: search.total, sitemap: sitemap.length, categories: categories.length, tags: tags.length },
+    productionApiReadCounts: { timelines: siteTimelines.length, search: siteSearch.total, homepage: siteHomepage.items.length },
     homepage: { status: homepage.status, legacyRouteLinks: 0 },
     legacyRoutesChecked: legacyRouteChecks.length,
     legacyRoutesExposed: 0,

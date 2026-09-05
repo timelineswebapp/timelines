@@ -1,0 +1,35 @@
+{
+  "resetId": "TL-CONTENT-RESET-001",
+  "checkedAt": "2026-09-05T07:29:28.365Z",
+  "projectId": "tiimeliines",
+  "corpusId": "timelines-clean-2026-09-v1",
+  "apiBaseUrl": "https://us-central1-tiimeliines.cloudfunctions.net/timelines-public-api",
+  "siteUrl": "https://www.timelines.sbs",
+  "apiVersion": "serverless-public-api-v2-clean-corpus",
+  "legacyInventoryHash": "08bb46bb865a34911d93ca77143f8959bc09abdecfe6fdb8457653f621b85981",
+  "legacyCollectionCount": 31,
+  "legacyDocumentCount": 158783,
+  "activeInventory": {},
+  "publicReadCounts": {
+    "timelines": 0,
+    "milestones": 0,
+    "objects": 0,
+    "relationships": 0,
+    "search": 0,
+    "sitemap": 0,
+    "categories": 0,
+    "tags": 0
+  },
+  "productionApiReadCounts": {
+    "timelines": 0,
+    "search": 0,
+    "homepage": 0
+  },
+  "homepage": {
+    "status": 200,
+    "legacyRouteLinks": 0
+  },
+  "legacyRoutesChecked": 10,
+  "legacyRoutesExposed": 0,
+  "passed": true
+}
