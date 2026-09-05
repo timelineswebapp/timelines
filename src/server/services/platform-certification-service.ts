@@ -118,7 +118,7 @@ function failurePassed(evidence: Evidence, key: PlatformFailureInjectionKey): bo
       combined.includes("publishedMemoryProjectionRepository.listActiveProjections") && combined.includes("published_memory_projections")
     ) || (
       combined.includes("serverlessBackendClient.listReadModels") &&
-      combined.includes('db.collection("platformReadModels")') &&
+      combined.includes('corpusCollection("platformReadModels")') &&
       combined.includes('.where("lifecycle", "==", "active")')
     ),
     invalid_platform_read_model: combined.includes("PublishedReadModelSnapshot") && combined.includes("projectionToReadModel"),
@@ -135,7 +135,10 @@ function failurePassed(evidence: Evidence, key: PlatformFailureInjectionKey): bo
     orphan_search_entry: combined.includes("projection_type='search'") && combined.includes("published_snapshot_id"),
     broken_rendering: combined.includes("TimelineDetailView") && combined.includes("EventRow"),
     stale_projection: combined.includes("lifecycle='active'") && combined.includes("retired','merged"),
-    cache_inconsistency: combined.includes("revalidate = 3600") && combined.includes("listStaticSlugs"),
+    cache_inconsistency: (
+      combined.includes("revalidate = 3600") ||
+      (combined.includes('cache: "no-store"') && combined.includes('dynamic = "force-dynamic"'))
+    ) && combined.includes("listStaticSlugs"),
     missing_timeline: combined.includes("getTimelineBySlug") && combined.includes("notFound()"),
     missing_milestone: combined.includes("getMilestone") && combined.includes("buildMilestonePath"),
     missing_event: combined.includes("resolveTimelineShareEvent") && combined.includes("parseEventIdParam"),

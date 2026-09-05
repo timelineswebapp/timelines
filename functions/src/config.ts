@@ -3,10 +3,11 @@ export const COMPUTE_REGION = process.env.FUNCTION_REGION || "us-central1";
 export const VERTEX_LOCATION = process.env.VERTEX_LOCATION || "global";
 export const VERTEX_MODEL = process.env.VERTEX_MODEL || "gemini-2.5-flash";
 export const FIRESTORE_DATABASE = "(default)";
-export const PIPELINE_VERSION = "serverless-pipeline-v2-clean-corpus";
-export const PROMPT_VERSION = "historical-research-v2";
+export const PIPELINE_VERSION = "serverless-pipeline-v3-timeline-quality";
+export const PROMPT_VERSION = "historical-research-v3-quality-plan";
 export const SCHEMA_VERSION = "generated-timeline-v2";
-export const GOVERNANCE_POLICY_VERSION = "routine-governance-v1";
+export const QUALITY_POLICY_VERSION = "timeline-quality-v1";
+export const GOVERNANCE_POLICY_VERSION = "routine-governance-v2-quality";
 export const PUBLIC_API_VERSION = "serverless-public-api-v2-clean-corpus";
 
 const activeCorpusId = process.env.ACTIVE_CORPUS_ID || "";

@@ -106,7 +106,9 @@ test("serverless implementation retains institutional separation and bounded exe
   }
   assert.match(vertex, /tools: \[\{ googleSearch: \{\} \}\]/);
   assert.match(vertex, /responseJsonSchema/);
-  assert.match(vertex, /generatedTimelineSchema\.parse/);
+  assert.match(vertex, /normalizeGeneratedTimeline/);
+  assert.match(vertex, /timelineEditorialPlanSchema\.parse/);
+  assert.match(pipeline, /qualityArtifactRef/);
   assert.match(ledger, /runTransaction/);
   assert.match(config, /priority-topic-generation/);
   assert.match(config, /autonomous-topic-generation/);
@@ -115,6 +117,10 @@ test("serverless implementation retains institutional separation and bounded exe
   assert.match(pipeline, /enqueueInstitutionalTask/);
   assert.match(ledger, /retryDeferredEnqueues/);
   assert.match(ledger, /limit\(boundedLimit\)/);
+  assert.match(ledger, /origin: "user"/);
+  assert.match(ledger, /priority: 1000/);
+  assert.match(ledger, /enqueueGenerationTask\(result\.task, true\)/);
+  assert.match(ledger, /data\.origin !== "autonomous"/);
   assert.match(publicApi, /input\.requestType === "timeline_request"/);
   assert.match(publicApi, /captureVisitorRequest/);
   assert.match(publicApi, /\.offset\(offset\)\s*\.limit\(limit\)/);

@@ -118,6 +118,82 @@ export const generatedTimelineSchema = z.object({
   }
 });
 
+const nullableBoundaryYear = z.number().int().min(-10000).max(3000).nullable();
+
+export const timelineScopePlanSchema = z.object({
+  topic: boundedText(3, 160),
+  scopeSummary: boundedText(40, 1600),
+  topicType: z.enum(["closed_episode", "ongoing_subject", "biography", "institution", "long_duration"]),
+  startBoundary: boundedText(1, 160),
+  startYear: nullableBoundaryYear,
+  endBoundary: boundedText(1, 160),
+  endYear: nullableBoundaryYear,
+  isOngoing: z.boolean(),
+  granularity: z.enum(["overview", "standard", "detailed"]).default("standard"),
+  majorEras: z.array(z.object({
+    eraId: boundedText(2, 80),
+    label: boundedText(3, 160),
+    startYear: nullableBoundaryYear,
+    endYear: nullableBoundaryYear,
+    rationale: boundedText(20, 600)
+  })).min(2).max(16),
+  majorDimensions: z.array(z.object({
+    dimensionId: boundedText(2, 80),
+    label: boundedText(3, 120),
+    rationale: boundedText(20, 500)
+  })).min(2).max(16),
+  selectionPrinciples: z.array(boundedText(10, 400)).min(2).max(12),
+  knownCoverageRisks: z.array(boundedText(10, 500)).max(12)
+});
+
+export const timelineCandidateSchema = z.object({
+  candidateId: boundedText(1, 100),
+  title: boundedText(3, 240),
+  date: boundedText(1, 100),
+  sortYear: z.number().int().min(-10000).max(3000),
+  eraIds: z.array(boundedText(2, 80)).min(1).max(4),
+  dimensionIds: z.array(boundedText(2, 80)).min(1).max(8),
+  significance: z.object({
+    consequence: z.number().int().min(1).max(5),
+    structuralChange: z.number().int().min(1).max(5),
+    innovation: z.number().int().min(1).max(5),
+    adoption: z.number().int().min(1).max(5),
+    institutionalImportance: z.number().int().min(1).max(5),
+    socialImpact: z.number().int().min(1).max(5),
+    persistence: z.number().int().min(1).max(5)
+  }),
+  significanceRationale: boundedText(20, 800),
+  sourceRefs: z.array(boundedText(3, 100)).min(1).max(50),
+  evidenceRefs: z.array(boundedText(3, 100)).min(1).max(50),
+  selected: z.boolean(),
+  rejectionReason: z.string().trim().min(10).max(600).nullable()
+}).superRefine((candidate, context) => {
+  if (candidate.selected && candidate.rejectionReason !== null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Selected candidates cannot have a rejection reason." });
+  }
+  if (!candidate.selected && candidate.rejectionReason === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["rejectionReason"], message: "Rejected candidates require a reason." });
+  }
+});
+
+export const timelineEditorialPlanSchema = z.object({
+  scope: timelineScopePlanSchema,
+  candidates: z.array(timelineCandidateSchema).min(6).max(60),
+  redundancyReview: z.array(z.object({
+    candidateIds: z.array(boundedText(1, 100)).min(2).max(12),
+    resolution: z.enum(["distinct", "merged", "excluded", "excessive_unresolved"]),
+    rationale: boundedText(20, 800)
+  })).max(20),
+  omissionReview: z.array(z.object({
+    development: boundedText(3, 300),
+    significance: boundedText(10, 600),
+    resolution: z.enum(["represented", "grounded_candidate_added", "not_applicable", "unresolved"]),
+    candidateId: z.string().trim().min(1).max(100).nullable(),
+    evidenceRefs: z.array(boundedText(3, 100)).max(50),
+    rationale: boundedText(10, 800)
+  })).max(20)
+});
+
 export const discoverySchema = z.object({
   candidates: z.array(z.object({
     title: boundedText(3, 120),
@@ -129,5 +205,8 @@ export const discoverySchema = z.object({
 export type TopicRequestInput = z.infer<typeof topicRequestSchema>;
 export type TaskPayload = z.infer<typeof taskPayloadSchema>;
 export type GeneratedTimeline = z.infer<typeof generatedTimelineSchema>;
+export type TimelineScopePlan = z.infer<typeof timelineScopePlanSchema>;
+export type TimelineEditorialPlan = z.infer<typeof timelineEditorialPlanSchema>;
+export type TimelineCandidate = z.infer<typeof timelineCandidateSchema>;
 export type SourceCandidate = z.infer<typeof sourceCandidateSchema>;
 export type GroundedEvidenceSegment = z.infer<typeof groundedEvidenceSegmentSchema>;

@@ -2,19 +2,22 @@ import { randomUUID } from "node:crypto";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { db } from "./firestore";
 import {
+  ACTIVE_CORPUS_ID,
   PUBLIC_ID_BASE,
   GOVERNANCE_POLICY_VERSION,
   LEASE_DURATION_MS,
   MAX_TOPIC_ATTEMPTS,
   PIPELINE_VERSION,
+  QUALITY_POLICY_VERSION,
   SCHEMA_VERSION
 } from "./config";
-import { corpusCollection, corpusRecord, requireTaskCorpus, type CorpusCollectionName } from "./corpus";
+import { assertActiveCorpus, corpusCollection, corpusRecord, requireTaskCorpus, type CorpusCollectionName } from "./corpus";
 import { hashValue, slugifyTopic } from "./normalization";
 import type { GeneratedTimeline, SourceCandidate, TaskPayload } from "./schemas";
 import { generatedTimelineSchema, sourceCandidateSchema } from "./schemas";
 import { enqueueInstitutionalTask } from "./tasks";
-import { generateStructuredTimeline, researchTopic, type GenerationResult, type ResearchResult } from "./vertex";
+import { assessEditorialPlan, assessTimelineQuality, type TimelineQualityAssessment } from "./quality";
+import { generateEditorialPlan, generateStructuredTimeline, researchTopic, type EditorialPlanResult, type GenerationResult, type ResearchResult } from "./vertex";
 
 type LeaseResult = { acquired: true; displayTitle: string; normalizedTitle: string; attemptCount: number } | { acquired: false; reason: string };
 
@@ -291,7 +294,61 @@ async function persistFactoryCandidate(payload: TaskPayload, research: ResearchR
   return { timelineObjectId, timeline };
 }
 
-function evaluateRoutinePolicy(timeline: GeneratedTimeline, sources: SourceCandidate[]) {
+async function persistQualityArtifact(
+  payload: TaskPayload,
+  planResult: EditorialPlanResult,
+  assessment: TimelineQualityAssessment,
+  timelineObjectId: string
+) {
+  const qualityArtifactId = authorityId(payload.jobId, "timeline-quality", QUALITY_POLICY_VERSION);
+  const payloadValue = {
+    scopeAssessment: planResult.plan.scope,
+    temporalBoundaries: {
+      startBoundary: planResult.plan.scope.startBoundary,
+      startYear: planResult.plan.scope.startYear,
+      endBoundary: planResult.plan.scope.endBoundary,
+      endYear: planResult.plan.scope.endYear,
+      isOngoing: planResult.plan.scope.isOngoing
+    },
+    eraMap: planResult.plan.scope.majorEras,
+    candidateEventInventory: planResult.plan.candidates,
+    selectedCandidateIds: planResult.plan.candidates.filter((candidate) => candidate.selected).map((candidate) => candidate.candidateId),
+    rejectedCandidates: planResult.plan.candidates.filter((candidate) => !candidate.selected).map((candidate) => ({ candidateId: candidate.candidateId, reason: candidate.rejectionReason })),
+    coverageAssessment: { eraDistribution: assessment.eraDistribution, eventDistribution: assessment.eventDistribution, checks: { eraCoverage: assessment.checks.eraCoverage, temporalBalance: assessment.checks.temporalBalance, endpointCoverage: assessment.checks.endpointCoverage } },
+    redundancyAssessment: { review: planResult.plan.redundancyReview, result: assessment.checks.redundancy },
+    omissionAssessment: { review: planResult.plan.omissionReview, result: assessment.checks.omissions },
+    finalQualityVerdict: assessment.verdict,
+    unresolvedReasons: assessment.unresolvedReasons,
+    qualityPolicyVersion: assessment.policyVersion
+  };
+  await createIfAbsent("qualityArtifacts", qualityArtifactId, {
+    qualityArtifactId,
+    runId: payload.jobId,
+    topicId: payload.topicId,
+    objectRef: timelineObjectId,
+    artifactType: "timeline_quality_assessment",
+    payload: payloadValue,
+    payloadHash: hashValue(stableJson(payloadValue)),
+    modelProvenance: planResult.execution,
+    immutable: true,
+    createdAt: Timestamp.now()
+  });
+  await createIfAbsent("factoryArtifacts", authorityId(payload.jobId, "timeline-quality-artifact"), {
+    artifactId: authorityId(payload.jobId, "timeline-quality-artifact"),
+    runId: payload.jobId,
+    topicId: payload.topicId,
+    artifactType: "timeline_quality_assessment",
+    objectRef: timelineObjectId,
+    qualityArtifactRef: qualityArtifactId,
+    policyVersion: QUALITY_POLICY_VERSION,
+    contentHash: hashValue(stableJson(payloadValue)),
+    immutable: true,
+    createdAt: Timestamp.now()
+  });
+  return qualityArtifactId;
+}
+
+export function evaluateRoutinePolicy(timeline: GeneratedTimeline, sources: SourceCandidate[], quality: TimelineQualityAssessment) {
   const sourceIds = new Set(sources.map((source) => source.sourceId));
   const reasons: string[] = [];
   if (sources.length < 2) reasons.push("fewer_than_two_grounded_sources");
@@ -300,15 +357,16 @@ function evaluateRoutinePolicy(timeline: GeneratedTimeline, sources: SourceCandi
   if (new Set(timeline.events.map((event) => `${event.sortYear}:${event.sortMonth}:${event.sortDay}:${event.title.toLocaleLowerCase("en-US")}`)).size !== timeline.events.length) {
     reasons.push("duplicate_milestone_signature");
   }
+  if (quality.verdict !== "passed") reasons.push(...quality.unresolvedReasons.map((reason) => `timeline_quality:${reason}`));
   return reasons.length === 0
     ? { outcome: "routine" as const, reasons: ["Validated evidence, source diversity, chronology, and duplicate gates passed."] }
     : { outcome: "exceptional" as const, reasons };
 }
 
-async function createGovernancePackage(payload: TaskPayload, timelineObjectId: string, timeline: GeneratedTimeline, sources: SourceCandidate[]) {
+async function createGovernancePackage(payload: TaskPayload, timelineObjectId: string, timeline: GeneratedTimeline, sources: SourceCandidate[], quality: TimelineQualityAssessment, qualityArtifactId: string) {
   const packageId = deterministicUuid(payload.jobId, "governance-package", GOVERNANCE_POLICY_VERSION);
   const queueId = authorityId(packageId, "publication-readiness-queue");
-  const policy = evaluateRoutinePolicy(timeline, sources);
+  const policy = evaluateRoutinePolicy(timeline, sources, quality);
   const now = Timestamp.now();
   await db.runTransaction(async (transaction) => {
     const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
@@ -324,6 +382,9 @@ async function createGovernancePackage(payload: TaskPayload, timelineObjectId: s
         jobId: payload.jobId,
         generation: payload.generation,
         factoryObjectRefs: [timelineObjectId],
+        qualityArtifactRef: qualityArtifactId,
+        qualityPolicyVersion: quality.policyVersion,
+        qualityVerdict: quality.verdict,
         evidenceQuery: { topicId: payload.topicId, validationResult: "PASSED" },
         policyVersion: GOVERNANCE_POLICY_VERSION,
         policyEvaluation: policy,
@@ -362,11 +423,44 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
   try {
     const research = await researchTopic(lease.displayTitle);
     await persistResearch(payload, research);
+    await setStage(payload, "editorial_scope_planning");
+    let planResult = await generateEditorialPlan(lease.displayTitle, research);
+    let planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
+    for (let planRepair = 1; planReasons.length > 0 && planRepair <= 2; planRepair += 1) {
+      await setStage(payload, `editorial_plan_repair_${planRepair}`);
+      planResult = await generateEditorialPlan(lease.displayTitle, research, planReasons.join("\n"));
+      planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
+    }
     await setStage(payload, "editorial_intelligence");
-    const generation = await generateStructuredTimeline(lease.displayTitle, research);
+    let generation = await generateStructuredTimeline(lease.displayTitle, research, planResult.plan);
+    let assessment = assessTimelineQuality({
+      plan: planResult.plan,
+      timeline: generation.timeline,
+      allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)),
+      allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef))
+    });
+    for (let editorialRepair = 1; assessment.verdict === "failed" && editorialRepair <= 2; editorialRepair += 1) {
+      await setStage(payload, `editorial_quality_repair_${editorialRepair}`);
+      planResult = await generateEditorialPlan(lease.displayTitle, research, assessment.unresolvedReasons.join("\n"));
+      generation = await generateStructuredTimeline(lease.displayTitle, research, planResult.plan);
+      assessment = assessTimelineQuality({
+        plan: planResult.plan,
+        timeline: generation.timeline,
+        allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)),
+        allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef))
+      });
+    }
     const candidate = await persistFactoryCandidate(payload, research, generation);
+    await setStage(payload, "quality_validation");
+    assessment = assessTimelineQuality({
+      plan: planResult.plan,
+      timeline: candidate.timeline,
+      allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)),
+      allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef))
+    });
+    const qualityArtifactId = await persistQualityArtifact(payload, planResult, assessment, candidate.timelineObjectId);
     await setStage(payload, "governance_handoff");
-    const governance = await createGovernancePackage(payload, candidate.timelineObjectId, candidate.timeline, research.sources);
+    const governance = await createGovernancePackage(payload, candidate.timelineObjectId, candidate.timeline, research.sources, assessment, qualityArtifactId);
     if (governance.policy.outcome === "routine") {
       await enqueueInstitutionalTask({ ...payload, packageId: governance.packageId, decision: "routine" });
       return { status: "GOVERNANCE_QUEUED", packageId: governance.packageId };
@@ -376,6 +470,85 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
     await recordFailure(payload, error);
     throw error;
   }
+}
+
+export async function executeNonPublicQualityFixture(displayTitle: string, fixtureClass: string, requestedJobId = randomUUID()) {
+  await assertActiveCorpus();
+  const jobId = requestedJobId;
+  const topicId = authorityId("quality-fixture", displayTitle.toLocaleLowerCase("en-US"));
+  const payload: TaskPayload = { corpusId: ACTIVE_CORPUS_ID, topicId, jobId, generation: 1, origin: "founder" };
+  const research = await researchTopic(displayTitle);
+  await persistResearch(payload, research);
+  let planResult = await generateEditorialPlan(displayTitle, research);
+  let planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
+  for (let planRepair = 1; planReasons.length > 0 && planRepair <= 2; planRepair += 1) {
+    planResult = await generateEditorialPlan(displayTitle, research, planReasons.join("\n"));
+    planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
+  }
+  let generation = await generateStructuredTimeline(displayTitle, research, planResult.plan);
+  let assessment = assessTimelineQuality({ plan: planResult.plan, timeline: generation.timeline, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
+  for (let editorialRepair = 1; assessment.verdict === "failed" && editorialRepair <= 2; editorialRepair += 1) {
+    planResult = await generateEditorialPlan(displayTitle, research, assessment.unresolvedReasons.join("\n"));
+    generation = await generateStructuredTimeline(displayTitle, research, planResult.plan);
+    assessment = assessTimelineQuality({ plan: planResult.plan, timeline: generation.timeline, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
+  }
+  const candidate = await persistFactoryCandidate(payload, research, generation);
+  assessment = assessTimelineQuality({
+    plan: planResult.plan,
+    timeline: candidate.timeline,
+    allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)),
+    allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef))
+  });
+  const qualityArtifactId = await persistQualityArtifact(payload, planResult, assessment, candidate.timelineObjectId);
+  const governancePreview = evaluateRoutinePolicy(candidate.timeline, research.sources, assessment);
+  await corpusCollection("factoryRuns").doc(jobId).update({
+    state: assessment.verdict === "passed" ? "QUALITY_FIXTURE_PASSED" : "QUALITY_FIXTURE_FAILED",
+    fixtureClass,
+    publicationEligible: false,
+    qualityArtifactId,
+    governancePreview,
+    completedAt: Timestamp.now()
+  });
+  await createIfAbsent("factoryArtifacts", authorityId(jobId, "non-public-certification"), {
+    artifactId: authorityId(jobId, "non-public-certification"),
+    runId: jobId,
+    topicId,
+    artifactType: "non_public_quality_fixture",
+    fixtureClass,
+    publicationEligible: false,
+    objectRef: candidate.timelineObjectId,
+    qualityArtifactRef: qualityArtifactId,
+    governancePreview,
+    immutable: true,
+    createdAt: Timestamp.now()
+  });
+  return {
+    jobId,
+    topicId,
+    timelineObjectId: candidate.timelineObjectId,
+    qualityArtifactId,
+    fixtureClass,
+    eventCount: candidate.timeline.events.length,
+    firstYear: candidate.timeline.events[0]?.sortYear,
+    lastYear: candidate.timeline.events.at(-1)?.sortYear,
+    verdict: assessment.verdict,
+    reasons: assessment.unresolvedReasons,
+    governanceOutcome: governancePreview.outcome,
+    publicationEligible: false
+  };
+}
+
+export async function recordNonPublicQualityFixtureFailure(jobId: string, fixtureClass: string, error: unknown) {
+  const ref = corpusCollection("factoryRuns").doc(jobId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) return;
+  await ref.update({
+    state: "QUALITY_FIXTURE_FAILED",
+    fixtureClass,
+    publicationEligible: false,
+    lastError: (error instanceof Error ? error.message : String(error)).slice(0, 2000),
+    completedAt: Timestamp.now()
+  });
 }
 
 async function recordFailure(payload: TaskPayload, error: unknown) {

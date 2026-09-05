@@ -13,6 +13,7 @@ export const CORPUS_COLLECTIONS = [
   "evidenceRecords",
   "evidenceValidations",
   "factoryArtifacts",
+  "qualityArtifacts",
   "factoryObjects",
   "factoryRuns",
   "failureRecords",
