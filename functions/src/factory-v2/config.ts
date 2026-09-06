@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { db } from "../firestore";
-import { V2_POLICY_VERSION, V2_PROMPT_VERSION, V2_SCHEMA_VERSION, researchBudgetSchema } from "./contracts";
+import { V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_PIPELINE_VERSION, V2_POLICY_VERSION, V2_PROMPT_VERSION, researchBudgetSchema } from "./contracts";
 
 export const factoryV2ConfigSchema = z.object({
   operatingMode: z.enum(["OFF", "SHADOW"]),
   killSwitch: z.boolean(),
-  pipelineVersion: z.literal("factory-v2-a.12"),
-  artifactPolicyBundle: z.object({ schemaVersion: z.literal(V2_SCHEMA_VERSION), policyVersion: z.literal(V2_POLICY_VERSION), promptVersion: z.literal(V2_PROMPT_VERSION) }).strict(),
+  pipelineVersion: z.literal(V2_PIPELINE_VERSION),
+  artifactPolicyBundle: z.object({ schemaVersion: z.literal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION), policyVersion: z.literal(V2_POLICY_VERSION), promptVersion: z.literal(V2_PROMPT_VERSION) }).strict(),
   budgetBundle: researchBudgetSchema,
   autonomousDiscoveryEnabled: z.literal(false),
   publicationEnabled: z.literal(false),
@@ -28,7 +28,7 @@ export const DEFAULT_V2_BUDGET: FactoryV2Config["budgetBundle"] = {
 };
 
 export function shadowConfig(updatedAt = new Date().toISOString()): FactoryV2Config {
-  return factoryV2ConfigSchema.parse({ operatingMode: "SHADOW", killSwitch: false, pipelineVersion: "factory-v2-a.12", artifactPolicyBundle: { schemaVersion: V2_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION }, budgetBundle: DEFAULT_V2_BUDGET, autonomousDiscoveryEnabled: false, publicationEnabled: false, governanceSubmissionEnabled: false, updatedAt });
+  return factoryV2ConfigSchema.parse({ operatingMode: "SHADOW", killSwitch: false, pipelineVersion: V2_PIPELINE_VERSION, artifactPolicyBundle: { schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION }, budgetBundle: DEFAULT_V2_BUDGET, autonomousDiscoveryEnabled: false, publicationEnabled: false, governanceSubmissionEnabled: false, updatedAt });
 }
 
 export async function loadFactoryV2Config(): Promise<FactoryV2Config> {

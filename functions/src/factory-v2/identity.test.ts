@@ -54,11 +54,11 @@ test("provisional publisher bootstrap ignores caller topic policy provenance", (
   assert.deepEqual(second, first);
 });
 
-test("completion result identity excludes run and telemetry while exact replay remains hash-valid", () => {
-  const payload = { completionPlanId: "completion-plan", initialCoverageAuditId: "audit-initial", finalCoverageAuditId: "audit-final", acquisitionRunId: "acquisition-run", originalKnowledgeRunId: "source-run", newClaimVersionIds: [], newEventVersionIds: [], reusedEventVersionIds: [], unresolvedGapIds: [], budgetConsumed: { rounds: 1 as const, groundingCalls: 1, providerQueries: 2, sourceDocuments: 1, claimExtractions: 1, atomicClaims: 1, writes: 7 }, timings: { initialKnowledgeReuseMs: 1, coverageAuditMs: 2, gapAcquisitionMs: 3, reAuditMs: 4 }, finalVerdict: "SUFFICIENT" as const };
+test("completed knowledge-set identity excludes execution and normalizes set-like membership", () => {
+  const payload = { completionPlanId: "completion-plan", initialCoverageAuditId: "audit-initial", initialCoverageAuditPayloadHash: "a".repeat(64), finalCoverageAuditId: "audit-final", finalCoverageAuditPayloadHash: "b".repeat(64), scopeContractId: "scope-contract", scopePayloadHash: "c".repeat(64), researchMapId: "research-map", researchMapPayloadHash: "d".repeat(64), candidateEventVersionIds: ["event-version-b", "event-version-a"], candidateClaimVersionIds: ["claim-version-b", "claim-version-a"], authorityVerdictIds: ["verdict-b", "verdict-a"], conflictSetIds: [], unresolvedGapIds: [], finalVerdict: "SUFFICIENT" as const };
   const first = buildKnowledgeCompletionResult(TEST_CONTEXT, payload);
   assert.equal(buildKnowledgeCompletionResult(TEST_CONTEXT, payload).completionResultId, first.completionResultId);
   assert.equal(buildKnowledgeCompletionResult({ ...TEST_CONTEXT, runId: "other-run" }, payload).completionResultId, first.completionResultId);
-  assert.equal(buildKnowledgeCompletionResult(TEST_CONTEXT, { ...payload, timings: { ...payload.timings, gapAcquisitionMs: 5 } }).completionResultId, first.completionResultId);
+  assert.equal(buildKnowledgeCompletionResult(TEST_CONTEXT, { ...payload, candidateEventVersionIds: [...payload.candidateEventVersionIds].reverse(), candidateClaimVersionIds: [...payload.candidateClaimVersionIds].reverse(), authorityVerdictIds: [...payload.authorityVerdictIds].reverse() }).completionResultId, first.completionResultId);
   assert.equal(verifyPayloadHash(first), true);
 });

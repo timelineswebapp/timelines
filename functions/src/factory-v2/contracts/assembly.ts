@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { boundedText, hashSchema, historicalDateSchema, idSchema, modelExecutionRefSchema } from "./common";
 
-export const V2_B_PIPELINE_VERSION = "factory-v2-b.1" as const;
-export const V2_B_SCHEMA_VERSION = "factory-v2-b.2" as const;
+export const V2_B_PIPELINE_VERSION = "factory-v2-b.2" as const;
+export const V2_B_LEGACY_PIPELINE_VERSION = "factory-v2-b.1" as const;
+export const V2_B_SCHEMA_VERSION = "factory-v2-b.3" as const;
+export const V2_B_PREVIOUS_SCHEMA_VERSION = "factory-v2-b.2" as const;
 export const V2_B_LEGACY_SCHEMA_VERSION = "factory-v2-b.1" as const;
 export const V2_B_SELECTION_POLICY_VERSION = "evidence-backed-selection-v2-b.1" as const;
 export const V2_B_PROMPT_VERSION = "factory-v2-b-prompts.1" as const;
@@ -15,6 +17,12 @@ const legacyV2ASourceBundleSchema = z.object({
   promptVersion: z.literal("factory-v2-a-prompts.8")
 }).strict();
 const currentV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.13"),
+  schemaVersion: z.literal("factory-v2-a.5"),
+  policyVersion: z.literal("evidence-first-v2-a.11"),
+  promptVersion: z.literal("factory-v2-a-prompts.8")
+}).strict();
+const previousV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.12"),
   schemaVersion: z.literal("factory-v2-a.4"),
   policyVersion: z.literal("evidence-first-v2-a.11"),
@@ -24,8 +32,8 @@ const currentV2ASourceBundleSchema = z.object({
 export const v2BEnvelopeFields = {
   artifactId: idSchema,
   artifactType: boundedText(3, 80),
-  schemaVersion: z.enum([V2_B_LEGACY_SCHEMA_VERSION, V2_B_SCHEMA_VERSION]),
-  pipelineVersion: z.literal(V2_B_PIPELINE_VERSION),
+  schemaVersion: z.enum([V2_B_LEGACY_SCHEMA_VERSION, V2_B_PREVIOUS_SCHEMA_VERSION, V2_B_SCHEMA_VERSION]),
+  pipelineVersion: z.enum([V2_B_LEGACY_PIPELINE_VERSION, V2_B_PIPELINE_VERSION]),
   policyVersion: boundedText(3, 120),
   promptVersion: boundedText(3, 120).nullable(),
   modelExecutionRef: modelExecutionRefSchema.nullable(),
@@ -37,7 +45,7 @@ export const v2BEnvelopeFields = {
   runId: idSchema.nullable(),
   generation: z.number().int().positive(),
   sourceKnowledgeRunId: idSchema.nullable(),
-  sourceKnowledgeBundle: z.union([legacyV2ASourceBundleSchema, currentV2ASourceBundleSchema]),
+  sourceKnowledgeBundle: z.union([legacyV2ASourceBundleSchema, previousV2ASourceBundleSchema, currentV2ASourceBundleSchema]),
   executionMode: z.literal("SHADOW"),
   publicationEligible: z.literal(false),
   governanceSubmissionAllowed: z.literal(false),
@@ -140,6 +148,11 @@ export const selectionArtifactSchema = z.object({
   scopePayloadHash: hashSchema,
   researchMapId: idSchema,
   researchMapPayloadHash: hashSchema,
+  completedKnowledgeSetId: idSchema.optional(),
+  completedKnowledgeSetHash: hashSchema.optional(),
+  finalCoverageAuditId: idSchema.optional(),
+  finalCoverageAuditHash: hashSchema.optional(),
+  candidateInputHash: hashSchema.optional(),
   completeCandidateEventVersionIds: z.array(idSchema).min(1).max(200).refine(unique),
   eligibleCandidateEventVersionIds: z.array(idSchema).max(200).refine(unique),
   assessments: z.array(candidateSelectionAssessmentSchema).min(1).max(200),
@@ -161,17 +174,29 @@ export const selectionArtifactSchema = z.object({
   failureCodes: z.array(z.enum(["EVENT_LIMIT_UNSATISFIABLE", "COVERAGE_GAP_MATERIAL", "EVENT_COUNT_BELOW_MINIMUM", "NO_ELIGIBLE_CANDIDATES", "SIGNIFICANCE_INPUT_INVALID", "MATERIAL_OMISSION_UNRESOLVED"])).max(10).refine(unique),
   selectionPolicyVersion: boundedText(3, 120),
   significancePromptVersion: z.literal(V2_B_PROMPT_VERSION)
-}).strict();
+}).strict().superRefine((artifact, context) => {
+  if (artifact.schemaVersion === V2_B_SCHEMA_VERSION) {
+    for (const field of ["completedKnowledgeSetId", "completedKnowledgeSetHash", "finalCoverageAuditId", "finalCoverageAuditHash", "candidateInputHash"] as const) {
+      if (!artifact[field]) context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: `${field} is required for explicit completed-knowledge-set lineage.` });
+    }
+    if (artifact.sourceKnowledgeRunId !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceKnowledgeRunId"], message: "Current B1 artifacts must not identify their knowledge universe by execution run." });
+  }
+});
 
 export const selectionModelExecutionSchema = z.object({
   ...v2BEnvelopeFields,
   createdAt: z.string().datetime(),
   runId: idSchema,
-  sourceKnowledgeRunId: idSchema,
+  sourceKnowledgeRunId: idSchema.nullable(),
+  completedKnowledgeSetId: idSchema.optional(),
+  completedKnowledgeSetHash: hashSchema.optional(),
+  finalCoverageAuditId: idSchema.optional(),
+  finalCoverageAuditHash: hashSchema.optional(),
+  candidateInputHash: hashSchema.optional(),
   artifactType: z.literal("SELECTION_MODEL_EXECUTION"),
   executionId: idSchema,
   stage: z.literal("SIGNIFICANCE_SELECTION"),
-  inputArtifactIds: z.array(idSchema).min(2).max(202).refine(unique),
+  inputArtifactIds: z.array(idSchema).min(2).max(205).refine(unique),
   inputHash: hashSchema,
   promptHash: hashSchema,
   responseHash: hashSchema,
@@ -184,7 +209,14 @@ export const selectionModelExecutionSchema = z.object({
   startedAt: z.string().datetime(),
   completedAt: z.string().datetime(),
   latencyMs: z.number().int().nonnegative().max(300_000)
-}).strict();
+}).strict().superRefine((artifact, context) => {
+  if (artifact.schemaVersion === V2_B_SCHEMA_VERSION) {
+    for (const field of ["completedKnowledgeSetId", "completedKnowledgeSetHash", "finalCoverageAuditId", "finalCoverageAuditHash", "candidateInputHash"] as const) {
+      if (!artifact[field]) context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: `${field} is required for explicit completed-knowledge-set lineage.` });
+    }
+    if (artifact.sourceKnowledgeRunId !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceKnowledgeRunId"], message: "Current B1 executions must not identify their knowledge universe by execution run." });
+  }
+});
 
 export type SignificanceProposal = z.infer<typeof significanceProposalSchema>;
 export type SelectionArtifact = z.infer<typeof selectionArtifactSchema>;

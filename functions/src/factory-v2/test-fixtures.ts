@@ -13,8 +13,8 @@ export function date(year: number, precision: "DAY" | "MONTH" | "YEAR" | "APPROX
   return { year, month, day, precision, earliestYear: null, latestYear: null, label: String(Math.abs(year)) };
 }
 
-export function scopeFixture(overrides: Partial<Parameters<typeof buildScopeContract>[1]> = {}): ScopeContract {
-  return buildScopeContract(TEST_CONTEXT, {
+export function scopeFixture(overrides: Partial<Parameters<typeof buildScopeContract>[1]> = {}, context: ArtifactContext = TEST_CONTEXT): ScopeContract {
+  return buildScopeContract(context, {
     version: 1,
     status: "LOCKED",
     title: "Apollo 11 Mission",

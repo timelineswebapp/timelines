@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { boundedText, hashSchema, idSchema, immutableEnvelopeFields } from "./common";
+import { boundedText, hashSchema, idSchema, immutableEnvelopeFields, V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_LEGACY_SCHEMA_VERSION, V2_PIPELINE_VERSION, V2_SCHEMA_VERSION } from "./common";
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const ids = (maximum = 200) => z.array(idSchema).max(maximum).refine(unique, "IDs must be unique.");
@@ -100,8 +100,9 @@ export const knowledgeCompletionPlanSchema = z.object({
   unplannedMaterialGapIds: ids(200)
 }).strict();
 
-export const knowledgeCompletionResultSchema = z.object({
+const legacyKnowledgeCompletionResultSchema = z.object({
   ...immutableEnvelopeFields,
+  schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, V2_SCHEMA_VERSION]),
   completionResultId: idSchema,
   completionPlanId: idSchema,
   initialCoverageAuditId: idSchema,
@@ -120,9 +121,42 @@ export const knowledgeCompletionResultSchema = z.object({
   finalVerdict: z.enum(["SUFFICIENT", "KNOWLEDGE_COVERAGE_INSUFFICIENT"])
 }).strict();
 
+/** The completed knowledge set is a Factory technical authority boundary. It
+ * identifies one exact, coverage-certified semantic knowledge universe; it is
+ * not Historical Library, Governance, Published Memory, or public authority. */
+export const completedKnowledgeSetSchema = z.object({
+  ...immutableEnvelopeFields,
+  schemaVersion: z.literal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION),
+  completionResultId: idSchema,
+  completedKnowledgeSetId: idSchema,
+  knowledgePipelineVersion: z.literal(V2_PIPELINE_VERSION),
+  completionPlanId: idSchema,
+  initialCoverageAuditId: idSchema,
+  initialCoverageAuditPayloadHash: hashSchema,
+  finalCoverageAuditId: idSchema,
+  finalCoverageAuditPayloadHash: hashSchema,
+  scopeContractId: idSchema,
+  scopePayloadHash: hashSchema,
+  researchMapId: idSchema,
+  researchMapPayloadHash: hashSchema,
+  candidateEventVersionIds: ids(400),
+  candidateClaimVersionIds: ids(600),
+  authorityVerdictIds: ids(600),
+  conflictSetIds: ids(200),
+  unresolvedGapIds: ids(200),
+  finalVerdict: z.enum(["SUFFICIENT", "KNOWLEDGE_COVERAGE_INSUFFICIENT"])
+}).strict().superRefine((set, context) => {
+  if (set.artifactId !== set.completedKnowledgeSetId || set.completionResultId !== set.completedKnowledgeSetId) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["completedKnowledgeSetId"], message: "Completed knowledge-set identities must match the immutable artifact ID." });
+  }
+});
+
+export const knowledgeCompletionResultSchema = z.union([completedKnowledgeSetSchema, legacyKnowledgeCompletionResultSchema]);
+
 export type KnowledgeCoverageAudit = z.infer<typeof knowledgeCoverageAuditSchema>;
 export type KnowledgeCoverageCell = z.infer<typeof knowledgeCoverageCellSchema>;
 export type KnowledgeCoverageGap = z.infer<typeof knowledgeCoverageGapSchema>;
 export type KnowledgeCompletionPlan = z.infer<typeof knowledgeCompletionPlanSchema>;
 export type KnowledgeCompletionTask = z.infer<typeof knowledgeCompletionTaskSchema>;
 export type KnowledgeCompletionResult = z.infer<typeof knowledgeCompletionResultSchema>;
+export type CompletedKnowledgeSet = z.infer<typeof completedKnowledgeSetSchema>;

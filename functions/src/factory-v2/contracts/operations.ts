@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { boundedText, executionEnvelopeFields, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields } from "./common";
+import { boundedText, executionEnvelopeFields, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields, V2_PIPELINE_VERSION } from "./common";
 import { researchBudgetSchema } from "./knowledge";
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
@@ -71,7 +71,7 @@ export const topicOperationSchema = z.object({
   topicId: idSchema,
   runId: idSchema,
   generation: z.number().int().positive(),
-  pipelineVersion: z.literal("factory-v2-a.12"),
+  pipelineVersion: z.enum(["factory-v2-a.12", V2_PIPELINE_VERSION]),
   executionMode: z.literal("SHADOW"),
   state: z.enum(["QUEUED", "RUNNING", "FAILED", "COMPLETED"]),
   stage: z.enum(["A1_SCHEMAS", "A2_SCOPE_ACQUISITION", "A3_CLAIMS", "A4_AUTHORITY_CONFLICTS", "A5_RESOLUTION_REUSE", "COMPLETE"]),

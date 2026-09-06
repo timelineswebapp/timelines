@@ -2,6 +2,8 @@
 
 > A3 upstream correction update (2026-09-06): [`TL-KF-V2-A3_KNOWLEDGE_COVERAGE_COMPLETION.md`](./TL-KF-V2-A3_KNOWLEDGE_COVERAGE_COMPLETION.md) records one failed knowledge-completion fixture. A3 reproduced the coverage gaps but failed before acquisition on immutable publisher-bootstrap provenance. B1 was not revalidated; this document's original B1 negative evidence remains authoritative.
 
+> A3.7 lineage update (2026-09-07): [`TL-KF-V2-A3-7_COMPLETED_KNOWLEDGE_SET_B1_LINEAGE.md`](./TL-KF-V2-A3-7_COMPLETED_KNOWLEDGE_SET_B1_LINEAGE.md) locally/emulator certifies explicit Completed Knowledge Set input, exact candidate reconstruction, and fail-closed lineage validation. No live A3 or B1 fixture ran; the original B1 negative evidence and `NOT CERTIFIED` status remain authoritative.
+
 Status: **NOT CERTIFIED**
 
 Date: 2026-09-06

@@ -20,7 +20,7 @@ import {
   type SourceSnapshot
 } from "../../functions/src/factory-v2/contracts";
 import { buildQueryPlan, executionArtifactId, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "../../functions/src/factory-v2/contracts/builders";
-import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion } from "../../functions/src/factory-v2/coverage";
+import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, KNOWLEDGE_COVERAGE_POLICY_VERSION, mergeKnowledgeEventVersions, planGapDirectedCompletion } from "../../functions/src/factory-v2/coverage";
 import { loadFactoryV2Config } from "../../functions/src/factory-v2/config";
 import { contentAddressedId } from "../../functions/src/factory-v2/hashing";
 import { runV2AShadowFixture } from "../../functions/src/factory-v2/orchestrator";
@@ -50,6 +50,10 @@ async function loadIds<T>(name: string, ids: string[], parse: (value: unknown) =
   });
 }
 
+function uniqueArtifacts<T>(values: T[], id: (value: T) => string): T[] {
+  return [...new Map(values.map((value) => [id(value), value])).values()].sort((left, right) => id(left).localeCompare(id(right)));
+}
+
 async function main() {
   const planOnly = process.argv.includes("--plan-only");
   const totalStartedAt = Date.now();
@@ -57,7 +61,7 @@ async function main() {
   const db = getFirestore();
   const repository = new V2FirestoreRepository({ firestore: db, corpusId: CORPUS_ID });
   const config = await loadFactoryV2Config();
-  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.12" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("A3 requires the certified non-public V2-A shadow configuration.");
+  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.13" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("A3 requires the certified non-public V2-A shadow configuration.");
   const [scopes, maps, claims, verdicts, conflicts, events, snapshots] = await Promise.all([
     loadRun("v2ScopeContracts", [SOURCE_RUN_ID], (value) => scopeContractSchema.parse(value), 2),
     loadRun("v2ResearchMaps", [SOURCE_RUN_ID], (value) => researchMapSchema.parse(value), 2),
@@ -72,10 +76,10 @@ async function main() {
   const parentMap = maps[0]!;
   const initialKnowledgeReuseMs = Date.now() - initialReuseStartedAt;
   const runId = `v2-a3-web-${randomUUID()}`;
-  const context: ArtifactContext = { corpusId: CORPUS_ID, topicId: scope.topicId, runId, generation: scope.generation, createdAt: new Date().toISOString(), policyVersion: "knowledge-coverage-v2-a3.2" };
+  const context: ArtifactContext = { corpusId: CORPUS_ID, topicId: scope.topicId, runId, generation: scope.generation, createdAt: new Date().toISOString(), policyVersion: KNOWLEDGE_COVERAGE_POLICY_VERSION };
   const persistCoverageExecution = async (artifact: { artifactId: string; payloadHash: string }, stage: string, details: Record<string, string | number | boolean | null>) => {
     const auditRecordId = executionArtifactId("audit", context, { action: "SEMANTIC_ARTIFACT_DERIVATION", stage, semanticArtifactId: artifact.artifactId, ...details });
-    const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "SEMANTIC_ARTIFACT_DERIVATION", actorType: "POLICY", actorId: "knowledge-coverage-v2-a3.2", artifactRefs: [{ collection: stage, id: artifact.artifactId, payloadHash: artifact.payloadHash }], details: { semanticArtifactId: artifact.artifactId, ...details } });
+    const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "SEMANTIC_ARTIFACT_DERIVATION", actorType: "POLICY", actorId: KNOWLEDGE_COVERAGE_POLICY_VERSION, artifactRefs: [{ collection: stage, id: artifact.artifactId, payloadHash: artifact.payloadHash }], details: { semanticArtifactId: artifact.artifactId, ...details } });
     await repository.createImmutable("v2AuditRecords", audit);
   };
   const initialAudit = auditKnowledgeCoverage({ context, stage: "INITIAL", scope, researchMap: parentMap, sourceKnowledgeRunIds: [SOURCE_RUN_ID], claims, authorityVerdicts: verdicts, conflicts, events, sourceSnapshots: snapshots });
@@ -109,13 +113,17 @@ async function main() {
     loadIds("v2CanonicalEventVersions", acquisition.eventVersionIds, (value) => canonicalEventVersionSchema.parse(value)),
     loadIds("v2SourceSnapshots", acquisition.sourceSnapshotIds, (value) => sourceSnapshotSchema.parse(value))
   ] as const) as [AtomicClaimVersion[], ClaimAuthorityVerdict[], ClaimConflictSet[], CanonicalEventVersion[], SourceSnapshot[]];
+  const completedClaims = uniqueArtifacts([...claims, ...newClaims], (claim) => claim.claimVersionId);
+  const completedVerdicts = uniqueArtifacts([...verdicts, ...newVerdicts], (verdict) => verdict.claimVersionId);
+  const completedConflicts = uniqueArtifacts([...conflicts, ...newConflicts], (conflict) => conflict.conflictSetId);
+  const completedEvents = mergeKnowledgeEventVersions([...events, ...newEvents]);
   const reAuditStartedAt = Date.now();
-  const finalAudit = auditKnowledgeCoverage({ context, stage: "FINAL", scope, researchMap: completionMap, sourceKnowledgeRunIds: [SOURCE_RUN_ID, runId], claims: [...claims, ...newClaims], authorityVerdicts: [...verdicts, ...newVerdicts], conflicts: [...conflicts, ...newConflicts], events: mergeKnowledgeEventVersions([...events, ...newEvents]), sourceSnapshots: [...snapshots, ...newSnapshots] });
+  const finalAudit = auditKnowledgeCoverage({ context, stage: "FINAL", scope, researchMap: completionMap, sourceKnowledgeRunIds: [SOURCE_RUN_ID, runId], claims: completedClaims, authorityVerdicts: completedVerdicts, conflicts: completedConflicts, events: completedEvents, sourceSnapshots: [...snapshots, ...newSnapshots] });
   const reAuditMs = Date.now() - reAuditStartedAt;
   await repository.createImmutable("v2KnowledgeCoverageAudits", finalAudit);
   await persistCoverageExecution(finalAudit, "v2KnowledgeCoverageAudits", { auditStage: "FINAL", sourceKnowledgeRunIds: `${SOURCE_RUN_ID},${runId}`, reAuditMs });
   const resultTelemetry = { budgetConsumed: { rounds: 1 as const, groundingCalls: acquisition.metrics.groundingCalls, providerQueries: acquisition.metrics.providerReportedSearchQueries, sourceDocuments: acquisition.metrics.sourceDocumentsSnapshotted, claimExtractions: acquisition.metrics.evidencePackets, atomicClaims: acquisition.metrics.claimsExtracted, writes: acquisition.metrics.firestoreWrites + 7 }, timings: { initialKnowledgeReuseMs, coverageAuditMs: 0, gapAcquisitionMs, reAuditMs } };
-  const resultArtifact = buildKnowledgeCompletionResult(context, { completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, finalCoverageAuditId: finalAudit.coverageAuditId, acquisitionRunId: runId, originalKnowledgeRunId: SOURCE_RUN_ID, newClaimVersionIds: newClaims.map((claim) => claim.claimVersionId), newEventVersionIds: newEvents.map((event) => event.eventVersionId), reusedEventVersionIds: newEvents.filter((event) => event.supersedesEventVersionId !== null).map((event) => event.eventVersionId), unresolvedGapIds: finalAudit.gaps.map((gap) => gap.gapId), ...resultTelemetry, finalVerdict: finalAudit.verdict });
+  const resultArtifact = buildKnowledgeCompletionResult(context, { completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash, finalCoverageAuditId: finalAudit.coverageAuditId, finalCoverageAuditPayloadHash: finalAudit.payloadHash, scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash, researchMapId: completionMap.researchMapId, researchMapPayloadHash: completionMap.payloadHash, candidateEventVersionIds: completedEvents.map((event) => event.eventVersionId), candidateClaimVersionIds: completedClaims.map((claim) => claim.claimVersionId), authorityVerdictIds: completedVerdicts.map((verdict) => verdict.claimAuthorityVerdictId), conflictSetIds: completedConflicts.map((conflict) => conflict.conflictSetId), unresolvedGapIds: finalAudit.gaps.map((gap) => gap.gapId), finalVerdict: finalAudit.verdict });
   await repository.createImmutable("v2KnowledgeCompletionResults", resultArtifact);
   await persistCoverageExecution(resultArtifact, "v2KnowledgeCompletionResults", { acquisitionRunId: runId, originalKnowledgeRunId: SOURCE_RUN_ID, ...resultTelemetry.timings, groundingCalls: resultTelemetry.budgetConsumed.groundingCalls, providerQueries: resultTelemetry.budgetConsumed.providerQueries, sourceDocuments: resultTelemetry.budgetConsumed.sourceDocuments, claimExtractions: resultTelemetry.budgetConsumed.claimExtractions, atomicClaims: resultTelemetry.budgetConsumed.atomicClaims, writes: resultTelemetry.budgetConsumed.writes });
   const evidence = { goal: "TL-KF-V2-A3", fixture: EXPECTED_TITLE, status: finalAudit.verdict === "SUFFICIENT" ? "PASS" : "FAIL", sourceKnowledgeRunId: SOURCE_RUN_ID, runId, initialAudit, completionPlan, completionResearchMapId: completionMap.researchMapId, completionQueryPlanId: queryPlan.queryPlanId, acquisition, newKnowledge: { claims: newClaims.length, supportedClaims: newVerdicts.filter((item) => item.verdict === "SUPPORTED" || item.verdict === "QUALIFIED").length, events: newEvents.length, chronologyEvents: newEvents.filter((event) => event.semanticClass === "EVENT" && event.canonicalizationState === "RESOLVED").length, durableSnapshots: newSnapshots.length }, finalAudit, completionResult: resultArtifact, executionTelemetry: resultTelemetry, totalExecutionMs: Date.now() - totalStartedAt };
@@ -123,7 +131,7 @@ async function main() {
   await mkdir(outputDirectory, { recursive: true });
   const outputFile = new URL(`v2-a3-web-${Date.now()}.json`, outputDirectory);
   await writeFile(outputFile, `${JSON.stringify(evidence, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
-  console.log(JSON.stringify({ status: evidence.status, runId, initialCoverageAuditId: initialAudit.coverageAuditId, completionPlanId: completionPlan.completionPlanId, finalCoverageAuditId: finalAudit.coverageAuditId, initialGaps: initialAudit.gaps.map((gap) => gap.code), finalGaps: finalAudit.gaps.map((gap) => gap.code), newKnowledge: evidence.newKnowledge, metrics: resultTelemetry.budgetConsumed, timings: resultTelemetry.timings, outputFile: outputFile.pathname }, null, 2));
+  console.log(JSON.stringify({ status: evidence.status, runId, topicId: scope.topicId, completedKnowledgeSetId: resultArtifact.completedKnowledgeSetId, completedKnowledgeSetHash: resultArtifact.payloadHash, finalCoverageAuditId: finalAudit.coverageAuditId, initialCoverageAuditId: initialAudit.coverageAuditId, completionPlanId: completionPlan.completionPlanId, initialGaps: initialAudit.gaps.map((gap) => gap.code), finalGaps: finalAudit.gaps.map((gap) => gap.code), newKnowledge: evidence.newKnowledge, metrics: resultTelemetry.budgetConsumed, timings: resultTelemetry.timings, outputFile: outputFile.pathname }, null, 2));
   if (evidence.status !== "PASS") process.exitCode = 1;
 }
 

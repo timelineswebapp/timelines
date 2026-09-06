@@ -45,6 +45,7 @@ function claimsAndVerdicts(events: CanonicalEventVersion[]) {
 }
 
 const criteria = { turningPointValue: "MEDIUM", causalImportance: "LOW", consequence: "MEDIUM", institutionalImportance: "MEDIUM", adoptionOrScale: "LOW", explanatoryValue: "HIGH", topicRelevance: "HIGH", historiographicalProminence: "MEDIUM", relationshipToLaterDevelopments: "MEDIUM", uniqueness: "HIGH" } as const;
+const LINEAGE = { completedKnowledgeSetId: "completed-knowledge-set-test", completedKnowledgeSetHash: "a".repeat(64), finalCoverageAuditId: "final-coverage-audit-test", finalCoverageAuditHash: "b".repeat(64), candidateInputHash: "c".repeat(64) };
 
 function proposal(events: CanonicalEventVersion[], overrides: Partial<Record<string, Partial<SignificanceProposal["judgments"][number]>>> = {}): SignificanceProposal {
   return {
@@ -65,7 +66,7 @@ function proposal(events: CanonicalEventVersion[], overrides: Partial<Record<str
   };
 }
 
-function select(events: CanonicalEventVersion[], significance = proposal(events), context = { ...TEST_CONTEXT, sourceKnowledgeRunId: "v2-a-certified-run" }) {
+function select(events: CanonicalEventVersion[], significance = proposal(events), context = { ...TEST_CONTEXT, ...LINEAGE }) {
   const supporting = claimsAndVerdicts(events);
   return assembleTimelineSelection({
     context,
@@ -96,7 +97,7 @@ test("B1 deterministically excludes non-events, scope drift, unsupported claims,
   const weak = event(8);
   const supporting = claimsAndVerdicts([...valid, nonEvent, outside, weak]);
   supporting.authorityVerdicts = supporting.authorityVerdicts.map((verdict) => verdict.claimVersionId === weak.coreClaimVersionIds[0] ? ({ ...verdict, verdict: "INSUFFICIENT" } as ClaimAuthorityVerdict) : verdict);
-  const result = assembleTimelineSelection({ context: { ...TEST_CONTEXT, sourceKnowledgeRunId: "v2-a-certified-run" }, scope, researchMap: map, events: [...valid, nonEvent, outside, weak], claims: supporting.claims, authorityVerdicts: supporting.authorityVerdicts, conflicts: [], significance: proposal([...valid, nonEvent, outside, weak]), modelExecutionRef: null });
+  const result = assembleTimelineSelection({ context: { ...TEST_CONTEXT, ...LINEAGE }, scope, researchMap: map, events: [...valid, nonEvent, outside, weak], claims: supporting.claims, authorityVerdicts: supporting.authorityVerdicts, conflicts: [], significance: proposal([...valid, nonEvent, outside, weak]), modelExecutionRef: null });
   assert.deepEqual(result.assessments.find((item) => item.eventVersionId === nonEvent.eventVersionId)?.eligibilityReasons, ["SEMANTIC_TYPE_INELIGIBLE", "SCOPE_INCOMPATIBLE"]);
   assert.ok(result.assessments.find((item) => item.eventVersionId === outside.eventVersionId)?.eligibilityReasons.includes("SCOPE_INCOMPATIBLE"));
   assert.ok(result.assessments.find((item) => item.eventVersionId === weak.eventVersionId)?.eligibilityReasons.includes("SOURCE_AUTHORITY_BURDEN_FAILED"));
@@ -152,9 +153,15 @@ test("B1 selection artifact reruns converge while preserving separate execution 
   const significance = proposal(events);
   const first = select(events, significance);
   const exactReplay = select(events, significance);
-  const retry = select(events, significance, { ...TEST_CONTEXT, runId: "b1-retry-run", createdAt: "2026-09-07T00:00:00.000Z", sourceKnowledgeRunId: "v2-a-certified-run" });
+  const retry = select(events, significance, { ...TEST_CONTEXT, ...LINEAGE, runId: "b1-retry-run", createdAt: "2026-09-07T00:00:00.000Z" });
   assert.equal(exactReplay.selectionArtifactId, first.selectionArtifactId);
   assert.equal(exactReplay.payloadHash, first.payloadHash);
   assert.equal(retry.selectionArtifactId, first.selectionArtifactId);
   assert.deepEqual(retry, first);
+  assert.equal(first.completedKnowledgeSetId, LINEAGE.completedKnowledgeSetId);
+  assert.equal(first.completedKnowledgeSetHash, LINEAGE.completedKnowledgeSetHash);
+  assert.equal(first.finalCoverageAuditId, LINEAGE.finalCoverageAuditId);
+  assert.equal(first.candidateInputHash, LINEAGE.candidateInputHash);
+  const differentKnowledgeSet = select(events, significance, { ...TEST_CONTEXT, ...LINEAGE, completedKnowledgeSetId: "completed-knowledge-set-v2", completedKnowledgeSetHash: "d".repeat(64), candidateInputHash: "e".repeat(64) });
+  assert.notEqual(differentKnowledgeSet.selectionArtifactId, first.selectionArtifactId);
 });

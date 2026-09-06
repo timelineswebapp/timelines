@@ -7,6 +7,7 @@ import {
   type CanonicalEventVersion,
   type ClaimAuthorityVerdict,
   type ClaimConflictSet,
+  type CompletedKnowledgeSet,
   type KnowledgeCompletionPlan,
   type KnowledgeCompletionResult,
   type KnowledgeCompletionTask,
@@ -19,6 +20,8 @@ import {
 } from "./contracts";
 import { parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId } from "./hashing";
+
+export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.2" as const;
 
 export const DEFAULT_COMPLETION_BUDGET = {
   maximumRounds: 1 as const,
@@ -221,17 +224,44 @@ export function planGapDirectedCompletion(input: { context: ArtifactContext; sco
   return parseSealedArtifact(knowledgeCompletionPlanSchema, { ...semanticEnvelope(input.context, completionPlanId, input.audit.coverageAuditId), artifactId: completionPlanId, completionPlanId, ...planPayload });
 }
 
-export type KnowledgeCompletionResultInput = Omit<KnowledgeCompletionResult, keyof ReturnType<typeof semanticEnvelope> | "artifactId" | "payloadHash" | "completionResultId" | "acquisitionRunId" | "originalKnowledgeRunId" | "budgetConsumed" | "timings"> & {
-  acquisitionRunId: string;
-  originalKnowledgeRunId: string;
-  budgetConsumed: NonNullable<KnowledgeCompletionResult["budgetConsumed"]>;
-  timings: NonNullable<KnowledgeCompletionResult["timings"]>;
+export type KnowledgeCompletionResultInput = Omit<CompletedKnowledgeSet, keyof ReturnType<typeof semanticEnvelope> | "artifactId" | "payloadHash" | "completionResultId" | "completedKnowledgeSetId" | "knowledgePipelineVersion" | "candidateEventVersionIds" | "candidateClaimVersionIds" | "authorityVerdictIds" | "conflictSetIds" | "unresolvedGapIds"> & {
+  candidateEventVersionIds: readonly string[];
+  candidateClaimVersionIds: readonly string[];
+  authorityVerdictIds: readonly string[];
+  conflictSetIds: readonly string[];
+  unresolvedGapIds: readonly string[];
 };
 
-export function buildKnowledgeCompletionResult(context: ArtifactContext, payload: KnowledgeCompletionResultInput): KnowledgeCompletionResult {
-  const semanticPayload = { ...payload, acquisitionRunId: null, originalKnowledgeRunId: null, budgetConsumed: null, timings: null };
-  const completionResultId = semanticArtifactId("knowledge-completion-result", context, semanticPayload);
-  return parseSealedArtifact(knowledgeCompletionResultSchema, { ...semanticEnvelope(context, completionResultId, payload.completionPlanId), artifactId: completionResultId, completionResultId, ...semanticPayload });
+export function buildKnowledgeCompletionResult(context: ArtifactContext, payload: KnowledgeCompletionResultInput): CompletedKnowledgeSet {
+  const semanticPayload = {
+    ...payload,
+    knowledgePipelineVersion: "factory-v2-a.13" as const,
+    candidateEventVersionIds: unique([...payload.candidateEventVersionIds]),
+    candidateClaimVersionIds: unique([...payload.candidateClaimVersionIds]),
+    authorityVerdictIds: unique([...payload.authorityVerdictIds]),
+    conflictSetIds: unique([...payload.conflictSetIds]),
+    unresolvedGapIds: unique([...payload.unresolvedGapIds])
+  };
+  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: "factory-v2-a.5" });
+  return parseSealedArtifact(knowledgeCompletionResultSchema, {
+    ...semanticEnvelope(context, completedKnowledgeSetId, payload.completionPlanId),
+    schemaVersion: "factory-v2-a.5",
+    artifactId: completedKnowledgeSetId,
+    completionResultId: completedKnowledgeSetId,
+    completedKnowledgeSetId,
+    ...semanticPayload
+  }) as CompletedKnowledgeSet;
+}
+
+export function expectedCompletedKnowledgeSetId(set: CompletedKnowledgeSet): string {
+  const {
+    artifactId: _artifactId, schemaVersion, policyVersion, promptVersion: _promptVersion, modelExecutionRef: _modelExecutionRef,
+    parentArtifactId: _parentArtifactId, payloadHash: _payloadHash, createdAt: _createdAt, corpusId, topicId, runId: _runId,
+    generation, executionMode: _executionMode, publicationEligible: _publicationEligible,
+    governanceSubmissionAllowed: _governanceSubmissionAllowed, immutable: _immutable,
+    completionResultId: _completionResultId, completedKnowledgeSetId: _completedKnowledgeSetId, ...semanticPayload
+  } = set;
+  return semanticArtifactId("completed-knowledge-set", { corpusId, topicId, generation, policyVersion, runId: "semantic-validation", createdAt: "1970-01-01T00:00:00.000Z" }, semanticPayload, { schemaVersion });
 }
 
 export function buildCompletionResearchMap(input: { context: ArtifactContext; scope: ScopeContract; parent: ResearchMap; plan: KnowledgeCompletionPlan }): ResearchMap {

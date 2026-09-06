@@ -144,16 +144,19 @@ test("coverage audit and gap plan converge across execution-only reruns", () => 
   assert.equal(secondPlan.payloadHash, firstPlan.payloadHash);
 });
 
-test("final coverage audit and completed knowledge set exclude execution telemetry from semantic identity", () => {
+test("final coverage audit and completed knowledge set normalize membership across execution-only reruns", () => {
   const values = [claim("claim-final-foundation", "q-foundation-tech", 1989), claim("claim-final-expansion", "q-expansion-tech", 2010), claim("claim-final-current", "q-current-society", 2024)];
   const auditInput = { stage: "FINAL" as const, scope, researchMap: map, sourceKnowledgeRunIds: ["source-run", "completion-run"], claims: values, authorityVerdicts: values.map((item) => verdict(item)), conflicts: [], events: values.map((item) => event(item, item.temporal!.start.year)) };
   const firstAudit = auditKnowledgeCoverage({ context: TEST_CONTEXT, ...auditInput });
   const secondContext = { ...TEST_CONTEXT, runId: "coverage-final-retry", createdAt: "2026-09-07T00:00:00.000Z" };
   const secondAudit = auditKnowledgeCoverage({ context: secondContext, ...auditInput });
   assert.equal(secondAudit.coverageAuditId, firstAudit.coverageAuditId);
-  const resultPayload = { completionPlanId: "completion-plan", initialCoverageAuditId: "initial-audit", finalCoverageAuditId: firstAudit.coverageAuditId, acquisitionRunId: "completion-run", originalKnowledgeRunId: "source-run", newClaimVersionIds: [], newEventVersionIds: [], reusedEventVersionIds: [], unresolvedGapIds: [], budgetConsumed: { rounds: 1 as const, groundingCalls: 1, providerQueries: 1, sourceDocuments: 1, claimExtractions: 1, atomicClaims: 1, writes: 1 }, timings: { initialKnowledgeReuseMs: 1, coverageAuditMs: 0, gapAcquisitionMs: 1, reAuditMs: 1 }, finalVerdict: firstAudit.verdict };
+  const eventIds = auditInput.events.map((item) => item.eventVersionId);
+  const claimIds = values.map((item) => item.claimVersionId);
+  const verdictIds = auditInput.authorityVerdicts.map((item) => item.claimAuthorityVerdictId);
+  const resultPayload = { completionPlanId: "completion-plan", initialCoverageAuditId: "initial-audit", initialCoverageAuditPayloadHash: "a".repeat(64), finalCoverageAuditId: firstAudit.coverageAuditId, finalCoverageAuditPayloadHash: firstAudit.payloadHash, scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash, researchMapId: map.researchMapId, researchMapPayloadHash: map.payloadHash, candidateEventVersionIds: eventIds, candidateClaimVersionIds: claimIds, authorityVerdictIds: verdictIds, conflictSetIds: [], unresolvedGapIds: [], finalVerdict: firstAudit.verdict };
   const firstResult = buildKnowledgeCompletionResult(TEST_CONTEXT, resultPayload);
-  const retryResult = buildKnowledgeCompletionResult(secondContext, { ...resultPayload, acquisitionRunId: "another-run", timings: { ...resultPayload.timings, gapAcquisitionMs: 999 } });
+  const retryResult = buildKnowledgeCompletionResult(secondContext, { ...resultPayload, candidateEventVersionIds: [...eventIds].reverse(), candidateClaimVersionIds: [...claimIds].reverse(), authorityVerdictIds: [...verdictIds].reverse() });
   assert.equal(retryResult.completionResultId, firstResult.completionResultId);
   assert.equal(retryResult.payloadHash, firstResult.payloadHash);
 });

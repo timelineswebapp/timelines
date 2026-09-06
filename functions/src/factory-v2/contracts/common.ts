@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+export const V2_PIPELINE_VERSION = "factory-v2-a.13";
 export const V2_SCHEMA_VERSION = "factory-v2-a.4";
+export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.5";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
 export const V2_POLICY_VERSION = "evidence-first-v2-a.11";
 export const V2_PROMPT_VERSION = "factory-v2-a-prompts.8";

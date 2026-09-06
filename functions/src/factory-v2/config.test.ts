@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { V2_POLICY_VERSION, V2_PROMPT_VERSION, V2_SCHEMA_VERSION } from "./contracts";
+import { V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_POLICY_VERSION, V2_PROMPT_VERSION, V2_SCHEMA_VERSION } from "./contracts";
 import { assertV2AShadowEnabled, shadowConfig } from "./config";
 
 test("V2-A executes only in non-public shadow mode with autonomous discovery paused", () => {
   const config = shadowConfig("2026-09-06T00:00:00.000Z");
   assert.doesNotThrow(() => assertV2AShadowEnabled(config));
-  assert.equal(config.pipelineVersion, "factory-v2-a.12");
-  assert.deepEqual(config.artifactPolicyBundle, { schemaVersion: V2_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION });
+  assert.equal(config.pipelineVersion, "factory-v2-a.13");
+  assert.deepEqual(config.artifactPolicyBundle, { schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION });
+  assert.equal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, "factory-v2-a.5");
   assert.equal(V2_SCHEMA_VERSION, "factory-v2-a.4");
   assert.equal(V2_POLICY_VERSION, "evidence-first-v2-a.11");
   assert.equal(V2_PROMPT_VERSION, "factory-v2-a-prompts.8");

@@ -1,0 +1,115 @@
+{
+  "goal": "TL-KF-V2-A3.7",
+  "status": "CERTIFIED_ZERO_LIVE_CALL",
+  "checkedAt": "2026-09-06T23:15:55.513Z",
+  "baseline": {
+    "branch": "codex/tl-content-reset-001",
+    "startingCommit": "f815c4813b9d29489b91c009352f56a6a3514626",
+    "startingUpstreamCommit": "f815c4813b9d29489b91c009352f56a6a3514626",
+    "startingRemoteCommit": "f815c4813b9d29489b91c009352f56a6a3514626",
+    "mainCommit": "36c0ba7bc587cc1f40caab20e203c596395241da",
+    "rollbackTagCommit": "a925c456d4bf41fd2fdca458d9f7256a4f06244b",
+    "worktreeInitiallyClean": true,
+    "dsStoreCount": 0
+  },
+  "provenBlocker": {
+    "historicalB1SourceRunId": "8b40de60-ad95-4d74-886c-1ffb0e1e585d",
+    "historicalBehavior": "B1 queried Scope, Map, Events, Claims, Verdicts, and Conflicts by the hard-coded historical run ID.",
+    "a3Behavior": "A3 re-audited original plus completion knowledge and persisted exact semantic output IDs.",
+    "risk": "A passing A3 result could have been followed by B1 selection over only the stale 1989-1994 universe."
+  },
+  "implementedAuthorityBoundary": {
+    "artifact": "CompletedKnowledgeSet in v2KnowledgeCompletionResults",
+    "b1Input": ["topicId", "completedKnowledgeSetId", "expectedCompletedKnowledgeSetHash (optional)"],
+    "membership": ["candidateEventVersionIds", "candidateClaimVersionIds", "authorityVerdictIds", "conflictSetIds"],
+    "semanticParents": ["Scope Contract identity/hash", "Research Map identity/hash", "Completion Plan", "initial Coverage Audit identity/hash", "final Coverage Audit identity/hash"],
+    "passCondition": "finalVerdict and exact final Coverage Audit verdict are SUFFICIENT",
+    "executionProvenance": "A3 run/acquisition/timing/budget remains in execution and audit evidence and is excluded from CompletedKnowledgeSet semantic identity.",
+    "publicAuthority": false
+  },
+  "lineageTests": {
+    "status": "PASS",
+    "oldKnowledgeSet": { "latestSyntheticCandidateYear": 1994, "consumableByExactId": true },
+    "newKnowledgeSet": { "latestSyntheticCandidateYear": 2024, "consumableByExactId": true },
+    "newSetUsesLaterCandidate": true,
+    "oldOnlyMembershipExcludedFromNewSet": true,
+    "sameTopicExtraCandidatePersisted": true,
+    "sameTopicExtraCandidateReadByB1": false,
+    "missingInputRejected": true,
+    "nonexistentIdRejected": true,
+    "topicMismatchRejected": true,
+    "scopeMismatchRejected": true,
+    "finalAuditMismatchRejected": true,
+    "payloadHashMismatchRejected": true,
+    "nonPassingCoverageRejected": true,
+    "missingCandidateRejected": true,
+    "crossCorpusRejected": true,
+    "semanticV1V2Coexist": true,
+    "retryAndMembershipOrderIdempotent": true,
+    "selectionOutputLineageDistinguishesSets": true
+  },
+  "versions": {
+    "proposedA3_8Bundle": {
+      "pipelineVersion": "factory-v2-a.13",
+      "schemaVersion": "factory-v2-a.5",
+      "policyVersion": "evidence-first-v2-a.11",
+      "promptVersion": "factory-v2-a-prompts.8"
+    },
+    "b1PipelineVersion": "factory-v2-b.2",
+    "b1SchemaVersion": "factory-v2-b.3",
+    "b1SelectionPolicyVersion": "evidence-backed-selection-v2-b.1",
+    "selectionSemanticsChanged": false,
+    "liveConfigurationActivated": false
+  },
+  "localGates": {
+    "v2AAndA3": { "status": "PASS", "passed": 78, "failed": 0 },
+    "b1AndLineage": { "status": "PASS", "passed": 14, "failed": 0 },
+    "functionsTypecheck": "PASS",
+    "gitDiffCheck": "PASS"
+  },
+  "firestoreEmulator": {
+    "java": "OpenJDK 21.0.11",
+    "status": "PASS",
+    "passed": 6,
+    "failed": 0,
+    "coverage": ["completed-set persistence", "immutable semantic v1/v2 coexistence", "explicit exact-ID B1 load", "same-topic extra exclusion", "missing-reference failure", "retry/idempotency", "corpus isolation", "unauthenticated browser denial"]
+  },
+  "zeroLiveCallCertification": {
+    "vertexCalls": 0,
+    "geminiCalls": 0,
+    "groundingCalls": 0,
+    "sourceRetrievals": 0,
+    "a3FixtureRuns": 0,
+    "b1LiveRuns": 0,
+    "liveConfigurationWrites": 0,
+    "deployments": 0,
+    "productionContentWrites": 0
+  },
+  "productionIntegrity": {
+    "liveBundle": "factory-v2-a.11/factory-v2-a.3/evidence-first-v2-a.10/factory-v2-a-prompts.8",
+    "publicationEnabled": false,
+    "governanceSubmissionEnabled": false,
+    "autonomousDiscoveryEnabled": false,
+    "scheduler": { "state": "PAUSED", "schedule": "0 3 * * *", "timeZone": "UTC" },
+    "runningV2Operations": 0,
+    "v2PublishedMemory": 0,
+    "publishedMemoryCount": 4,
+    "publishedMemoryHash": "7389246e4ff622e0183a38e89874b50e47a1a0b85e3ef447ffd39eac1a323275",
+    "v2PublicProjections": 0,
+    "platformReadModelCount": 46,
+    "platformReadModelHash": "8cb51b3a8c6fb2eed37ebdcbd23d15c1650455427678487fcf244c986fa223e9",
+    "existingB1SelectionArtifacts": 1,
+    "cubanMissileCrisis": "AWAITING_REVIEW/governance_review/2026-09-05T18:45:03.650Z",
+    "apollo13": "AWAITING_REVIEW/governance_review/2026-09-05T19:34:27.044Z",
+    "mainCommit": "36c0ba7bc587cc1f40caab20e203c596395241da"
+  },
+  "certification": {
+    "a37CompletedKnowledgeSetToB1Lineage": "CERTIFIED",
+    "a35SemanticVersionIdentity": "CERTIFIED",
+    "a34GapAwareSourceAdmission": "IMPLEMENTED_NOT_LIVE_CERTIFIED",
+    "v2a3KnowledgeCoverage": "NOT_YET_CERTIFIED",
+    "v2bB1": "NOT_REVALIDATED",
+    "v2b": "IN_PROGRESS_NOT_CERTIFIED",
+    "a38AuthorizedByThisGoal": false
+  }
+}

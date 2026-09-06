@@ -9,7 +9,11 @@ export type SelectionContext = Readonly<{
   runId: string;
   generation: number;
   createdAt: string;
-  sourceKnowledgeRunId: string;
+  completedKnowledgeSetId: string;
+  completedKnowledgeSetHash: string;
+  finalCoverageAuditId: string;
+  finalCoverageAuditHash: string;
+  candidateInputHash: string;
 }>;
 
 export type SelectionInput = Readonly<{
@@ -258,6 +262,11 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     scopePayloadHash: input.scope.payloadHash,
     researchMapId: input.researchMap.researchMapId,
     researchMapPayloadHash: input.researchMap.payloadHash,
+    completedKnowledgeSetId: input.context.completedKnowledgeSetId,
+    completedKnowledgeSetHash: input.context.completedKnowledgeSetHash,
+    finalCoverageAuditId: input.context.finalCoverageAuditId,
+    finalCoverageAuditHash: input.context.finalCoverageAuditHash,
+    candidateInputHash: input.context.candidateInputHash,
     completeCandidateEventVersionIds: eventIds,
     eligibleCandidateEventVersionIds: eligibleJudgments.map((judgment) => judgment.eventVersionId),
     assessments,
@@ -280,14 +289,14 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     policyVersion: selectionPolicyVersion,
     promptVersion: null,
     modelExecutionRef: null,
-    parentArtifactIds: [input.scope.scopeContractId, input.researchMap.researchMapId],
+    parentArtifactIds: [input.scope.scopeContractId, input.researchMap.researchMapId, input.context.completedKnowledgeSetId, input.context.finalCoverageAuditId],
     createdAt: null,
     corpusId: input.context.corpusId,
     topicId: input.context.topicId,
     runId: null,
     generation: input.context.generation,
     sourceKnowledgeRunId: null,
-    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.12", schemaVersion: "factory-v2-a.4", policyVersion: "evidence-first-v2-a.11", promptVersion: "factory-v2-a-prompts.8" },
+    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.13", schemaVersion: "factory-v2-a.5", policyVersion: "evidence-first-v2-a.11", promptVersion: "factory-v2-a-prompts.8" },
     executionMode: "SHADOW",
     publicationEligible: false,
     governanceSubmissionAllowed: false,
@@ -303,14 +312,14 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     policyVersion: selectionPolicyVersion,
     promptVersion: null,
     modelExecutionRef: null,
-    parentArtifactIds: [input.scope.scopeContractId, input.researchMap.researchMapId],
+    parentArtifactIds: [input.scope.scopeContractId, input.researchMap.researchMapId, input.context.completedKnowledgeSetId, input.context.finalCoverageAuditId],
     createdAt: null,
     corpusId: input.context.corpusId,
     topicId: input.context.topicId,
     runId: null,
     generation: input.context.generation,
     sourceKnowledgeRunId: null,
-    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.12" as const, schemaVersion: "factory-v2-a.4" as const, policyVersion: "evidence-first-v2-a.11" as const, promptVersion: "factory-v2-a-prompts.8" as const },
+    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.13" as const, schemaVersion: "factory-v2-a.5" as const, policyVersion: "evidence-first-v2-a.11" as const, promptVersion: "factory-v2-a-prompts.8" as const },
     executionMode: "SHADOW" as const,
     publicationEligible: false as const,
     governanceSubmissionAllowed: false as const,
