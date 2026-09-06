@@ -1,0 +1,109 @@
+{
+  "goal": "TL-KF-V2-A3.6",
+  "status": "OUTCOME_A_PRE_LIVE_BLOCKER",
+  "checkedAt": "2026-09-06T20:33:52.598Z",
+  "classification": "CONFIGURATION_INPUT_LINEAGE",
+  "blocker": {
+    "summary": "The frozen existing B1 Web runner loads only the original 1989-1994 V2-A run and cannot consume or prove lineage to the fresh A3 coverage-completed knowledge set.",
+    "originalSourceKnowledgeRunId": "8b40de60-ad95-4d74-886c-1ffb0e1e585d",
+    "b1Behavior": {
+      "sourceRunIdHardCoded": true,
+      "allSemanticInputsQueriedByOldRunId": true,
+      "acceptsCompletionResultId": false,
+      "acceptsFinalCoverageAuditId": false,
+      "acceptsCompletedCandidateIds": false
+    },
+    "a3Behavior": {
+      "freshCompletionRunId": true,
+      "newClaimsLoadedByReturnedIds": true,
+      "newEventsLoadedByReturnedIds": true,
+      "finalAuditUsesOriginalPlusNewKnowledge": true,
+      "completionResultPersistsNewClaimAndEventIds": true
+    },
+    "requiredDisposition": "STOP_BEFORE_ACTIVATION"
+  },
+  "baseline": {
+    "branch": "codex/tl-content-reset-001",
+    "implementationCommit": "ed6ef4599af37310f74c25776df0238d559c6e05",
+    "upstreamCommit": "ed6ef4599af37310f74c25776df0238d559c6e05",
+    "remoteBranchCommit": "ed6ef4599af37310f74c25776df0238d559c6e05",
+    "mainCommit": "36c0ba7bc587cc1f40caab20e203c596395241da",
+    "originMainCommit": "36c0ba7bc587cc1f40caab20e203c596395241da",
+    "rollbackTagCommit": "a925c456d4bf41fd2fdca458d9f7256a4f06244b",
+    "worktreeInitiallyClean": true,
+    "dsStoreCount": 0,
+    "a35CertifiedBundle": {
+      "pipelineVersion": "factory-v2-a.12",
+      "schemaVersion": "factory-v2-a.4",
+      "policyVersion": "evidence-first-v2-a.11",
+      "promptVersion": "factory-v2-a-prompts.8",
+      "bSchemaVersion": "factory-v2-b.2"
+    }
+  },
+  "executionBoundary": {
+    "configMigrations": 0,
+    "a3WebRuns": 0,
+    "b1WebRuns": 0,
+    "b2Runs": 0,
+    "fiveFixtureSuites": 0,
+    "vertexCalls": 0,
+    "groundingCalls": 0,
+    "sourceRetrievals": 0,
+    "productionWrites": 0,
+    "configurationWrites": 0
+  },
+  "liveState": {
+    "config": {
+      "operatingMode": "SHADOW",
+      "pipelineVersion": "factory-v2-a.11",
+      "schemaVersion": "factory-v2-a.3",
+      "policyVersion": "evidence-first-v2-a.10",
+      "promptVersion": "factory-v2-a-prompts.8",
+      "publicationEnabled": false,
+      "governanceSubmissionEnabled": false,
+      "autonomousDiscoveryEnabled": false,
+      "configHash": "af4b770b54cc6de28c01511c731bf686a7d4e20e70f57dbc584cc93550d09561"
+    },
+    "scheduler": {
+      "name": "topic-discovery-daily",
+      "state": "PAUSED",
+      "schedule": "0 3 * * *",
+      "timeZone": "UTC"
+    },
+    "runningV2Operations": 0,
+    "publishedMemory": {
+      "totalCount": 4,
+      "v2Count": 0,
+      "comparisonHash": "7389246e4ff622e0183a38e89874b50e47a1a0b85e3ef447ffd39eac1a323275"
+    },
+    "platformReadModels": {
+      "totalCount": 46,
+      "v2Count": 0,
+      "comparisonHash": "8cb51b3a8c6fb2eed37ebdcbd23d15c1650455427678487fcf244c986fa223e9"
+    },
+    "protectedReviews": {
+      "cubanMissileCrisis": {
+        "topicId": "7d83e1b9dd32107a1b95c67a79e8edfb710583b0",
+        "jobId": "a5c29a9e-aac2-4f37-9d08-072e52d1ae40",
+        "state": "AWAITING_REVIEW",
+        "currentStage": "governance_review",
+        "updatedAt": "2026-09-05T18:45:03.650Z"
+      },
+      "apollo13": {
+        "topicId": "8f8c58de52e5e8b8d1f6efbb16fb98c62c0ed47f",
+        "jobId": "1190ca33-e1cc-4e30-b3da-f0d0268989ae",
+        "state": "AWAITING_REVIEW",
+        "currentStage": "governance_review",
+        "updatedAt": "2026-09-05T19:34:27.044Z"
+      }
+    }
+  },
+  "certification": {
+    "a35SemanticVersionIdentity": "CERTIFIED",
+    "a34GapAwareSourceAdmission": "NOT_LIVE_CERTIFIED",
+    "v2a3KnowledgeCoverage": "NOT_CERTIFIED",
+    "v2bB1": "NOT_REVALIDATED",
+    "v2b": "NOT_CERTIFIED"
+  },
+  "nextAction": "A separately authorized implementation goal must make the existing B1 Web revalidation consume the exact A3 completed knowledge-set lineage before another bounded live revalidation can be authorized."
+}
