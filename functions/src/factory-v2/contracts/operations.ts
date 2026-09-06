@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { boundedText, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields } from "./common";
+import { boundedText, executionEnvelopeFields, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields } from "./common";
 import { researchBudgetSchema } from "./knowledge";
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
@@ -25,7 +25,7 @@ export const researchTaskSchema = z.object({
 }).strict();
 
 export const acquisitionRunSchema = z.object({
-  ...immutableEnvelopeFields,
+  ...executionEnvelopeFields,
   acquisitionRunId: idSchema,
   queryPlanId: idSchema,
   queryId: idSchema,
@@ -40,7 +40,7 @@ export const acquisitionRunSchema = z.object({
 }).strict();
 
 export const acquisitionDiscoverySchema = z.object({
-  ...immutableEnvelopeFields,
+  ...executionEnvelopeFields,
   discoveryId: idSchema,
   acquisitionRunId: idSchema,
   queryId: idSchema,
@@ -53,7 +53,7 @@ export const acquisitionDiscoverySchema = z.object({
 }).strict();
 
 export const reconnaissanceRecordSchema = z.object({
-  ...immutableEnvelopeFields,
+  ...executionEnvelopeFields,
   reconnaissanceId: idSchema,
   scopeContractId: idSchema,
   knownEntityIds: z.array(idSchema).max(50).refine(unique),
@@ -71,7 +71,7 @@ export const topicOperationSchema = z.object({
   topicId: idSchema,
   runId: idSchema,
   generation: z.number().int().positive(),
-  pipelineVersion: z.literal("factory-v2-a.11"),
+  pipelineVersion: z.literal("factory-v2-a.12"),
   executionMode: z.literal("SHADOW"),
   state: z.enum(["QUEUED", "RUNNING", "FAILED", "COMPLETED"]),
   stage: z.enum(["A1_SCHEMAS", "A2_SCOPE_ACQUISITION", "A3_CLAIMS", "A4_AUTHORITY_CONFLICTS", "A5_RESOLUTION_REUSE", "COMPLETE"]),
@@ -84,7 +84,7 @@ export const topicOperationSchema = z.object({
 }).strict();
 
 export const auditRecordSchema = z.object({
-  ...immutableEnvelopeFields,
+  ...executionEnvelopeFields,
   auditRecordId: idSchema,
   action: boundedText(2, 160),
   actorType: z.enum(["SERVICE", "MODEL", "POLICY", "HUMAN"]),

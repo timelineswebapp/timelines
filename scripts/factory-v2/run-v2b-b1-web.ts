@@ -7,6 +7,7 @@ import {
   canonicalEventVersionSchema,
   claimAuthorityVerdictSchema,
   claimConflictSetSchema,
+  auditRecordSchema,
   researchMapSchema,
   scopeContractSchema,
   type AtomicClaimVersion,
@@ -17,6 +18,7 @@ import {
   type ScopeContract
 } from "../../functions/src/factory-v2/contracts";
 import { V2_B_PROMPT_VERSION } from "../../functions/src/factory-v2/contracts/assembly";
+import { executionArtifactId, immutableEnvelope, parseSealedArtifact } from "../../functions/src/factory-v2/contracts/builders";
 import { factoryV2ConfigSchema } from "../../functions/src/factory-v2/config";
 import { evaluateHistoricalSignificance } from "../../functions/src/factory-v2/selection-model";
 import { assembleTimelineSelection, evaluateCandidateEligibility } from "../../functions/src/factory-v2/selection";
@@ -41,7 +43,7 @@ async function main() {
   const configSnapshot = await db.collection("factoryV2").doc("config").get();
   if (!configSnapshot.exists) throw new Error("Factory V2 shadow config is absent.");
   const config = factoryV2ConfigSchema.parse(configSnapshot.data());
-  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.11" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("B1 requires the certified non-public V2-A shadow configuration.");
+  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.12" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("B1 requires the certified non-public V2-A shadow configuration.");
 
   const [scopes, maps, events, claims, verdicts, conflicts] = await Promise.all([
     loadRun("v2ScopeContracts", (value) => scopeContractSchema.parse(value), 2),
@@ -69,6 +71,21 @@ async function main() {
   const repository = new V2FirestoreRepository({ firestore: db, corpusId: CORPUS_ID });
   await repository.createImmutable("v2ModelExecutions", model.execution);
   await repository.createImmutable("v2RankedCandidateSets", selection);
+  const derivationContext = { corpusId: context.corpusId, topicId: context.topicId, runId: context.runId, generation: context.generation, createdAt: context.createdAt };
+  const auditRecordId = executionArtifactId("audit", derivationContext, { action: "SEMANTIC_ARTIFACT_DERIVATION", selectionArtifactId: selection.selectionArtifactId, executionId: model.execution.executionId });
+  const derivationAudit = parseSealedArtifact(auditRecordSchema, {
+    ...immutableEnvelope(derivationContext, auditRecordId),
+    auditRecordId,
+    action: "SEMANTIC_ARTIFACT_DERIVATION",
+    actorType: "MODEL",
+    actorId: model.execution.modelExecutionRef?.model || "gemini-2.5-flash",
+    artifactRefs: [
+      { collection: "v2RankedCandidateSets", id: selection.selectionArtifactId, payloadHash: selection.payloadHash },
+      { collection: "v2ModelExecutions", id: model.execution.executionId, payloadHash: model.execution.payloadHash }
+    ],
+    details: { executionId: model.execution.executionId, semanticArtifactId: selection.selectionArtifactId }
+  });
+  await repository.createImmutable("v2AuditRecords", derivationAudit);
 
   const gateChecks = {
     verifiedCandidatePoolPreserved: selection.completeCandidateEventVersionIds.length === events.length,
@@ -82,7 +99,7 @@ async function main() {
     selectionArtifactPasses: selection.status === "PASS"
   };
   const status = Object.values(gateChecks).every(Boolean) ? "PASS" : "FAIL";
-  const evidence = { goal: "TL-KF-V2-B", gate: "B1_SELECTION_ENGINE", fixture: EXPECTED_TITLE, status, sourceKnowledgeRunId: SOURCE_RUN_ID, runId: context.runId, selectionArtifactId: selection.selectionArtifactId, selectionModelExecutionId: model.execution.executionId, candidateCount: events.length, eligibleCount: eligibleEvents.length, selectedCount: selection.selectedEventVersionIds.length, coverage: selection.coverageSummary, temporalDiagnostics: selection.temporalDiagnostics, failureCodes: selection.failureCodes, gateChecks, metrics: { selectionMs: Date.now() - startedAt, selectionModelCalls: model.execution.repairAttempt + 1, inputTokens: model.execution.usage.inputTokens, outputTokens: model.execution.usage.outputTokens, firestoreWrites: 2, monetaryCost: null, costMeasurement: "NOT_MEASURABLE" }, productionBoundary: { executionMode: "SHADOW", publicationEligible: false, governanceSubmissionAllowed: false, autonomousDiscoveryEnabled: false } };
+  const evidence = { goal: "TL-KF-V2-B", gate: "B1_SELECTION_ENGINE", fixture: EXPECTED_TITLE, status, sourceKnowledgeRunId: SOURCE_RUN_ID, runId: context.runId, selectionArtifactId: selection.selectionArtifactId, selectionModelExecutionId: model.execution.executionId, candidateCount: events.length, eligibleCount: eligibleEvents.length, selectedCount: selection.selectedEventVersionIds.length, coverage: selection.coverageSummary, temporalDiagnostics: selection.temporalDiagnostics, failureCodes: selection.failureCodes, gateChecks, metrics: { selectionMs: Date.now() - startedAt, selectionModelCalls: model.execution.repairAttempt + 1, inputTokens: model.execution.usage.inputTokens, outputTokens: model.execution.usage.outputTokens, firestoreWrites: 3, monetaryCost: null, costMeasurement: "NOT_MEASURABLE" }, productionBoundary: { executionMode: "SHADOW", publicationEligible: false, governanceSubmissionAllowed: false, autonomousDiscoveryEnabled: false } };
   const outputDirectory = new URL("../../artifacts/factory-v2/", import.meta.url);
   await mkdir(outputDirectory, { recursive: true });
   const outputFile = new URL(`v2-b1-web-${Date.now()}.json`, outputDirectory);

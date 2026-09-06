@@ -1,4 +1,4 @@
-import { immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
+import { immutableEnvelope, parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import {
   V2_POLICY_VERSION,
   claimAuthorityVerdictSchema,
@@ -39,6 +39,7 @@ function isDefinitivePrimary(edge: ClaimEvidenceEdge, publisher: PublisherAuthor
 }
 
 export function evaluateClaimAuthority(input: AuthorityEvaluationInput): ClaimAuthorityVerdict {
+  const authorityContext = { ...input.context, policyVersion: V2_POLICY_VERSION };
   const accepted: string[] = [];
   const rejected: string[] = [];
   const reasonCodes = new Set<ClaimAuthorityVerdict["reasonCodes"][number]>();
@@ -88,9 +89,9 @@ export function evaluateClaimAuthority(input: AuthorityEvaluationInput): ClaimAu
   } else if (input.claim.risk === "CONTESTED" && strongGroups.size >= 2 && input.conflictSet?.state === "HISTORICALLY_CONTESTED") verdict = "QUALIFIED";
   if (accepted.length === 0) reasonCodes.add("MISSING_EVIDENCE");
   const evidenceSetHash = payloadHash(uniqueEvidenceEdges.map((edge) => ({ id: edge.claimEvidenceId, hash: edge.payloadHash })).sort((left, right) => left.id.localeCompare(right.id)));
-  const claimAuthorityVerdictId = contentAddressedId("claim-verdict", { claimVersionId: input.claim.claimVersionId, evidenceSetHash, policyVersion: input.context.policyVersion || V2_POLICY_VERSION });
+  const claimAuthorityVerdictId = semanticArtifactId("claim-verdict", authorityContext, { claimVersionId: input.claim.claimVersionId, evidenceSetHash });
   return parseSealedArtifact(claimAuthorityVerdictSchema, {
-    ...immutableEnvelope(input.context, claimAuthorityVerdictId),
+    ...semanticEnvelope(authorityContext, claimAuthorityVerdictId, input.claim.claimVersionId),
     claimAuthorityVerdictId,
     claimVersionId: input.claim.claimVersionId,
     evidenceSetHash,
@@ -124,6 +125,7 @@ export function independenceGroup(input: {
 }
 
 export function detectClaimConflicts(input: { context: ArtifactContext; claims: AtomicClaimVersion[]; evidenceEdges: ClaimEvidenceEdge[] }): ClaimConflictSet[] {
+  const authorityContext = { ...input.context, policyVersion: V2_POLICY_VERSION };
   const groups = new Map<string, AtomicClaimVersion[]>();
   for (const claim of input.claims) {
     const key = payloadHash({ subject: claim.subject, predicate: claim.predicate, temporal: claim.temporal });
@@ -141,8 +143,8 @@ export function detectClaimConflicts(input: { context: ArtifactContext; claims: 
     const evidenceEdgeIds = claims.flatMap((claim) => edgeByClaim.get(claim.claimVersionId) || []).map((edge) => edge.claimEvidenceId).sort();
     if (evidenceEdgeIds.length < 2) return [];
     const material = claims.some((claim) => claim.risk !== "ROUTINE");
-    const conflictSetId = contentAddressedId("claim-conflict", { conflictKey, claimVersionIds, evidenceEdgeIds });
-    return [parseSealedArtifact(claimConflictSetSchema, { ...immutableEnvelope(input.context, conflictSetId), conflictSetId, conflictKey, claimVersionIds, evidenceEdgeIds, state: "UNRESOLVED", material, resolutionReason: null, resolutionEvidenceSegmentIds: [], blocksPass: material })];
+    const conflictSetId = semanticArtifactId("claim-conflict", authorityContext, { conflictKey, claimVersionIds, evidenceEdgeIds, state: "UNRESOLVED", material });
+    return [parseSealedArtifact(claimConflictSetSchema, { ...semanticEnvelope(authorityContext, conflictSetId), conflictSetId, conflictKey, claimVersionIds, evidenceEdgeIds, state: "UNRESOLVED", material, resolutionReason: null, resolutionEvidenceSegmentIds: [], blocksPass: material })];
   });
 }
 
@@ -183,9 +185,9 @@ export function buildPublisherAuthorityVersion(context: ArtifactContext, input: 
     classificationEvidenceSegmentIds: normalizedSet(input.classificationEvidenceSegmentIds),
     admittedBy: input.admittedBy
   };
-  const publisherVersionId = contentAddressedId("publisher-version", { publisherId, version: input.version, policyVersion, semantic });
   const registryContext: ArtifactContext = { corpusId: context.corpusId, topicId: "publisher-registry", runId: "publisher-authority-versions", generation: input.version, createdAt: input.effectiveAt, policyVersion };
-  return parseSealedArtifact(publisherAuthorityVersionSchema, { ...immutableEnvelope(registryContext, publisherVersionId), ...semantic, publisherId, publisherVersionId, version: input.version });
+  const publisherVersionId = semanticArtifactId("publisher-version", registryContext, { publisherId, version: input.version, semantic, effectiveAt: input.effectiveAt });
+  return parseSealedArtifact(publisherAuthorityVersionSchema, { ...semanticEnvelope(registryContext, publisherVersionId), ...semantic, publisherId, publisherVersionId, version: input.version, effectiveAt: input.effectiveAt });
 }
 
 const BOOTSTRAP_PUBLISHERS: BootstrapPublisher[] = [
@@ -211,9 +213,11 @@ export function bootstrapPublisherRegistry(context: ArtifactContext): PublisherA
   // Bootstrap authority versions are semantic registry state governed by the
   // fixed authority policy, not by a topic operation's caller policy.
   const registryContext: ArtifactContext = { ...context, topicId: "publisher-registry", runId: "bootstrap-v2-a", generation: 1, createdAt: "2026-09-06T00:00:00.000Z", policyVersion: V2_POLICY_VERSION };
-  return BOOTSTRAP_PUBLISHERS.map((publisher) => {
-    const publisherId = deterministicUuid("timelines.publisher", publisher.canonicalName);
-    const publisherVersionId = contentAddressedId("publisher-version", { publisherId, publisher, policyVersion: V2_POLICY_VERSION });
-    return parseSealedArtifact(publisherAuthorityVersionSchema, { ...immutableEnvelope(registryContext, publisherVersionId), ...publisher, publisherId, publisherVersionId, version: 2, classificationEvidenceSegmentIds: [], admittedBy: "POLICY" });
-  });
+  return BOOTSTRAP_PUBLISHERS.map((publisher) => buildPublisherAuthorityVersion(registryContext, {
+    ...publisher,
+    version: 2,
+    effectiveAt: "2026-09-06T00:00:00.000Z",
+    classificationEvidenceSegmentIds: [],
+    admittedBy: "POLICY"
+  }));
 }

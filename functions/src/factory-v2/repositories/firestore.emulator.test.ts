@@ -64,17 +64,17 @@ test("Firestore emulator proves publisher bootstrap retry, concurrency, immutabl
   const conflicting = sealArtifact({ ...original, canonicalName: "Conflicting publisher payload" });
   await assert.rejects(repository.createImmutable("v2PublisherAuthorityVersions", conflicting), /collision/);
 
-  const oldHead = publisherAuthorityRecordSchema.parse({ publisherId: original.publisherId, corpusId, canonicalNameKey: normalizedIdentityText(original.canonicalName), currentVersionId: original.publisherVersionId, currentVersion: original.version, state: original.state, updatedAt: original.createdAt });
+  const oldHead = publisherAuthorityRecordSchema.parse({ publisherId: original.publisherId, corpusId, canonicalNameKey: normalizedIdentityText(original.canonicalName), currentVersionId: original.publisherVersionId, currentVersion: original.version, state: original.state, updatedAt: original.effectiveAt });
   assert.equal(await repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: original.publisherId, expectedCurrentVersionId: null, nextVersionId: original.publisherVersionId, data: oldHead }), "CREATED");
   const successor = buildPublisherAuthorityVersion(firstContext, { publisherId: original.publisherId, version: original.version + 1, effectiveAt: "2026-09-07T01:00:00.000Z", canonicalName: original.canonicalName, aliases: original.aliases, parentPublisherId: original.parentPublisherId, institutionType: original.institutionType, authorityDomains: [...original.authorityDomains, "Additional verified authority domain"], geographicScope: original.geographicScope, languages: original.languages, primarySecondaryTendency: original.primarySecondaryTendency, knownDomains: original.knownDomains, externalIdentifiers: original.externalIdentifiers, independenceGroupId: original.independenceGroupId, accessLimitations: original.accessLimitations, state: original.state, classificationEvidenceSegmentIds: original.classificationEvidenceSegmentIds, admittedBy: original.admittedBy });
   assert.equal(await repository.createImmutable("v2PublisherAuthorityVersions", successor), "CREATED");
-  const nextHead = publisherAuthorityRecordSchema.parse({ ...oldHead, currentVersionId: successor.publisherVersionId, currentVersion: successor.version, updatedAt: successor.createdAt });
+  const nextHead = publisherAuthorityRecordSchema.parse({ ...oldHead, currentVersionId: successor.publisherVersionId, currentVersion: successor.version, updatedAt: successor.effectiveAt });
   assert.equal(await repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: original.publisherId, expectedCurrentVersionId: original.publisherVersionId, nextVersionId: successor.publisherVersionId, data: nextHead }), "ADVANCED");
   assert.equal((await repository.getById("v2PublisherAuthorityVersions", original.publisherVersionId))?.payloadHash, original.payloadHash);
   await assert.rejects(repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: original.publisherId, expectedCurrentVersionId: original.publisherVersionId, nextVersionId: "publisher-version-stale", data: nextHead }), /compare-and-set/);
 });
 
-test("Firestore emulator proves execution-addressed A3 result retry and concurrency", { skip: !enabled }, async () => {
+test("Firestore emulator proves semantic A3 retry convergence, version coexistence, and concurrency", { skip: !enabled }, async () => {
   const app = getApps()[0] || initializeApp({ projectId: "tiimeliines" });
   const firestore = getFirestore(app);
   const context = { ...TEST_CONTEXT, corpusId: "a3-identity-test-corpus", runId: "a3-identity-run" };
@@ -85,15 +85,17 @@ test("Firestore emulator proves execution-addressed A3 result retry and concurre
   const audit = auditKnowledgeCoverage({ context, ...auditInput });
   const retryContext = { ...context, runId: "a3-identity-retry", createdAt: "2026-09-07T00:00:00.000Z" };
   const retryAudit = auditKnowledgeCoverage({ context: retryContext, ...auditInput });
-  assert.notEqual(retryAudit.coverageAuditId, audit.coverageAuditId);
+  assert.equal(retryAudit.coverageAuditId, audit.coverageAuditId);
+  assert.deepEqual(retryAudit, audit);
   assert.equal(await repository.createImmutable("v2KnowledgeCoverageAudits", audit), "CREATED");
   assert.equal(await repository.createImmutable("v2KnowledgeCoverageAudits", audit), "IDEMPOTENT");
-  assert.equal(await repository.createImmutable("v2KnowledgeCoverageAudits", retryAudit), "CREATED");
+  assert.equal(await repository.createImmutable("v2KnowledgeCoverageAudits", retryAudit), "IDEMPOTENT");
   const plan = planGapDirectedCompletion({ context, scope: auditInput.scope, researchMap, audit, originalKnowledgeRunId: "source-run" });
   const retryPlan = planGapDirectedCompletion({ context: retryContext, scope: auditInput.scope, researchMap, audit: retryAudit, originalKnowledgeRunId: "source-run" });
-  assert.notEqual(retryPlan.completionPlanId, plan.completionPlanId);
+  assert.equal(retryPlan.completionPlanId, plan.completionPlanId);
+  assert.deepEqual(retryPlan, plan);
   assert.equal(await repository.createImmutable("v2KnowledgeCompletionPlans", plan), "CREATED");
-  assert.equal(await repository.createImmutable("v2KnowledgeCompletionPlans", retryPlan), "CREATED");
+  assert.equal(await repository.createImmutable("v2KnowledgeCompletionPlans", retryPlan), "IDEMPOTENT");
   const payload = { completionPlanId: "completion-plan", initialCoverageAuditId: "audit-initial", finalCoverageAuditId: "audit-final", acquisitionRunId: "acquisition-run", originalKnowledgeRunId: "source-run", newClaimVersionIds: [], newEventVersionIds: [], reusedEventVersionIds: [], unresolvedGapIds: [], budgetConsumed: { rounds: 1 as const, groundingCalls: 1, providerQueries: 1, sourceDocuments: 1, claimExtractions: 1, atomicClaims: 1, writes: 7 }, timings: { initialKnowledgeReuseMs: 1, coverageAuditMs: 2, gapAcquisitionMs: 3, reAuditMs: 4 }, finalVerdict: "SUFFICIENT" as const };
   const result = buildKnowledgeCompletionResult(context, payload);
   const equivalent = buildKnowledgeCompletionResult(context, payload);
@@ -101,6 +103,23 @@ test("Firestore emulator proves execution-addressed A3 result retry and concurre
   assert.deepEqual([...concurrent].sort(), ["CREATED", "IDEMPOTENT"]);
   assert.equal(await repository.createImmutable("v2KnowledgeCompletionResults", result), "IDEMPOTENT");
   const changedTelemetry = buildKnowledgeCompletionResult(context, { ...payload, timings: { ...payload.timings, gapAcquisitionMs: 5 } });
-  assert.notEqual(changedTelemetry.completionResultId, result.completionResultId);
-  assert.equal(await repository.createImmutable("v2KnowledgeCompletionResults", changedTelemetry), "CREATED");
+  assert.equal(changedTelemetry.completionResultId, result.completionResultId);
+  assert.deepEqual(changedTelemetry, result);
+  assert.equal(await repository.createImmutable("v2KnowledgeCompletionResults", changedTelemetry), "IDEMPOTENT");
+
+  const successorContext = { ...retryContext, policyVersion: "knowledge-coverage-v2-a3.2" };
+  const successorMap = buildResearchMap(successorContext, auditInput.scope, {
+    version: researchMap.version + 1,
+    phases: researchMap.phases,
+    dimensions: researchMap.dimensions,
+    entities: researchMap.entities,
+    questions: researchMap.questions,
+    terminology: researchMap.terminology,
+    knownUncertainty: researchMap.knownUncertainty
+  });
+  assert.notEqual(successorMap.researchMapId, researchMap.researchMapId);
+  assert.equal(await repository.createImmutable("v2ResearchMaps", researchMap), "CREATED");
+  assert.equal(await repository.createImmutable("v2ResearchMaps", successorMap), "CREATED");
+  assert.equal(await repository.createImmutable("v2ResearchMaps", successorMap), "IDEMPOTENT");
+  assert.equal((await repository.getById("v2ResearchMaps", researchMap.researchMapId))?.payloadHash, researchMap.payloadHash);
 });

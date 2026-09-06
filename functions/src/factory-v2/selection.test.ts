@@ -147,7 +147,7 @@ test("B1 rejects significance mappings outside the locked Research Map", () => {
   assert.throws(() => select(events, significance), /outside the locked Research Map/);
 });
 
-test("B1 selection artifact reruns bind execution provenance without changing selection semantics", () => {
+test("B1 selection artifact reruns converge while preserving separate execution provenance", () => {
   const events = Array.from({ length: 6 }, (_, index) => event(index));
   const significance = proposal(events);
   const first = select(events, significance);
@@ -155,6 +155,6 @@ test("B1 selection artifact reruns bind execution provenance without changing se
   const retry = select(events, significance, { ...TEST_CONTEXT, runId: "b1-retry-run", createdAt: "2026-09-07T00:00:00.000Z", sourceKnowledgeRunId: "v2-a-certified-run" });
   assert.equal(exactReplay.selectionArtifactId, first.selectionArtifactId);
   assert.equal(exactReplay.payloadHash, first.payloadHash);
-  assert.notEqual(retry.selectionArtifactId, first.selectionArtifactId);
-  assert.deepEqual(retry.selectedEventVersionIds, first.selectedEventVersionIds);
+  assert.equal(retry.selectionArtifactId, first.selectionArtifactId);
+  assert.deepEqual(retry, first);
 });

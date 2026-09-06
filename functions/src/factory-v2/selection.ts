@@ -22,6 +22,7 @@ export type SelectionInput = Readonly<{
   conflicts: readonly ClaimConflictSet[];
   significance: SignificanceProposal;
   modelExecutionRef: SelectionArtifact["modelExecutionRef"];
+  selectionPolicyVersion?: string;
 }>;
 
 export type SelectionKnowledgeInput = Omit<SelectionInput, "significance" | "modelExecutionRef">;
@@ -251,6 +252,7 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     return { eventVersionId: event.eventVersionId, inputOrdinal: index, eligible: eventReasons.length === 0, eligibilityReasons: eventReasons, significanceClass: judgment.significanceClass, comparativeRank: judgment.comparativeRank, criteria: judgment.criteria, significanceRationale: judgment.rationale, phaseCoverage: judgment.phaseCoverage, dimensionCoverage: judgment.dimensionCoverage, selectionState, selectionRationale };
   });
 
+  const selectionPolicyVersion = input.selectionPolicyVersion || V2_B_SELECTION_POLICY_VERSION;
   const semanticPayload = {
     scopeContractId: input.scope.scopeContractId,
     scopePayloadHash: input.scope.payloadHash,
@@ -268,24 +270,24 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     completenessFindings,
     status: failures.size === 0 ? "PASS" as const : "FAILED" as const,
     failureCodes: [...failures].sort(),
-    selectionPolicyVersion: V2_B_SELECTION_POLICY_VERSION,
+    selectionPolicyVersion,
     significancePromptVersion: V2_B_PROMPT_VERSION
   };
   const selectionIdentity = {
     artifactType: "EDITORIAL_SELECTION",
     schemaVersion: V2_B_SCHEMA_VERSION,
     pipelineVersion: V2_B_PIPELINE_VERSION,
-    policyVersion: V2_B_SELECTION_POLICY_VERSION,
-    promptVersion: V2_B_PROMPT_VERSION,
-    modelExecutionRef: input.modelExecutionRef,
+    policyVersion: selectionPolicyVersion,
+    promptVersion: null,
+    modelExecutionRef: null,
     parentArtifactIds: [input.scope.scopeContractId, input.researchMap.researchMapId],
-    createdAt: input.context.createdAt,
+    createdAt: null,
     corpusId: input.context.corpusId,
     topicId: input.context.topicId,
-    runId: input.context.runId,
+    runId: null,
     generation: input.context.generation,
-    sourceKnowledgeRunId: input.context.sourceKnowledgeRunId,
-    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.11", schemaVersion: "factory-v2-a.3", policyVersion: "evidence-first-v2-a.10", promptVersion: "factory-v2-a-prompts.8" },
+    sourceKnowledgeRunId: null,
+    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.12", schemaVersion: "factory-v2-a.4", policyVersion: "evidence-first-v2-a.11", promptVersion: "factory-v2-a-prompts.8" },
     executionMode: "SHADOW",
     publicationEligible: false,
     governanceSubmissionAllowed: false,
@@ -298,17 +300,17 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     artifactType: "EDITORIAL_SELECTION" as const,
     schemaVersion: V2_B_SCHEMA_VERSION,
     pipelineVersion: V2_B_PIPELINE_VERSION,
-    policyVersion: V2_B_SELECTION_POLICY_VERSION,
-    promptVersion: V2_B_PROMPT_VERSION,
-    modelExecutionRef: input.modelExecutionRef,
+    policyVersion: selectionPolicyVersion,
+    promptVersion: null,
+    modelExecutionRef: null,
     parentArtifactIds: [input.scope.scopeContractId, input.researchMap.researchMapId],
-    createdAt: input.context.createdAt,
+    createdAt: null,
     corpusId: input.context.corpusId,
     topicId: input.context.topicId,
-    runId: input.context.runId,
+    runId: null,
     generation: input.context.generation,
-    sourceKnowledgeRunId: input.context.sourceKnowledgeRunId,
-    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.11" as const, schemaVersion: "factory-v2-a.3" as const, policyVersion: "evidence-first-v2-a.10" as const, promptVersion: "factory-v2-a-prompts.8" as const },
+    sourceKnowledgeRunId: null,
+    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.12" as const, schemaVersion: "factory-v2-a.4" as const, policyVersion: "evidence-first-v2-a.11" as const, promptVersion: "factory-v2-a-prompts.8" as const },
     executionMode: "SHADOW" as const,
     publicationEligible: false as const,
     governanceSubmissionAllowed: false as const,

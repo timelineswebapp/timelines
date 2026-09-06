@@ -60,7 +60,7 @@ export const knowledgeCoverageAuditSchema = z.object({
   latestDurableSourceSnapshotAt: z.string().datetime().nullable(),
   ongoingFreshness: z.enum(["CURRENT_LOCKED_PHASE_REPRESENTED", "STALE_LOCKED_PHASE", "NOT_APPLICABLE"]),
   verdict: z.enum(["SUFFICIENT", "KNOWLEDGE_COVERAGE_INSUFFICIENT"]),
-  auditMs: z.number().int().nonnegative()
+  auditMs: z.number().int().nonnegative().nullable()
 }).strict();
 
 export const completionBudgetSchema = z.object({
@@ -93,7 +93,7 @@ export const knowledgeCompletionPlanSchema = z.object({
   parentCoverageAuditId: idSchema,
   originalScopeContractId: idSchema,
   originalResearchMapId: idSchema,
-  originalKnowledgeRunId: idSchema,
+  originalKnowledgeRunId: idSchema.nullable(),
   round: z.literal(1),
   budget: completionBudgetSchema,
   tasks: z.array(knowledgeCompletionTaskSchema).min(1).max(5),
@@ -106,8 +106,8 @@ export const knowledgeCompletionResultSchema = z.object({
   completionPlanId: idSchema,
   initialCoverageAuditId: idSchema,
   finalCoverageAuditId: idSchema,
-  acquisitionRunId: idSchema,
-  originalKnowledgeRunId: idSchema,
+  acquisitionRunId: idSchema.nullable(),
+  originalKnowledgeRunId: idSchema.nullable(),
   newClaimVersionIds: ids(100),
   newEventVersionIds: ids(100),
   reusedEventVersionIds: ids(100),
@@ -115,8 +115,8 @@ export const knowledgeCompletionResultSchema = z.object({
   budgetConsumed: z.object({
     rounds: z.literal(1), groundingCalls: z.number().int().nonnegative().max(5), providerQueries: z.number().int().nonnegative().max(25),
     sourceDocuments: z.number().int().nonnegative().max(30), claimExtractions: z.number().int().nonnegative().max(5), atomicClaims: z.number().int().nonnegative().max(100), writes: z.number().int().nonnegative()
-  }).strict(),
-  timings: z.object({ initialKnowledgeReuseMs: z.number().int().nonnegative(), coverageAuditMs: z.number().int().nonnegative(), gapAcquisitionMs: z.number().int().nonnegative(), reAuditMs: z.number().int().nonnegative() }).strict(),
+  }).strict().nullable(),
+  timings: z.object({ initialKnowledgeReuseMs: z.number().int().nonnegative(), coverageAuditMs: z.number().int().nonnegative(), gapAcquisitionMs: z.number().int().nonnegative(), reAuditMs: z.number().int().nonnegative() }).strict().nullable(),
   finalVerdict: z.enum(["SUFFICIENT", "KNOWLEDGE_COVERAGE_INSUFFICIENT"])
 }).strict();
 

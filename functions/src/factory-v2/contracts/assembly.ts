@@ -2,34 +2,42 @@ import { z } from "zod";
 import { boundedText, hashSchema, historicalDateSchema, idSchema, modelExecutionRefSchema } from "./common";
 
 export const V2_B_PIPELINE_VERSION = "factory-v2-b.1" as const;
-export const V2_B_SCHEMA_VERSION = "factory-v2-b.1" as const;
+export const V2_B_SCHEMA_VERSION = "factory-v2-b.2" as const;
+export const V2_B_LEGACY_SCHEMA_VERSION = "factory-v2-b.1" as const;
 export const V2_B_SELECTION_POLICY_VERSION = "evidence-backed-selection-v2-b.1" as const;
 export const V2_B_PROMPT_VERSION = "factory-v2-b-prompts.1" as const;
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
+const legacyV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.10"),
+  schemaVersion: z.literal("factory-v2-a.3"),
+  policyVersion: z.literal("evidence-first-v2-a.9"),
+  promptVersion: z.literal("factory-v2-a-prompts.8")
+}).strict();
+const currentV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.12"),
+  schemaVersion: z.literal("factory-v2-a.4"),
+  policyVersion: z.literal("evidence-first-v2-a.11"),
+  promptVersion: z.literal("factory-v2-a-prompts.8")
+}).strict();
 
 export const v2BEnvelopeFields = {
   artifactId: idSchema,
   artifactType: boundedText(3, 80),
-  schemaVersion: z.literal(V2_B_SCHEMA_VERSION),
+  schemaVersion: z.enum([V2_B_LEGACY_SCHEMA_VERSION, V2_B_SCHEMA_VERSION]),
   pipelineVersion: z.literal(V2_B_PIPELINE_VERSION),
   policyVersion: boundedText(3, 120),
   promptVersion: boundedText(3, 120).nullable(),
   modelExecutionRef: modelExecutionRefSchema.nullable(),
   parentArtifactIds: z.array(idSchema).max(20).refine(unique),
   payloadHash: hashSchema,
-  createdAt: z.string().datetime(),
+  createdAt: z.string().datetime().nullable(),
   corpusId: z.string().regex(/^[a-z0-9][a-z0-9-]{2,62}$/u),
   topicId: idSchema,
-  runId: idSchema,
+  runId: idSchema.nullable(),
   generation: z.number().int().positive(),
-  sourceKnowledgeRunId: idSchema,
-  sourceKnowledgeBundle: z.object({
-    pipelineVersion: z.literal("factory-v2-a.11"),
-    schemaVersion: z.literal("factory-v2-a.3"),
-    policyVersion: z.literal("evidence-first-v2-a.10"),
-    promptVersion: z.literal("factory-v2-a-prompts.8")
-  }).strict(),
+  sourceKnowledgeRunId: idSchema.nullable(),
+  sourceKnowledgeBundle: z.union([legacyV2ASourceBundleSchema, currentV2ASourceBundleSchema]),
   executionMode: z.literal("SHADOW"),
   publicationEligible: z.literal(false),
   governanceSubmissionAllowed: z.literal(false),
@@ -151,12 +159,15 @@ export const selectionArtifactSchema = z.object({
   completenessFindings: significanceProposalSchema.shape.completenessFindings,
   status: z.enum(["PASS", "FAILED"]),
   failureCodes: z.array(z.enum(["EVENT_LIMIT_UNSATISFIABLE", "COVERAGE_GAP_MATERIAL", "EVENT_COUNT_BELOW_MINIMUM", "NO_ELIGIBLE_CANDIDATES", "SIGNIFICANCE_INPUT_INVALID", "MATERIAL_OMISSION_UNRESOLVED"])).max(10).refine(unique),
-  selectionPolicyVersion: z.literal(V2_B_SELECTION_POLICY_VERSION),
+  selectionPolicyVersion: boundedText(3, 120),
   significancePromptVersion: z.literal(V2_B_PROMPT_VERSION)
 }).strict();
 
 export const selectionModelExecutionSchema = z.object({
   ...v2BEnvelopeFields,
+  createdAt: z.string().datetime(),
+  runId: idSchema,
+  sourceKnowledgeRunId: idSchema,
   artifactType: z.literal("SELECTION_MODEL_EXECUTION"),
   executionId: idSchema,
   stage: z.literal("SIGNIFICANCE_SELECTION"),

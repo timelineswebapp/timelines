@@ -1,7 +1,8 @@
 import { z } from "zod";
 
-export const V2_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "evidence-first-v2-a.10";
+export const V2_SCHEMA_VERSION = "factory-v2-a.4";
+export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
+export const V2_POLICY_VERSION = "evidence-first-v2-a.11";
 export const V2_PROMPT_VERSION = "factory-v2-a-prompts.8";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);
@@ -42,21 +43,30 @@ export const modelExecutionRefSchema = z.object({
 
 export const immutableEnvelopeFields = {
   artifactId: idSchema,
-  schemaVersion: z.literal(V2_SCHEMA_VERSION),
+  schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, V2_SCHEMA_VERSION]),
   policyVersion: boundedText(2, 120),
   promptVersion: boundedText(2, 120).nullable(),
   modelExecutionRef: modelExecutionRefSchema.nullable(),
   parentArtifactId: idSchema.nullable(),
   payloadHash: hashSchema,
-  createdAt: z.string().datetime(),
+  createdAt: z.string().datetime().nullable(),
   corpusId: corpusIdSchema,
   topicId: idSchema,
-  runId: idSchema,
+  runId: idSchema.nullable(),
   generation: z.number().int().positive(),
   executionMode: z.literal("SHADOW"),
   publicationEligible: z.literal(false),
   governanceSubmissionAllowed: z.literal(false),
   immutable: z.literal(true)
+} as const;
+
+/** Execution observations retain exact run/time/model provenance. Semantic
+ * versions use the nullable fields above and keep that provenance in separate
+ * execution/audit artifacts. */
+export const executionEnvelopeFields = {
+  ...immutableEnvelopeFields,
+  createdAt: z.string().datetime(),
+  runId: idSchema
 } as const;
 
 export const immutableEnvelopeSchema = z.object(immutableEnvelopeFields).strict();

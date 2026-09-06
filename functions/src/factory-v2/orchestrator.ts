@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { V2_POLICY_VERSION, acquisitionDiscoverySchema, acquisitionRunSchema, auditRecordSchema, canonicalEntityRecordSchema, canonicalEventRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, publisherAuthorityVersionSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type EvidenceSegment, type PublisherAuthorityVersion, type QueryPlan, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot } from "./contracts";
+import { V2_POLICY_VERSION, acquisitionDiscoverySchema, acquisitionRunSchema, auditRecordSchema, canonicalEntityRecordSchema, canonicalEventRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type EvidenceSegment, type PublisherAuthorityVersion, type QueryPlan, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot } from "./contracts";
 import { assertV2AShadowEnabled, type FactoryV2Config } from "./config";
-import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
-import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, executionArtifactId, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
+import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
+import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, executionArtifactId, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { canReuseSnapshot, retrieveSource, type RetrievalDependencies } from "./acquisition/retrieval";
 import { canonicalizeUrl } from "./acquisition/url";
 import { contentAddressedId, deterministicUuid, payloadHash, sha256 } from "./hashing";
@@ -70,6 +70,10 @@ export type V2AShadowResult = {
   scopeContractId: string;
   researchMapId: string;
   queryPlanId: string;
+  sourceSnapshotIds: string[];
+  claimVersionIds: string[];
+  authorityVerdictIds: string[];
+  conflictSetIds: string[];
   eventVersionIds: string[];
   metrics: V2ACertificationMetrics;
   blockingReasons: string[];
@@ -82,6 +86,7 @@ export type OrchestratorDependencies = {
   /** A3 continuation mode reuses the locked scope and a versioned Research Map,
    * then executes the same certified acquisition/claim/authority/resolution path. */
   continuation?: {
+    context: ArtifactContext;
     originalKnowledgeRunId: string;
     scope: ScopeContract;
     researchMap: ResearchMap;
@@ -100,12 +105,12 @@ function publisherForDomain(domain: string, publishers: PublisherAuthorityVersio
 }
 
 export function provisionalPublisher(context: ArtifactContext, url: string, language: string): PublisherAuthorityVersion {
+  void language;
   const hostname = new URL(url).hostname.toLocaleLowerCase("en-US").replace(/^www\./u, "");
   const registryContext: ArtifactContext = { ...context, topicId: "publisher-registry", runId: "provisional-v2-a", generation: 1, createdAt: "2026-09-06T00:00:00.000Z", policyVersion: V2_POLICY_VERSION };
   const publisherId = deterministicUuid("timelines.publisher.provisional", hostname);
-  const publisherVersionId = contentAddressedId("publisher-version", { publisherId, hostname, language: "multilingual", state: "PROVISIONAL", policy: V2_POLICY_VERSION });
-  return parseSealedArtifact(publisherAuthorityVersionSchema, {
-    ...immutableEnvelope(registryContext, publisherVersionId), publisherVersionId, publisherId, version: 2, canonicalName: hostname, aliases: [], parentPublisherId: null,
+  return buildPublisherAuthorityVersion(registryContext, {
+    publisherId, version: 2, effectiveAt: "2026-09-06T00:00:00.000Z", canonicalName: hostname, aliases: [], parentPublisherId: null,
     institutionType: "OTHER", authorityDomains: ["Unclassified"], geographicScope: ["Unclassified"], languages: ["multilingual"], primarySecondaryTendency: "MIXED",
     knownDomains: [hostname], externalIdentifiers: [], independenceGroupId: contentAddressedId("publisher-group", hostname), accessLimitations: [], state: "PROVISIONAL", classificationEvidenceSegmentIds: [], admittedBy: "POLICY"
   });
@@ -147,7 +152,7 @@ function provisionalSourceClass(publisher: PublisherAuthorityVersion | undefined
 }
 
 function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL" }) {
-  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: "factory-v2-a.11", executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, updatedAt: new Date().toISOString() });
+  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: "factory-v2-a.12", executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, updatedAt: new Date().toISOString() });
 }
 
 export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, config: FactoryV2Config, dependencies: OrchestratorDependencies = {}): Promise<V2AShadowResult> {
@@ -164,7 +169,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const expectedTopicId = sha256(`${descriptor.language}\n${normalizedIdentityText(descriptor.title)}`);
   const continuation = dependencies.continuation;
   const context: ArtifactContext = continuation
-    ? { corpusId: repository.activeCorpusId(), topicId: continuation.scope.topicId, runId: continuation.queryPlan.runId, generation: continuation.queryPlan.generation, createdAt: continuation.queryPlan.createdAt, policyVersion: continuation.queryPlan.policyVersion }
+    ? continuation.context
     : { corpusId: repository.activeCorpusId(), topicId: expectedTopicId, runId: randomUUID(), generation: 1, createdAt: new Date().toISOString() };
   const topicId = context.topicId;
   if (continuation) {
@@ -186,6 +191,25 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       throw new Error(`${collection}/${String(artifact.artifactId || "missing-id")}: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
+  const persistSemanticDerivation = async (collection: string, artifact: Record<string, unknown>, execution: ReturnType<typeof modelExecutionSchema.parse> | undefined) => {
+    if (!execution) return;
+    const artifactId = String(artifact.artifactId);
+    const artifactHash = String(artifact.payloadHash);
+    const auditRecordId = executionArtifactId("audit", context, { action: "SEMANTIC_ARTIFACT_DERIVATION", collection, artifactId, artifactHash, executionId: execution.executionId });
+    const audit = parseSealedArtifact(auditRecordSchema, {
+      ...immutableEnvelope(context, auditRecordId),
+      auditRecordId,
+      action: "SEMANTIC_ARTIFACT_DERIVATION",
+      actorType: "MODEL",
+      actorId: execution.model,
+      artifactRefs: [
+        { collection, id: artifactId, payloadHash: artifactHash },
+        { collection: "v2ModelExecutions", id: execution.executionId, payloadHash: execution.payloadHash }
+      ],
+      details: { executionId: execution.executionId, semanticArtifactId: artifactId }
+    });
+    await persist("v2AuditRecords", audit);
+  };
   try {
     await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING" }));
     firestoreWrites += 1;
@@ -204,7 +228,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     : await proposeScope({ context, title: descriptor.title, language: descriptor.language, ongoingAsOf: descriptor.ongoingAsOf, reconnaissance: { classification: "NO_LEGACY_CONTENT_REUSE", existingKnowledgeWillBeInspectedAfterScopeLock: true }, provider: dependencies.provider, deadlineAt });
   modelExecutions.push(...scopeResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of scopeResult.executions) await persist("v2ModelExecutions", execution);
-  if (!continuation) await persist("v2ScopeContracts", scopeResult.scope);
+  if (!continuation) {
+    await persist("v2ScopeContracts", scopeResult.scope);
+    await persistSemanticDerivation("v2ScopeContracts", scopeResult.scope, scopeResult.executions.at(-1));
+  }
 
   const reconnaissance = await performBoundedReconnaissance({ repository, topicId, scopeContractId: scopeResult.scope.scopeContractId, entityNameKeys: scopeResult.scope.centralEntities.map((entity) => normalizedIdentityText(entity.name)), limitPerKind: 25 });
   const reconnaissanceId = contentAddressedId("recon-record", reconnaissance);
@@ -218,6 +245,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   modelExecutions.push(...mapResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of mapResult.executions) await persist("v2ModelExecutions", execution);
   await persist("v2ResearchMaps", mapResult.map);
+  await persistSemanticDerivation("v2ResearchMaps", mapResult.map, mapResult.executions.at(-1));
   assertDeadline();
   const planResult = continuation
     ? { plan: continuation.queryPlan, executions: [] }
@@ -225,6 +253,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   modelExecutions.push(...planResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of planResult.executions) await persist("v2ModelExecutions", execution);
   await persist("v2QueryPlans", planResult.plan);
+  await persistSemanticDerivation("v2QueryPlans", planResult.plan, planResult.executions.at(-1));
 
   currentStage = "A2_SCOPE_ACQUISITION";
   await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING" }));
@@ -440,6 +469,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     claimContributors.set(claimId, [...(claimContributors.get(claimId) || []), extracted]);
   }
   const claims = [...claimContributors.values()].map((contributors) => contributors[0]!);
+  const claimExecution = new Map(extractedGroups.flatMap((group) => group.claims.map((claim) => [claim.claimId, group.executions.at(-1)] as const)));
   const semanticClassByClaim = new Map(extractedGroups.flatMap((group) => [...group.semanticClasses.entries()]));
   for (let index = 0; index < claims.length; index += 1) {
     const extracted = claims[index]!;
@@ -459,6 +489,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       claims[index] = claim;
     }
     await persist("v2AtomicClaimVersions", claim);
+    await persistSemanticDerivation("v2AtomicClaimVersions", claim, claimExecution.get(claim.claimId));
     const currentVersion = typeof existingHead?.currentVersion === "number" ? existingHead.currentVersion : 0;
     const headState = await repository.advanceHead({ collection: "v2AtomicClaims", headId: claim.claimId, expectedCurrentVersionId: priorVersionId, nextVersionId: claim.claimVersionId, data: { claimId: claim.claimId, subjectKey: normalizedIdentityText(claim.subject.label), predicate: claim.predicate, currentVersion: currentVersion + 1, state: "CANDIDATE", updatedAt: context.createdAt } });
     if (headState === "CREATED") firestoreWrites += 1;
@@ -517,9 +548,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const existingHeads = (await repository.boundedQuery("v2CanonicalEntities", [{ field: "canonicalNameKey", op: "==", value: normalizedIdentityText(candidate.canonicalName) }], 20)).filter((head) => head.entityType === candidate.entityType);
     const existing = (await Promise.all(existingHeads.map((head) => repository.getById("v2CanonicalEntityVersions", String(head.currentVersionId))))).filter((item): item is CanonicalEntityVersion => item !== null) as CanonicalEntityVersion[];
     const resolution = resolveEntityCandidate({ candidate, existing, aliases: [] });
-    const resolved = buildCanonicalEntityVersion(context, {
+    const priorEntity = resolution.state === "REUSED" ? existing.find((item) => item.entityVersionId === resolution.entityVersionId) : undefined;
+    const buildResolvedEntity = (version: number, supersedesEntityVersionId: string | null) => buildCanonicalEntityVersion(context, {
       entityId: resolution.state === "REUSED" ? resolution.entityId : candidate.entityId,
-      version: resolution.state === "REUSED" ? (existing.find((item) => item.entityVersionId === resolution.entityVersionId)?.version || 0) + 1 : 1,
+      version,
       entityType: candidate.entityType,
       canonicalName: candidate.canonicalName,
       language: candidate.language,
@@ -529,15 +561,23 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       state: candidate.state,
       resolutionState: resolution.state === "REVIEW_REQUIRED" ? "REVIEW_REQUIRED" : "RESOLVED",
       identityEvidenceSegmentIds: candidate.identityEvidenceSegmentIds,
-      supersedesEntityVersionId: resolution.state === "REUSED" ? resolution.entityVersionId : null
+      supersedesEntityVersionId
     });
+    const replayEntity = priorEntity ? buildResolvedEntity(priorEntity.version, priorEntity.supersedesEntityVersionId) : null;
+    const resolved = priorEntity && replayEntity?.entityVersionId === priorEntity.entityVersionId
+      ? replayEntity
+      : buildResolvedEntity((priorEntity?.version || 0) + 1, priorEntity?.entityVersionId || null);
     entities.push(resolved);
     await persist("v2CanonicalEntityVersions", resolved);
-    const head = canonicalEntityRecordSchema.parse({ entityId: resolved.entityId, corpusId: context.corpusId, entityType: resolved.entityType, canonicalNameKey: normalizedIdentityText(resolved.canonicalName), currentVersionId: resolved.entityVersionId, currentVersion: resolved.version, state: resolved.state, updatedAt: context.createdAt });
-    const state = await repository.advanceHead({ collection: "v2CanonicalEntities", headId: resolved.entityId, expectedCurrentVersionId: resolution.state === "REUSED" ? resolution.entityVersionId : null, nextVersionId: resolved.entityVersionId, data: head });
-    if (state === "CREATED") firestoreWrites += 1;
-    const aliasId = contentAddressedId("entity-alias", { entityVersionId: resolved.entityVersionId, alias: resolved.canonicalName, language: resolved.language });
-    const alias = parseSealedArtifact(entityAliasSchema, { ...immutableEnvelope(context, aliasId), entityAliasId: aliasId, entityId: resolved.entityId, entityVersionId: resolved.entityVersionId, entityType: resolved.entityType, alias: resolved.canonicalName, aliasKey: normalizedIdentityText(resolved.canonicalName), language: resolved.language, script: null, aliasType: "CANONICAL" });
+    if (!priorEntity || resolved.entityVersionId !== priorEntity.entityVersionId) {
+      const head = canonicalEntityRecordSchema.parse({ entityId: resolved.entityId, corpusId: context.corpusId, entityType: resolved.entityType, canonicalNameKey: normalizedIdentityText(resolved.canonicalName), currentVersionId: resolved.entityVersionId, currentVersion: resolved.version, state: resolved.state, updatedAt: context.createdAt });
+      const state = await repository.advanceHead({ collection: "v2CanonicalEntities", headId: resolved.entityId, expectedCurrentVersionId: priorEntity?.entityVersionId || null, nextVersionId: resolved.entityVersionId, data: head });
+      if (state === "CREATED") firestoreWrites += 1;
+    }
+    const aliasPayload = { entityId: resolved.entityId, entityVersionId: resolved.entityVersionId, entityType: resolved.entityType, alias: resolved.canonicalName, aliasKey: normalizedIdentityText(resolved.canonicalName), language: resolved.language, script: null, aliasType: "CANONICAL" as const };
+    const semanticContext = { ...context, policyVersion: V2_POLICY_VERSION };
+    const aliasId = semanticArtifactId("entity-alias", semanticContext, aliasPayload);
+    const alias = parseSealedArtifact(entityAliasSchema, { ...semanticEnvelope(semanticContext, aliasId, resolved.entityVersionId), entityAliasId: aliasId, ...aliasPayload });
     await persist("v2EntityAliases", alias);
   }
 
@@ -570,10 +610,11 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const existingHeads = await repository.boundedQuery("v2CanonicalEvents", [{ field: "eventIdentityKey", op: "==", value: event.eventIdentityKey }], 50);
     const existing = (await Promise.all(existingHeads.map((head) => repository.getById("v2CanonicalEventVersions", String(head.currentVersionId))))).filter((item): item is CanonicalEventVersion => item !== null) as CanonicalEventVersion[];
     const resolution = resolveEventCandidate(event, existing);
-    const resolved = resolution.state === "REUSED" ? buildCanonicalEventVersion(context, {
+    const priorEvent = resolution.state === "REUSED" ? existing.find((item) => item.eventVersionId === resolution.eventVersionId) : undefined;
+    const buildResolvedEvent = (version: number, supersedesEventVersionId: string | null) => buildCanonicalEventVersion(context, {
       canonicalEventId: resolution.canonicalEventId,
       candidateEventId: event.candidateEventId,
-      version: (existing.find((item) => item.eventVersionId === resolution.eventVersionId)?.version || event.version) + 1,
+      version,
       scopeContractId: event.scopeContractId,
       canonicalTitle: event.canonicalTitle,
       semanticClass: event.semanticClass,
@@ -587,24 +628,32 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       authorityState: event.authorityState,
       canonicalizationState: event.canonicalizationState,
       parentEventId: event.parentEventId,
-      supersedesEventVersionId: resolution.eventVersionId
-    }) : event;
+      supersedesEventVersionId
+    });
+    const replayEvent = priorEvent ? buildResolvedEvent(priorEvent.version, priorEvent.supersedesEventVersionId) : null;
+    const resolved = resolution.state !== "REUSED" ? event
+      : priorEvent && replayEvent?.eventVersionId === priorEvent.eventVersionId ? replayEvent
+        : buildResolvedEvent((priorEvent?.version || event.version) + 1, priorEvent?.eventVersionId || resolution.eventVersionId);
     events.push(resolved);
     await persist("v2CanonicalEventVersions", resolved);
-    if (resolved.semanticClass === "EVENT" && resolved.canonicalEventId) {
+    if (resolved.semanticClass === "EVENT" && resolved.canonicalEventId && (!priorEvent || resolved.eventVersionId !== priorEvent.eventVersionId)) {
       const head = canonicalEventRecordSchema.parse({ canonicalEventId: resolved.canonicalEventId, corpusId: context.corpusId, eventIdentityKey: resolved.eventIdentityKey, currentVersionId: resolved.eventVersionId, currentVersion: resolved.version, state: resolved.authorityState, updatedAt: context.createdAt });
-      const state = await repository.advanceHead({ collection: "v2CanonicalEvents", headId: resolved.canonicalEventId, expectedCurrentVersionId: resolution.state === "REUSED" ? resolution.eventVersionId : null, nextVersionId: resolved.eventVersionId, data: head });
+      const state = await repository.advanceHead({ collection: "v2CanonicalEvents", headId: resolved.canonicalEventId, expectedCurrentVersionId: priorEvent?.eventVersionId || null, nextVersionId: resolved.eventVersionId, data: head });
       if (state === "CREATED") firestoreWrites += 1;
     }
     for (const claimId of [...resolved.coreClaimVersionIds, ...resolved.supportingClaimVersionIds]) {
-      const edgeId = contentAddressedId("event-claim", { eventVersionId: resolved.eventVersionId, claimVersionId: claimId, role: resolved.coreClaimVersionIds.includes(claimId) ? "CORE" : "SUPPORTING" });
-      const edge = parseSealedArtifact(eventClaimEdgeSchema, { ...immutableEnvelope(context, edgeId), eventClaimId: edgeId, eventVersionId: resolved.eventVersionId, claimVersionId: claimId, role: resolved.coreClaimVersionIds.includes(claimId) ? "CORE" : "SUPPORTING" });
+      const edgePayload = { eventVersionId: resolved.eventVersionId, claimVersionId: claimId, role: resolved.coreClaimVersionIds.includes(claimId) ? "CORE" as const : "SUPPORTING" as const };
+      const semanticContext = { ...context, policyVersion: V2_POLICY_VERSION };
+      const edgeId = semanticArtifactId("event-claim", semanticContext, edgePayload);
+      const edge = parseSealedArtifact(eventClaimEdgeSchema, { ...semanticEnvelope(semanticContext, edgeId, resolved.eventVersionId), eventClaimId: edgeId, ...edgePayload });
       await repository.createEdgeWithReferences({ collection: "v2EventClaims", edge, references: [{ collection: "v2CanonicalEventVersions", id: resolved.eventVersionId }, { collection: "v2AtomicClaimVersions", id: claimId }] });
       firestoreWrites += 1;
     }
     for (const entity of relatedEntities) {
-      const edgeId = contentAddressedId("event-entity", { eventVersionId: resolved.eventVersionId, entityVersionId: entity.entityVersionId, role: "CENTRAL_SUBJECT" });
-      const edge = parseSealedArtifact(eventEntityEdgeSchema, { ...immutableEnvelope(context, edgeId), eventEntityId: edgeId, eventVersionId: resolved.eventVersionId, entityVersionId: entity.entityVersionId, role: "CENTRAL_SUBJECT", meaning: "The entity is the central subject participating in this candidate event.", temporal: null });
+      const edgePayload = { eventVersionId: resolved.eventVersionId, entityVersionId: entity.entityVersionId, role: "CENTRAL_SUBJECT", meaning: "The entity is the central subject participating in this candidate event.", temporal: null };
+      const semanticContext = { ...context, policyVersion: V2_POLICY_VERSION };
+      const edgeId = semanticArtifactId("event-entity", semanticContext, edgePayload);
+      const edge = parseSealedArtifact(eventEntityEdgeSchema, { ...semanticEnvelope(semanticContext, edgeId, resolved.eventVersionId), eventEntityId: edgeId, ...edgePayload });
       await repository.createEdgeWithReferences({ collection: "v2EventEntities", edge, references: [{ collection: "v2CanonicalEventVersions", id: resolved.eventVersionId }, { collection: "v2CanonicalEntityVersions", id: entity.entityVersionId }] });
       firestoreWrites += 1;
     }
@@ -653,7 +702,19 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   };
   currentStage = metrics.finalV2AVerdict === "PASS" ? "COMPLETE" : "A5_RESOLUTION_REUSE";
   await repository.setOperation(context.runId, operationProjection({ context, state: metrics.finalV2AVerdict === "PASS" ? "COMPLETED" : "FAILED", stage: currentStage, startedAt, blockingReason: blockingReasons.join(", ") || null, counts: { sources: metrics.sourceDocumentsSnapshotted, claims: metrics.claimsExtracted, supportedClaims: metrics.claimsSupported, conflicts: metrics.conflictsDetected, entities: metrics.entityCandidates, events: metrics.eventCandidates }, finalVerdict: metrics.finalV2AVerdict }));
-  return { context, scopeContractId: scopeResult.scope.scopeContractId, researchMapId: mapResult.map.researchMapId, queryPlanId: planResult.plan.queryPlanId, eventVersionIds: events.map((event) => event.eventVersionId), metrics, blockingReasons };
+  return {
+    context,
+    scopeContractId: scopeResult.scope.scopeContractId,
+    researchMapId: mapResult.map.researchMapId,
+    queryPlanId: planResult.plan.queryPlanId,
+    sourceSnapshotIds: retrieved.map((item) => item.snapshot.sourceSnapshotId),
+    claimVersionIds: claims.map((claim) => claim.claimVersionId),
+    authorityVerdictIds: verdicts.map((verdict) => verdict.claimAuthorityVerdictId),
+    conflictSetIds: conflictSets.map((conflict) => conflict.conflictSetId),
+    eventVersionIds: events.map((event) => event.eventVersionId),
+    metrics,
+    blockingReasons
+  };
   } catch (error) {
     if (error instanceof StructuredStageError) {
       for (const execution of error.executions) {

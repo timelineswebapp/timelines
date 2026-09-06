@@ -53,11 +53,17 @@ test("Full V2-A shadow orchestration creates verified candidate knowledge withou
   assert.equal(result.metrics.claimsSupported, 2);
   assert.equal(result.metrics.resolvedCanonicalEventCandidates, 1);
   assert.equal(result.blockingReasons.length, 0);
+  const derivations = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("v2AuditRecords").where("action", "==", "SEMANTIC_ARTIFACT_DERIVATION").limit(20).get();
+  assert.equal(derivations.empty, false);
+  assert.ok(derivations.docs.every((document) => {
+    const refs = document.data().artifactRefs as Array<{ collection: string }>;
+    return refs.some((ref) => ref.collection === "v2ModelExecutions") && refs.some((ref) => ref.collection !== "v2ModelExecutions");
+  }));
   const published = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("publishedMemory").get();
   assert.equal(published.empty, true);
   const projection = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("platformReadModels").get();
   assert.equal(projection.empty, true);
-  const entityVersions = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("v2CanonicalEntityVersions").where("runId", "==", result.context.runId).limit(20).get();
+  const entityVersions = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("v2CanonicalEntityVersions").limit(20).get();
   assert.equal(entityVersions.empty, false);
   for (const entity of entityVersions.docs) {
     const ids = entity.data().identityEvidenceSegmentIds as string[];
@@ -68,6 +74,8 @@ test("Full V2-A shadow orchestration creates verified candidate knowledge withou
   assert.equal(second.metrics.resolvedCanonicalEventCandidates, 1);
   const entityHeads = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("v2CanonicalEntities").limit(20).get();
   const eventHeads = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("v2CanonicalEvents").limit(20).get();
-  assert.equal(entityHeads.docs.some((head) => head.data().currentVersion === 2), true);
-  assert.equal(eventHeads.docs.some((head) => head.data().currentVersion === 2), true);
+  assert.equal(entityHeads.docs.every((head) => head.data().currentVersion === 1), true);
+  assert.equal(eventHeads.docs.every((head) => head.data().currentVersion === 1), true);
+  assert.deepEqual(second.claimVersionIds, result.claimVersionIds);
+  assert.deepEqual(second.eventVersionIds, result.eventVersionIds);
 });

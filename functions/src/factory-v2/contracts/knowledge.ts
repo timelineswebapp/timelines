@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   boundedText,
+  executionEnvelopeFields,
   hashSchema,
   historicalDateSchema,
   httpsUrlSchema,
@@ -159,6 +160,7 @@ export const publisherAuthorityVersionSchema = z.object({
   publisherVersionId: idSchema,
   publisherId: z.string().uuid(),
   version: z.number().int().positive(),
+  effectiveAt: z.string().datetime().nullable().optional(),
   canonicalName: boundedText(2, 300),
   aliases: stringList(0, 30, 300),
   parentPublisherId: z.string().uuid().nullable(),
@@ -207,7 +209,7 @@ export const sourceDocumentSchema = z.object({
 }).strict();
 
 export const sourceSnapshotSchema = z.object({
-  ...immutableEnvelopeFields,
+  ...executionEnvelopeFields,
   sourceSnapshotId: idSchema,
   sourceId: idSchema,
   retrievalUrl: httpsUrlSchema,
@@ -399,7 +401,7 @@ export const eventEntityEdgeSchema = z.object({ ...eventEdgeBase, eventEntityId:
 export const eventRelationSchema = z.object({ ...eventEdgeBase, eventRelationId: idSchema, fromEventVersionId: idSchema, toEventVersionId: idSchema, predicate: z.enum(["PRECEDES", "CAUSES", "ENABLES", "RESPONDS_TO", "PART_OF", "SUPERSEDES", "RELATED_TO"]), evidenceSegmentIds: z.array(idSchema).min(1).max(30).refine(unique) }).strict();
 
 export const modelExecutionSchema = z.object({
-  ...immutableEnvelopeFields,
+  ...executionEnvelopeFields,
   executionId: idSchema,
   stage: z.enum(["SCOPE", "RESEARCH_MAP", "QUERY_PLAN", "GROUNDING", "SOURCE_RETRIEVAL", "CLAIM_EXTRACTION", "CLAIM_ASSESSMENT", "ENTITY_RESOLUTION", "EVENT_RESOLUTION"]),
   model: boundedText(2, 160), location: boundedText(2, 80), inputArtifactIds: z.array(idSchema).max(100).refine(unique), inputHash: hashSchema,
@@ -412,7 +414,7 @@ export const modelExecutionSchema = z.object({
 }).strict();
 
 export const v2FailureRecordSchema = z.object({
-  ...immutableEnvelopeFields,
+  ...executionEnvelopeFields,
   failureRecordId: idSchema,
   stage: boundedText(2, 120),
   failureClass: z.enum(["SCOPE_AMENDMENT_REQUIRED", "RESEARCH_MAP_INCOMPLETE", "ACQUISITION_BUDGET_EXHAUSTED", "SOURCE_IDENTITY_UNRESOLVED", "SOURCE_AUTHORITY_INSUFFICIENT", "CLAIM_UNSUPPORTED", "CLAIM_CONFLICT_UNRESOLVED", "ENTITY_IDENTITY_REVIEW_REQUIRED", "EVENT_IDENTITY_REVIEW_REQUIRED", "SECURITY_RETRIEVAL_REJECTED", "PROVIDER_FAILURE", "WHOLE_RUN_DEADLINE_EXCEEDED", "FAILED_UNCLASSIFIED"]),

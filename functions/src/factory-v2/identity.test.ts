@@ -26,24 +26,26 @@ test("execution artifact identity is idempotent for an exact observation and cha
   assert.notEqual(executionArtifactId("test-execution", TEST_CONTEXT, { ...payload, latencyMs: 8 }), first);
 });
 
-test("model-derived semantic versions include exact immutable model provenance", () => {
+test("model-derived semantic versions converge across execution provenance and split on semantic policy", () => {
   const firstMap = buildResearchMap(TEST_CONTEXT, scope, mapPayload, modelRef("execution-a"));
   const secondMap = buildResearchMap(TEST_CONTEXT, scope, mapPayload, modelRef("execution-b"));
-  assert.notEqual(firstMap.researchMapId, secondMap.researchMapId);
+  assert.equal(firstMap.researchMapId, secondMap.researchMapId);
+  assert.equal(firstMap.payloadHash, secondMap.payloadHash);
 
   const queryPayload = { queries: [{ queryId: "query-launch", researchQuestionIds: ["question-launch"], role: "PHASE_DIMENSION" as const, intendedSourceClass: "PRIMARY_INSTITUTIONAL" as const, aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["Earth"], providerQuery: "Apollo 11 launch NASA", providerReportedQueries: [], budgetUnits: 1, resultArtifactIds: [] }], budget: scope.researchBudget };
-  assert.notEqual(buildQueryPlan(TEST_CONTEXT, scope, firstMap, queryPayload, modelRef("execution-a")).queryPlanId, buildQueryPlan(TEST_CONTEXT, scope, firstMap, queryPayload, modelRef("execution-b")).queryPlanId);
+  assert.equal(buildQueryPlan(TEST_CONTEXT, scope, firstMap, queryPayload, modelRef("execution-a")).queryPlanId, buildQueryPlan({ ...TEST_CONTEXT, runId: "other-run", createdAt: "2027-01-01T00:00:00.000Z" }, scope, firstMap, queryPayload, modelRef("execution-b")).queryPlanId);
 
   const claimPayload = { scopeContractId: scope.scopeContractId, subject: { kind: "EVENT" as const, id: null, label: "Apollo 11 launch" }, predicate: "OCCURRENCE" as const, object: { kind: "TEXT" as const, id: null, value: "Apollo 11 launched" }, normalizedAssertion: "Apollo 11 launched", claimType: "OCCURRENCE" as const, risk: "ROUTINE" as const, temporal: { start: date(1969, "DAY", 7, 16), end: null }, candidateEventClusterId: "cluster-launch", locationEntityIds: [], qualifiers: [], extractedFromSnapshotId: "snapshot-launch", extractedFromSegmentIds: ["segment-launch"], conflictState: "NONE" as const, validationState: "STRUCTURALLY_VALID" as const, evidenceVerdictId: null, supersedesClaimVersionId: null };
   const firstClaim = buildAtomicClaimVersion(TEST_CONTEXT, claimPayload, modelRef("execution-a"));
   const secondClaim = buildAtomicClaimVersion(TEST_CONTEXT, claimPayload, modelRef("execution-b"));
-  assert.notEqual(firstClaim.claimVersionId, secondClaim.claimVersionId);
+  assert.equal(firstClaim.claimVersionId, secondClaim.claimVersionId);
 
   const entityPayload = { version: 1, entityType: "Institution" as const, canonicalName: "NASA", language: "en", externalIdentifiers: [], activeTemporal: null, geographyKeys: ["United States"], state: "FACTORY_CANDIDATE" as const, resolutionState: "RESOLVED" as const, identityEvidenceSegmentIds: ["segment-launch"], supersedesEntityVersionId: null };
-  assert.notEqual(buildCanonicalEntityVersion(TEST_CONTEXT, entityPayload, modelRef("execution-a")).entityVersionId, buildCanonicalEntityVersion(TEST_CONTEXT, entityPayload, modelRef("execution-b")).entityVersionId);
+  assert.equal(buildCanonicalEntityVersion(TEST_CONTEXT, entityPayload, modelRef("execution-a")).entityVersionId, buildCanonicalEntityVersion(TEST_CONTEXT, entityPayload, modelRef("execution-b")).entityVersionId);
 
   const eventPayload = { version: 1, scopeContractId: scope.scopeContractId, canonicalTitle: "Apollo 11 launches", semanticClass: "EVENT" as const, eventSubtype: "OCCURRENCE" as const, temporal: { start: date(1969, "DAY", 7, 16), end: null, uncertainty: null }, actionKey: "apollo 11 launched", primaryEntityKeys: ["entity-nasa"], locationKeys: ["place-kennedy-space-center"], coreClaimVersionIds: [firstClaim.claimVersionId], supportingClaimVersionIds: [], authorityState: "FACTORY_CANDIDATE" as const, canonicalizationState: "RESOLVED" as const, parentEventId: null, supersedesEventVersionId: null };
-  assert.notEqual(buildCanonicalEventVersion(TEST_CONTEXT, eventPayload, modelRef("execution-a")).eventVersionId, buildCanonicalEventVersion(TEST_CONTEXT, eventPayload, modelRef("execution-b")).eventVersionId);
+  assert.equal(buildCanonicalEventVersion(TEST_CONTEXT, eventPayload, modelRef("execution-a")).eventVersionId, buildCanonicalEventVersion(TEST_CONTEXT, eventPayload, modelRef("execution-b")).eventVersionId);
+  assert.notEqual(buildResearchMap({ ...TEST_CONTEXT, policyVersion: "research-map-policy-v2" }, scope, mapPayload, modelRef("execution-a")).researchMapId, firstMap.researchMapId);
 });
 
 test("provisional publisher bootstrap ignores caller topic policy provenance", () => {
@@ -52,11 +54,11 @@ test("provisional publisher bootstrap ignores caller topic policy provenance", (
   assert.deepEqual(second, first);
 });
 
-test("completion result identity covers run and telemetry while exact replay remains hash-valid", () => {
+test("completion result identity excludes run and telemetry while exact replay remains hash-valid", () => {
   const payload = { completionPlanId: "completion-plan", initialCoverageAuditId: "audit-initial", finalCoverageAuditId: "audit-final", acquisitionRunId: "acquisition-run", originalKnowledgeRunId: "source-run", newClaimVersionIds: [], newEventVersionIds: [], reusedEventVersionIds: [], unresolvedGapIds: [], budgetConsumed: { rounds: 1 as const, groundingCalls: 1, providerQueries: 2, sourceDocuments: 1, claimExtractions: 1, atomicClaims: 1, writes: 7 }, timings: { initialKnowledgeReuseMs: 1, coverageAuditMs: 2, gapAcquisitionMs: 3, reAuditMs: 4 }, finalVerdict: "SUFFICIENT" as const };
   const first = buildKnowledgeCompletionResult(TEST_CONTEXT, payload);
   assert.equal(buildKnowledgeCompletionResult(TEST_CONTEXT, payload).completionResultId, first.completionResultId);
-  assert.notEqual(buildKnowledgeCompletionResult({ ...TEST_CONTEXT, runId: "other-run" }, payload).completionResultId, first.completionResultId);
-  assert.notEqual(buildKnowledgeCompletionResult(TEST_CONTEXT, { ...payload, timings: { ...payload.timings, gapAcquisitionMs: 5 } }).completionResultId, first.completionResultId);
+  assert.equal(buildKnowledgeCompletionResult({ ...TEST_CONTEXT, runId: "other-run" }, payload).completionResultId, first.completionResultId);
+  assert.equal(buildKnowledgeCompletionResult(TEST_CONTEXT, { ...payload, timings: { ...payload.timings, gapAcquisitionMs: 5 } }).completionResultId, first.completionResultId);
   assert.equal(verifyPayloadHash(first), true);
 });
