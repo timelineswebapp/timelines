@@ -1,0 +1,69 @@
+{
+  "goal": "TL-KF-V2-A3.4",
+  "fixture": "The History of the World Wide Web",
+  "outcome": "OUTCOME_B_A3_WEB_FAILED",
+  "liveAttempts": 1,
+  "runId": "v2-a3-web-cbe1e74f-2030-4c0d-8170-30178f73dab3",
+  "startedAt": "2026-09-06T18:18:01.065Z",
+  "terminalState": {
+    "state": "FAILED",
+    "stage": "A1_SCHEMAS",
+    "finalVerdict": "FAIL",
+    "failureRecordId": "failure-51ee4947f78d5b64b5c789a0d119c85b8898ead2cea769835fb107a11de74e4b",
+    "failureClass": "FAILED_UNCLASSIFIED",
+    "failurePayloadHash": "ca0df03914a13a531b625b6732a1969412f815d0226158397879437fe5f3638f",
+    "blockingReason": "v2ResearchMaps/research-map-34efed2ab3bbaa364138468c77d54998b5e303f9a13ac04fea2b8ef8695679ce: Immutable artifact ID collision with a different payload."
+  },
+  "collisionEvidence": {
+    "artifactId": "research-map-34efed2ab3bbaa364138468c77d54998b5e303f9a13ac04fea2b8ef8695679ce",
+    "attempted": {
+      "runId": "v2-a3-web-cbe1e74f-2030-4c0d-8170-30178f73dab3",
+      "policyVersion": "knowledge-coverage-v2-a3.2",
+      "payloadHash": "77c3d02394cf3af26fa2aa3067b101ccf81724ae6e5caaf9084d2a89ff720aa2"
+    },
+    "existing": {
+      "runId": "v2-a3-web-98332efd-8842-490f-8ecd-d080d8789862",
+      "createdAt": "2026-09-06T15:40:38.111Z",
+      "policyVersion": "knowledge-coverage-v2-a3.1",
+      "payloadHash": "93ab19f1843caf33f12d7110ea067ce4ec906cf31b9a6fcc1abd4281f709c060"
+    },
+    "finding": "The content-addressed Research Map ID stayed stable while immutable-envelope provenance changed, producing a different sealed payload at the same document ID."
+  },
+  "persistedRunArtifacts": {
+    "initialCoverageAuditId": "knowledge-coverage-audit-30265cb1341d804dc076dbd0c7d8397b9f4aad6cb2a3503f35b5ab03e961189d",
+    "initialCoverageAuditPayloadHash": "93bfdae89f7d6d3afc2de9318bfbeb94a21caf6172b4aaf301a91b6d8674f2c4",
+    "completionPlanId": "knowledge-completion-plan-0a2f6da7d90c38ed9489ec2e550ad7b8baec33248e6a2418315ef5dfbe9e9083",
+    "completionPlanPayloadHash": "e74f3635ef4bd2d4d2b146967b9f00c85aa1e38088c0ffe7103bd71d75866904",
+    "reconnaissanceRecordId": "recon-record-89f0f430767434f4cf23445835f74872732e4f164515e1b9df56ac54e7471f4b",
+    "reconnaissancePayloadHash": "066bd1e06931155b39050b99f314cd6b5f1301159de0509eac3ead87915004c7"
+  },
+  "artifactsNotReached": {
+    "researchMapsForRun": 0,
+    "queryPlans": 0,
+    "admissionAudits": 0,
+    "modelExecutions": 0,
+    "acquisitionDiscoveries": 0,
+    "acquisitionRuns": 0,
+    "sourceSnapshots": 0,
+    "atomicClaimVersions": 0,
+    "canonicalEventVersions": 0
+  },
+  "hardStop": {
+    "implementationPatchedAfterLiveStart": false,
+    "a3Rerun": false,
+    "b1Invoked": false,
+    "b2Invoked": false
+  },
+  "closure": {
+    "checkedAt": "2026-09-06T18:20:17.034Z",
+    "runningV2Operations": 0,
+    "configHash": "af4b770b54cc6de28c01511c731bf686a7d4e20e70f57dbc584cc93550d09561",
+    "scheduler": "PAUSED / 0 3 * * * / UTC",
+    "publishedMemoryCount": 4,
+    "v2PublishedMemoryCount": 0,
+    "platformReadModelCount": 46,
+    "v2PlatformReadModelCount": 0,
+    "publishedMemoryFullDocumentHash": "7389246e4ff622e0183a38e89874b50e47a1a0b85e3ef447ffd39eac1a323275",
+    "platformReadModelFullDocumentHash": "8cb51b3a8c6fb2eed37ebdcbd23d15c1650455427678487fcf244c986fa223e9"
+  }
+}
