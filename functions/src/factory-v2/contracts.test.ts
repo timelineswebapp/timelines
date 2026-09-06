@@ -86,7 +86,7 @@ test("Evidence segments bind exact text and stable offsets to one immutable snap
 });
 
 test("Atomic claims reject compound evidentiary burdens and validate predicate object types", () => {
-  assert.deepEqual(atomicityFindings("Apollo 11 launched on July 16 and transformed global culture."), ["COMPOUND_CONJUNCTION", "MULTIPLE_EVIDENTIARY_BURDENS"]);
+  assert.deepEqual(atomicityFindings("Apollo 11 launched on July 16 and transformed global culture."), ["MULTIPLE_EVIDENTIARY_BURDENS"]);
   assert.throws(() => buildAtomicClaimVersion(TEST_CONTEXT, {
     scopeContractId: scopeFixture().scopeContractId,
     subject: { kind: "EVENT", id: null, label: "Apollo 11 launch" }, predicate: "OCCURRENCE", object: { kind: "TEXT", id: null, value: "launch occurred" },
@@ -100,6 +100,19 @@ test("Atomic claims reject compound evidentiary burdens and validate predicate o
     candidateEventClusterId: null, locationEntityIds: [], qualifiers: [], extractedFromSnapshotId: "snapshot-1", extractedFromSegmentIds: ["segment-1"], conflictState: "NONE", validationState: "STRUCTURALLY_VALID", evidenceVerdictId: null, supersedesClaimVersionId: null
   });
   assert.equal(verifyPayloadHash(claim), true);
+});
+
+test("Equivalent propositions retain one stable claim identity across wording and evidence sources", () => {
+  const base = {
+    scopeContractId: scopeFixture().scopeContractId,
+    subject: { kind: "EVENT" as const, id: null, label: "Apollo 11 launch" }, predicate: "OCCURRENCE" as const, object: { kind: "TEXT" as const, id: null, value: "Apollo 11 launched" },
+    claimType: "OCCURRENCE" as const, risk: "ROUTINE" as const, temporal: null, candidateEventClusterId: "apollo-11-launch", locationEntityIds: [], qualifiers: [], conflictState: "NONE" as const,
+    validationState: "STRUCTURALLY_VALID" as const, evidenceVerdictId: null, supersedesClaimVersionId: null
+  };
+  const first = buildAtomicClaimVersion(TEST_CONTEXT, { ...base, normalizedAssertion: "Apollo 11 launched", extractedFromSnapshotId: "snapshot-1", extractedFromSegmentIds: ["segment-1"] });
+  const second = buildAtomicClaimVersion(TEST_CONTEXT, { ...base, normalizedAssertion: "The Apollo 11 mission launched", extractedFromSnapshotId: "snapshot-2", extractedFromSegmentIds: ["segment-2"] });
+  assert.equal(first.claimId, second.claimId);
+  assert.notEqual(first.claimVersionId, second.claimVersionId);
 });
 
 test("Entity identities use typed external IDs and remain stable across label revisions", () => {

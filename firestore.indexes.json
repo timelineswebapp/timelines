@@ -237,6 +237,11 @@
       "collectionGroup": "v2FailureRecords",
       "fieldPath": "message",
       "indexes": []
+    },
+    {
+      "collectionGroup": "v2ModelExecutions",
+      "fieldPath": "boundedResponse",
+      "indexes": []
     }
   ]
 }

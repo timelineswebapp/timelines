@@ -1,5 +1,7 @@
 # TL-KF-V2-A — Evidence-First Knowledge Engine
 
+> Checkpoint update (2026-09-06): [`TL-KF-V2-A1_CHECKPOINT.md`](./TL-KF-V2-A1_CHECKPOINT.md) and the updated certification summary supersede the live-result and blocker status below. The remainder of this document preserves the original V2-A implementation/certification record rather than rewriting negative evidence.
+
 ## Certification state
 
 **TL-KF-V2-A: NOT CERTIFIED**

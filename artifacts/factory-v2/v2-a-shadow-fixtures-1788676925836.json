@@ -1,0 +1,76 @@
+{
+  "generatedAt": "2026-09-06T06:42:05.837Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The Apollo 11 Mission",
+      "context": {
+        "corpusId": "timelines-clean-2026-09-v1",
+        "topicId": "b6f5f65ce1fd8e3b5fe118c45bfe9f9b41a8ba8d6324a04c0bfe098cfa32ac4a",
+        "runId": "5dc5b098-fd00-42d2-9d01-62143f071a8a",
+        "generation": 1,
+        "createdAt": "2026-09-06T06:37:53.887Z"
+      },
+      "scopeContractId": "scope-713786ade65e562c6d73744c136e675906dba91ddc77f1ea775bce198889eefc",
+      "researchMapId": "research-map-f7ec45d0a48cc628b2bf898b5c3ddd3b1d47cf0e7d6792e0572e764ce7ba970f",
+      "queryPlanId": "query-plan-1440f1ab63cb3a54df59ae3ca13956383631b40fea03a4c35071853753b88429",
+      "eventVersionIds": [
+        "event-version-bb50d32b584dec1aea95f8d774d9f64c04f8c68e012162d29ed3bc393d8b7bf9"
+      ],
+      "metrics": {
+        "totalExecutionMs": 251716,
+        "scopeContractModelCalls": 1,
+        "researchMapModelCalls": 1,
+        "queryPlanModelCalls": 1,
+        "groundingCalls": 5,
+        "providerReportedSearchQueries": 19,
+        "directRetrievalAttempts": 5,
+        "retrievalSuccesses": 4,
+        "retrievalFailures": 1,
+        "sourceDocumentsDiscovered": 58,
+        "sourceDocumentsSnapshotted": 4,
+        "cacheHits": 3,
+        "cacheRevalidated": 0,
+        "cacheRefetched": 0,
+        "cacheNotApplicable": 1,
+        "retrievalsSuppressedByHostCircuit": 0,
+        "evidencePackets": 8,
+        "evidencePacketSegments": 93,
+        "individualClaimsRejected": 1,
+        "researchQuestionsNoEvidence": 3,
+        "researchQuestionsPartial": 1,
+        "researchQuestionsSufficient": 4,
+        "researchQuestionsBlocked": 6,
+        "sourceClasses": [
+          "PRIMARY_INSTITUTIONAL",
+          "WIKIPEDIA"
+        ],
+        "publisherIdentities": 3,
+        "claimsExtracted": 19,
+        "claimsSupported": 13,
+        "claimsRejected": 7,
+        "claimsRequiringReview": 0,
+        "conflictsDetected": 3,
+        "conflictsResolved": 0,
+        "conflictsUnresolved": 3,
+        "entityCandidates": 2,
+        "resolvedEntities": 2,
+        "eventCandidates": 1,
+        "resolvedCanonicalEventCandidates": 1,
+        "nonEventKnowledgeItems": 0,
+        "reusedExistingKnowledge": 0,
+        "newKnowledge": 22,
+        "modelRepairAttempts": 0,
+        "infrastructureRetries": 0,
+        "inputTokens": 207894,
+        "outputTokens": 14856,
+        "monetaryCost": null,
+        "monetaryCostMeasurement": "NOT_MEASURABLE",
+        "firestoreWrites": 341,
+        "cloudStorageWrites": 1,
+        "finalV2AVerdict": "PASS"
+      },
+      "blockingReasons": []
+    }
+  ]
+}

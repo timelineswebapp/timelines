@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-09-06T06:44:35.422Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The Cuban Missile Crisis",
+      "error": "V2_A_RUN_FAILED:00e3447d-7282-453d-ac25-5d9a0f290c30:[\n  {\n    \"code\": \"custom\",\n    \"message\": \"Values must be unique.\",\n    \"path\": [\n      \"providerReportedQueries\"\n    ]\n  }\n]",
+      "metrics": {
+        "finalV2AVerdict": "FAIL"
+      }
+    }
+  ]
+}

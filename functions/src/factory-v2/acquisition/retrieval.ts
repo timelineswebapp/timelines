@@ -3,7 +3,7 @@ import { request as httpsRequest } from "node:https";
 import { lookup as systemLookup } from "node:dns/promises";
 import { PROJECT_ID } from "../../config";
 import { buildEvidenceSegment, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "../contracts/builders";
-import { sourceDocumentSchema, sourceSnapshotSchema, type EvidenceSegment, type SourceDocument, type SourceSnapshot } from "../contracts";
+import { V2_SCHEMA_VERSION, sourceDocumentSchema, sourceSnapshotSchema, type EvidenceSegment, type SourceDocument, type SourceSnapshot } from "../contracts";
 import { contentAddressedId, sha256 } from "../hashing";
 import { assertPublicHttpsDestination, canonicalizeUrl, isForbiddenNetworkAddress, parseRobotsPolicy, type DnsLookup } from "./url";
 
@@ -46,7 +46,10 @@ export type RetrievalDependencies = {
   archive?: PrivateArchive;
   pdfExtractor?: SafePdfExtractor;
   now?: () => Date;
+  cachedSource?: (canonicalUrl: string) => Promise<{ source: SourceDocument; snapshot: SourceSnapshot; evidenceSegments: EvidenceSegment[]; reusable: boolean } | null>;
 };
+
+export type RetrievalResult = { source: SourceDocument; snapshot: SourceSnapshot; evidenceSegments: EvidenceSegment[]; archiveWrites: number; cacheDisposition: "CACHE_HIT" | "REVALIDATED" | "REFETCHED" | "CACHE_NOT_APPLICABLE" };
 
 function mediaType(headers: HeadersLike): string {
   return (headers.get("content-type") || "").split(";", 1)[0]!.trim().toLocaleLowerCase("en-US");
@@ -79,7 +82,9 @@ export function extractHtmlText(html: string): { text: string; title: string | n
   const canonicalUrl = withoutActive.match(/<link\b(?=[^>]*\brel\s*=\s*["']?canonical["']?)(?=[^>]*\bhref\s*=\s*["']([^"']+)["'])[^>]*>/iu)?.[1] || null;
   const language = withoutActive.match(/<html\b[^>]*\blang\s*=\s*["']?([^\s"'>]+)/iu)?.[1] || null;
   const accessLimited = /(?:subscribe to continue|sign in to continue|subscriber-only|purchase access|paywall)/iu.test(withoutActive.slice(0, 100_000));
-  const text = withoutActive
+  const mainContent = withoutActive.match(/<main\b[^>]*>([^]*?)<\/main\s*>/iu)?.[1] || withoutActive;
+  const contentWithoutChrome = mainContent.replace(/<(nav|header|footer|aside|dialog|form)\b[^>]*>[^]*?<\/\1\s*>/giu, " ");
+  const text = contentWithoutChrome
     .replace(/<(?:br|p|div|section|article|main|header|footer|h[1-6]|li|tr|blockquote)\b[^>]*>/giu, "\n")
     .replace(/<[^>]+>/gu, " ")
     .replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z]+);/giu, (_, entity: string) => {
@@ -160,20 +165,30 @@ export async function retrieveSource(input: {
   primarySecondaryRole: SourceDocument["primarySecondaryRole"];
   languageHint: string;
   respectRobots?: boolean;
-}, dependencies: RetrievalDependencies = {}): Promise<{ source: SourceDocument; snapshot: SourceSnapshot; evidenceSegments: EvidenceSegment[]; archiveWrites: number }> {
+}, dependencies: RetrievalDependencies = {}): Promise<RetrievalResult> {
   const fetcher = dependencies.fetch || secureNodeFetch(dependencies.dnsLookup);
   let current = await assertPublicHttpsDestination(input.url, dependencies.dnsLookup);
   const redirectChain: string[] = [];
   let response: ResponseLike | null = null;
+  let staleCache: Awaited<ReturnType<NonNullable<RetrievalDependencies["cachedSource"]>>> = null;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     await assertPublicHttpsDestination(current.toString(), dependencies.dnsLookup);
+    if (dependencies.cachedSource && !isGroundingAttributionRelay(current)) {
+      const cached = await dependencies.cachedSource(canonicalizeUrl(current.toString()));
+      if (cached?.reusable) return { source: cached.source, snapshot: cached.snapshot, evidenceSegments: cached.evidenceSegments, archiveWrites: 0, cacheDisposition: "CACHE_HIT" };
+      if (cached) staleCache = cached;
+    }
     // Grounding attribution URLs are signed navigation relays, not publisher
     // content. Follow the relay, then enforce robots policy on the resolved
     // publisher URL before downloading its body.
     if (input.respectRobots !== false && !isGroundingAttributionRelay(current) && !(await robotsAllows(current, fetcher, dependencies.dnsLookup))) {
       throw new Error("SOURCE_RETRIEVAL_ROBOTS_DENIED");
     }
-    response = await fetcher(current.toString(), { method: "GET", redirect: "manual", signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "TiMELiNESResearchBot/2.0", Accept: "text/html,text/plain,application/xhtml+xml,application/pdf,application/json,application/ld+json" } });
+    const conditionalHeaders: Record<string, string> = {};
+    if (staleCache?.snapshot.etag) conditionalHeaders["If-None-Match"] = staleCache.snapshot.etag;
+    if (staleCache?.snapshot.lastModified) conditionalHeaders["If-Modified-Since"] = staleCache.snapshot.lastModified;
+    response = await fetcher(current.toString(), { method: "GET", redirect: "manual", signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "TiMELiNESResearchBot/2.0", Accept: "text/html,text/plain,application/xhtml+xml,application/pdf,application/json,application/ld+json", ...conditionalHeaders } });
+    if (response.status === 304 && staleCache) return { source: staleCache.source, snapshot: staleCache.snapshot, evidenceSegments: staleCache.evidenceSegments, archiveWrites: 0, cacheDisposition: "REVALIDATED" };
     if (![301, 302, 303, 307, 308].includes(response.status)) break;
     if (hop === MAX_REDIRECTS) throw new Error("SOURCE_RETRIEVAL_REDIRECT_LIMIT");
     const location = response.headers.get("location");
@@ -193,7 +208,7 @@ export async function retrieveSource(input: {
     const emptyHash = sha256("");
     const snapshotId = contentAddressedId("snapshot", { sourceId, retrievedAt, status: response.status });
     const snapshot = parseSealedArtifact(sourceSnapshotSchema, { ...immutableEnvelope(input.context, snapshotId), sourceSnapshotId: snapshotId, sourceId, retrievalUrl: canonicalizeUrl(input.url), resolvedUrl: canonicalUrl, redirectChain, retrievedAt, retrievalMethod: "HTTP", retrievalDisposition: response.status === 402 ? "ACCESS_LIMITED" : "UNAVAILABLE", mediaType: type || "application/octet-stream", language: input.languageHint, publicationDateObserved: null, rawObjectRef: null, extractedTextObjectRef: null, boundedExtractedText: "", contentHash: emptyHash, extractionHash: null, groundingMetadataRef: null, etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified"), license: null, contentBytes: 0, accessLimitations, partial: true, supersedesSnapshotId: null });
-    return { source, snapshot, evidenceSegments: [], archiveWrites: 0 };
+    return { source, snapshot, evidenceSegments: [], archiveWrites: 0, cacheDisposition: staleCache ? "REFETCHED" : "CACHE_NOT_APPLICABLE" };
   }
   if (!ALLOWED_MEDIA_TYPES.has(type)) throw new Error(`SOURCE_RETRIEVAL_UNSUPPORTED_CONTENT_TYPE:${type || "missing"}`);
   const contentEncoding = (response.headers.get("content-encoding") || "identity").toLocaleLowerCase("en-US");
@@ -232,7 +247,7 @@ export async function retrieveSource(input: {
   const snapshot = parseSealedArtifact(sourceSnapshotSchema, { ...immutableEnvelope(input.context, snapshotId), sourceSnapshotId: snapshotId, sourceId, retrievalUrl: canonicalizeUrl(input.url), resolvedUrl: canonicalUrl, redirectChain, retrievedAt, retrievalMethod: "HTTP", retrievalDisposition: accessLimitations.length > 0 ? "ACCESS_LIMITED" : "NEWLY_RETRIEVED", mediaType: type, language: html?.language || input.languageHint, publicationDateObserved: null, rawObjectRef, extractedTextObjectRef, boundedExtractedText, contentHash, extractionHash, groundingMetadataRef: null, etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified"), license: null, contentBytes: raw.byteLength, accessLimitations, partial: accessLimitations.length > 0 && extractedText.length === 0, supersedesSnapshotId: null });
   const source = sourceDocumentSchema.parse({ sourceId, corpusId: input.context.corpusId, canonicalUrl, canonicalUrlHash: sha256(canonicalUrl), publisherId: input.publisherId, title: html?.title || input.titleHint, authors: [], publicationDate: null, sourceClass: input.sourceClass, language: snapshot.language, primarySecondaryRole: input.primarySecondaryRole, authorityDomains: [], access: accessLimitations.includes("PAYWALL_DETECTED") ? "PAYWALLED" : accessLimitations.length > 0 ? "LIMITED" : "OPEN", currentSnapshotId: snapshotId, supersedesSourceId: null, identityHash: sha256(canonicalUrl), updatedAt: retrievedAt });
   const evidenceSegments = segmentExtractedText(input.context, snapshotId, boundedExtractedText, type === "application/pdf" ? "PDF_TEXT_EXTRACTOR" : type.includes("html") ? "SAFE_HTML_TEXT" : "PLAIN_TEXT");
-  return { source, snapshot, evidenceSegments, archiveWrites };
+  return { source, snapshot, evidenceSegments, archiveWrites, cacheDisposition: staleCache ? "REFETCHED" : "CACHE_NOT_APPLICABLE" };
 }
 
 export function segmentExtractedText(context: ArtifactContext, sourceSnapshotId: string, text: string, extractionMethod: string): EvidenceSegment[] {
@@ -257,6 +272,7 @@ export function segmentExtractedText(context: ArtifactContext, sourceSnapshotId:
 }
 
 export function canReuseSnapshot(snapshot: SourceSnapshot, freshness: "IMMUTABLE_HISTORICAL" | "MUTABLE" | "ONGOING", ongoingAsOf: string | null): boolean {
+  if (snapshot.schemaVersion !== V2_SCHEMA_VERSION) return false;
   if (snapshot.retrievalDisposition === "UNAVAILABLE" || snapshot.accessLimitations.length > 0) return false;
   if (freshness === "IMMUTABLE_HISTORICAL") return true;
   const retrieved = Date.parse(snapshot.retrievedAt);

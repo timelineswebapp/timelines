@@ -1,0 +1,79 @@
+{
+  "generatedAt": "2026-09-06T05:47:03.451Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The History of the World Wide Web",
+      "context": {
+        "corpusId": "timelines-clean-2026-09-v1",
+        "topicId": "36d6d69aa3bce5d0e65dbf435da523a49bec3035f7c0cc7a96a678c9e793c297",
+        "runId": "8eb903c3-b828-4b69-9a11-5654e111c1da",
+        "generation": 1,
+        "createdAt": "2026-09-06T05:43:25.392Z"
+      },
+      "scopeContractId": "scope-d8e77e7f5504df185d85c3075e020f3db0b7282f4f469bf4d128ca6e6a162efd",
+      "researchMapId": "research-map-ccc8d84a11827fc42c562a3bda05f85732bc78742f4df1b3a04a947c4bdcc244",
+      "queryPlanId": "query-plan-5fdf31916b6059dde2c9ea066039aa5f3908ee094b3fdb4b68f2056d6818c7d9",
+      "eventVersionIds": [],
+      "metrics": {
+        "totalExecutionMs": 217818,
+        "scopeContractModelCalls": 1,
+        "researchMapModelCalls": 2,
+        "queryPlanModelCalls": 1,
+        "groundingCalls": 5,
+        "providerReportedSearchQueries": 16,
+        "directRetrievalAttempts": 6,
+        "retrievalSuccesses": 5,
+        "retrievalFailures": 1,
+        "sourceDocumentsDiscovered": 48,
+        "sourceDocumentsSnapshotted": 5,
+        "cacheHits": 4,
+        "cacheRevalidated": 0,
+        "cacheRefetched": 0,
+        "cacheNotApplicable": 1,
+        "retrievalsSuppressedByHostCircuit": 0,
+        "evidencePackets": 7,
+        "evidencePacketSegments": 80,
+        "individualClaimsRejected": 0,
+        "researchQuestionsNoEvidence": 4,
+        "researchQuestionsPartial": 0,
+        "researchQuestionsSufficient": 0,
+        "researchQuestionsBlocked": 12,
+        "sourceClasses": [
+          "OTHER",
+          "PRIMARY_INSTITUTIONAL",
+          "WIKIPEDIA"
+        ],
+        "publisherIdentities": 4,
+        "claimsExtracted": 0,
+        "claimsSupported": 0,
+        "claimsRejected": 7,
+        "claimsRequiringReview": 0,
+        "conflictsDetected": 0,
+        "conflictsResolved": 0,
+        "conflictsUnresolved": 0,
+        "entityCandidates": 0,
+        "resolvedEntities": 0,
+        "eventCandidates": 0,
+        "resolvedCanonicalEventCandidates": 0,
+        "nonEventKnowledgeItems": 0,
+        "reusedExistingKnowledge": 0,
+        "newKnowledge": 0,
+        "modelRepairAttempts": 1,
+        "infrastructureRetries": 0,
+        "inputTokens": 315008,
+        "outputTokens": 10149,
+        "monetaryCost": null,
+        "monetaryCostMeasurement": "NOT_MEASURABLE",
+        "firestoreWrites": 154,
+        "cloudStorageWrites": 0,
+        "finalV2AVerdict": "FAIL"
+      },
+      "blockingReasons": [
+        "NO_ATOMIC_CLAIMS",
+        "NO_SUPPORTED_CLAIMS",
+        "NO_RESOLVED_EVENT_CANDIDATES"
+      ]
+    }
+  ]
+}

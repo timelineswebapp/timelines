@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-09-06T07:03:08.526Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The Apollo 13 Mission",
+      "context": {
+        "corpusId": "timelines-clean-2026-09-v1",
+        "topicId": "9381820cc395e79c3f5cf2ed68270d3df071b8eb297919fa8b91f165a12e0d97",
+        "runId": "696935fc-ae2e-4043-b19a-bb66c1f38217",
+        "generation": 1,
+        "createdAt": "2026-09-06T06:58:28.947Z"
+      },
+      "scopeContractId": "scope-3e696b778e1c747442f2a9c721db88d63d2f4ab7725d5a1438cce94c19aeef6f",
+      "researchMapId": "research-map-de628ee7b7619aa6159f2b14756b5b689335023560ff7277d1191c0cfe6445aa",
+      "queryPlanId": "query-plan-aff44f680fb1cb74281d2539b7eadbf97036e7ed34ecbd9e7a17fc3f23100000",
+      "eventVersionIds": [
+        "event-version-1377658761a7f1b27ed7a56d41b77f49258e9a7f2930af4a02258c487982acf2",
+        "event-version-143637e4b7fe11329b4a483f42cf101f4ff11467c0746d29023c5cb5a106e12a",
+        "event-version-6403bd14cbf1a95539cb82f615cc67e0c984654e93de628a51ecbd1a58d0dc59"
+      ],
+      "metrics": {
+        "totalExecutionMs": 279293,
+        "scopeContractModelCalls": 1,
+        "researchMapModelCalls": 1,
+        "queryPlanModelCalls": 1,
+        "groundingCalls": 5,
+        "providerReportedSearchQueries": 15,
+        "directRetrievalAttempts": 4,
+        "retrievalSuccesses": 3,
+        "retrievalFailures": 1,
+        "sourceDocumentsDiscovered": 46,
+        "sourceDocumentsSnapshotted": 2,
+        "cacheHits": 0,
+        "cacheRevalidated": 0,
+        "cacheRefetched": 1,
+        "cacheNotApplicable": 1,
+        "retrievalsSuppressedByHostCircuit": 0,
+        "evidencePackets": 8,
+        "evidencePacketSegments": 90,
+        "individualClaimsRejected": 8,
+        "researchQuestionsNoEvidence": 1,
+        "researchQuestionsPartial": 4,
+        "researchQuestionsSufficient": 3,
+        "researchQuestionsBlocked": 2,
+        "sourceClasses": [
+          "PRIMARY_INSTITUTIONAL",
+          "WIKIPEDIA"
+        ],
+        "publisherIdentities": 2,
+        "claimsExtracted": 33,
+        "claimsSupported": 13,
+        "claimsRejected": 28,
+        "claimsRequiringReview": 0,
+        "conflictsDetected": 2,
+        "conflictsResolved": 0,
+        "conflictsUnresolved": 2,
+        "entityCandidates": 1,
+        "resolvedEntities": 0,
+        "eventCandidates": 3,
+        "resolvedCanonicalEventCandidates": 2,
+        "nonEventKnowledgeItems": 1,
+        "reusedExistingKnowledge": 0,
+        "newKnowledge": 37,
+        "modelRepairAttempts": 0,
+        "infrastructureRetries": 0,
+        "inputTokens": 47784,
+        "outputTokens": 17947,
+        "monetaryCost": null,
+        "monetaryCostMeasurement": "NOT_MEASURABLE",
+        "firestoreWrites": 461,
+        "cloudStorageWrites": 3,
+        "finalV2AVerdict": "PASS"
+      },
+      "blockingReasons": []
+    }
+  ]
+}

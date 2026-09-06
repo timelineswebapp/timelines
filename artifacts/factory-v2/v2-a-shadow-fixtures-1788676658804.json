@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-09-06T06:37:38.804Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The Fall of the Berlin Wall",
+      "context": {
+        "corpusId": "timelines-clean-2026-09-v1",
+        "topicId": "90dfbf492783a082fe8a868cedd111f7d8a22e1227bb904f721986a6380b404c",
+        "runId": "ccaa9af0-4081-48e0-9753-c4c85761dcec",
+        "generation": 1,
+        "createdAt": "2026-09-06T06:31:53.560Z"
+      },
+      "scopeContractId": "scope-23a2780402270a26dfc044a990f3054de4aff19fb504ae43f258acd7f43b7e9e",
+      "researchMapId": "research-map-745fe9de35ddbd1438da29354507135192be5e5b5bf6444a88bb2ce2cf2c2ad2",
+      "queryPlanId": "query-plan-94f5793c8a70632132897273c856834e9147840e37092c63ac02499f73d1f927",
+      "eventVersionIds": [
+        "event-version-a97a2bd777572a70043166b12d47c0c8e49a8c7b80a88009302914f883e0bae3",
+        "event-version-86b5485bd4696ddb536cbfe1ae974dfe97ccd09219c7faad5adaa6da7ed81484",
+        "event-version-d44823bbb915a40dbaf308129f346f34902d0fa14794cc1c0f2fc2cc8c8693be",
+        "event-version-c1229e64d7c996414c09de5fd45f00c6c76d9475eff9c064823dbde42af52e5d"
+      ],
+      "metrics": {
+        "totalExecutionMs": 344957,
+        "scopeContractModelCalls": 2,
+        "researchMapModelCalls": 1,
+        "queryPlanModelCalls": 2,
+        "groundingCalls": 5,
+        "providerReportedSearchQueries": 20,
+        "directRetrievalAttempts": 6,
+        "retrievalSuccesses": 5,
+        "retrievalFailures": 1,
+        "sourceDocumentsDiscovered": 51,
+        "sourceDocumentsSnapshotted": 5,
+        "cacheHits": 1,
+        "cacheRevalidated": 0,
+        "cacheRefetched": 0,
+        "cacheNotApplicable": 4,
+        "retrievalsSuppressedByHostCircuit": 0,
+        "evidencePackets": 8,
+        "evidencePacketSegments": 96,
+        "individualClaimsRejected": 22,
+        "researchQuestionsNoEvidence": 4,
+        "researchQuestionsPartial": 1,
+        "researchQuestionsSufficient": 3,
+        "researchQuestionsBlocked": 6,
+        "sourceClasses": [
+          "EDITED_REFERENCE",
+          "OTHER",
+          "WIKIPEDIA"
+        ],
+        "publisherIdentities": 5,
+        "claimsExtracted": 22,
+        "claimsSupported": 16,
+        "claimsRejected": 28,
+        "claimsRequiringReview": 0,
+        "conflictsDetected": 2,
+        "conflictsResolved": 0,
+        "conflictsUnresolved": 2,
+        "entityCandidates": 1,
+        "resolvedEntities": 1,
+        "eventCandidates": 4,
+        "resolvedCanonicalEventCandidates": 4,
+        "nonEventKnowledgeItems": 0,
+        "reusedExistingKnowledge": 0,
+        "newKnowledge": 27,
+        "modelRepairAttempts": 2,
+        "infrastructureRetries": 0,
+        "inputTokens": 188989,
+        "outputTokens": 25998,
+        "monetaryCost": null,
+        "monetaryCostMeasurement": "NOT_MEASURABLE",
+        "firestoreWrites": 621,
+        "cloudStorageWrites": 2,
+        "finalV2AVerdict": "PASS"
+      },
+      "blockingReasons": []
+    }
+  ]
+}

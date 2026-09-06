@@ -41,6 +41,14 @@ test("One definitive primary record establishes a narrow material mission date",
   assert.ok(verdict.reasonCodes.includes("DEFINITIVE_PRIMARY"));
 });
 
+test("Duplicate claim-evidence inputs remain one accepted durable edge", () => {
+  const value = claim("MATERIAL", "DATE");
+  const durableEdge = edge(value, byName("National Aeronautics and Space Administration"), "nasa");
+  const verdict = evaluateClaimAuthority({ context: TEST_CONTEXT, claim: value, evidenceEdges: [durableEdge, durableEdge], publishersByVersionId: publisherMap });
+  assert.equal(verdict.verdict, "SUPPORTED");
+  assert.deepEqual(verdict.acceptedEvidenceEdgeIds, [durableEdge.claimEvidenceId]);
+});
+
 test("Interpretive claims require multiple independent strong secondary authorities", () => {
   const value = claim("INTERPRETIVE", "INTERPRETATION");
   const one = edge(value, byName("BBC"), "bbc");

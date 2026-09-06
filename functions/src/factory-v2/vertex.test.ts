@@ -21,18 +21,16 @@ const scopeProposal = {
   title: "Apollo 11 Mission", language: "en", topicClass: "CLOSED_EPISODE", subjectDefinition: "The Apollo 11 lunar landing mission from launch through recovery.",
   includedQuestions: ["What operational events defined the mission?"], excludedQuestions: ["Later cultural depictions"], chronologyStart: date(1969, "DAY", 7, 16), chronologyEnd: date(1969, "DAY", 7, 24), ongoingAsOf: null,
   contextBefore: date(1961), contextAfter: date(1970), precursorRule: "Only readiness context is permitted.", aftermathRule: "Only immediate recovery context is permitted.",
-  spatialScope: { included: ["Earth", "Moon"], excluded: [], boundaryRule: "Include operational mission locations." }, centralEntities: [{ entityId: null, name: "Apollo 11", type: "Technology", language: "en" }],
+  spatialScope: { included: ["Earth", "Moon"], excluded: [], boundaryRule: "Include operational mission locations." }, centralEntities: [{ name: "Apollo 11", type: "Technology", language: "en" }],
   requiredDimensions: ["operational"], expectedPhases: ["launch"], granularity: "DETAILED", explicitExclusions: ["Fictional portrayals"], uncertainties: [],
   researchBudget: { maximumGroundingCalls: 7, maximumProviderQueries: 40, maximumSourceDocuments: 60, maximumAtomicClaims: 300, maximumSemanticRepairs: 2, maximumTransportAttemptsPerCall: 3, maximumConcurrency: 3, maximumWorkerSeconds: 1200 }
 };
 
 const mapProposal = {
-  version: 1,
-  phases: [{ phaseId: "launch", label: "Launch", temporalRule: "Launch day operations", required: true, rationale: "Launch opens the bounded mission." }],
-  dimensions: [{ dimensionId: "operational", label: "Operational", required: true, rationale: "Operations define mission chronology." }],
-  entities: [],
-  questions: [{ questionId: "q-launch", text: "When and how did Apollo 11 launch?", phaseIds: ["launch"], dimensionIds: ["operational"], claimTypesExpected: ["DATE", "OCCURRENCE"], likelySourceClasses: ["PRIMARY_INSTITUTIONAL"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: true, priority: "CRITICAL", state: "UNRESEARCHED" }],
-  terminology: [], knownUncertainty: []
+  questions: [
+    { text: "When and how did Apollo 11 launch?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: true, priority: "CRITICAL" },
+    { text: "What did an invented phase contain?", phaseLabels: ["invented phase"], dimensionLabels: ["invented dimension"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "IMPORTANT" }
+  ],
 };
 
 test("Scope proposal uses bounded semantic repair and preserves model provenance on the locked artifact", async () => {
@@ -52,18 +50,28 @@ test("Research Map and Query Plan structured stages bind exact locked scope and 
   const scope = scopeFixture();
   const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
   assert.equal(mapResult.map.scopeContractId, scope.scopeContractId);
-  const query = { queries: [{ queryId: "query-1", researchQuestionIds: ["q-launch"], role: "ORIENTATION", intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["United States"], providerQuery: "Apollo 11 NASA mission history", providerReportedQueries: [], budgetUnits: 1, resultArtifactIds: [] }] };
+  assert.match(mapResult.map.questions[0]!.questionId, /^question-/u);
+  assert.ok(!mapResult.map.questions.some((question) => question.text.includes("invented")));
+  for (const phase of mapResult.map.phases) {
+    assert.ok(mapResult.map.questions.some((question) => question.priority !== "SUPPORTING" && question.phaseIds.includes(phase.phaseId)), `missing question coverage for phase ${phase.label}`);
+  }
+  for (const dimension of mapResult.map.dimensions) {
+    assert.ok(mapResult.map.questions.some((question) => question.dimensionIds.includes(dimension.dimensionId)), `missing question coverage for dimension ${dimension.label}`);
+  }
+  const query = { queries: [{ researchQuestionNumbers: [1], intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["United States"], providerQuery: "Apollo 11 NASA mission history", budgetUnits: 1 }] };
   const planResult = await generateQueryPlan({ context: TEST_CONTEXT, scope, map: mapResult.map, provider: providerFrom([JSON.stringify(query)]) });
   assert.equal(planResult.plan.queries.length, 1);
+  assert.equal(planResult.plan.queries[0]!.role, "ORIENTATION");
   assert.equal(planResult.plan.scopeContractId, scope.scopeContractId);
 });
 
 test("Grounding contract persists provider queries, chunks, exact attributed spans, and rejects unattributable prose", async () => {
   const scope = scopeFixture();
   const map = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
-  const query = (await generateQueryPlan({ context: TEST_CONTEXT, scope, map: map.map, provider: providerFrom([JSON.stringify({ queries: [{ queryId: "query-1", researchQuestionIds: ["q-launch"], role: "ORIENTATION", intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["United States"], providerQuery: "Apollo 11 launch NASA", providerReportedQueries: [], budgetUnits: 1, resultArtifactIds: [] }] })]) })).plan.queries[0]!;
-  const acquisition = await runGroundedAcquisition({ context: TEST_CONTEXT, query, provider: providerFrom([{ text: "Apollo 11 launched on July 16, 1969.", candidates: [{ groundingMetadata: { webSearchQueries: ["Apollo 11 launch NASA"], groundingChunks: [{ web: { uri: "https://www.nasa.gov/history/apollo-11", title: "NASA Apollo 11", domain: "nasa.gov" } }], groundingSupports: [{ segment: { startIndex: 0, endIndex: 39, text: "Apollo 11 launched on July 16, 1969." }, groundingChunkIndices: [0] }], searchEntryPoint: {} } }], usageMetadata: { totalTokenCount: 100 } }]) });
+  const query = (await generateQueryPlan({ context: TEST_CONTEXT, scope, map: map.map, provider: providerFrom([JSON.stringify({ queries: [{ researchQuestionNumbers: [1], intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["United States"], providerQuery: "Apollo 11 launch NASA", budgetUnits: 1 }] })]) })).plan.queries[0]!;
+  const acquisition = await runGroundedAcquisition({ context: TEST_CONTEXT, query, provider: providerFrom([{ text: "" }, { text: "Apollo 11 launched on July 16, 1969.", candidates: [{ groundingMetadata: { webSearchQueries: ["Apollo 11 launch NASA", "Apollo 11 launch NASA"], groundingChunks: [{ web: { uri: "https://www.nasa.gov/history/apollo-11", title: "NASA Apollo 11", domain: "nasa.gov" } }], groundingSupports: [{ segment: { startIndex: 0, endIndex: 39, text: "Apollo 11 launched on July 16, 1969." }, groundingChunkIndices: [0] }], searchEntryPoint: {} } }], usageMetadata: { totalTokenCount: 100 } }]) });
   assert.deepEqual(acquisition.webSearchQueries, ["Apollo 11 launch NASA"]);
+  assert.equal(acquisition.execution.transportAttempts, 2);
   assert.equal(acquisition.supports[0]!.chunkIndices[0], 0);
   await assert.rejects(runGroundedAcquisition({ context: TEST_CONTEXT, query, provider: providerFrom([{ text: "Unsupported prose", candidates: [{ groundingMetadata: {} }] }]) }), /UNATTRIBUTABLE/);
 });
@@ -76,8 +84,20 @@ test("Claim extraction binds exact segment IDs, preserves precision, and isolate
   const result = await extractAtomicClaims({ context: TEST_CONTEXT, scope, sourceSnapshotId: "snapshot-1", segments: [segment], provider: providerFrom([JSON.stringify(response)], requests) });
   assert.equal(result.claims[0]!.extractedFromSegmentIds[0], segment.evidenceSegmentId);
   assert.equal(result.claims[0]!.modelExecutionRef?.executionId, result.executions[0]!.executionId);
+  assert.equal(result.executions[0]!.boundedResponse, JSON.stringify(response));
   assert.match(requests[0]!.contents, /UNTRUSTED_SOURCE_SEGMENT_DATA/);
-  await assert.rejects(extractAtomicClaims({ context: TEST_CONTEXT, scope, sourceSnapshotId: "snapshot-1", segments: [segment], provider: providerFrom([JSON.stringify({ claims: [{ ...response.claims[0], evidenceSegmentIds: ["segment-invented"] }] })]) }), /outside the bounded source input/);
+  const rejected = await extractAtomicClaims({ context: TEST_CONTEXT, scope, sourceSnapshotId: "snapshot-1", segments: [segment], provider: providerFrom([JSON.stringify({ claims: [{ ...response.claims[0], evidenceSegmentIds: ["segment-invented"] }] })]) });
+  assert.equal(rejected.claims.length, 0);
+  assert.match(rejected.rejectedClaims[0]!.reasons[0]!, /outside the bounded source input/);
+});
+
+test("Claim extraction preserves valid siblings when one proposed claim is structurally invalid", async () => {
+  const scope = scopeFixture();
+  const segment = buildEvidenceSegment(TEST_CONTEXT, { sourceSnapshotId: "snapshot-1", exactText: "Apollo 11 launched on July 16, 1969.", segmentType: "TEXT", startOffset: 0, endOffset: 39, page: null, section: null, selector: null, extractionMethod: "SAFE_HTML_TEXT", sourceCompleteness: "FULL_SNAPSHOT" });
+  const valid = { subject: { kind: "EVENT", id: null, label: "Apollo 11 launch" }, predicate: "OCCURRENCE", object: { kind: "TEXT", id: null, value: "Apollo 11 launched" }, normalizedAssertion: "Apollo 11 launched", claimType: "OCCURRENCE", risk: "ROUTINE", temporal: { start: { ...date(1969, "DAY", 7, 16), label: "July 16, 1969" }, end: null }, candidateEventClusterId: "apollo-11-launch", qualifiers: [], evidenceSegmentIds: [segment.evidenceSegmentId], semanticClass: "EVENT" };
+  const result = await extractAtomicClaims({ context: TEST_CONTEXT, scope, sourceSnapshotId: "snapshot-1", segments: [segment], provider: providerFrom([JSON.stringify({ claims: [valid, { ...valid, normalizedAssertion: "Apollo 11 launched. It succeeded." }] })]) });
+  assert.equal(result.claims.length, 1);
+  assert.equal(result.rejectedClaims.length, 1);
 });
 
 test("Provider transport retries remain finite and do not become semantic search retries", async () => {
@@ -85,4 +105,11 @@ test("Provider transport retries remain finite and do not become semantic search
   const provider: V2ModelProvider = { async generateContent() { calls += 1; throw new Error("timeout"); } };
   await assert.rejects(proposeScope({ context: TEST_CONTEXT, title: "Apollo 11", language: "en", ongoingAsOf: "2026-09-06", reconnaissance: {}, provider }), /timeout/);
   assert.equal(calls, 3);
+});
+
+test("Whole-run deadline stops new provider work before a stage starts", async () => {
+  let calls = 0;
+  const provider: V2ModelProvider = { async generateContent() { calls += 1; return { text: JSON.stringify(scopeProposal) }; } };
+  await assert.rejects(proposeScope({ context: TEST_CONTEXT, title: "Apollo 11", language: "en", ongoingAsOf: "2026-09-06", reconnaissance: {}, provider, deadlineAt: Date.now() - 1 }), /WHOLE_RUN_DEADLINE_EXCEEDED/);
+  assert.equal(calls, 0);
 });

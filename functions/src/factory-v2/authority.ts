@@ -45,7 +45,8 @@ export function evaluateClaimAuthority(input: AuthorityEvaluationInput): ClaimAu
   const strongGroups = new Set<string>();
   const secondaryGroups = new Set<string>();
   let definitivePrimary = false;
-  for (const edge of input.evidenceEdges) {
+  const uniqueEvidenceEdges = [...new Map(input.evidenceEdges.map((edge) => [edge.claimEvidenceId, edge])).values()];
+  for (const edge of uniqueEvidenceEdges) {
     const publisher = edge.publisherVersionId ? input.publishersByVersionId.get(edge.publisherVersionId) : undefined;
     if (edge.relationship === "MENTIONS") {
       rejected.push(edge.claimEvidenceId);
@@ -86,7 +87,7 @@ export function evaluateClaimAuthority(input: AuthorityEvaluationInput): ClaimAu
     verdict = "SUPPORTED";
   } else if (input.claim.risk === "CONTESTED" && strongGroups.size >= 2 && input.conflictSet?.state === "HISTORICALLY_CONTESTED") verdict = "QUALIFIED";
   if (accepted.length === 0) reasonCodes.add("MISSING_EVIDENCE");
-  const evidenceSetHash = payloadHash(input.evidenceEdges.map((edge) => ({ id: edge.claimEvidenceId, hash: edge.payloadHash })).sort((left, right) => left.id.localeCompare(right.id)));
+  const evidenceSetHash = payloadHash(uniqueEvidenceEdges.map((edge) => ({ id: edge.claimEvidenceId, hash: edge.payloadHash })).sort((left, right) => left.id.localeCompare(right.id)));
   const claimAuthorityVerdictId = contentAddressedId("claim-verdict", { claimVersionId: input.claim.claimVersionId, evidenceSetHash, policyVersion: input.context.policyVersion || V2_POLICY_VERSION });
   return parseSealedArtifact(claimAuthorityVerdictSchema, {
     ...immutableEnvelope(input.context, claimAuthorityVerdictId),
@@ -170,7 +171,7 @@ export function bootstrapPublisherRegistry(context: ArtifactContext): PublisherA
   const registryContext: ArtifactContext = { ...context, topicId: "publisher-registry", runId: "bootstrap-v2-a", generation: 1, createdAt: "2026-09-06T00:00:00.000Z" };
   return BOOTSTRAP_PUBLISHERS.map((publisher) => {
     const publisherId = deterministicUuid("timelines.publisher", publisher.canonicalName);
-    const publisherVersionId = contentAddressedId("publisher-version", { publisherId, publisher });
-    return parseSealedArtifact(publisherAuthorityVersionSchema, { ...immutableEnvelope(registryContext, publisherVersionId), ...publisher, publisherId, publisherVersionId, version: 1, classificationEvidenceSegmentIds: [], admittedBy: "POLICY" });
+    const publisherVersionId = contentAddressedId("publisher-version", { publisherId, publisher, policyVersion: V2_POLICY_VERSION });
+    return parseSealedArtifact(publisherAuthorityVersionSchema, { ...immutableEnvelope(registryContext, publisherVersionId), ...publisher, publisherId, publisherVersionId, version: 2, classificationEvidenceSegmentIds: [], admittedBy: "POLICY" });
   });
 }

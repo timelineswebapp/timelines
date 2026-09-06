@@ -71,7 +71,7 @@ export const topicOperationSchema = z.object({
   topicId: idSchema,
   runId: idSchema,
   generation: z.number().int().positive(),
-  pipelineVersion: z.literal("factory-v2-a.1"),
+  pipelineVersion: z.literal("factory-v2-a.8"),
   executionMode: z.literal("SHADOW"),
   state: z.enum(["QUEUED", "RUNNING", "FAILED", "COMPLETED"]),
   stage: z.enum(["A1_SCHEMAS", "A2_SCOPE_ACQUISITION", "A3_CLAIMS", "A4_AUTHORITY_CONFLICTS", "A5_RESOLUTION_REUSE", "COMPLETE"]),

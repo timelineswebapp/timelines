@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-09-06T06:51:05.877Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The Cuban Missile Crisis",
+      "context": {
+        "corpusId": "timelines-clean-2026-09-v1",
+        "topicId": "d3793db6efe910faa764533424256ecc9110638b3d01b3725be55225c70abb24",
+        "runId": "3462b32e-efeb-4aa0-8056-08acfd521bd9",
+        "generation": 1,
+        "createdAt": "2026-09-06T06:45:23.501Z"
+      },
+      "scopeContractId": "scope-8270e602ba62f0ef205c73b1f1baa2cb77857d18c734ded2a3a67c6dd9b95faa",
+      "researchMapId": "research-map-8eb847a661b215b36a9c399ce4c152972e6f1a22db0fed23f86a33d5ae20c801",
+      "queryPlanId": "query-plan-10901f24007b1957267bb17d0eb5e3e76252484bd1f56c4727d177bef21ec81c",
+      "eventVersionIds": [
+        "event-version-820acad2cb517f1c070e673f2b0a3683c5b9d255739a3b4e268a1a9f79e48184",
+        "event-version-d714ce3ed02e8a2ee633b6f58b51c96254f3049bf6b472fe34463eaa59d26ab2",
+        "event-version-335ba1b7d6654acdb1f4b0246ab5f7dea09fed15d223baf3bc2d3c2fa6c038c2",
+        "event-version-1b4b933a81048e7ab912e311fb15f7d8bda705f62016a041b80329f95b21278e",
+        "event-version-3307312f1082ee5d28f802c14f3525fd6347c5640ba95ba303ec450dce9bec28"
+      ],
+      "metrics": {
+        "totalExecutionMs": 342096,
+        "scopeContractModelCalls": 1,
+        "researchMapModelCalls": 1,
+        "queryPlanModelCalls": 1,
+        "groundingCalls": 5,
+        "providerReportedSearchQueries": 15,
+        "directRetrievalAttempts": 10,
+        "retrievalSuccesses": 7,
+        "retrievalFailures": 3,
+        "sourceDocumentsDiscovered": 40,
+        "sourceDocumentsSnapshotted": 6,
+        "cacheHits": 3,
+        "cacheRevalidated": 0,
+        "cacheRefetched": 0,
+        "cacheNotApplicable": 3,
+        "retrievalsSuppressedByHostCircuit": 0,
+        "evidencePackets": 8,
+        "evidencePacketSegments": 96,
+        "individualClaimsRejected": 14,
+        "researchQuestionsNoEvidence": 2,
+        "researchQuestionsPartial": 1,
+        "researchQuestionsSufficient": 5,
+        "researchQuestionsBlocked": 6,
+        "sourceClasses": [
+          "OTHER",
+          "PRIMARY_INSTITUTIONAL"
+        ],
+        "publisherIdentities": 5,
+        "claimsExtracted": 29,
+        "claimsSupported": 26,
+        "claimsRejected": 17,
+        "claimsRequiringReview": 0,
+        "conflictsDetected": 5,
+        "conflictsResolved": 0,
+        "conflictsUnresolved": 5,
+        "entityCandidates": 4,
+        "resolvedEntities": 4,
+        "eventCandidates": 5,
+        "resolvedCanonicalEventCandidates": 4,
+        "nonEventKnowledgeItems": 1,
+        "reusedExistingKnowledge": 0,
+        "newKnowledge": 38,
+        "modelRepairAttempts": 0,
+        "infrastructureRetries": 0,
+        "inputTokens": 196874,
+        "outputTokens": 20297,
+        "monetaryCost": null,
+        "monetaryCostMeasurement": "NOT_MEASURABLE",
+        "firestoreWrites": 555,
+        "cloudStorageWrites": 0,
+        "finalV2AVerdict": "PASS"
+      },
+      "blockingReasons": []
+    }
+  ]
+}

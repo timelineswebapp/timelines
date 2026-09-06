@@ -44,8 +44,10 @@ test("Robots policy applies the longest matching allow/disallow rule", () => {
 });
 
 test("Safe HTML extraction removes executable content and preserves exact deterministic text", () => {
-  const extracted = extractHtmlText("<html lang='fr'><head><title> Test </title><link rel='canonical' href='/canonical'></head><body><script>ignore me</script><h1>Bonjour &amp; monde</h1><p>Evidence.</p></body></html>");
+  const extracted = extractHtmlText("<html lang='fr'><head><title> Test </title><link rel='canonical' href='/canonical'></head><body><script>ignore me</script><header>Current news boilerplate</header><main><h1>Bonjour &amp; monde</h1><p>Evidence.</p></main><footer>Unrelated footer</footer></body></html>");
   assert.equal(extracted.text.includes("ignore me"), false);
+  assert.equal(extracted.text.includes("Current news boilerplate"), false);
+  assert.equal(extracted.text.includes("Unrelated footer"), false);
   assert.match(extracted.text, /Bonjour & monde/);
   assert.equal(extracted.canonicalUrl, "/canonical");
   assert.equal(extracted.language, "fr");
@@ -95,6 +97,19 @@ test("Access-limited pages are represented honestly and immutable historical cac
   assert.equal(limited.evidenceSegments.length, 0);
   assert.equal(canReuseSnapshot({ ...limited.snapshot, retrievalDisposition: "NEWLY_RETRIEVED", accessLimitations: [] }, "IMMUTABLE_HISTORICAL", null), true);
   assert.equal(canReuseSnapshot({ ...limited.snapshot, retrievalDisposition: "NEWLY_RETRIEVED", accessLimitations: [], retrievedAt: "2020-01-01T00:00:00.000Z" }, "ONGOING", "2026-09-06"), false);
+});
+
+test("Retrieval reuses immutable snapshots and conditionally revalidates stale mutable snapshots", async () => {
+  const first = await retrieveSource(base, { dnsLookup: publicDns, fetch: fetchSequence([response(200, "Historical evidence.", { "content-type": "text/plain", etag: "v1", "last-modified": "Mon, 01 Jan 2024 00:00:00 GMT" })]), now: () => new Date("2024-01-01T00:00:00.000Z") });
+  let cacheFetches = 0;
+  const reused = await retrieveSource(base, { dnsLookup: publicDns, fetch: async () => { cacheFetches += 1; throw new Error("Cache hit must not fetch the body"); }, cachedSource: async () => ({ source: first.source, snapshot: first.snapshot, evidenceSegments: first.evidenceSegments, reusable: true }) });
+  assert.equal(reused.cacheDisposition, "CACHE_HIT");
+  assert.equal(cacheFetches, 0);
+  let conditionalHeaders: Record<string, string> | null = null;
+  const revalidated = await retrieveSource(base, { dnsLookup: publicDns, fetch: async (_url, init) => { conditionalHeaders = init.headers; return response(304, "", { "content-type": "text/plain" }); }, cachedSource: async () => ({ source: first.source, snapshot: first.snapshot, evidenceSegments: first.evidenceSegments, reusable: false }) });
+  assert.equal(revalidated.cacheDisposition, "REVALIDATED");
+  assert.equal(conditionalHeaders?.["If-None-Match"], "v1");
+  assert.equal(conditionalHeaders?.["If-Modified-Since"], "Mon, 01 Jan 2024 00:00:00 GMT");
 });
 
 test("Robots denial stops document retrieval rather than bypassing access constraints", async () => {

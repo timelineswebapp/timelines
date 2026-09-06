@@ -1,0 +1,76 @@
+{
+  "generatedAt": "2026-09-06T08:04:41.862Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The Apollo 11 Mission",
+      "context": {
+        "corpusId": "timelines-clean-2026-09-v1",
+        "topicId": "b6f5f65ce1fd8e3b5fe118c45bfe9f9b41a8ba8d6324a04c0bfe098cfa32ac4a",
+        "runId": "b6fe42ae-eee8-4cd6-9a58-5524a2e45494",
+        "generation": 1,
+        "createdAt": "2026-09-06T08:00:50.232Z"
+      },
+      "scopeContractId": "scope-a8a0f2ab3b5ecb56ff8cdd9e76de00d472ce128d8dfbf8d32d652381c9cad059",
+      "researchMapId": "research-map-d57d34e857a54ed2d04741251ecd2f636e6d979a20f971ed42c526ccc265d553",
+      "queryPlanId": "query-plan-039b8198f114fa459efda11f8032ba65bb8a45af8632332b5d54f9131d1d1627",
+      "eventVersionIds": [],
+      "metrics": {
+        "totalExecutionMs": 231350,
+        "scopeContractModelCalls": 1,
+        "researchMapModelCalls": 2,
+        "queryPlanModelCalls": 1,
+        "groundingCalls": 5,
+        "providerReportedSearchQueries": 18,
+        "directRetrievalAttempts": 6,
+        "retrievalSuccesses": 5,
+        "retrievalFailures": 1,
+        "sourceDocumentsDiscovered": 31,
+        "sourceDocumentsSnapshotted": 5,
+        "cacheHits": 0,
+        "cacheRevalidated": 0,
+        "cacheRefetched": 0,
+        "cacheNotApplicable": 5,
+        "retrievalsSuppressedByHostCircuit": 0,
+        "evidencePackets": 8,
+        "evidencePacketSegments": 93,
+        "individualClaimsRejected": 1,
+        "researchQuestionsNoEvidence": 5,
+        "researchQuestionsPartial": 0,
+        "researchQuestionsSufficient": 3,
+        "researchQuestionsBlocked": 6,
+        "sourceClasses": [
+          "OTHER",
+          "PRIMARY_INSTITUTIONAL"
+        ],
+        "publisherIdentities": 5,
+        "claimsExtracted": 12,
+        "claimsSupported": 12,
+        "claimsRejected": 1,
+        "claimsRequiringReview": 0,
+        "conflictsDetected": 1,
+        "conflictsResolved": 0,
+        "conflictsUnresolved": 1,
+        "entityCandidates": 5,
+        "resolvedEntities": 3,
+        "eventCandidates": 0,
+        "resolvedCanonicalEventCandidates": 0,
+        "nonEventKnowledgeItems": 0,
+        "reusedExistingKnowledge": 0,
+        "newKnowledge": 17,
+        "modelRepairAttempts": 1,
+        "infrastructureRetries": 0,
+        "inputTokens": 431255,
+        "outputTokens": 13250,
+        "monetaryCost": null,
+        "monetaryCostMeasurement": "NOT_MEASURABLE",
+        "firestoreWrites": 399,
+        "cloudStorageWrites": 1,
+        "finalV2AVerdict": "FAIL"
+      },
+      "blockingReasons": [
+        "NO_RESOLVED_EVENT_CANDIDATES"
+      ]
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { ACTIVE_CORPUS_ID } from "../../config";
 import { db } from "../../firestore";
 import { V2_CORPUS_COLLECTIONS, v2CorpusCollection, type V2CorpusCollectionName } from "../../corpus";
 import { verifyPayloadHash } from "../hashing";
+import { contentAddressedId } from "../hashing";
 
 export type V2RepositoryDependencies = {
   firestore?: Firestore;
@@ -167,6 +168,16 @@ export class V2FirestoreRepository {
     if (!id || id.length > 160) throw new Error("V2 repository document IDs must be explicitly bounded.");
     const snapshot = await this.collection(name).doc(id).get();
     return snapshot.exists ? { id: snapshot.id, ...snapshot.data() } : null;
+  }
+
+  async getReusableSource(canonicalUrl: string): Promise<{ source: DocumentData; snapshot: DocumentData; evidenceSegments: DocumentData[] } | null> {
+    const sourceId = contentAddressedId("source", canonicalUrl);
+    const source = await this.getById("v2SourceDocuments", sourceId);
+    if (!source || typeof source.currentSnapshotId !== "string") return null;
+    const snapshot = await this.getById("v2SourceSnapshots", source.currentSnapshotId);
+    if (!snapshot) return null;
+    const evidenceSegments = await this.boundedQuery("v2EvidenceSegments", [{ field: "sourceSnapshotId", op: "==", value: source.currentSnapshotId }], 200);
+    return { source, snapshot, evidenceSegments };
   }
 
   reference(name: V2CorpusCollectionName, id: string): DocumentReference {

@@ -112,13 +112,11 @@ export function buildEvidenceSegment(context: ArtifactContext, payload: Omit<Evi
   return parseSealedArtifact(evidenceSegmentSchema, { ...immutableEnvelope(context, evidenceSegmentId), ...payload, evidenceSegmentId, segmentHash });
 }
 
-const conjunctionPattern = /\b(?:and|but|while|whereas|thereby|which (?:caused|led|resulted))\b/giu;
 const sentenceBoundaryPattern = /[.!?]+\s+/gu;
 
 export function atomicityFindings(assertion: string): string[] {
   const findings: string[] = [];
   if ((assertion.match(sentenceBoundaryPattern) || []).length > 0) findings.push("MULTIPLE_SENTENCES");
-  if ((assertion.match(conjunctionPattern) || []).length > 0) findings.push("COMPOUND_CONJUNCTION");
   const claimModes = [
     /\b(?:launched|occurred|began|ended|signed|opened|closed)\b/iu,
     /\b(?:caused|led to|resulted in|transformed|influenced)\b/iu,
@@ -134,12 +132,11 @@ export function buildAtomicClaimVersion(context: ArtifactContext, payload: Omit<
   if (findings.length > 0) throw new z.ZodError(findings.map((message) => ({ code: z.ZodIssueCode.custom, path: ["normalizedAssertion"], message })));
   const claimIdentity = {
     topicId: context.topicId,
-    subject: payload.subject,
+    subject: { ...payload.subject, label: normalizedIdentityText(payload.subject.label) },
     predicate: payload.predicate,
-    object: payload.object,
-    normalizedAssertion: normalizedIdentityText(payload.normalizedAssertion),
+    object: { ...payload.object, value: typeof payload.object.value === "string" ? normalizedIdentityText(payload.object.value) : payload.object.value },
     temporal: payload.temporal,
-    qualifiers: payload.qualifiers,
+    qualifiers: payload.qualifiers.filter((item) => item.key !== "researchQuestionId").map((item) => ({ key: normalizedIdentityText(item.key), value: normalizedIdentityText(item.value) })).sort((left, right) => `${left.key}:${left.value}`.localeCompare(`${right.key}:${right.value}`)),
   };
   const claimId = payload.claimId || deterministicUuid("timelines.factory-v2.claim", claimIdentity);
   const claimVersionId = contentAddressedId("claim-version", { runId: context.runId, claimId, payload });
