@@ -7,7 +7,6 @@ import {
   canonicalEventVersionSchema,
   claimAuthorityVerdictSchema,
   claimConflictSetSchema,
-  knowledgeCompletionResultSchema,
   researchMapSchema,
   scopeContractSchema,
   sourceSnapshotSchema,
@@ -19,8 +18,8 @@ import {
   type ScopeContract,
   type SourceSnapshot
 } from "../../functions/src/factory-v2/contracts";
-import { buildQueryPlan, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "../../functions/src/factory-v2/contracts/builders";
-import { auditKnowledgeCoverage, buildCompletionResearchMap, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion } from "../../functions/src/factory-v2/coverage";
+import { buildQueryPlan, type ArtifactContext } from "../../functions/src/factory-v2/contracts/builders";
+import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion } from "../../functions/src/factory-v2/coverage";
 import { loadFactoryV2Config } from "../../functions/src/factory-v2/config";
 import { contentAddressedId } from "../../functions/src/factory-v2/hashing";
 import { runV2AShadowFixture } from "../../functions/src/factory-v2/orchestrator";
@@ -97,8 +96,7 @@ async function main() {
   const finalAudit = auditKnowledgeCoverage({ context, stage: "FINAL", scope, researchMap: completionMap, sourceKnowledgeRunIds: [SOURCE_RUN_ID, runId], claims: [...claims, ...newClaims], authorityVerdicts: [...verdicts, ...newVerdicts], conflicts: [...conflicts, ...newConflicts], events: mergeKnowledgeEventVersions([...events, ...newEvents]), sourceSnapshots: [...snapshots, ...newSnapshots] });
   const reAuditMs = Date.now() - reAuditStartedAt;
   await repository.createImmutable("v2KnowledgeCoverageAudits", finalAudit);
-  const completionResultId = contentAddressedId("knowledge-completion-result", { completionPlanId: completionPlan.completionPlanId, finalCoverageAuditId: finalAudit.coverageAuditId, acquisitionRunId: runId });
-  const resultArtifact = parseSealedArtifact(knowledgeCompletionResultSchema, { ...immutableEnvelope(context, completionResultId), artifactId: completionResultId, completionResultId, completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, finalCoverageAuditId: finalAudit.coverageAuditId, acquisitionRunId: runId, originalKnowledgeRunId: SOURCE_RUN_ID, newClaimVersionIds: newClaims.map((claim) => claim.claimVersionId), newEventVersionIds: newEvents.map((event) => event.eventVersionId), reusedEventVersionIds: newEvents.filter((event) => event.supersedesEventVersionId !== null).map((event) => event.eventVersionId), unresolvedGapIds: finalAudit.gaps.map((gap) => gap.gapId), budgetConsumed: { rounds: 1, groundingCalls: acquisition.metrics.groundingCalls, providerQueries: acquisition.metrics.providerReportedSearchQueries, sourceDocuments: acquisition.metrics.sourceDocumentsSnapshotted, claimExtractions: acquisition.metrics.evidencePackets, atomicClaims: acquisition.metrics.claimsExtracted, writes: acquisition.metrics.firestoreWrites + 4 }, timings: { initialKnowledgeReuseMs, coverageAuditMs: initialAudit.auditMs, gapAcquisitionMs, reAuditMs }, finalVerdict: finalAudit.verdict });
+  const resultArtifact = buildKnowledgeCompletionResult(context, { completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, finalCoverageAuditId: finalAudit.coverageAuditId, acquisitionRunId: runId, originalKnowledgeRunId: SOURCE_RUN_ID, newClaimVersionIds: newClaims.map((claim) => claim.claimVersionId), newEventVersionIds: newEvents.map((event) => event.eventVersionId), reusedEventVersionIds: newEvents.filter((event) => event.supersedesEventVersionId !== null).map((event) => event.eventVersionId), unresolvedGapIds: finalAudit.gaps.map((gap) => gap.gapId), budgetConsumed: { rounds: 1, groundingCalls: acquisition.metrics.groundingCalls, providerQueries: acquisition.metrics.providerReportedSearchQueries, sourceDocuments: acquisition.metrics.sourceDocumentsSnapshotted, claimExtractions: acquisition.metrics.evidencePackets, atomicClaims: acquisition.metrics.claimsExtracted, writes: acquisition.metrics.firestoreWrites + 4 }, timings: { initialKnowledgeReuseMs, coverageAuditMs: initialAudit.auditMs, gapAcquisitionMs, reAuditMs }, finalVerdict: finalAudit.verdict });
   await repository.createImmutable("v2KnowledgeCompletionResults", resultArtifact);
   const evidence = { goal: "TL-KF-V2-A3", fixture: EXPECTED_TITLE, status: finalAudit.verdict === "SUFFICIENT" ? "PASS" : "FAIL", sourceKnowledgeRunId: SOURCE_RUN_ID, runId, initialAudit, completionPlan, completionResearchMapId: completionMap.researchMapId, completionQueryPlanId: queryPlan.queryPlanId, acquisition, newKnowledge: { claims: newClaims.length, supportedClaims: newVerdicts.filter((item) => item.verdict === "SUPPORTED" || item.verdict === "QUALIFIED").length, events: newEvents.length, chronologyEvents: newEvents.filter((event) => event.semanticClass === "EVENT" && event.canonicalizationState === "RESOLVED").length, durableSnapshots: newSnapshots.length }, finalAudit, completionResult: resultArtifact, totalExecutionMs: Date.now() - totalStartedAt };
   const outputDirectory = new URL("../../artifacts/factory-v2/", import.meta.url);

@@ -271,7 +271,28 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     selectionPolicyVersion: V2_B_SELECTION_POLICY_VERSION,
     significancePromptVersion: V2_B_PROMPT_VERSION
   };
-  const selectionArtifactId = contentAddressedId("selection", semanticPayload);
+  const selectionIdentity = {
+    artifactType: "EDITORIAL_SELECTION",
+    schemaVersion: V2_B_SCHEMA_VERSION,
+    pipelineVersion: V2_B_PIPELINE_VERSION,
+    policyVersion: V2_B_SELECTION_POLICY_VERSION,
+    promptVersion: V2_B_PROMPT_VERSION,
+    modelExecutionRef: input.modelExecutionRef,
+    parentArtifactIds: [input.scope.scopeContractId, input.researchMap.researchMapId],
+    createdAt: input.context.createdAt,
+    corpusId: input.context.corpusId,
+    topicId: input.context.topicId,
+    runId: input.context.runId,
+    generation: input.context.generation,
+    sourceKnowledgeRunId: input.context.sourceKnowledgeRunId,
+    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.10", schemaVersion: "factory-v2-a.3", policyVersion: "evidence-first-v2-a.9", promptVersion: "factory-v2-a-prompts.8" },
+    executionMode: "SHADOW",
+    publicationEligible: false,
+    governanceSubmissionAllowed: false,
+    immutable: true,
+    semanticPayload
+  };
+  const selectionArtifactId = contentAddressedId("selection", selectionIdentity);
   return selectionArtifactSchema.parse(attachPayloadHash({
     artifactId: selectionArtifactId,
     artifactType: "EDITORIAL_SELECTION" as const,

@@ -2,7 +2,7 @@ import { getStorage } from "firebase-admin/storage";
 import { request as httpsRequest } from "node:https";
 import { lookup as systemLookup } from "node:dns/promises";
 import { PROJECT_ID } from "../../config";
-import { buildEvidenceSegment, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "../contracts/builders";
+import { buildEvidenceSegment, executionArtifactId, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "../contracts/builders";
 import { V2_SCHEMA_VERSION, sourceDocumentSchema, sourceSnapshotSchema, type EvidenceSegment, type SourceDocument, type SourceSnapshot } from "../contracts";
 import { contentAddressedId, sha256 } from "../hashing";
 import { assertPublicHttpsDestination, canonicalizeUrl, isForbiddenNetworkAddress, parseRobotsPolicy, type DnsLookup } from "./url";
@@ -17,6 +17,13 @@ const ALLOWED_MEDIA_TYPES = new Set(["text/html", "text/plain", "application/xht
 type HeadersLike = { get(name: string): string | null };
 type ResponseLike = { status: number; headers: HeadersLike; body: AsyncIterable<Uint8Array> | null };
 export type FetchLike = (url: string, init: { method: "GET"; redirect: "manual"; signal: AbortSignal; headers: Record<string, string> }) => Promise<ResponseLike>;
+
+type SourceSnapshotPayload = Omit<SourceSnapshot, keyof ReturnType<typeof immutableEnvelope> | "artifactId" | "payloadHash" | "sourceSnapshotId">;
+
+function buildSourceSnapshot(context: ArtifactContext, payload: SourceSnapshotPayload): SourceSnapshot {
+  const sourceSnapshotId = executionArtifactId("snapshot", context, payload);
+  return parseSealedArtifact(sourceSnapshotSchema, { ...immutableEnvelope(context, sourceSnapshotId), ...payload, sourceSnapshotId });
+}
 
 export type PrivateArchive = {
   save(path: string, body: Uint8Array, metadata: Record<string, string>): Promise<{ objectRef: string; generation: string | null }>;
@@ -206,8 +213,7 @@ export async function retrieveSource(input: {
     const sourceId = contentAddressedId("source", canonicalUrl);
     const source = sourceDocumentSchema.parse({ sourceId, corpusId: input.context.corpusId, canonicalUrl, canonicalUrlHash: sha256(canonicalUrl), publisherId: input.publisherId, title: input.titleHint, authors: [], publicationDate: null, sourceClass: input.sourceClass, language: input.languageHint, primarySecondaryRole: input.primarySecondaryRole, authorityDomains: [], access: response.status === 402 ? "PAYWALLED" : "UNAVAILABLE", currentSnapshotId: null, supersedesSourceId: null, identityHash: sha256(canonicalUrl), updatedAt: retrievedAt });
     const emptyHash = sha256("");
-    const snapshotId = contentAddressedId("snapshot", { sourceId, retrievedAt, status: response.status });
-    const snapshot = parseSealedArtifact(sourceSnapshotSchema, { ...immutableEnvelope(input.context, snapshotId), sourceSnapshotId: snapshotId, sourceId, retrievalUrl: canonicalizeUrl(input.url), resolvedUrl: canonicalUrl, redirectChain, retrievedAt, retrievalMethod: "HTTP", retrievalDisposition: response.status === 402 ? "ACCESS_LIMITED" : "UNAVAILABLE", mediaType: type || "application/octet-stream", language: input.languageHint, publicationDateObserved: null, rawObjectRef: null, extractedTextObjectRef: null, boundedExtractedText: "", contentHash: emptyHash, extractionHash: null, groundingMetadataRef: null, etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified"), license: null, contentBytes: 0, accessLimitations, partial: true, supersedesSnapshotId: null });
+    const snapshot = buildSourceSnapshot(input.context, { sourceId, retrievalUrl: canonicalizeUrl(input.url), resolvedUrl: canonicalUrl, redirectChain, retrievedAt, retrievalMethod: "HTTP", retrievalDisposition: response.status === 402 ? "ACCESS_LIMITED" : "UNAVAILABLE", mediaType: type || "application/octet-stream", language: input.languageHint, publicationDateObserved: null, rawObjectRef: null, extractedTextObjectRef: null, boundedExtractedText: "", contentHash: emptyHash, extractionHash: null, groundingMetadataRef: null, etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified"), license: null, contentBytes: 0, accessLimitations, partial: true, supersedesSnapshotId: null });
     return { source, snapshot, evidenceSegments: [], archiveWrites: 0, cacheDisposition: staleCache ? "REFETCHED" : "CACHE_NOT_APPLICABLE" };
   }
   if (!ALLOWED_MEDIA_TYPES.has(type)) throw new Error(`SOURCE_RETRIEVAL_UNSUPPORTED_CONTENT_TYPE:${type || "missing"}`);
@@ -243,10 +249,9 @@ export async function retrieveSource(input: {
     archiveWrites += 1;
   }
   const boundedExtractedText = extractedText.slice(0, EXTRACTED_TEXT_LIMIT);
-  const snapshotId = contentAddressedId("snapshot", { sourceId, contentHash, retrievedAt });
-  const snapshot = parseSealedArtifact(sourceSnapshotSchema, { ...immutableEnvelope(input.context, snapshotId), sourceSnapshotId: snapshotId, sourceId, retrievalUrl: canonicalizeUrl(input.url), resolvedUrl: canonicalUrl, redirectChain, retrievedAt, retrievalMethod: "HTTP", retrievalDisposition: accessLimitations.length > 0 ? "ACCESS_LIMITED" : "NEWLY_RETRIEVED", mediaType: type, language: html?.language || input.languageHint, publicationDateObserved: null, rawObjectRef, extractedTextObjectRef, boundedExtractedText, contentHash, extractionHash, groundingMetadataRef: null, etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified"), license: null, contentBytes: raw.byteLength, accessLimitations, partial: accessLimitations.length > 0 && extractedText.length === 0, supersedesSnapshotId: null });
-  const source = sourceDocumentSchema.parse({ sourceId, corpusId: input.context.corpusId, canonicalUrl, canonicalUrlHash: sha256(canonicalUrl), publisherId: input.publisherId, title: html?.title || input.titleHint, authors: [], publicationDate: null, sourceClass: input.sourceClass, language: snapshot.language, primarySecondaryRole: input.primarySecondaryRole, authorityDomains: [], access: accessLimitations.includes("PAYWALL_DETECTED") ? "PAYWALLED" : accessLimitations.length > 0 ? "LIMITED" : "OPEN", currentSnapshotId: snapshotId, supersedesSourceId: null, identityHash: sha256(canonicalUrl), updatedAt: retrievedAt });
-  const evidenceSegments = segmentExtractedText(input.context, snapshotId, boundedExtractedText, type === "application/pdf" ? "PDF_TEXT_EXTRACTOR" : type.includes("html") ? "SAFE_HTML_TEXT" : "PLAIN_TEXT");
+  const snapshot = buildSourceSnapshot(input.context, { sourceId, retrievalUrl: canonicalizeUrl(input.url), resolvedUrl: canonicalUrl, redirectChain, retrievedAt, retrievalMethod: "HTTP", retrievalDisposition: accessLimitations.length > 0 ? "ACCESS_LIMITED" : "NEWLY_RETRIEVED", mediaType: type, language: html?.language || input.languageHint, publicationDateObserved: null, rawObjectRef, extractedTextObjectRef, boundedExtractedText, contentHash, extractionHash, groundingMetadataRef: null, etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified"), license: null, contentBytes: raw.byteLength, accessLimitations, partial: accessLimitations.length > 0 && extractedText.length === 0, supersedesSnapshotId: null });
+  const source = sourceDocumentSchema.parse({ sourceId, corpusId: input.context.corpusId, canonicalUrl, canonicalUrlHash: sha256(canonicalUrl), publisherId: input.publisherId, title: html?.title || input.titleHint, authors: [], publicationDate: null, sourceClass: input.sourceClass, language: snapshot.language, primarySecondaryRole: input.primarySecondaryRole, authorityDomains: [], access: accessLimitations.includes("PAYWALL_DETECTED") ? "PAYWALLED" : accessLimitations.length > 0 ? "LIMITED" : "OPEN", currentSnapshotId: snapshot.sourceSnapshotId, supersedesSourceId: null, identityHash: sha256(canonicalUrl), updatedAt: retrievedAt });
+  const evidenceSegments = segmentExtractedText(input.context, snapshot.sourceSnapshotId, boundedExtractedText, type === "application/pdf" ? "PDF_TEXT_EXTRACTOR" : type.includes("html") ? "SAFE_HTML_TEXT" : "PLAIN_TEXT");
   return { source, snapshot, evidenceSegments, archiveWrites, cacheDisposition: staleCache ? "REFETCHED" : "CACHE_NOT_APPLICABLE" };
 }
 

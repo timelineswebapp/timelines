@@ -123,6 +123,11 @@ test("Grounding contract persists provider queries, chunks, exact attributed spa
   assert.deepEqual(acquisition.webSearchQueries, ["Apollo 11 launch NASA"]);
   assert.equal(acquisition.execution.transportAttempts, 2);
   assert.equal(acquisition.supports[0]!.chunkIndices[0], 0);
+  const repeatedBody = "Apollo 11 launched on July 16, 1969.";
+  const repeatedMetadata = { webSearchQueries: ["Apollo 11 launch NASA"], groundingChunks: [{ web: { uri: "https://www.nasa.gov/history/apollo-11", title: "NASA Apollo 11", domain: "nasa.gov" } }], groundingSupports: [{ segment: { startIndex: 0, endIndex: 39, text: repeatedBody }, groundingChunkIndices: [0] }], searchEntryPoint: {} };
+  const firstExecution = await runGroundedAcquisition({ context: TEST_CONTEXT, query, provider: providerFrom([{ text: repeatedBody, candidates: [{ groundingMetadata: repeatedMetadata }], usageMetadata: { totalTokenCount: 100 } }]) });
+  const changedUsageExecution = await runGroundedAcquisition({ context: TEST_CONTEXT, query, provider: providerFrom([{ text: repeatedBody, candidates: [{ groundingMetadata: repeatedMetadata }], usageMetadata: { totalTokenCount: 101 } }]) });
+  assert.notEqual(changedUsageExecution.execution.executionId, firstExecution.execution.executionId);
   await assert.rejects(runGroundedAcquisition({ context: TEST_CONTEXT, query, provider: providerFrom([{ text: "Unsupported prose", candidates: [{ groundingMetadata: {} }] }]) }), /UNATTRIBUTABLE/);
 });
 

@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { PROJECT_ID, VERTEX_LOCATION, VERTEX_MODEL } from "../config";
 import { V2_PROMPT_VERSION, V2_SCHEMA_VERSION, claimRiskSchema, claimTypeSchema, entityTypeSchema, historicalDateSchema, idSchema, languageSchema, modelExecutionSchema, semanticClassSchema, sourceClassSchema, type AtomicClaimVersion, type EvidenceSegment, type QueryPlan, type ResearchMap, type ScopeContract } from "./contracts";
-import { atomicityFindings, buildAtomicClaimVersion, buildQueryPlan, buildResearchMap, buildScopeContract, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
+import { atomicityFindings, buildAtomicClaimVersion, buildQueryPlan, buildResearchMap, buildScopeContract, executionArtifactId, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 
 type ProviderResponse = {
@@ -200,14 +200,32 @@ function defaultProvider(): V2ModelProvider {
 function buildExecution(input: { context: ArtifactContext; stage: "SCOPE" | "RESEARCH_MAP" | "QUERY_PLAN" | "GROUNDING" | "CLAIM_EXTRACTION"; prompt: string; response: string; startedAt: number; usage: ProviderResponse["usageMetadata"]; repairAttempt: number; transportAttempts: number; inputArtifactIds?: string[]; queries?: string[]; chunkCount?: number; supportCount?: number; validationState: "VALID" | "INVALID" | "REPAIRED" | "FAILED" }) {
   const promptHash = sha256(input.prompt);
   const responseHash = sha256(input.response);
-  const executionId = contentAddressedId("model-execution", { runId: input.context.runId, stage: input.stage, promptHash, responseHash, repairAttempt: input.repairAttempt });
-  return parseSealedArtifact(modelExecutionSchema, {
-    ...immutableEnvelope(input.context, executionId), promptVersion: V2_PROMPT_VERSION, executionId, stage: input.stage, model: VERTEX_MODEL, location: VERTEX_LOCATION, inputArtifactIds: [...new Set(input.inputArtifactIds || [])], inputHash: promptHash,
-    promptHash, responseHash, validationState: input.validationState, repairAttempt: input.repairAttempt, transportAttempts: input.transportAttempts,
-    boundedResponse: input.response.slice(0, 60_000), responseTruncated: input.response.length > 60_000,
-    providerReportedQueries: [...new Set(input.queries || [])].slice(0, 40), groundingChunkCount: input.chunkCount || 0, groundingSupportCount: input.supportCount || 0,
+  const completedAt = new Date().toISOString();
+  const executionPayload = {
+    promptVersion: V2_PROMPT_VERSION,
+    stage: input.stage,
+    model: VERTEX_MODEL,
+    location: VERTEX_LOCATION,
+    inputArtifactIds: [...new Set(input.inputArtifactIds || [])],
+    inputHash: promptHash,
+    promptHash,
+    responseHash,
+    validationState: input.validationState,
+    repairAttempt: input.repairAttempt,
+    transportAttempts: input.transportAttempts,
+    boundedResponse: input.response.slice(0, 60_000),
+    responseTruncated: input.response.length > 60_000,
+    providerReportedQueries: [...new Set(input.queries || [])].slice(0, 40),
+    groundingChunkCount: input.chunkCount || 0,
+    groundingSupportCount: input.supportCount || 0,
     usage: { inputTokens: input.usage?.promptTokenCount ?? null, outputTokens: input.usage?.candidatesTokenCount ?? null, totalTokens: input.usage?.totalTokenCount ?? null, monetaryCost: null, costMeasurement: "NOT_MEASURABLE" as const },
-    startedAt: new Date(input.startedAt).toISOString(), completedAt: new Date().toISOString(), latencyMs: Date.now() - input.startedAt
+    startedAt: new Date(input.startedAt).toISOString(),
+    completedAt,
+    latencyMs: Date.now() - input.startedAt
+  };
+  const executionId = executionArtifactId("model-execution", input.context, executionPayload);
+  return parseSealedArtifact(modelExecutionSchema, {
+    ...immutableEnvelope(input.context, executionId), executionId, ...executionPayload
   });
 }
 

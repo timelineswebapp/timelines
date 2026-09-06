@@ -41,3 +41,10 @@ test("B1 significance evaluation permits one semantic repair and rejects invente
   assert.equal(result.execution.validationState, "REPAIRED");
   assert.equal(result.execution.repairAttempt, 1);
 });
+
+test("B1 model execution identity covers exact usage and timing provenance", async () => {
+  const context = { ...TEST_CONTEXT, sourceKnowledgeRunId: "certified-v2-a-run" };
+  const first = await evaluateHistoricalSignificance({ context, scope, researchMap: map, eligibleEvents: [event], approvedClaims: [claim], provider: { generateContent: async () => ({ text: response(), usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 50, totalTokenCount: 150 } }) } });
+  const changedUsage = await evaluateHistoricalSignificance({ context, scope, researchMap: map, eligibleEvents: [event], approvedClaims: [claim], provider: { generateContent: async () => ({ text: response(), usageMetadata: { promptTokenCount: 101, candidatesTokenCount: 50, totalTokenCount: 151 } }) } });
+  assert.notEqual(changedUsage.execution.executionId, first.execution.executionId);
+});

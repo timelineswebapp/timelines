@@ -112,6 +112,16 @@ test("Retrieval reuses immutable snapshots and conditionally revalidates stale m
   assert.equal(conditionalHeaders?.["If-Modified-Since"], "Mon, 01 Jan 2024 00:00:00 GMT");
 });
 
+test("source snapshot identity covers the exact immutable retrieval observation", async () => {
+  const now = () => new Date("2024-01-01T00:00:00.000Z");
+  const first = await retrieveSource(base, { dnsLookup: publicDns, fetch: fetchSequence([response(200, "Historical evidence.", { "content-type": "text/plain", etag: "v1" })]), now });
+  const exactRetry = await retrieveSource(base, { dnsLookup: publicDns, fetch: fetchSequence([response(200, "Historical evidence.", { "content-type": "text/plain", etag: "v1" })]), now });
+  const changedObservation = await retrieveSource(base, { dnsLookup: publicDns, fetch: fetchSequence([response(200, "Historical evidence.", { "content-type": "text/plain", etag: "v2" })]), now });
+  assert.equal(exactRetry.snapshot.sourceSnapshotId, first.snapshot.sourceSnapshotId);
+  assert.equal(exactRetry.snapshot.payloadHash, first.snapshot.payloadHash);
+  assert.notEqual(changedObservation.snapshot.sourceSnapshotId, first.snapshot.sourceSnapshotId);
+});
+
 test("Robots denial stops document retrieval rather than bypassing access constraints", async () => {
   const fetcher = fetchSequence([response(200, "User-agent: *\nDisallow: /history", { "content-type": "text/plain" })]);
   await assert.rejects(retrieveSource({ ...base, respectRobots: true }, { dnsLookup: publicDns, fetch: fetcher }), /ROBOTS_DENIED/);

@@ -4,10 +4,11 @@ import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { V2FirestoreRepository } from "./firestore";
 import { scopeFixture, TEST_CONTEXT } from "../test-fixtures";
-import { buildEvidenceSegment, buildAtomicClaimVersion, buildClaimEvidenceEdge, immutableEnvelope, sealArtifact } from "../contracts/builders";
+import { buildEvidenceSegment, buildAtomicClaimVersion, buildClaimEvidenceEdge, buildResearchMap, immutableEnvelope, sealArtifact } from "../contracts/builders";
 import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion } from "../authority";
 import { publisherAuthorityRecordSchema } from "../contracts";
 import { normalizedIdentityText } from "../contracts/builders";
+import { auditKnowledgeCoverage, buildKnowledgeCompletionResult, planGapDirectedCompletion } from "../coverage";
 
 const enabled = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 
@@ -71,4 +72,35 @@ test("Firestore emulator proves publisher bootstrap retry, concurrency, immutabl
   assert.equal(await repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: original.publisherId, expectedCurrentVersionId: original.publisherVersionId, nextVersionId: successor.publisherVersionId, data: nextHead }), "ADVANCED");
   assert.equal((await repository.getById("v2PublisherAuthorityVersions", original.publisherVersionId))?.payloadHash, original.payloadHash);
   await assert.rejects(repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: original.publisherId, expectedCurrentVersionId: original.publisherVersionId, nextVersionId: "publisher-version-stale", data: nextHead }), /compare-and-set/);
+});
+
+test("Firestore emulator proves execution-addressed A3 result retry and concurrency", { skip: !enabled }, async () => {
+  const app = getApps()[0] || initializeApp({ projectId: "tiimeliines" });
+  const firestore = getFirestore(app);
+  const context = { ...TEST_CONTEXT, corpusId: "a3-identity-test-corpus", runId: "a3-identity-run" };
+  const repository = new V2FirestoreRepository({ firestore, corpusId: context.corpusId });
+  const scope = scopeFixture();
+  const researchMap = buildResearchMap(context, { ...scope, corpusId: context.corpusId }, { version: 1, phases: scope.expectedPhases.map((label, index) => ({ phaseId: `phase-${index + 1}`, label, temporalRule: `Locked phase ${label}.`, required: true, rationale: `The locked ${label} phase is material.` })), dimensions: scope.requiredDimensions.map((label, index) => ({ dimensionId: `dimension-${index + 1}`, label, required: true, rationale: `The locked ${label} dimension is material.` })), entities: [], questions: scope.expectedPhases.map((label, index) => ({ questionId: `question-${index + 1}`, text: `What authoritative evidence covers the locked ${label} phase?`, phaseIds: [`phase-${index + 1}`], dimensionIds: [`dimension-${index % scope.requiredDimensions.length + 1}`], claimTypesExpected: ["OCCURRENCE" as const], likelySourceClasses: ["PRIMARY_INSTITUTIONAL" as const], expectedAuthorities: ["Institutional archive"], languages: ["en"], geography: ["Earth"], contested: false, dateCritical: true, priority: "CRITICAL" as const, state: "UNRESEARCHED" as const })), terminology: [], knownUncertainty: [] });
+  const auditInput = { stage: "INITIAL" as const, scope: { ...scope, corpusId: context.corpusId }, researchMap, sourceKnowledgeRunIds: ["source-run"], claims: [], authorityVerdicts: [], conflicts: [], events: [] };
+  const audit = auditKnowledgeCoverage({ context, ...auditInput });
+  const retryContext = { ...context, runId: "a3-identity-retry", createdAt: "2026-09-07T00:00:00.000Z" };
+  const retryAudit = auditKnowledgeCoverage({ context: retryContext, ...auditInput });
+  assert.notEqual(retryAudit.coverageAuditId, audit.coverageAuditId);
+  assert.equal(await repository.createImmutable("v2KnowledgeCoverageAudits", audit), "CREATED");
+  assert.equal(await repository.createImmutable("v2KnowledgeCoverageAudits", audit), "IDEMPOTENT");
+  assert.equal(await repository.createImmutable("v2KnowledgeCoverageAudits", retryAudit), "CREATED");
+  const plan = planGapDirectedCompletion({ context, scope: auditInput.scope, researchMap, audit, originalKnowledgeRunId: "source-run" });
+  const retryPlan = planGapDirectedCompletion({ context: retryContext, scope: auditInput.scope, researchMap, audit: retryAudit, originalKnowledgeRunId: "source-run" });
+  assert.notEqual(retryPlan.completionPlanId, plan.completionPlanId);
+  assert.equal(await repository.createImmutable("v2KnowledgeCompletionPlans", plan), "CREATED");
+  assert.equal(await repository.createImmutable("v2KnowledgeCompletionPlans", retryPlan), "CREATED");
+  const payload = { completionPlanId: "completion-plan", initialCoverageAuditId: "audit-initial", finalCoverageAuditId: "audit-final", acquisitionRunId: "acquisition-run", originalKnowledgeRunId: "source-run", newClaimVersionIds: [], newEventVersionIds: [], reusedEventVersionIds: [], unresolvedGapIds: [], budgetConsumed: { rounds: 1 as const, groundingCalls: 1, providerQueries: 1, sourceDocuments: 1, claimExtractions: 1, atomicClaims: 1, writes: 7 }, timings: { initialKnowledgeReuseMs: 1, coverageAuditMs: 2, gapAcquisitionMs: 3, reAuditMs: 4 }, finalVerdict: "SUFFICIENT" as const };
+  const result = buildKnowledgeCompletionResult(context, payload);
+  const equivalent = buildKnowledgeCompletionResult(context, payload);
+  const concurrent = await Promise.all([repository.createImmutable("v2KnowledgeCompletionResults", result), repository.createImmutable("v2KnowledgeCompletionResults", equivalent)]);
+  assert.deepEqual([...concurrent].sort(), ["CREATED", "IDEMPOTENT"]);
+  assert.equal(await repository.createImmutable("v2KnowledgeCompletionResults", result), "IDEMPOTENT");
+  const changedTelemetry = buildKnowledgeCompletionResult(context, { ...payload, timings: { ...payload.timings, gapAcquisitionMs: 5 } });
+  assert.notEqual(changedTelemetry.completionResultId, result.completionResultId);
+  assert.equal(await repository.createImmutable("v2KnowledgeCompletionResults", changedTelemetry), "CREATED");
 });

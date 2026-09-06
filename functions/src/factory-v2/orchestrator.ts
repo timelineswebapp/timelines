@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { V2_POLICY_VERSION, acquisitionDiscoverySchema, acquisitionRunSchema, auditRecordSchema, canonicalEntityRecordSchema, canonicalEventRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, publisherAuthorityVersionSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type EvidenceSegment, type PublisherAuthorityVersion, type QueryPlan, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot } from "./contracts";
 import { assertV2AShadowEnabled, type FactoryV2Config } from "./config";
 import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
-import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
+import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, executionArtifactId, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
 import { canReuseSnapshot, retrieveSource, type RetrievalDependencies } from "./acquisition/retrieval";
 import { canonicalizeUrl } from "./acquisition/url";
 import { contentAddressedId, deterministicUuid, payloadHash, sha256 } from "./hashing";
@@ -101,7 +101,7 @@ function publisherForDomain(domain: string, publishers: PublisherAuthorityVersio
 
 export function provisionalPublisher(context: ArtifactContext, url: string, language: string): PublisherAuthorityVersion {
   const hostname = new URL(url).hostname.toLocaleLowerCase("en-US").replace(/^www\./u, "");
-  const registryContext: ArtifactContext = { ...context, topicId: "publisher-registry", runId: "provisional-v2-a", generation: 1, createdAt: "2026-09-06T00:00:00.000Z" };
+  const registryContext: ArtifactContext = { ...context, topicId: "publisher-registry", runId: "provisional-v2-a", generation: 1, createdAt: "2026-09-06T00:00:00.000Z", policyVersion: V2_POLICY_VERSION };
   const publisherId = deterministicUuid("timelines.publisher.provisional", hostname);
   const publisherVersionId = contentAddressedId("publisher-version", { publisherId, hostname, language: "multilingual", state: "PROVISIONAL", policy: V2_POLICY_VERSION });
   return parseSealedArtifact(publisherAuthorityVersionSchema, {
@@ -375,10 +375,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
         modelExecutions.push(execution);
         try { await persist("v2ModelExecutions", execution); } catch { /* The per-source failure record still captures the fault. */ }
       }
-      const failureRecordId = contentAddressedId("failure", { runId: context.runId, sourceSnapshotId: result.snapshot.sourceSnapshotId, stage: "CLAIM_EXTRACTION", message });
+      const failurePayload = { stage: "CLAIM_EXTRACTION" as const, failureClass: "CLAIM_UNSUPPORTED" as const, severity: "WARNING" as const, retryable: false, message, blockingArtifactIds: [result.snapshot.sourceSnapshotId], attemptsConsumed: failedExecutions.length, budgetConsumed: {} };
+      const failureRecordId = executionArtifactId("failure", context, failurePayload);
       const failure = parseSealedArtifact(v2FailureRecordSchema, {
-        ...immutableEnvelope(context, failureRecordId), failureRecordId, stage: "CLAIM_EXTRACTION", failureClass: "CLAIM_UNSUPPORTED", severity: "WARNING", retryable: false,
-        message, blockingArtifactIds: [result.snapshot.sourceSnapshotId], attemptsConsumed: failedExecutions.length, budgetConsumed: {},
+        ...immutableEnvelope(context, failureRecordId), failureRecordId, ...failurePayload,
       });
       try { await persist("v2FailureRecords", failure); } catch { /* Continue with other independently acquired sources. */ }
       return null;
@@ -628,18 +628,21 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       : /SOURCE_RETRIEVAL|PRIVATE_ADDRESS|ROBOTS/iu.test(message) ? "SECURITY_RETRIEVAL_REJECTED"
       : /VERTEX|PROVIDER|MODEL|GOOGLE/iu.test(message) ? "PROVIDER_FAILURE"
       : "FAILED_UNCLASSIFIED";
-    const failureRecordId = contentAddressedId("failure", { runId: context.runId, stage: currentStage, message });
-    const failure = parseSealedArtifact(v2FailureRecordSchema, {
-      ...immutableEnvelope(context, failureRecordId),
-      failureRecordId,
+    const failurePayload = {
       stage: currentStage,
       failureClass,
-      severity: failureClass === "FAILED_UNCLASSIFIED" ? "CRITICAL" : "HIGH",
+      severity: failureClass === "FAILED_UNCLASSIFIED" ? "CRITICAL" as const : "HIGH" as const,
       retryable: failureClass === "PROVIDER_FAILURE",
       message,
       blockingArtifactIds: [],
       attemptsConsumed: modelExecutions.length,
-      budgetConsumed: { firestoreWrites, cloudStorageWrites },
+      budgetConsumed: { firestoreWrites, cloudStorageWrites }
+    };
+    const failureRecordId = executionArtifactId("failure", context, failurePayload);
+    const failure = parseSealedArtifact(v2FailureRecordSchema, {
+      ...immutableEnvelope(context, failureRecordId),
+      failureRecordId,
+      ...failurePayload,
     });
     try { await persist("v2FailureRecords", failure); } catch { /* Preserve the originating failure. */ }
     try {

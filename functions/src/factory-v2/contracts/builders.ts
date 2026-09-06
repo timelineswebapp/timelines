@@ -53,6 +53,26 @@ export function immutableEnvelope(context: ArtifactContext, artifactId: string, 
   };
 }
 
+/** Address an immutable execution observation by the exact variable payload it
+ * persists. A changed run, timestamp, attempt, latency, or result therefore
+ * receives a new ID; replaying the exact observation remains idempotent. */
+export function executionArtifactId(prefix: string, context: ArtifactContext, payload: Record<string, unknown>): string {
+  return contentAddressedId(prefix, {
+    schemaVersion: V2_SCHEMA_VERSION,
+    policyVersion: context.policyVersion || V2_POLICY_VERSION,
+    corpusId: context.corpusId,
+    topicId: context.topicId,
+    runId: context.runId,
+    generation: context.generation,
+    createdAt: context.createdAt,
+    executionMode: "SHADOW",
+    publicationEligible: false,
+    governanceSubmissionAllowed: false,
+    immutable: true,
+    payload
+  });
+}
+
 export function sealArtifact<T extends Record<string, unknown>>(artifact: T): T & { payloadHash: string } {
   return attachPayloadHash(artifact);
 }
@@ -67,7 +87,7 @@ export function parseSealedArtifact<T>(schema: z.ZodType<T>, artifact: Record<st
 }
 
 export function buildScopeContract(context: ArtifactContext, payload: Omit<ScopeContract, keyof ReturnType<typeof immutableEnvelope> | "artifactId" | "payloadHash" | "scopeContractId">, model: Record<string, unknown> | null = null): ScopeContract {
-  const identity = { corpusId: context.corpusId, topicId: context.topicId, runId: context.runId, generation: context.generation, version: payload.version, payload };
+  const identity = { corpusId: context.corpusId, topicId: context.topicId, runId: context.runId, generation: context.generation, version: payload.version, payload, modelExecutionRef: model };
   const scopeContractId = contentAddressedId("scope", identity);
   return parseSealedArtifact(scopeContractSchema, { ...immutableEnvelope(context, scopeContractId, model), ...payload, scopeContractId });
 }
@@ -78,7 +98,7 @@ export function assertScopeBinding(scope: ScopeContract, downstream: { scopeCont
 }
 
 export function buildResearchMap(context: ArtifactContext, scope: ScopeContract, payload: Omit<ResearchMap, keyof ReturnType<typeof immutableEnvelope> | "artifactId" | "payloadHash" | "researchMapId" | "scopeContractId" | "scopePayloadHash">, model: Record<string, unknown> | null = null): ResearchMap {
-  const researchMapId = contentAddressedId("research-map", { scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash, payload });
+  const researchMapId = contentAddressedId("research-map", { scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash, payload, modelExecutionRef: model });
   const map = parseSealedArtifact(researchMapSchema, { ...immutableEnvelope(context, researchMapId, model), ...payload, researchMapId, scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash });
   assertScopeBinding(scope, map);
   return map;
@@ -102,7 +122,7 @@ export function deduplicateQueries<T extends { providerQuery: string }>(queries:
 export function buildQueryPlan(context: ArtifactContext, scope: ScopeContract, map: ResearchMap, payload: Omit<QueryPlan, keyof ReturnType<typeof immutableEnvelope> | "artifactId" | "payloadHash" | "queryPlanId" | "researchMapId" | "scopeContractId">, model: Record<string, unknown> | null = null): QueryPlan {
   assertScopeBinding(scope, map);
   const prepared = { ...payload, queries: deduplicateQueries(payload.queries) };
-  const queryPlanId = contentAddressedId("query-plan", { researchMapId: map.researchMapId, payload: prepared });
+  const queryPlanId = contentAddressedId("query-plan", { researchMapId: map.researchMapId, payload: prepared, modelExecutionRef: model });
   return parseSealedArtifact(queryPlanSchema, { ...immutableEnvelope(context, queryPlanId, model), ...prepared, queryPlanId, researchMapId: map.researchMapId, scopeContractId: scope.scopeContractId });
 }
 
@@ -139,7 +159,7 @@ export function buildAtomicClaimVersion(context: ArtifactContext, payload: Omit<
     qualifiers: payload.qualifiers.filter((item) => item.key !== "researchQuestionId").map((item) => ({ key: normalizedIdentityText(item.key), value: normalizedIdentityText(item.value) })).sort((left, right) => `${left.key}:${left.value}`.localeCompare(`${right.key}:${right.value}`)),
   };
   const claimId = payload.claimId || deterministicUuid("timelines.factory-v2.claim", claimIdentity);
-  const claimVersionId = contentAddressedId("claim-version", { runId: context.runId, claimId, payload });
+  const claimVersionId = contentAddressedId("claim-version", { runId: context.runId, claimId, payload, modelExecutionRef: model });
   return parseSealedArtifact(atomicClaimVersionSchema, { ...immutableEnvelope(context, claimVersionId, model), ...payload, claimId, claimVersionId });
 }
 
@@ -156,7 +176,7 @@ export function buildCanonicalEntityVersion(context: ArtifactContext, payload: O
   const primaryIdentifier = [...payload.externalIdentifiers].sort((left, right) => `${left.scheme}:${left.value}`.localeCompare(`${right.scheme}:${right.value}`))[0];
   const identity = primaryIdentifier || { type: payload.entityType, name: normalizedIdentityText(payload.canonicalName), geography: [...payload.geographyKeys].sort() };
   const entityId = payload.entityId || deterministicUuid("timelines.factory-v2.entity", identity);
-  const entityVersionId = contentAddressedId("entity-version", { runId: context.runId, entityId, payload });
+  const entityVersionId = contentAddressedId("entity-version", { runId: context.runId, entityId, payload, modelExecutionRef: model });
   return parseSealedArtifact(canonicalEntityVersionSchema, { ...immutableEnvelope(context, entityVersionId, model), ...payload, entityId, entityVersionId });
 }
 
@@ -191,7 +211,7 @@ export function buildCanonicalEventVersion(context: ArtifactContext, payload: Om
   const identityKey = eventIdentityKey(identityInput);
   const candidateEventId = payload.candidateEventId || deterministicUuid("timelines.factory-v2.event-candidate", { topicId: context.topicId, identityKey });
   const canonicalEventId = payload.semanticClass === "EVENT" ? (payload.canonicalEventId || deterministicUuid("timelines.factory-v2.event", identityKey)) : null;
-  const eventVersionId = contentAddressedId("event-version", { runId: context.runId, candidateEventId, payload, identityKey });
+  const eventVersionId = contentAddressedId("event-version", { runId: context.runId, candidateEventId, payload, identityKey, modelExecutionRef: model });
   return parseSealedArtifact(canonicalEventVersionSchema, { ...immutableEnvelope(context, eventVersionId, model), ...payload, candidateEventId, canonicalEventId, eventVersionId, eventIdentityKey: identityKey });
 }
 

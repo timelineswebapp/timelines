@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildAtomicClaimVersion, buildCanonicalEventVersion, buildResearchMap, immutableEnvelope, parseSealedArtifact } from "./contracts/builders";
 import { claimAuthorityVerdictSchema, claimConflictSetSchema, type AtomicClaimVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimConflictSet } from "./contracts";
-import { auditKnowledgeCoverage, buildCompletionResearchMap, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion } from "./coverage";
+import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion } from "./coverage";
 import { contentAddressedId, deterministicUuid } from "./hashing";
 import { date, scopeFixture, TEST_CONTEXT } from "./test-fixtures";
 
@@ -128,4 +128,28 @@ test("completion event reuse preserves only the newest immutable canonical versi
   const original = event(baseClaim, 1989);
   const successor = buildCanonicalEventVersion({ ...TEST_CONTEXT, runId: "completion-run", createdAt: "2026-09-06T01:00:00.000Z" }, { candidateEventId: original.candidateEventId, canonicalEventId: original.canonicalEventId, version: 2, scopeContractId: original.scopeContractId, canonicalTitle: original.canonicalTitle, semanticClass: "EVENT", eventSubtype: original.eventSubtype, temporal: original.temporal, actionKey: original.actionKey, primaryEntityKeys: original.primaryEntityKeys, locationKeys: original.locationKeys, coreClaimVersionIds: original.coreClaimVersionIds, supportingClaimVersionIds: [], authorityState: original.authorityState, canonicalizationState: "RESOLVED", parentEventId: null, supersedesEventVersionId: original.eventVersionId });
   assert.deepEqual(mergeKnowledgeEventVersions([original, successor]).map((item) => item.eventVersionId), [successor.eventVersionId]);
+});
+
+test("coverage audit and gap plan reruns receive execution-scoped identities without colliding", () => {
+  const foundation = claim("claim-identity", "q-foundation-tech", 1989);
+  const input = { stage: "INITIAL" as const, scope, researchMap: map, sourceKnowledgeRunIds: ["source-run"], claims: [foundation], authorityVerdicts: [verdict(foundation)], conflicts: [], events: [event(foundation, 1989)] };
+  const firstAudit = auditKnowledgeCoverage({ context: TEST_CONTEXT, ...input });
+  const retryContext = { ...TEST_CONTEXT, runId: "coverage-retry-run", createdAt: "2026-09-07T00:00:00.000Z" };
+  const secondAudit = auditKnowledgeCoverage({ context: retryContext, ...input });
+  assert.notEqual(secondAudit.coverageAuditId, firstAudit.coverageAuditId);
+  assert.notEqual(secondAudit.payloadHash, firstAudit.payloadHash);
+  const firstPlan = planGapDirectedCompletion({ context: TEST_CONTEXT, scope, researchMap: map, audit: firstAudit, originalKnowledgeRunId: "source-run" });
+  const secondPlan = planGapDirectedCompletion({ context: retryContext, scope, researchMap: map, audit: secondAudit, originalKnowledgeRunId: "source-run" });
+  assert.notEqual(secondPlan.completionPlanId, firstPlan.completionPlanId);
+});
+
+test("final coverage audit and completed knowledge result bind exact execution provenance", () => {
+  const values = [claim("claim-final-foundation", "q-foundation-tech", 1989), claim("claim-final-expansion", "q-expansion-tech", 2010), claim("claim-final-current", "q-current-society", 2024)];
+  const auditInput = { stage: "FINAL" as const, scope, researchMap: map, sourceKnowledgeRunIds: ["source-run", "completion-run"], claims: values, authorityVerdicts: values.map((item) => verdict(item)), conflicts: [], events: values.map((item) => event(item, item.temporal!.start.year)) };
+  const firstAudit = auditKnowledgeCoverage({ context: TEST_CONTEXT, ...auditInput });
+  const secondContext = { ...TEST_CONTEXT, runId: "coverage-final-retry", createdAt: "2026-09-07T00:00:00.000Z" };
+  const secondAudit = auditKnowledgeCoverage({ context: secondContext, ...auditInput });
+  assert.notEqual(secondAudit.coverageAuditId, firstAudit.coverageAuditId);
+  const resultPayload = { completionPlanId: "completion-plan", initialCoverageAuditId: "initial-audit", finalCoverageAuditId: firstAudit.coverageAuditId, acquisitionRunId: "completion-run", originalKnowledgeRunId: "source-run", newClaimVersionIds: [], newEventVersionIds: [], reusedEventVersionIds: [], unresolvedGapIds: [], budgetConsumed: { rounds: 1 as const, groundingCalls: 1, providerQueries: 1, sourceDocuments: 1, claimExtractions: 1, atomicClaims: 1, writes: 1 }, timings: { initialKnowledgeReuseMs: 1, coverageAuditMs: firstAudit.auditMs, gapAcquisitionMs: 1, reAuditMs: 1 }, finalVerdict: firstAudit.verdict };
+  assert.notEqual(buildKnowledgeCompletionResult(secondContext, resultPayload).completionResultId, buildKnowledgeCompletionResult(TEST_CONTEXT, resultPayload).completionResultId);
 });

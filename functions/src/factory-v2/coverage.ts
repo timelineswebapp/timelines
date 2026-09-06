@@ -1,5 +1,6 @@
 import {
   knowledgeCompletionPlanSchema,
+  knowledgeCompletionResultSchema,
   knowledgeCoverageAuditSchema,
   researchMapSchema,
   type AtomicClaimVersion,
@@ -7,6 +8,7 @@ import {
   type ClaimAuthorityVerdict,
   type ClaimConflictSet,
   type KnowledgeCompletionPlan,
+  type KnowledgeCompletionResult,
   type KnowledgeCompletionTask,
   type KnowledgeCoverageAudit,
   type KnowledgeCoverageCell,
@@ -15,7 +17,7 @@ import {
   type ScopeContract,
   type SourceSnapshot
 } from "./contracts";
-import { immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
+import { executionArtifactId, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId } from "./hashing";
 
 export const DEFAULT_COMPLETION_BUDGET = {
@@ -156,12 +158,25 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
   }
   if (eligibleEvents.length === 0) gaps.push(makeGap({ code: "MISSING_CHRONOLOGY", phaseIds: phaseCells.filter((cell) => cell.material).map((cell) => cell.lockedRefId), dimensionIds: [], questionIds: [], existingSupportingClaimVersionIds: [], reason: "No supported chronology-eligible event candidates exist inside the locked scope." }));
   const materialInsufficient = cells.some((cell) => cell.material && cell.state !== "SUFFICIENT") || ongoingFreshness === "STALE_LOCKED_PHASE";
-  const coverageAuditId = contentAddressedId("knowledge-coverage-audit", { stage: input.stage, scopeContractId: input.scope.scopeContractId, researchMapId: input.researchMap.researchMapId, sourceKnowledgeRunIds: unique(input.sourceKnowledgeRunIds), candidateEventVersionIds: unique(input.events.map((event) => event.eventVersionId)), cells, gaps });
+  const auditPayload = {
+    auditStage: input.stage,
+    scopeContractId: input.scope.scopeContractId,
+    scopePayloadHash: input.scope.payloadHash,
+    researchMapId: input.researchMap.researchMapId,
+    researchMapPayloadHash: input.researchMap.payloadHash,
+    sourceKnowledgeRunIds: unique(input.sourceKnowledgeRunIds),
+    candidateEventVersionIds: unique(input.events.map((event) => event.eventVersionId)),
+    cells,
+    gaps,
+    latestChronologyEventYear: latestEventYear,
+    latestDurableSourceSnapshotAt: input.sourceSnapshots && input.sourceSnapshots.length > 0 ? [...input.sourceSnapshots].sort((left, right) => right.retrievedAt.localeCompare(left.retrievedAt))[0]!.retrievedAt : null,
+    ongoingFreshness,
+    verdict: materialInsufficient ? "KNOWLEDGE_COVERAGE_INSUFFICIENT" as const : "SUFFICIENT" as const,
+    auditMs: Date.now() - startedAt
+  };
+  const coverageAuditId = executionArtifactId("knowledge-coverage-audit", input.context, auditPayload);
   return parseSealedArtifact(knowledgeCoverageAuditSchema, {
-    ...immutableEnvelope(input.context, coverageAuditId), artifactId: coverageAuditId, coverageAuditId, auditStage: input.stage, scopeContractId: input.scope.scopeContractId, scopePayloadHash: input.scope.payloadHash,
-    researchMapId: input.researchMap.researchMapId, researchMapPayloadHash: input.researchMap.payloadHash, sourceKnowledgeRunIds: unique(input.sourceKnowledgeRunIds), candidateEventVersionIds: unique(input.events.map((event) => event.eventVersionId)), cells, gaps,
-    latestChronologyEventYear: latestEventYear, latestDurableSourceSnapshotAt: input.sourceSnapshots && input.sourceSnapshots.length > 0 ? [...input.sourceSnapshots].sort((left, right) => right.retrievedAt.localeCompare(left.retrievedAt))[0]!.retrievedAt : null,
-    ongoingFreshness, verdict: materialInsufficient ? "KNOWLEDGE_COVERAGE_INSUFFICIENT" : "SUFFICIENT", auditMs: Date.now() - startedAt
+    ...immutableEnvelope(input.context, coverageAuditId), artifactId: coverageAuditId, coverageAuditId, ...auditPayload
   });
 }
 
@@ -200,8 +215,16 @@ export function planGapDirectedCompletion(input: { context: ArtifactContext; sco
     taskBase.gapIds.forEach((id) => plannedGapIds.add(id));
   }
   if (tasks.length === 0) throw new Error("KNOWLEDGE_COVERAGE_INSUFFICIENT: no bounded completion task can be derived from locked gaps.");
-  const completionPlanId = contentAddressedId("knowledge-completion-plan", { parentCoverageAuditId: input.audit.coverageAuditId, originalKnowledgeRunId: input.originalKnowledgeRunId, budget, tasks });
-  return parseSealedArtifact(knowledgeCompletionPlanSchema, { ...immutableEnvelope(input.context, completionPlanId), artifactId: completionPlanId, completionPlanId, parentCoverageAuditId: input.audit.coverageAuditId, originalScopeContractId: input.scope.scopeContractId, originalResearchMapId: input.researchMap.researchMapId, originalKnowledgeRunId: input.originalKnowledgeRunId, round: 1, budget, tasks, unplannedMaterialGapIds: input.audit.gaps.filter((gap) => !plannedGapIds.has(gap.gapId)).map((gap) => gap.gapId) });
+  const planPayload = { parentCoverageAuditId: input.audit.coverageAuditId, originalScopeContractId: input.scope.scopeContractId, originalResearchMapId: input.researchMap.researchMapId, originalKnowledgeRunId: input.originalKnowledgeRunId, round: 1 as const, budget, tasks, unplannedMaterialGapIds: input.audit.gaps.filter((gap) => !plannedGapIds.has(gap.gapId)).map((gap) => gap.gapId) };
+  const completionPlanId = executionArtifactId("knowledge-completion-plan", input.context, planPayload);
+  return parseSealedArtifact(knowledgeCompletionPlanSchema, { ...immutableEnvelope(input.context, completionPlanId), artifactId: completionPlanId, completionPlanId, ...planPayload });
+}
+
+export type KnowledgeCompletionResultInput = Omit<KnowledgeCompletionResult, keyof ReturnType<typeof immutableEnvelope> | "artifactId" | "payloadHash" | "completionResultId">;
+
+export function buildKnowledgeCompletionResult(context: ArtifactContext, payload: KnowledgeCompletionResultInput): KnowledgeCompletionResult {
+  const completionResultId = executionArtifactId("knowledge-completion-result", context, payload);
+  return parseSealedArtifact(knowledgeCompletionResultSchema, { ...immutableEnvelope(context, completionResultId), artifactId: completionResultId, completionResultId, ...payload });
 }
 
 export function buildCompletionResearchMap(input: { context: ArtifactContext; scope: ScopeContract; parent: ResearchMap; plan: KnowledgeCompletionPlan }): ResearchMap {
