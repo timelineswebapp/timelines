@@ -46,7 +46,7 @@ async function main() {
   const db = getFirestore();
   const repository = new V2FirestoreRepository({ firestore: db, corpusId: CORPUS_ID });
   const config = await loadFactoryV2Config();
-  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.10" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("A3 requires the certified non-public V2-A shadow configuration.");
+  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.11" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("A3 requires the certified non-public V2-A shadow configuration.");
   const [scopes, maps, claims, verdicts, conflicts, events, snapshots] = await Promise.all([
     loadRun("v2ScopeContracts", [SOURCE_RUN_ID], (value) => scopeContractSchema.parse(value), 2),
     loadRun("v2ResearchMaps", [SOURCE_RUN_ID], (value) => researchMapSchema.parse(value), 2),
@@ -61,7 +61,7 @@ async function main() {
   const parentMap = maps[0]!;
   const initialKnowledgeReuseMs = Date.now() - initialReuseStartedAt;
   const runId = `v2-a3-web-${randomUUID()}`;
-  const context: ArtifactContext = { corpusId: CORPUS_ID, topicId: scope.topicId, runId, generation: scope.generation, createdAt: new Date().toISOString(), policyVersion: "knowledge-coverage-v2-a3.1" };
+  const context: ArtifactContext = { corpusId: CORPUS_ID, topicId: scope.topicId, runId, generation: scope.generation, createdAt: new Date().toISOString(), policyVersion: "knowledge-coverage-v2-a3.2" };
   const initialAudit = auditKnowledgeCoverage({ context, stage: "INITIAL", scope, researchMap: parentMap, sourceKnowledgeRunIds: [SOURCE_RUN_ID], claims, authorityVerdicts: verdicts, conflicts, events, sourceSnapshots: snapshots });
   if (initialAudit.verdict === "SUFFICIENT") throw new Error("A3 fixture did not reproduce the proven initial material coverage gap.");
   const completionPlan = planGapDirectedCompletion({ context, scope, researchMap: parentMap, audit: initialAudit, originalKnowledgeRunId: SOURCE_RUN_ID });

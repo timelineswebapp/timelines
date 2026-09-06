@@ -68,7 +68,36 @@ export type DiscoveredSourceCandidate = {
   role: "ORIENTATION" | "PHASE_DIMENSION" | "AUTHORITY_TARGETED" | "SOURCE_RETRIEVAL";
   intendedSourceClass: SourceDocument["sourceClass"];
   discoveryOrder: number;
+  discoveryText?: string;
 };
+
+export type AuthorityEligibility = "ELIGIBLE_FOR_EVIDENCE" | "ORIENTATION_ONLY" | "PROVISIONAL" | "CATEGORICALLY_PROHIBITED";
+export type CoverageAdmissionComponents = {
+  gapRelevance: number;
+  temporalFit: number;
+  eventUtility: number;
+  authorityEligibility: number;
+  publisherQuality: number;
+  roleAndClass: number;
+  retrievability: number;
+};
+export type CoverageAdmissionDecision = DiscoveredSourceCandidate & {
+  questionId: string;
+  authorityEligibility: AuthorityEligibility;
+  components: CoverageAdmissionComponents;
+  matchedTemporalSignals: string[];
+  matchedEventSignals: string[];
+  admissionScore: number;
+  rank: number;
+  disposition: "RETRIEVAL_CANDIDATE" | "EXCLUDED_PROHIBITED" | "EXCLUDED_BUDGET";
+  exclusionReason: string | null;
+};
+
+export function selectUsableCoverageCandidates<T extends { canonicalKey: string; admissionScore: number; usable: boolean }>(candidates: readonly T[], maximum = 2): T[] {
+  return candidates.filter((candidate) => candidate.usable)
+    .sort((left, right) => right.admissionScore - left.admissionScore || left.canonicalKey.localeCompare(right.canonicalKey))
+    .slice(0, Math.min(3, Math.max(1, maximum)));
+}
 
 function publisherForDomain(domain: string, publishers: readonly PublisherAuthorityVersion[]): PublisherAuthorityVersion | undefined {
   const hostname = domain.toLocaleLowerCase("en-US").replace(/^www\./u, "");
@@ -81,6 +110,96 @@ function sourceCandidateScore(candidate: DiscoveredSourceCandidate, publisher: P
     + (candidate.intendedSourceClass === "PRIMARY_INSTITUTIONAL" ? 20 : candidate.intendedSourceClass === "SCHOLARLY_SECONDARY" ? 15 : candidate.intendedSourceClass === "ESTABLISHED_JOURNALISM" ? 10 : 0)
     + (publisher?.primarySecondaryTendency === "PRIMARY" ? 15 : publisher?.primarySecondaryTendency === "SECONDARY" ? 8 : 0)
     - (candidate.domain.includes("wikipedia.org") ? 80 : 0);
+}
+
+const EVENT_TERMS = ["launch", "launched", "release", "released", "adopt", "adopted", "approve", "approved", "announce", "announced", "introduce", "introduced", "create", "created", "publish", "published", "standard", "standardized", "opened", "founded", "decision", "agreement", "conference", "deploy", "deployed", "shutdown", "shut down"];
+
+function authorityEligibility(candidate: DiscoveredSourceCandidate, publisher: PublisherAuthorityVersion | undefined): AuthorityEligibility {
+  if (candidate.domain === "wikipedia.org" || candidate.domain.endsWith(".wikipedia.org")) return "CATEGORICALLY_PROHIBITED";
+  if (publisher?.accessLimitations.includes("ORIENTATION_ONLY")) return "ORIENTATION_ONLY";
+  return publisher?.state === "VERIFIED" ? "ELIGIBLE_FOR_EVIDENCE" : "PROVISIONAL";
+}
+
+function yearRange(question: ResearchMap["questions"][number], map: ResearchMap): { minimum: number; maximum: number } | null {
+  const labels = question.phaseIds.flatMap((id) => map.phases.filter((phase) => phase.phaseId === id).map((phase) => `${phase.label} ${phase.temporalRule}`));
+  const years = labels.flatMap((label) => [...label.matchAll(/\b(?:1[0-9]{3}|20[0-9]{2})\b/gu)].map((match) => Number(match[0])));
+  if (years.length === 0) return null;
+  return { minimum: Math.min(...years), maximum: Math.max(...years) };
+}
+
+function coverageComponents(candidate: DiscoveredSourceCandidate, question: ResearchMap["questions"][number], map: ResearchMap, publisher: PublisherAuthorityVersion | undefined, eligibility: AuthorityEligibility) {
+  const text = normalizedIdentityText(`${candidate.title} ${candidate.canonicalUrl} ${candidate.discoveryText || ""}`);
+  const phaseLabels = question.phaseIds.flatMap((id) => map.phases.filter((phase) => phase.phaseId === id).map((phase) => phase.label));
+  const dimensionLabels = question.dimensionIds.flatMap((id) => map.dimensions.filter((dimension) => dimension.dimensionId === id).map((dimension) => dimension.label));
+  const specificTerms = terms([...phaseLabels, ...dimensionLabels].join(" ")).filter((term) => !["history", "world", "wide", "web", "present", "development"].includes(term));
+  const questionTerms = terms(question.text).filter((term) => !["history", "world", "wide", "web", "authoritative", "dated", "evidence", "establishes", "locked", "phase", "dimension", "chronology"].includes(term));
+  const matchedTerms = [...new Set([...specificTerms, ...questionTerms].filter((term) => text.includes(term)))];
+  const range = yearRange(question, map);
+  const observedYears = [...text.matchAll(/\b(?:1[0-9]{3}|20[0-9]{2})\b/gu)].map((match) => Number(match[0]));
+  const inRangeYears = range ? [...new Set(observedYears.filter((year) => year >= range.minimum && year <= range.maximum))].sort() : [];
+  const matchedPhaseLabels = phaseLabels.map(normalizedIdentityText).filter((label) => text.includes(label));
+  const matchedEventSignals = EVENT_TERMS.filter((term) => new RegExp(`\\b${term.replace(" ", "\\s+")}\\b`, "u").test(text));
+  const genericPage = /^(?:home|homepage|welcome|world wide web consortium|w3c)$/u.test(normalizedIdentityText(candidate.title));
+  const components: CoverageAdmissionComponents = {
+    gapRelevance: Math.min(160, matchedTerms.length * 12 + matchedPhaseLabels.length * 40),
+    temporalFit: Math.min(120, inRangeYears.length * 24 + matchedPhaseLabels.length * 40),
+    eventUtility: Math.min(120, matchedEventSignals.length * 15),
+    authorityEligibility: eligibility === "ELIGIBLE_FOR_EVIDENCE" ? 100 : eligibility === "PROVISIONAL" ? 30 : -1000,
+    publisherQuality: publisher?.state === "VERIFIED" ? (publisher.primarySecondaryTendency === "PRIMARY" ? 70 : 55) : 15,
+    roleAndClass: (candidate.role === "AUTHORITY_TARGETED" ? 20 : candidate.role === "PHASE_DIMENSION" ? 15 : 5) + (candidate.intendedSourceClass === "PRIMARY_INSTITUTIONAL" ? 20 : candidate.intendedSourceClass === "SCHOLARLY_SECONDARY" ? 15 : 5),
+    retrievability: candidate.canonicalUrl.startsWith("https://") ? (genericPage ? -30 : 10) : -200
+  };
+  return { components, matchedTemporalSignals: [...matchedPhaseLabels, ...inRangeYears.map(String)], matchedEventSignals };
+}
+
+/** Coverage-completion admission keeps discovery intact, but excludes sources
+ * that can never satisfy Source Authority from retrieval/extraction capacity. */
+export function rankCoverageSourcesByQuestion(input: {
+  candidates: readonly DiscoveredSourceCandidate[];
+  map: ResearchMap;
+  publishers: readonly PublisherAuthorityVersion[];
+  maximumSources: number;
+}): { retrievalCandidates: Array<DiscoveredSourceCandidate & { admittedQuestionIds: string[]; admissionScores: Record<string, number> }>; decisions: CoverageAdmissionDecision[] } {
+  const ceiling = Math.min(60, Math.max(1, input.maximumSources));
+  const deduplicated = new Map<string, DiscoveredSourceCandidate>();
+  for (const candidate of input.candidates) {
+    const existing = deduplicated.get(candidate.canonicalUrl);
+    if (!existing) deduplicated.set(candidate.canonicalUrl, { ...candidate, researchQuestionIds: [...new Set(candidate.researchQuestionIds)] });
+    else {
+      existing.researchQuestionIds = [...new Set([...existing.researchQuestionIds, ...candidate.researchQuestionIds])];
+      existing.discoveryText = [...new Set([existing.discoveryText, candidate.discoveryText].filter(Boolean))].join(" ").slice(0, 12_000);
+    }
+  }
+  const decisions: CoverageAdmissionDecision[] = [];
+  for (const question of input.map.questions.filter((item) => item.priority !== "SUPPORTING")) {
+    const ranked = [...deduplicated.values()].filter((candidate) => candidate.researchQuestionIds.includes(question.questionId)).map((candidate) => {
+      const publisher = publisherForDomain(candidate.domain, input.publishers);
+      const eligibility = authorityEligibility(candidate, publisher);
+      const signals = coverageComponents(candidate, question, input.map, publisher, eligibility);
+      return { ...candidate, questionId: question.questionId, authorityEligibility: eligibility, ...signals, admissionScore: Object.values(signals.components).reduce((sum, value) => sum + value, 0) };
+    }).sort((left, right) => right.admissionScore - left.admissionScore || left.canonicalUrl.localeCompare(right.canonicalUrl));
+    ranked.forEach((candidate, index) => decisions.push({ ...candidate, rank: index + 1, disposition: candidate.authorityEligibility === "CATEGORICALLY_PROHIBITED" || candidate.authorityEligibility === "ORIENTATION_ONLY" ? "EXCLUDED_PROHIBITED" : "RETRIEVAL_CANDIDATE", exclusionReason: candidate.authorityEligibility === "CATEGORICALLY_PROHIBITED" || candidate.authorityEligibility === "ORIENTATION_ONLY" ? "SOURCE_AUTHORITY_ORIENTATION_ONLY" : null }));
+  }
+  const eligible = decisions.filter((decision) => decision.disposition === "RETRIEVAL_CANDIDATE");
+  const selectedUrls = new Set<string>();
+  const maximumRank = Math.max(0, ...eligible.map((decision) => decision.rank));
+  for (let rank = 1; rank <= maximumRank && selectedUrls.size < ceiling; rank += 1) {
+    for (const question of input.map.questions.filter((item) => item.priority !== "SUPPORTING")) {
+      const decision = eligible.find((item) => item.questionId === question.questionId && item.rank === rank);
+      if (decision) selectedUrls.add(decision.canonicalUrl);
+      if (selectedUrls.size >= ceiling) break;
+    }
+  }
+  for (const decision of decisions) if (decision.disposition === "RETRIEVAL_CANDIDATE" && !selectedUrls.has(decision.canonicalUrl)) {
+    decision.disposition = "EXCLUDED_BUDGET";
+    decision.exclusionReason = "SOURCE_DOCUMENT_BUDGET";
+  }
+  const retrievalCandidates = [...selectedUrls].map((url) => {
+    const candidate = deduplicated.get(url)!;
+    const admitted = decisions.filter((decision) => decision.canonicalUrl === url && decision.disposition === "RETRIEVAL_CANDIDATE");
+    return { ...candidate, admittedQuestionIds: admitted.map((decision) => decision.questionId).sort(), admissionScores: Object.fromEntries(admitted.map((decision) => [decision.questionId, decision.admissionScore])) };
+  });
+  return { retrievalCandidates, decisions };
 }
 
 /** The 60-document budget is a ceiling. Admit at most two diverse candidates

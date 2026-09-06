@@ -10,7 +10,7 @@ import { performBoundedReconnaissance } from "./reconnaissance";
 import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate } from "./resolution";
 import { V2FirestoreRepository } from "./repositories/firestore";
 import { extractAtomicClaims, generateQueryPlan, generateResearchMap, proposeScope, runGroundedAcquisition, StructuredStageError, type GroundingAcquisition, type V2ModelProvider } from "./vertex";
-import { admitSourcesByQuestion, claimPropositionKey, selectEvidencePacket, type DiscoveredSourceCandidate } from "./reliability";
+import { admitSourcesByQuestion, claimPropositionKey, rankCoverageSourcesByQuestion, selectEvidencePacket, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
 
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
 
@@ -147,7 +147,7 @@ function provisionalSourceClass(publisher: PublisherAuthorityVersion | undefined
 }
 
 function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL" }) {
-  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: "factory-v2-a.10", executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, updatedAt: new Date().toISOString() });
+  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: "factory-v2-a.11", executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, updatedAt: new Date().toISOString() });
 }
 
 export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, config: FactoryV2Config, dependencies: OrchestratorDependencies = {}): Promise<V2AShadowResult> {
@@ -255,11 +255,21 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     let key: string;
     try { key = canonicalizeUrl(chunk.url); } catch { continue; }
     const domain = (chunk.domain || new URL(key).hostname).toLocaleLowerCase("en-US").replace(/^www\./u, "");
+    const discoveryText = acquisition.supports.filter((support) => support.chunkIndices.includes(chunk.chunkIndex)).map((support) => support.attributedText).join(" ").slice(0, 12_000);
     const existing = discovered.get(key);
-    if (existing) existing.researchQuestionIds = [...new Set([...existing.researchQuestionIds, ...query.researchQuestionIds])];
-    else discovered.set(key, { canonicalUrl: key, originalUrl: chunk.url, title: chunk.title, domain, queryId: query.queryId, researchQuestionIds: [...query.researchQuestionIds], role: query.role, intendedSourceClass: query.intendedSourceClass, discoveryOrder: discoveryOrder++ });
+    if (existing) {
+      existing.researchQuestionIds = [...new Set([...existing.researchQuestionIds, ...query.researchQuestionIds])];
+      existing.discoveryText = [...new Set([existing.discoveryText, discoveryText].filter(Boolean))].join(" ").slice(0, 12_000);
+    } else discovered.set(key, { canonicalUrl: key, originalUrl: chunk.url, title: chunk.title, domain, queryId: query.queryId, researchQuestionIds: [...query.researchQuestionIds], role: query.role, intendedSourceClass: query.intendedSourceClass, discoveryOrder: discoveryOrder++, discoveryText });
   }
-  const sourceCandidates = admitSourcesByQuestion({ candidates: [...discovered.values()], map: mapResult.map, publishers, maximumSources: config.budgetBundle.maximumSourceDocuments });
+  const coverageAdmission = continuation ? rankCoverageSourcesByQuestion({ candidates: [...discovered.values()], map: mapResult.map, publishers, maximumSources: config.budgetBundle.maximumSourceDocuments }) : null;
+  const sourceCandidates = coverageAdmission?.retrievalCandidates || admitSourcesByQuestion({ candidates: [...discovered.values()], map: mapResult.map, publishers, maximumSources: config.budgetBundle.maximumSourceDocuments }).map((candidate) => ({ ...candidate, admissionScores: {} as Record<string, number> }));
+  if (coverageAdmission) for (const decision of coverageAdmission.decisions) {
+    const decisionPayload = { questionId: decision.questionId, urlHash: sha256(decision.canonicalUrl), rank: decision.rank, disposition: decision.disposition, exclusionReason: decision.exclusionReason, authorityEligibility: decision.authorityEligibility, admissionScore: decision.admissionScore, components: JSON.stringify(decision.components), temporalSignals: decision.matchedTemporalSignals.join(",").slice(0, 1000), eventSignals: decision.matchedEventSignals.join(",").slice(0, 1000), publisherDomain: decision.domain };
+    const auditRecordId = contentAddressedId("audit", { runId: context.runId, action: "COVERAGE_SOURCE_ADMISSION", ...decisionPayload });
+    const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "COVERAGE_SOURCE_ADMISSION", actorType: "POLICY", actorId: "gap-aware-source-admission-v1", artifactRefs: [{ collection: "v2ResearchMaps", id: mapResult.map.researchMapId, payloadHash: mapResult.map.payloadHash }], details: decisionPayload });
+    await persist("v2AuditRecords", audit);
+  }
   let retrievalFailures = 0;
   let retrievalsSuppressedByHostCircuit = 0;
   const hostFailures = new Map<string, number>();
@@ -272,10 +282,15 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     await previous;
     try { return await task(); } finally { release(); }
   }
-  type RetrievedSource = Awaited<ReturnType<typeof retrieveSource>> & { admittedQuestionIds: string[] };
+  type RetrievedSource = Awaited<ReturnType<typeof retrieveSource>> & { admittedQuestionIds: string[]; admissionScores: Record<string, number> };
   const retrievedWithDuplicates = (await mapLimit(sourceCandidates, config.budgetBundle.maximumConcurrency, async (candidate): Promise<RetrievedSource | null> => serializedForHost(candidate.domain, async () => {
     if ((hostFailures.get(candidate.domain) || 0) >= 2) {
       retrievalsSuppressedByHostCircuit += 1;
+      if (coverageAdmission) {
+        const details = { urlHash: sha256(candidate.canonicalUrl), questionIds: candidate.admittedQuestionIds.join(",").slice(0, 1000), disposition: "RETRIEVAL_SUPPRESSED_HOST_CIRCUIT", publisherDomain: candidate.domain };
+        const auditRecordId = contentAddressedId("audit", { runId: context.runId, action: "COVERAGE_SOURCE_RETRIEVAL", ...details });
+        await persist("v2AuditRecords", parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "COVERAGE_SOURCE_RETRIEVAL", actorType: "POLICY", actorId: "gap-aware-source-admission-v1", artifactRefs: [], details }));
+      }
       return null;
     }
     try {
@@ -283,7 +298,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       const existing = await repository.getReusableSource(candidate.canonicalUrl);
       const freshness = scopeResult.scope.topicClass === "ONGOING_SUBJECT" ? "ONGOING" : "IMMUTABLE_HISTORICAL";
       if (existing && canReuseSnapshot(existing.snapshot as SourceSnapshot, freshness, scopeResult.scope.ongoingAsOf)) {
-        return { source: existing.source as SourceDocument, snapshot: existing.snapshot as SourceSnapshot, evidenceSegments: existing.evidenceSegments as EvidenceSegment[], archiveWrites: 0, cacheDisposition: "CACHE_HIT", admittedQuestionIds: candidate.admittedQuestionIds };
+        return { source: existing.source as SourceDocument, snapshot: existing.snapshot as SourceSnapshot, evidenceSegments: existing.evidenceSegments as EvidenceSegment[], archiveWrites: 0, cacheDisposition: "CACHE_HIT", admittedQuestionIds: candidate.admittedQuestionIds, admissionScores: candidate.admissionScores };
       }
       const initialPublisher = publisherForDomain(candidate.domain, publishers) || publisherForUrl(candidate.canonicalUrl, publishers);
       const result = await retrieveSource({ context, url: candidate.originalUrl, titleHint: candidate.title, publisherId: initialPublisher?.publisherId || null, sourceClass: provisionalSourceClass(initialPublisher), primarySecondaryRole: initialPublisher?.primarySecondaryTendency || "UNKNOWN", languageHint: descriptor.language }, {
@@ -295,11 +310,17 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
         }
       });
       cloudStorageWrites += result.archiveWrites;
-      return { ...result, admittedQuestionIds: candidate.admittedQuestionIds };
+      return { ...result, admittedQuestionIds: candidate.admittedQuestionIds, admissionScores: candidate.admissionScores };
     } catch (error) {
       retrievalFailures += 1;
       hostFailures.set(candidate.domain, (hostFailures.get(candidate.domain) || 0) + 1);
-      console.error(JSON.stringify({ severity: "WARNING", component: "factory-v2-source-retrieval", topicId, urlHash: sha256(candidate.canonicalUrl), message: error instanceof Error ? error.message.slice(0, 300) : "Unknown retrieval failure" }));
+      const message = error instanceof Error ? error.message.slice(0, 300) : "Unknown retrieval failure";
+      console.error(JSON.stringify({ severity: "WARNING", component: "factory-v2-source-retrieval", topicId, urlHash: sha256(candidate.canonicalUrl), message }));
+      if (coverageAdmission) {
+        const details = { urlHash: sha256(candidate.canonicalUrl), questionIds: candidate.admittedQuestionIds.join(",").slice(0, 1000), disposition: "RETRIEVAL_FAILED_REPLACED", publisherDomain: candidate.domain, message };
+        const auditRecordId = contentAddressedId("audit", { runId: context.runId, action: "COVERAGE_SOURCE_RETRIEVAL", ...details });
+        await persist("v2AuditRecords", parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "COVERAGE_SOURCE_RETRIEVAL", actorType: "POLICY", actorId: "gap-aware-source-admission-v1", artifactRefs: [], details }));
+      }
       return null;
     }
   }))).filter((value): value is NonNullable<typeof value> => value !== null);
@@ -307,7 +328,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   for (const result of retrievedWithDuplicates) {
     const key = result.snapshot.contentHash;
     const existing = retrievedByContent.get(key);
-    if (existing) existing.admittedQuestionIds = [...new Set([...existing.admittedQuestionIds, ...result.admittedQuestionIds])];
+    if (existing) {
+      existing.admittedQuestionIds = [...new Set([...existing.admittedQuestionIds, ...result.admittedQuestionIds])];
+      existing.admissionScores = { ...existing.admissionScores, ...result.admissionScores };
+    }
     else retrievedByContent.set(key, result);
   }
   const retrieved = [...retrievedByContent.values()];
@@ -347,14 +371,30 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   currentStage = "A3_CLAIMS";
   await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { sources: retrieved.length }, finalVerdict: "PENDING" }));
   const questionsForExtraction = mapResult.map.questions.filter((question) => question.priority !== "SUPPORTING");
-  const candidatesByQuestion = new Map(questionsForExtraction.map((question) => [question.questionId, retrieved.flatMap((result) => {
+  const candidatesByQuestion = new Map(questionsForExtraction.map((question) => {
+    const packetCandidates = retrieved.flatMap((result) => {
     if (!result.admittedQuestionIds.includes(question.questionId) || result.evidenceSegments.length === 0) return [];
     const packet = selectEvidencePacket({ question, segments: result.evidenceSegments, entityNames: scopeResult.scope.centralEntities.map((entity) => entity.name) });
     return packet.segments.length === 0 ? [] : [{ result, question, packet }];
-  }).sort((left, right) => {
+    });
+    if (coverageAdmission) return [question.questionId, selectUsableCoverageCandidates(packetCandidates.map((item) => ({ ...item, canonicalKey: item.result.source.canonicalUrl, admissionScore: item.result.admissionScores[question.questionId] || 0, usable: item.result.snapshot.retrievalDisposition !== "UNAVAILABLE" && item.packet.segments.length > 0 })), 2)] as const;
+    return [question.questionId, packetCandidates.sort((left, right) => {
     const authority = (item: typeof left) => publisherBySource.get(item.result.source.sourceId)?.state === "VERIFIED" ? 100 : 0;
     return authority(right) - authority(left) || right.packet.score - left.packet.score || left.result.source.sourceId.localeCompare(right.result.source.sourceId);
-  }).slice(0, 2)]));
+    }).slice(0, 2)] as const;
+  }));
+  if (coverageAdmission) for (const question of questionsForExtraction) {
+    const selectedIds = new Set((candidatesByQuestion.get(question.questionId) || []).map((item) => item.result.source.sourceId));
+    const questionResults = retrieved.filter((result) => result.admittedQuestionIds.includes(question.questionId));
+    for (const result of questionResults) {
+      const usable = result.evidenceSegments.length > 0 && result.snapshot.retrievalDisposition !== "UNAVAILABLE";
+      const disposition = selectedIds.has(result.source.sourceId) ? "EXTRACTION_SELECTED" : usable ? "NOT_SELECTED_AFTER_RETRIEVAL" : "RETRIEVAL_UNUSABLE_REPLACED";
+      const details = { questionId: question.questionId, sourceId: result.source.sourceId, snapshotId: result.snapshot.sourceSnapshotId, admissionScore: result.admissionScores[question.questionId] || 0, disposition, usable, cacheDisposition: result.cacheDisposition };
+      const auditRecordId = contentAddressedId("audit", { runId: context.runId, action: "COVERAGE_SOURCE_POST_RETRIEVAL", ...details });
+      const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "COVERAGE_SOURCE_POST_RETRIEVAL", actorType: "POLICY", actorId: "gap-aware-source-admission-v1", artifactRefs: [{ collection: "v2SourceSnapshots", id: result.snapshot.sourceSnapshotId, payloadHash: result.snapshot.payloadHash }], details });
+      await persist("v2AuditRecords", audit);
+    }
+  }
   // Eight packets bound both model work and graph fan-out. Interleaving the
   // first-ranked source for each question before second-source corroboration
   // preserves research breadth under the ceiling.
@@ -585,7 +625,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   });
   for (const coverage of questionCoverage) {
     const auditRecordId = contentAddressedId("audit", { runId: context.runId, action: "RESEARCH_QUESTION_COVERAGE", ...coverage });
-    const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "RESEARCH_QUESTION_COVERAGE", actorType: "POLICY", actorId: "factory-v2-a-coverage-policy.9", artifactRefs: [{ collection: "v2ResearchMaps", id: mapResult.map.researchMapId, payloadHash: mapResult.map.payloadHash }], details: { ...coverage, generationSource: coverage.questionId.startsWith("software-chronology-question-") ? "SOFTWARE_GENERATED" : "MODEL_OR_SOFTWARE_COVERAGE_COMPLETION" } });
+    const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "RESEARCH_QUESTION_COVERAGE", actorType: "POLICY", actorId: "factory-v2-a-coverage-policy.10", artifactRefs: [{ collection: "v2ResearchMaps", id: mapResult.map.researchMapId, payloadHash: mapResult.map.payloadHash }], details: { ...coverage, generationSource: coverage.questionId.startsWith("software-chronology-question-") ? "SOFTWARE_GENERATED" : "MODEL_OR_SOFTWARE_COVERAGE_COMPLETION" } });
     await persist("v2AuditRecords", audit);
   }
   assertDeadline();

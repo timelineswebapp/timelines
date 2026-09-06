@@ -41,7 +41,7 @@ async function main() {
   const configSnapshot = await db.collection("factoryV2").doc("config").get();
   if (!configSnapshot.exists) throw new Error("Factory V2 shadow config is absent.");
   const config = factoryV2ConfigSchema.parse(configSnapshot.data());
-  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.10" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("B1 requires the certified non-public V2-A shadow configuration.");
+  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.11" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("B1 requires the certified non-public V2-A shadow configuration.");
 
   const [scopes, maps, events, claims, verdicts, conflicts] = await Promise.all([
     loadRun("v2ScopeContracts", (value) => scopeContractSchema.parse(value), 2),
@@ -95,4 +95,3 @@ main().catch((error) => {
   console.error(error instanceof Error ? error.stack || error.message : String(error));
   process.exitCode = 1;
 });
-

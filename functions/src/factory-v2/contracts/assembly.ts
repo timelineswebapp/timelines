@@ -25,9 +25,9 @@ export const v2BEnvelopeFields = {
   generation: z.number().int().positive(),
   sourceKnowledgeRunId: idSchema,
   sourceKnowledgeBundle: z.object({
-    pipelineVersion: z.literal("factory-v2-a.10"),
+    pipelineVersion: z.literal("factory-v2-a.11"),
     schemaVersion: z.literal("factory-v2-a.3"),
-    policyVersion: z.literal("evidence-first-v2-a.9"),
+    policyVersion: z.literal("evidence-first-v2-a.10"),
     promptVersion: z.literal("factory-v2-a-prompts.8")
   }).strict(),
   executionMode: z.literal("SHADOW"),

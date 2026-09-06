@@ -5,7 +5,7 @@ import { V2_POLICY_VERSION, V2_PROMPT_VERSION, V2_SCHEMA_VERSION, researchBudget
 export const factoryV2ConfigSchema = z.object({
   operatingMode: z.enum(["OFF", "SHADOW"]),
   killSwitch: z.boolean(),
-  pipelineVersion: z.literal("factory-v2-a.10"),
+  pipelineVersion: z.literal("factory-v2-a.11"),
   artifactPolicyBundle: z.object({ schemaVersion: z.literal(V2_SCHEMA_VERSION), policyVersion: z.literal(V2_POLICY_VERSION), promptVersion: z.literal(V2_PROMPT_VERSION) }).strict(),
   budgetBundle: researchBudgetSchema,
   autonomousDiscoveryEnabled: z.literal(false),
@@ -28,7 +28,7 @@ export const DEFAULT_V2_BUDGET: FactoryV2Config["budgetBundle"] = {
 };
 
 export function shadowConfig(updatedAt = new Date().toISOString()): FactoryV2Config {
-  return factoryV2ConfigSchema.parse({ operatingMode: "SHADOW", killSwitch: false, pipelineVersion: "factory-v2-a.10", artifactPolicyBundle: { schemaVersion: V2_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION }, budgetBundle: DEFAULT_V2_BUDGET, autonomousDiscoveryEnabled: false, publicationEnabled: false, governanceSubmissionEnabled: false, updatedAt });
+  return factoryV2ConfigSchema.parse({ operatingMode: "SHADOW", killSwitch: false, pipelineVersion: "factory-v2-a.11", artifactPolicyBundle: { schemaVersion: V2_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION }, budgetBundle: DEFAULT_V2_BUDGET, autonomousDiscoveryEnabled: false, publicationEnabled: false, governanceSubmissionEnabled: false, updatedAt });
 }
 
 export async function loadFactoryV2Config(): Promise<FactoryV2Config> {
