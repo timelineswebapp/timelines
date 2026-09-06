@@ -1,0 +1,85 @@
+{
+  "goal": "TL-KF-V2-A3",
+  "fixture": "The History of the World Wide Web",
+  "status": "FAIL",
+  "sourceKnowledgeRunId": "8b40de60-ad95-4d74-886c-1ffb0e1e585d",
+  "runId": "v2-a3-web-f5b77650-0d9f-4740-aee1-3858ef113b6f",
+  "initialCoverageAuditId": "knowledge-coverage-audit-b2add78d0157400a49c991bca5ef6f570d919665a8c997ac4b61264341a4a7b6",
+  "completionPlanId": "knowledge-completion-plan-b6807d65eb0194aa1c1a0271c69cbbd8571c4d4b043c7b0b0a46573251850ef4",
+  "failureRecordId": "failure-9fa1a01dea8a3e66934d9e4d1c49357196665df54177c9320c30284dd742781b",
+  "failureStage": "A1_SCHEMAS",
+  "failureClass": "FAILED_UNCLASSIFIED",
+  "error": "v2PublisherAuthorityVersions/publisher-version-2096c38539b7bc836f6e43f4adf1ab1d8a359fd5334b9614179fec8e9791551a: Immutable artifact ID collision with a different payload.",
+  "initialAudit": {
+    "verdict": "KNOWLEDGE_COVERAGE_INSUFFICIENT",
+    "latestChronologyEventYear": 1994,
+    "ongoingFreshness": "STALE_LOCKED_PHASE",
+    "auditMs": 14,
+    "phaseStates": {
+      "Conception and Early Development (1989-1993)": "SUFFICIENT",
+      "Public Release and Rapid Growth (1993-2000)": "SUFFICIENT",
+      "Web 2.0 and Social Web (2000-2010)": "MISSING",
+      "Mobile Web and Ubiquitous Access (2010-2020)": "MISSING",
+      "Current Trends and Future Directions (2020-Present)": "MISSING"
+    },
+    "dimensionStates": {
+      "Technological Development": "SUFFICIENT",
+      "Key Individuals and Institutions": "SUFFICIENT",
+      "Societal and Cultural Impact": "WEAK",
+      "Economic Impact": "MISSING",
+      "Policy and Governance": "SUFFICIENT"
+    },
+    "gapCodes": [
+      "MISSING_PHASE_KNOWLEDGE",
+      "MISSING_PHASE_KNOWLEDGE",
+      "MISSING_PHASE_KNOWLEDGE",
+      "WEAK_DIMENSION_KNOWLEDGE",
+      "MISSING_DIMENSION_KNOWLEDGE",
+      "UNANSWERED_CRITICAL_RESEARCH_QUESTION",
+      "STALE_ONGOING_SCOPE"
+    ]
+  },
+  "completionPlan": {
+    "round": 1,
+    "taskCount": 5,
+    "unplannedMaterialGapCount": 0,
+    "budget": {
+      "maximumRounds": 1,
+      "maximumGapQuestions": 5,
+      "maximumGroundingCalls": 5,
+      "maximumProviderQueries": 25,
+      "maximumSourceDocuments": 30,
+      "maximumClaimExtractions": 5,
+      "maximumAtomicClaims": 100,
+      "maximumWorkerSeconds": 480
+    }
+  },
+  "execution": {
+    "operationState": "FAILED",
+    "operationElapsedMs": 2595,
+    "groundingCalls": 0,
+    "providerQueries": 0,
+    "sourceRetrievals": 0,
+    "claimExtractions": 0,
+    "newClaims": 0,
+    "newEvents": 0,
+    "finalAuditCreated": false,
+    "completionResultCreated": false,
+    "b1Revalidated": false,
+    "rerunPerformed": false
+  },
+  "productionBoundary": {
+    "executionMode": "SHADOW",
+    "publicationEligible": false,
+    "governanceSubmissionAllowed": false,
+    "autonomousDiscoveryEnabled": false,
+    "runningV2Operations": 0,
+    "v2PublishedMemory": 0,
+    "v2PublicProjections": 0
+  },
+  "verdicts": {
+    "v2A3KnowledgeCoverage": "NOT_CERTIFIED",
+    "v2B": "NOT_CERTIFIED",
+    "b1": "NOT_REVALIDATED"
+  }
+}

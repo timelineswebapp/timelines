@@ -1,5 +1,7 @@
 # TL-KF-V2-B — Evidence-Backed Timeline Assembly
 
+> A3 upstream correction update (2026-09-06): [`TL-KF-V2-A3_KNOWLEDGE_COVERAGE_COMPLETION.md`](./TL-KF-V2-A3_KNOWLEDGE_COVERAGE_COMPLETION.md) records one failed knowledge-completion fixture. A3 reproduced the coverage gaps but failed before acquisition on immutable publisher-bootstrap provenance. B1 was not revalidated; this document's original B1 negative evidence remains authoritative.
+
 Status: **NOT CERTIFIED**
 
 Date: 2026-09-06

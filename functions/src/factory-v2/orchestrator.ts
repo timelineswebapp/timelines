@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { V2_POLICY_VERSION, acquisitionDiscoverySchema, acquisitionRunSchema, auditRecordSchema, canonicalEntityRecordSchema, canonicalEventRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, publisherAuthorityVersionSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type EvidenceSegment, type PublisherAuthorityVersion, type SourceDocument, type SourceSnapshot } from "./contracts";
+import { V2_POLICY_VERSION, acquisitionDiscoverySchema, acquisitionRunSchema, auditRecordSchema, canonicalEntityRecordSchema, canonicalEventRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, publisherAuthorityVersionSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type EvidenceSegment, type PublisherAuthorityVersion, type QueryPlan, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot } from "./contracts";
 import { assertV2AShadowEnabled, type FactoryV2Config } from "./config";
 import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
 import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
@@ -79,6 +79,14 @@ export type OrchestratorDependencies = {
   repository?: V2FirestoreRepository;
   provider?: V2ModelProvider;
   retrieval?: RetrievalDependencies;
+  /** A3 continuation mode reuses the locked scope and a versioned Research Map,
+   * then executes the same certified acquisition/claim/authority/resolution path. */
+  continuation?: {
+    originalKnowledgeRunId: string;
+    scope: ScopeContract;
+    researchMap: ResearchMap;
+    queryPlan: QueryPlan;
+  };
 };
 
 function publisherForUrl(url: string, publishers: PublisherAuthorityVersion[]): PublisherAuthorityVersion | undefined {
@@ -153,8 +161,18 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const assertDeadline = () => {
     if (Date.now() >= deadlineAt) throw new Error("WHOLE_RUN_DEADLINE_EXCEEDED");
   };
-  const topicId = sha256(`${descriptor.language}\n${normalizedIdentityText(descriptor.title)}`);
-  const context: ArtifactContext = { corpusId: repository.activeCorpusId(), topicId, runId: randomUUID(), generation: 1, createdAt: new Date().toISOString() };
+  const expectedTopicId = sha256(`${descriptor.language}\n${normalizedIdentityText(descriptor.title)}`);
+  const continuation = dependencies.continuation;
+  const context: ArtifactContext = continuation
+    ? { corpusId: repository.activeCorpusId(), topicId: continuation.scope.topicId, runId: continuation.queryPlan.runId, generation: continuation.queryPlan.generation, createdAt: continuation.queryPlan.createdAt, policyVersion: continuation.queryPlan.policyVersion }
+    : { corpusId: repository.activeCorpusId(), topicId: expectedTopicId, runId: randomUUID(), generation: 1, createdAt: new Date().toISOString() };
+  const topicId = context.topicId;
+  if (continuation) {
+    if (continuation.scope.topicId !== expectedTopicId || continuation.scope.title !== descriptor.title) throw new Error("A3 continuation Scope Contract does not match the requested topic.");
+    if (continuation.scope.corpusId !== context.corpusId || continuation.researchMap.corpusId !== context.corpusId || continuation.queryPlan.corpusId !== context.corpusId) throw new Error("A3 continuation artifacts cross the active corpus boundary.");
+    if (continuation.researchMap.scopeContractId !== continuation.scope.scopeContractId || continuation.queryPlan.scopeContractId !== continuation.scope.scopeContractId || continuation.queryPlan.researchMapId !== continuation.researchMap.researchMapId) throw new Error("A3 continuation lineage is invalid.");
+    if (continuation.researchMap.parentArtifactId === null) throw new Error("A3 continuation requires a versioned Research Map linked to its immutable parent.");
+  }
   const modelExecutions: Array<ReturnType<typeof modelExecutionSchema.parse>> = [];
   const blockingReasons: string[] = [];
   let firestoreWrites = 0;
@@ -181,10 +199,12 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     if (result !== "IDEMPOTENT") firestoreWrites += 1;
   }
 
-  const scopeResult = await proposeScope({ context, title: descriptor.title, language: descriptor.language, ongoingAsOf: descriptor.ongoingAsOf, reconnaissance: { classification: "NO_LEGACY_CONTENT_REUSE", existingKnowledgeWillBeInspectedAfterScopeLock: true }, provider: dependencies.provider, deadlineAt });
+  const scopeResult = continuation
+    ? { scope: continuation.scope, executions: [] }
+    : await proposeScope({ context, title: descriptor.title, language: descriptor.language, ongoingAsOf: descriptor.ongoingAsOf, reconnaissance: { classification: "NO_LEGACY_CONTENT_REUSE", existingKnowledgeWillBeInspectedAfterScopeLock: true }, provider: dependencies.provider, deadlineAt });
   modelExecutions.push(...scopeResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of scopeResult.executions) await persist("v2ModelExecutions", execution);
-  await persist("v2ScopeContracts", scopeResult.scope);
+  if (!continuation) await persist("v2ScopeContracts", scopeResult.scope);
 
   const reconnaissance = await performBoundedReconnaissance({ repository, topicId, scopeContractId: scopeResult.scope.scopeContractId, entityNameKeys: scopeResult.scope.centralEntities.map((entity) => normalizedIdentityText(entity.name)), limitPerKind: 25 });
   const reconnaissanceId = contentAddressedId("recon-record", reconnaissance);
@@ -192,12 +212,16 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   await persist("v2ReconnaissanceRecords", reconnaissanceArtifact);
 
   assertDeadline();
-  const mapResult = await generateResearchMap({ context, scope: scopeResult.scope, reconnaissance, provider: dependencies.provider, deadlineAt });
+  const mapResult = continuation
+    ? { map: continuation.researchMap, executions: [] }
+    : await generateResearchMap({ context, scope: scopeResult.scope, reconnaissance, provider: dependencies.provider, deadlineAt });
   modelExecutions.push(...mapResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of mapResult.executions) await persist("v2ModelExecutions", execution);
   await persist("v2ResearchMaps", mapResult.map);
   assertDeadline();
-  const planResult = await generateQueryPlan({ context, scope: scopeResult.scope, map: mapResult.map, provider: dependencies.provider, deadlineAt });
+  const planResult = continuation
+    ? { plan: continuation.queryPlan, executions: [] }
+    : await generateQueryPlan({ context, scope: scopeResult.scope, map: mapResult.map, provider: dependencies.provider, deadlineAt });
   modelExecutions.push(...planResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of planResult.executions) await persist("v2ModelExecutions", execution);
   await persist("v2QueryPlans", planResult.plan);
