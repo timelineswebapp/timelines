@@ -1,6 +1,6 @@
 # TL-KF-V2-A3.2 — Immutable Artifact Identity Audit
 
-Status: **STATIC AUDIT AND LOCAL/EMULATOR GATES PASS; LIVE A3 PENDING**
+Status: **IDENTITY AUDIT CERTIFIED; SINGLE LIVE A3 FAILED; HARD STOP APPLIED**
 
 Execution boundary: non-public SHADOW only
 
@@ -116,4 +116,32 @@ Tests cover exact replay, different run/time/latency/usage, model provenance, pu
 
 ## Live results
 
-Pending the single authorized A3 Web run. B1 remains unauthorized until A3 passes. B2 is not authorized in this goal.
+Exactly one authorized `npm run v2a3:web` invocation ran against **The History of the World Wide Web** from frozen candidate commit `2aed9bb11b37b8c140e242da8cc28a288732d255`.
+
+The identity repair held: the initial audit, completion plan, final audit, and all acquisition artifacts persisted without an immutable collision. The run executed five Grounding calls and 25 provider queries, retrieved nine source documents, created five new durable snapshot observations, performed eight claim-extraction calls, and produced 37 claims (15 supported), one conflict, and one non-chronology `STATE_LEGACY` event candidate.
+
+The final coverage audit persisted as `knowledge-coverage-audit-386ff51128d7c07514169f5756481928f2d6d557fc571014eac7a2bb306c5da7` with payload hash `e2571baab3bbf1d05301209d718ad17fe8fd991deff422d7a3a49786d9b48fac`. Its verdict remained `KNOWLEDGE_COVERAGE_INSUFFICIENT`: all three later locked phases remained weak, Economic Impact remained weak, critical questions remained unanswered, the latest chronology event remained 1994, and ongoing freshness remained `STALE_LOCKED_PHASE`.
+
+The process then failed at completion-result schema validation because the observed `budgetConsumed.claimExtractions` value was 8 while the schema maximum is 5. No Knowledge Completion Result persisted. Exact evidence is preserved in [`v2-a3-2-web-failure-1788709811712.json`](../../artifacts/factory-v2/v2-a3-2-web-failure-1788709811712.json).
+
+The mandatory hard stop applies. A3 was not rerun, B1 was not invoked, and B2 was not started.
+
+## Production integrity after failure
+
+- Factory V2 remains SHADOW `.10/.3/.9/.8`; publication, Governance submission, and autonomous discovery remain disabled.
+- `topic-discovery-daily` remains `PAUSED` on `0 3 * * *` UTC.
+- Zero RUNNING V2 operations, zero V2 Published Memory, and zero V2 public projections.
+- Published Memory remains 4 records with comparison hash `006d346031773dc6f1cba400a62215a3e9874b2567b26dae0acd3f4eef01d21c`.
+- Platform read models remain 46 records with comparison hash `172596509263f477c1756d57cd87c8c2e453d6bb3b536f3f45e98002235444f1`.
+- Cuban Missile Crisis and Apollo 13 topic/job records remain `AWAITING_REVIEW / governance_review` at `2026-09-05T18:45:03.650Z` and `2026-09-05T19:34:27.044Z`.
+- No public, Governance, Historical Library, Published Memory, or projection write occurred.
+
+## Final verdict
+
+**A3.2 IMMUTABLE IDENTITY AUDIT: CERTIFIED**
+
+**V2-A3 KNOWLEDGE COVERAGE: NOT CERTIFIED**
+
+**V2-B B1: NOT REVALIDATED**
+
+**V2-B: NOT CERTIFIED**

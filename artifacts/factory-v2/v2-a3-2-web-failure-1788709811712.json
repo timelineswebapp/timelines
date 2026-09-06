@@ -1,0 +1,96 @@
+{
+  "goal": "TL-KF-V2-A3.2",
+  "fixture": "The History of the World Wide Web",
+  "status": "FAIL",
+  "attemptOrdinalUnderGoal": 1,
+  "command": "npm run v2a3:web",
+  "candidateCommit": "2aed9bb11b37b8c140e242da8cc28a288732d255",
+  "identityAuditSha256": "cf070af59e2c57c11aa5bdde33555ab0ea3e72561e53d562a8dc8fbfd20b51cc",
+  "runId": "v2-a3-web-98332efd-8842-490f-8ecd-d080d8789862",
+  "createdAt": "2026-09-06T15:40:38.111Z",
+  "failureStage": "COMPLETION_RESULT_SCHEMA_VALIDATION",
+  "sourceLocation": "scripts/factory-v2/run-v2a3-web.ts:99",
+  "error": {
+    "name": "ZodError",
+    "code": "too_big",
+    "path": ["budgetConsumed", "claimExtractions"],
+    "maximum": 5,
+    "inclusive": true,
+    "message": "Number must be less than or equal to 5",
+    "observed": 8
+  },
+  "initialCoverageAudit": {
+    "artifactId": "knowledge-coverage-audit-170dd8eff25342130a52f44c320351dd35a18b7466110401739a80c3083362b6",
+    "payloadHash": "fab119598f1786f91dfa61b9297ad26bf9313c0bb3c9bd229fed03369bb1aac3",
+    "verdict": "KNOWLEDGE_COVERAGE_INSUFFICIENT",
+    "gapCount": 7,
+    "gapCodes": [
+      "MISSING_PHASE_KNOWLEDGE",
+      "MISSING_PHASE_KNOWLEDGE",
+      "MISSING_PHASE_KNOWLEDGE",
+      "WEAK_DIMENSION_KNOWLEDGE",
+      "MISSING_DIMENSION_KNOWLEDGE",
+      "UNANSWERED_CRITICAL_RESEARCH_QUESTION",
+      "STALE_ONGOING_SCOPE"
+    ],
+    "latestChronologyEventYear": 1994,
+    "ongoingFreshness": "STALE_LOCKED_PHASE"
+  },
+  "completionPlan": {
+    "artifactId": "knowledge-completion-plan-98966466eaeb5f4da56b0945f2b5477a170f507353864d9ddf8d3dbcc1782c11",
+    "payloadHash": "26bef944ab28fbe551a57b5a0c7972889951c9cde1206aad01be86c304ba5a77",
+    "taskCount": 5,
+    "unplannedMaterialGapCount": 0
+  },
+  "acquisition": {
+    "groundingCalls": 5,
+    "providerQueries": 25,
+    "retrievedSourceDocuments": 9,
+    "newDurableSourceSnapshots": 5,
+    "claimExtractionCalls": 8,
+    "newClaims": 37,
+    "supportedClaims": 15,
+    "insufficientClaims": 22,
+    "newConflicts": 1,
+    "newEventCandidates": 1,
+    "newChronologyEligibleEvents": 0,
+    "modelCalls": 13,
+    "inputTokens": 22180,
+    "outputTokens": 18884,
+    "totalTokens": 48090,
+    "modelLatencyMs": 243892,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "finalCoverageAudit": {
+    "artifactId": "knowledge-coverage-audit-386ff51128d7c07514169f5756481928f2d6d557fc571014eac7a2bb306c5da7",
+    "payloadHash": "e2571baab3bbf1d05301209d718ad17fe8fd991deff422d7a3a49786d9b48fac",
+    "verdict": "KNOWLEDGE_COVERAGE_INSUFFICIENT",
+    "gapCount": 8,
+    "gapCodes": [
+      "WEAK_PHASE_KNOWLEDGE",
+      "WEAK_PHASE_KNOWLEDGE",
+      "WEAK_PHASE_KNOWLEDGE",
+      "WEAK_DIMENSION_KNOWLEDGE",
+      "UNANSWERED_CRITICAL_RESEARCH_QUESTION",
+      "UNANSWERED_CRITICAL_RESEARCH_QUESTION",
+      "UNANSWERED_CRITICAL_RESEARCH_QUESTION",
+      "STALE_ONGOING_SCOPE"
+    ],
+    "latestChronologyEventYear": 1994,
+    "latestDurableSourceSnapshotAt": "2026-09-06T15:42:41.249Z",
+    "ongoingFreshness": "STALE_LOCKED_PHASE"
+  },
+  "completionResultPersisted": false,
+  "immutableCollisionObserved": false,
+  "operation": {
+    "state": "FAILED",
+    "stage": "A5_RESOLUTION_REUSE",
+    "blockingReason": "NO_RESOLVED_EVENT_CANDIDATES",
+    "elapsedMs": 359286
+  },
+  "hardStopApplied": true,
+  "a3Rerun": false,
+  "b1Invoked": false,
+  "b2Invoked": false
+}
