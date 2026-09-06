@@ -5,6 +5,9 @@ import { getFirestore } from "firebase-admin/firestore";
 import { V2FirestoreRepository } from "./firestore";
 import { scopeFixture, TEST_CONTEXT } from "../test-fixtures";
 import { buildEvidenceSegment, buildAtomicClaimVersion, buildClaimEvidenceEdge, immutableEnvelope, sealArtifact } from "../contracts/builders";
+import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion } from "../authority";
+import { publisherAuthorityRecordSchema } from "../contracts";
+import { normalizedIdentityText } from "../contracts/builders";
 
 const enabled = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 
@@ -41,4 +44,31 @@ test("Firestore emulator enforces corpus paths, immutable idempotency, heads, an
   await assert.rejects(repository.boundedQuery("v2AtomicClaimVersions", [], 201), /explicit limit/);
   const reconstructed = await repository.reference("v2ScopeContracts", scope.artifactId).get();
   assert.equal(reconstructed.data()?.payloadHash, scope.payloadHash);
+});
+
+test("Firestore emulator proves publisher bootstrap retry, concurrency, immutable versioning, and stale-head rejection", { skip: !enabled }, async () => {
+  const app = getApps()[0] || initializeApp({ projectId: "tiimeliines" });
+  const firestore = getFirestore(app);
+  const corpusId = "publisher-bootstrap-test-corpus";
+  const repository = new V2FirestoreRepository({ firestore, corpusId });
+  const firstContext = { ...TEST_CONTEXT, corpusId };
+  const retryContext = { ...firstContext, topicId: "other-topic", runId: "a3-retry", createdAt: "2026-09-07T00:00:00.000Z", policyVersion: "knowledge-coverage-v2-a3.1" };
+  const original = bootstrapPublisherRegistry(firstContext)[0]!;
+  const retry = bootstrapPublisherRegistry(retryContext)[0]!;
+  assert.deepEqual(retry, original);
+
+  const concurrent = await Promise.all([repository.createImmutable("v2PublisherAuthorityVersions", original), repository.createImmutable("v2PublisherAuthorityVersions", retry)]);
+  assert.deepEqual([...concurrent].sort(), ["CREATED", "IDEMPOTENT"]);
+  assert.equal(await repository.createImmutable("v2PublisherAuthorityVersions", retry), "IDEMPOTENT");
+  const conflicting = sealArtifact({ ...original, canonicalName: "Conflicting publisher payload" });
+  await assert.rejects(repository.createImmutable("v2PublisherAuthorityVersions", conflicting), /collision/);
+
+  const oldHead = publisherAuthorityRecordSchema.parse({ publisherId: original.publisherId, corpusId, canonicalNameKey: normalizedIdentityText(original.canonicalName), currentVersionId: original.publisherVersionId, currentVersion: original.version, state: original.state, updatedAt: original.createdAt });
+  assert.equal(await repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: original.publisherId, expectedCurrentVersionId: null, nextVersionId: original.publisherVersionId, data: oldHead }), "CREATED");
+  const successor = buildPublisherAuthorityVersion(firstContext, { publisherId: original.publisherId, version: original.version + 1, effectiveAt: "2026-09-07T01:00:00.000Z", canonicalName: original.canonicalName, aliases: original.aliases, parentPublisherId: original.parentPublisherId, institutionType: original.institutionType, authorityDomains: [...original.authorityDomains, "Additional verified authority domain"], geographicScope: original.geographicScope, languages: original.languages, primarySecondaryTendency: original.primarySecondaryTendency, knownDomains: original.knownDomains, externalIdentifiers: original.externalIdentifiers, independenceGroupId: original.independenceGroupId, accessLimitations: original.accessLimitations, state: original.state, classificationEvidenceSegmentIds: original.classificationEvidenceSegmentIds, admittedBy: original.admittedBy });
+  assert.equal(await repository.createImmutable("v2PublisherAuthorityVersions", successor), "CREATED");
+  const nextHead = publisherAuthorityRecordSchema.parse({ ...oldHead, currentVersionId: successor.publisherVersionId, currentVersion: successor.version, updatedAt: successor.createdAt });
+  assert.equal(await repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: original.publisherId, expectedCurrentVersionId: original.publisherVersionId, nextVersionId: successor.publisherVersionId, data: nextHead }), "ADVANCED");
+  assert.equal((await repository.getById("v2PublisherAuthorityVersions", original.publisherVersionId))?.payloadHash, original.payloadHash);
+  await assert.rejects(repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: original.publisherId, expectedCurrentVersionId: original.publisherVersionId, nextVersionId: "publisher-version-stale", data: nextHead }), /compare-and-set/);
 });

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
+import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion, detectClaimConflicts, evaluateClaimAuthority, independenceGroup, type PublisherAuthorityVersionInput } from "./authority";
 import { buildAtomicClaimVersion, buildClaimEvidenceEdge } from "./contracts/builders";
 import type { AtomicClaimVersion, ClaimEvidenceEdge, PublisherAuthorityVersion } from "./contracts";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
+import { payloadHash } from "./hashing";
 
 const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
 const byName = (name: string) => publishers.find((publisher) => publisher.canonicalName === name)!;
@@ -31,6 +32,53 @@ test("Publisher Registry is deliberately small, versioned, alias-aware, and poli
   assert.equal(byName("National Aeronautics and Space Administration").aliases.includes("NASA"), true);
   assert.equal(publishers.every((publisher) => publisher.state === "VERIFIED" && publisher.admittedBy === "POLICY"), true);
   assert.equal(new Set(publishers.map((publisher) => publisher.payloadHash)).size, publishers.length);
+});
+
+test("publisher bootstrap semantic state is independent from caller execution provenance", () => {
+  const retryContext = { ...TEST_CONTEXT, topicId: "different-topic", runId: "v2-a3-web-retry", generation: 7, createdAt: "2026-09-07T12:34:56.000Z", policyVersion: "knowledge-coverage-v2-a3.1" };
+  const retried = bootstrapPublisherRegistry(retryContext);
+  assert.deepEqual(retried, publishers);
+  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-2096c38539b7bc836f6e43f4adf1ab1d8a359fd5334b9614179fec8e9791551a");
+  const productionBootstrap = bootstrapPublisherRegistry({ ...retryContext, corpusId: "timelines-clean-2026-09-v1" })[0]!;
+  assert.equal(productionBootstrap.payloadHash, "381e3e9c3d0236c93cfb02610b15f8c09ecebb2475c8efe4bf8de2eb40ef3783");
+});
+
+function successorInput(publisher: PublisherAuthorityVersion, overrides: Partial<PublisherAuthorityVersionInput> = {}): PublisherAuthorityVersionInput {
+  return {
+    publisherId: publisher.publisherId, version: publisher.version + 1, effectiveAt: "2026-09-07T00:00:00.000Z", canonicalName: publisher.canonicalName,
+    aliases: publisher.aliases, parentPublisherId: publisher.parentPublisherId, institutionType: publisher.institutionType, authorityDomains: publisher.authorityDomains,
+    geographicScope: publisher.geographicScope, languages: publisher.languages, primarySecondaryTendency: publisher.primarySecondaryTendency, knownDomains: publisher.knownDomains,
+    externalIdentifiers: publisher.externalIdentifiers, independenceGroupId: publisher.independenceGroupId, accessLimitations: publisher.accessLimitations, state: publisher.state,
+    classificationEvidenceSegmentIds: publisher.classificationEvidenceSegmentIds, admittedBy: publisher.admittedBy, ...overrides
+  };
+}
+
+test("publisher successor versions canonicalize set fields and preserve authority relationships", () => {
+  const nasa = byName("National Aeronautics and Space Administration");
+  const left = buildPublisherAuthorityVersion(TEST_CONTEXT, successorInput(nasa, { aliases: ["NASA", "National Aeronautics and Space Administration"], knownDomains: ["WWW.NASA.GOV", "nasa.gov"], authorityDomains: ["Mission records", "Civil spaceflight"] }));
+  const right = buildPublisherAuthorityVersion({ ...TEST_CONTEXT, runId: "unrelated-caller", createdAt: "2027-01-01T00:00:00.000Z" }, successorInput(nasa, { aliases: ["National Aeronautics and Space Administration", "NASA"], knownDomains: ["nasa.gov", "www.nasa.gov"], authorityDomains: ["Civil spaceflight", "Mission records"] }));
+  assert.equal(left.publisherVersionId, right.publisherVersionId);
+  assert.equal(left.payloadHash, right.payloadHash);
+  assert.deepEqual(left.knownDomains, ["nasa.gov"]);
+  assert.equal(left.independenceGroupId, nasa.independenceGroupId);
+  assert.equal(left.parentPublisherId, nasa.parentPublisherId);
+});
+
+test("a legitimate authority change creates a distinct immutable version without mutating the old version", () => {
+  const nasa = byName("National Aeronautics and Space Administration");
+  const oldHash = nasa.payloadHash;
+  const changed = buildPublisherAuthorityVersion(TEST_CONTEXT, successorInput(nasa, { authorityDomains: [...nasa.authorityDomains, "Earth science data records"] }));
+  assert.equal(changed.version, nasa.version + 1);
+  assert.notEqual(changed.publisherVersionId, nasa.publisherVersionId);
+  assert.notEqual(changed.payloadHash, nasa.payloadHash);
+  assert.equal(nasa.payloadHash, oldHash);
+  assert.equal(changed.publisherId, nasa.publisherId);
+});
+
+test("different publishers cannot collide and semantically ordered arrays remain order-sensitive", () => {
+  assert.equal(new Set(publishers.map((publisher) => publisher.publisherId)).size, publishers.length);
+  assert.equal(new Set(publishers.map((publisher) => publisher.publisherVersionId)).size, publishers.length);
+  assert.notEqual(payloadHash({ orderedSteps: ["first", "second"] }), payloadHash({ orderedSteps: ["second", "first"] }));
 });
 
 test("One definitive primary record establishes a narrow material mission date", () => {

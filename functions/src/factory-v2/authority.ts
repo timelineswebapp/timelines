@@ -148,6 +148,46 @@ export function detectClaimConflicts(input: { context: ArtifactContext; claims: 
 
 type BootstrapPublisher = Omit<PublisherAuthorityVersion, keyof ReturnType<typeof immutableEnvelope> | "artifactId" | "payloadHash" | "publisherId" | "publisherVersionId" | "version" | "classificationEvidenceSegmentIds" | "admittedBy">;
 
+export type PublisherAuthorityVersionInput = BootstrapPublisher & {
+  publisherId?: string;
+  version: number;
+  effectiveAt: string;
+  classificationEvidenceSegmentIds: string[];
+  admittedBy: "POLICY" | "HUMAN";
+};
+
+function normalizedSet(values: string[], transform: (value: string) => string = (value) => value.normalize("NFKC").trim()): string[] {
+  return [...new Set(values.map(transform))].sort((left, right) => left.localeCompare(right));
+}
+
+/** Build successor authority versions independently from the topic/run that
+ * happened to request them. effectiveAt and authority policy are semantic;
+ * caller execution coordinates are not. */
+export function buildPublisherAuthorityVersion(context: ArtifactContext, input: PublisherAuthorityVersionInput): PublisherAuthorityVersion {
+  const publisherId = input.publisherId || deterministicUuid("timelines.publisher", input.canonicalName.normalize("NFKC").trim());
+  const policyVersion = context.policyVersion || V2_POLICY_VERSION;
+  const semantic = {
+    canonicalName: input.canonicalName.normalize("NFKC").trim(),
+    aliases: normalizedSet(input.aliases),
+    parentPublisherId: input.parentPublisherId,
+    institutionType: input.institutionType,
+    authorityDomains: normalizedSet(input.authorityDomains),
+    geographicScope: normalizedSet(input.geographicScope),
+    languages: normalizedSet(input.languages),
+    primarySecondaryTendency: input.primarySecondaryTendency,
+    knownDomains: normalizedSet(input.knownDomains, (value) => value.normalize("NFKC").trim().toLocaleLowerCase("en-US").replace(/^www\./u, "")),
+    externalIdentifiers: [...new Map(input.externalIdentifiers.map((item) => [`${item.scheme.normalize("NFKC").trim()}:${item.value.normalize("NFKC").trim()}`, { scheme: item.scheme.normalize("NFKC").trim(), value: item.value.normalize("NFKC").trim() }])).values()].sort((left, right) => `${left.scheme}:${left.value}`.localeCompare(`${right.scheme}:${right.value}`)),
+    independenceGroupId: input.independenceGroupId,
+    accessLimitations: normalizedSet(input.accessLimitations),
+    state: input.state,
+    classificationEvidenceSegmentIds: normalizedSet(input.classificationEvidenceSegmentIds),
+    admittedBy: input.admittedBy
+  };
+  const publisherVersionId = contentAddressedId("publisher-version", { publisherId, version: input.version, policyVersion, semantic });
+  const registryContext: ArtifactContext = { corpusId: context.corpusId, topicId: "publisher-registry", runId: "publisher-authority-versions", generation: input.version, createdAt: input.effectiveAt, policyVersion };
+  return parseSealedArtifact(publisherAuthorityVersionSchema, { ...immutableEnvelope(registryContext, publisherVersionId), ...semantic, publisherId, publisherVersionId, version: input.version });
+}
+
 const BOOTSTRAP_PUBLISHERS: BootstrapPublisher[] = [
   { canonicalName: "National Aeronautics and Space Administration", aliases: ["NASA"], parentPublisherId: null, institutionType: "GOVERNMENT", authorityDomains: ["United States civil spaceflight and mission records"], geographicScope: ["United States", "International"], languages: ["en"], primarySecondaryTendency: "PRIMARY", knownDomains: ["nasa.gov"], externalIdentifiers: [], independenceGroupId: "publisher-nasa", accessLimitations: [], state: "VERIFIED" },
   { canonicalName: "CERN", aliases: ["European Organization for Nuclear Research"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["World Wide Web origins", "particle physics"], geographicScope: ["International"], languages: ["en", "fr"], primarySecondaryTendency: "PRIMARY", knownDomains: ["cern.ch", "home.cern"], externalIdentifiers: [], independenceGroupId: "publisher-cern", accessLimitations: [], state: "VERIFIED" },
@@ -168,7 +208,9 @@ const BOOTSTRAP_PUBLISHERS: BootstrapPublisher[] = [
 ];
 
 export function bootstrapPublisherRegistry(context: ArtifactContext): PublisherAuthorityVersion[] {
-  const registryContext: ArtifactContext = { ...context, topicId: "publisher-registry", runId: "bootstrap-v2-a", generation: 1, createdAt: "2026-09-06T00:00:00.000Z" };
+  // Bootstrap authority versions are semantic registry state governed by the
+  // fixed authority policy, not by a topic operation's caller policy.
+  const registryContext: ArtifactContext = { ...context, topicId: "publisher-registry", runId: "bootstrap-v2-a", generation: 1, createdAt: "2026-09-06T00:00:00.000Z", policyVersion: V2_POLICY_VERSION };
   return BOOTSTRAP_PUBLISHERS.map((publisher) => {
     const publisherId = deterministicUuid("timelines.publisher", publisher.canonicalName);
     const publisherVersionId = contentAddressedId("publisher-version", { publisherId, publisher, policyVersion: V2_POLICY_VERSION });

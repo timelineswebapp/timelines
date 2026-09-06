@@ -1,0 +1,56 @@
+{
+  "goal": "TL-KF-V2-A3.1",
+  "fixture": "The History of the World Wide Web",
+  "status": "FAIL",
+  "attemptOrdinalUnderGoal": 1,
+  "command": "npm run v2a3:web",
+  "failureStage": "INITIAL_COVERAGE_AUDIT_PERSISTENCE",
+  "sourceLocation": "scripts/factory-v2/run-v2a3-web.ts:73",
+  "collection": "v2KnowledgeCoverageAudits",
+  "documentId": "knowledge-coverage-audit-b2add78d0157400a49c991bca5ef6f570d919665a8c997ac4b61264341a4a7b6",
+  "error": "Immutable artifact ID collision with a different payload.",
+  "existingArtifact": {
+    "payloadHash": "00429511d33f27186699bb1562a064d5f3ac0dca6c4fc5886f5c4d9712dc50e6",
+    "runId": "v2-a3-web-f5b77650-0d9f-4740-aee1-3858ef113b6f",
+    "createdAt": "2026-09-06T12:08:34.797Z",
+    "policyVersion": "knowledge-coverage-v2-a3.1",
+    "verdict": "KNOWLEDGE_COVERAGE_INSUFFICIENT"
+  },
+  "identityFinding": {
+    "idInputs": [
+      "auditStage",
+      "scopeContractId",
+      "researchMapId",
+      "sourceKnowledgeRunIds",
+      "candidateEventVersionIds",
+      "cells",
+      "gaps"
+    ],
+    "payloadOnlyExecutionFields": [
+      "runId",
+      "createdAt",
+      "auditMs"
+    ],
+    "finding": "The deterministic semantic audit ID was reused while execution provenance and measured runtime remained inside the immutable payload. The repository correctly rejected the mismatch."
+  },
+  "publisherCollisionObserved": false,
+  "publisherBootstrapReached": false,
+  "groundingCalls": 0,
+  "providerQueries": 0,
+  "retrievals": 0,
+  "newClaims": 0,
+  "newEvents": 0,
+  "newPersistedArtifacts": 0,
+  "postFailureCounts": {
+    "runningV2Operations": 0,
+    "coverageAudits": 1,
+    "completionPlans": 1,
+    "completionResults": 0,
+    "rankedCandidateSets": 1,
+    "v2PublishedMemory": 0,
+    "v2PublicProjections": 0
+  },
+  "hardStopApplied": true,
+  "a3Rerun": false,
+  "b1Invoked": false
+}

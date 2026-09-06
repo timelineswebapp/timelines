@@ -1,0 +1,34 @@
+{
+  "goal": "TL-KF-V2-A3.1",
+  "classification": "A_SAME_SEMANTIC_ARTIFACT_NON_SEMANTIC_PROVENANCE_DIFFERENCE",
+  "failedRunId": "v2-a3-web-f5b77650-0d9f-4740-aee1-3858ef113b6f",
+  "failureRecordId": "failure-9fa1a01dea8a3e66934d9e4d1c49357196665df54177c9320c30284dd742781b",
+  "collection": "v2PublisherAuthorityVersions",
+  "documentId": "publisher-version-2096c38539b7bc836f6e43f4adf1ab1d8a359fd5334b9614179fec8e9791551a",
+  "artifactClass": "PUBLISHER_AUTHORITY_VERSION_BOOTSTRAP_STATE",
+  "publisher": "National Aeronautics and Space Administration",
+  "logicalPublisherId": "8da035d0-01c9-58ef-8242-5a50696e84a1",
+  "existingVersion": 2,
+  "attemptedVersion": 2,
+  "existingPayloadHash": "381e3e9c3d0236c93cfb02610b15f8c09ecebb2475c8efe4bf8de2eb40ef3783",
+  "attemptedPayloadHash": "a88c50c132962677478d67e14fd3ea24245c263ffacb041fc26d145cabcec41c",
+  "differingFields": [
+    {
+      "field": "policyVersion",
+      "existing": "evidence-first-v2-a.9",
+      "attempted": "knowledge-coverage-v2-a3.1"
+    },
+    {
+      "field": "payloadHash",
+      "existing": "381e3e9c3d0236c93cfb02610b15f8c09ecebb2475c8efe4bf8de2eb40ef3783",
+      "attempted": "a88c50c132962677478d67e14fd3ea24245c263ffacb041fc26d145cabcec41c"
+    }
+  ],
+  "semanticFieldsEqual": true,
+  "builder": "bootstrapPublisherRegistry",
+  "idFunction": "contentAddressedId",
+  "idInputPolicyVersion": "evidence-first-v2-a.9",
+  "payloadEnvelopePolicyVersionSource": "caller ArtifactContext.policyVersion",
+  "immutabilityEnforcement": "V2FirestoreRepository.createImmutable",
+  "existingRecordModified": false
+}
