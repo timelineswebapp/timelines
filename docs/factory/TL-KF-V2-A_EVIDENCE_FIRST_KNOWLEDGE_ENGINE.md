@@ -1,14 +1,16 @@
 # TL-KF-V2-A — Evidence-First Knowledge Engine
 
-> Checkpoint update (2026-09-06): [`TL-KF-V2-A1_CHECKPOINT.md`](./TL-KF-V2-A1_CHECKPOINT.md) and the updated certification summary supersede the live-result and blocker status below. The remainder of this document preserves the original V2-A implementation/certification record rather than rewriting negative evidence.
+> A2 closure update (2026-09-06): [`TL-KF-V2-A2_CHRONOLOGY_COVERAGE_CERTIFICATION.md`](./TL-KF-V2-A2_CHRONOLOGY_COVERAGE_CERTIFICATION.md) and [`v2-a2-certification-summary.json`](../../artifacts/factory-v2/v2-a2-certification-summary.json) supersede the certification status below. [`TL-KF-V2-A1_CHECKPOINT.md`](./TL-KF-V2-A1_CHECKPOINT.md) and all earlier fixture artifacts remain preserved as negative evidence.
 
 ## Certification state
 
-**TL-KF-V2-A: NOT CERTIFIED**
+**TL-KF-V2-A: CERTIFIED**
 
-V2-B is not authorized. Autonomous discovery, governance submission, publication, public projection, and public-ID allocation remain disabled for V2. The implementation is committed as an isolated shadow foundation plus diagnostic evidence; it must not be promoted to a publication-capable workflow.
+The frozen `.10/.3/.9/.8` bundle passed the Apollo Gate 1 run, the uniform five-fixture suite, bounded reader/editorial review, full regression/security gates, and final production-integrity audit. V2-B is authorized for implementation but was not begun. Autonomous discovery remains paused; V2 Governance submission, publication, public projection, and public-ID allocation remain disabled.
 
-The final five-topic run passed 0 of 5 fixture acceptance gates. The raw report is [`artifacts/factory-v2/v2-a-shadow-fixtures-1788651705035.json`](../../artifacts/factory-v2/v2-a-shadow-fixtures-1788651705035.json) and the concise gate record is [`artifacts/factory-v2/v2-a-certification-summary.json`](../../artifacts/factory-v2/v2-a-certification-summary.json).
+The A2 five-topic run passed 5 of 5 fixture acceptance gates with 111 supported claims, 28 resolved canonical EVENT candidates, a 407,399 ms p50, and a 459,234 ms nearest-rank p95 approximation. The new summary links every raw run. The original 0-of-5 report and A1 checkpoint summary below remain an archived record of prior failures and must not be reinterpreted.
+
+## Archived initial V2-A record (superseded by A2)
 
 ## Implementation scope and authority
 

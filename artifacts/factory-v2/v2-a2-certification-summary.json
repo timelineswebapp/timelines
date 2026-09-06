@@ -1,0 +1,82 @@
+{
+  "goal": "TL-KF-V2-A2",
+  "verdict": "TL-KF-V2-A: CERTIFIED",
+  "executionMode": "SHADOW",
+  "startingCheckpoint": "5f3df29e6ca43c9236d18b02bc0c1b6ad4fcf88e",
+  "certificationCandidateCommit": "d0f495b134cd11f96c533a17af525cce24e8d715",
+  "configHash": "74f7c68c70a612300a7c855f9fc51b02d7dbbe85b0a5299eedf1bcaaf926c8e2",
+  "versionBundle": {
+    "pipelineVersion": "factory-v2-a.10",
+    "schemaVersion": "factory-v2-a.3",
+    "policyVersion": "evidence-first-v2-a.9",
+    "promptVersion": "factory-v2-a-prompts.8"
+  },
+  "apolloGate1": {
+    "runId": "a34a458f-2247-4c72-a2cb-31f221f24db9",
+    "status": "PASS",
+    "executionMs": 286385,
+    "claimsSupported": 4,
+    "datedOccurrenceClaims": 4,
+    "resolvedEventCandidates": 4,
+    "rawArtifact": "artifacts/factory-v2/v2-a-shadow-fixtures-1788683551076.json"
+  },
+  "uniformFinalSuite": [
+    { "title": "The History of the World Wide Web", "runId": "8b40de60-ad95-4d74-886c-1ffb0e1e585d", "executionMs": 407399, "claimsSupported": 24, "resolvedEventCandidates": 11, "nonEventKnowledgeItems": 0, "status": "PASS", "rawArtifact": "artifacts/factory-v2/v2-a-shadow-fixtures-1788684054139.json" },
+    { "title": "The Fall of the Berlin Wall", "runId": "0fd335bd-d594-4f55-9c94-b3239736a430", "executionMs": 358890, "claimsSupported": 6, "resolvedEventCandidates": 6, "nonEventKnowledgeItems": 0, "status": "PASS", "rawArtifact": "artifacts/factory-v2/v2-a-shadow-fixtures-1788684422666.json" },
+    { "title": "The Apollo 11 Mission", "runId": "806748fe-0b15-4947-8ebf-3ddc28ffb66d", "executionMs": 297156, "claimsSupported": 6, "resolvedEventCandidates": 2, "nonEventKnowledgeItems": 0, "status": "PASS", "rawArtifact": "artifacts/factory-v2/v2-a-shadow-fixtures-1788684727559.json" },
+    { "title": "The Cuban Missile Crisis", "runId": "2ec96d0c-9109-48b3-b987-f30c565a0dd4", "executionMs": 459234, "claimsSupported": 34, "resolvedEventCandidates": 5, "nonEventKnowledgeItems": 14, "status": "PASS", "rawArtifact": "artifacts/factory-v2/v2-a-shadow-fixtures-1788685194674.json" },
+    { "title": "The Apollo 13 Mission", "runId": "19b1fbad-540c-4071-8b57-53398fc2a2b7", "executionMs": 423263, "claimsSupported": 41, "resolvedEventCandidates": 4, "nonEventKnowledgeItems": 2, "status": "PASS", "rawArtifact": "artifacts/factory-v2/v2-a-shadow-fixtures-1788685625911.json" }
+  ],
+  "aggregate": {
+    "p50ExecutionMs": 407399,
+    "p95ApproxNearestRankMs": 459234,
+    "modelExecutions": 87,
+    "groundingCalls": 25,
+    "providerReportedSearchQueries": 100,
+    "directRetrievalAttempts": 38,
+    "retrievalSuccesses": 35,
+    "retrievalFailuresSafelyClassified": 3,
+    "cacheHits": 4,
+    "cacheRevalidated": 12,
+    "cacheRefetched": 4,
+    "claimPackets": 40,
+    "claimsSupported": 111,
+    "resolvedEventCandidates": 28,
+    "nonEventKnowledgeItems": 16,
+    "firestoreWrites": 2798,
+    "privateArchiveWrites": 3,
+    "inputTokens": 1969828,
+    "outputTokens": 114290,
+    "monetaryCost": null,
+    "monetaryCostMeasurement": "NOT_MEASURABLE"
+  },
+  "verification": {
+    "focusedV2ATests": "49/49 PASS",
+    "firestoreEmulatorSecurityIntegration": "3/3 PASS",
+    "functionsRegressions": "91/91 PASS",
+    "rootRegressions": "249/249 PASS",
+    "editorialCertification": "68/68 PASS",
+    "historicalLibraryCertification": "7/7 PASS",
+    "publishedMemoryCertification": "7/7 PASS",
+    "projectionEngineCertification": "7/7 PASS",
+    "searchCertification": "8/8 PASS",
+    "platformCertification": "8/8 PASS",
+    "typecheckLintBuild": "PASS",
+    "dependencyHigh": 0,
+    "dependencyCritical": 0
+  },
+  "productionIntegrity": {
+    "runningV2Operations": 0,
+    "v2PublishedMemoryRecords": 0,
+    "v2PublicProjections": 0,
+    "autonomousDiscoveryEnabled": false,
+    "publicationEnabled": false,
+    "governanceSubmissionEnabled": false,
+    "discoverySchedulerState": "PAUSED",
+    "protectedReviewItemsUnchanged": true,
+    "mainUntouched": true
+  },
+  "readerEditorialInspection": "PASS",
+  "v2BAuthorized": true,
+  "v2BStarted": false
+}
