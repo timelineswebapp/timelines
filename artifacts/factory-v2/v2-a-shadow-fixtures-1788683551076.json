@@ -1,0 +1,80 @@
+{
+  "generatedAt": "2026-09-06T08:32:31.076Z",
+  "executionMode": "SHADOW",
+  "results": [
+    {
+      "title": "The Apollo 11 Mission",
+      "context": {
+        "corpusId": "timelines-clean-2026-09-v1",
+        "topicId": "b6f5f65ce1fd8e3b5fe118c45bfe9f9b41a8ba8d6324a04c0bfe098cfa32ac4a",
+        "runId": "a34a458f-2247-4c72-a2cb-31f221f24db9",
+        "generation": 1,
+        "createdAt": "2026-09-06T08:27:44.408Z"
+      },
+      "scopeContractId": "scope-94750e77680af4032e7ab0c27196b00579e25232029cbaabbf245a6027f4eaa2",
+      "researchMapId": "research-map-b26dc09e8ef6a616160974695865ba0ea62e6f9dbca38cd5e1b40fbdc0a9fb39",
+      "queryPlanId": "query-plan-f096aedff17b77be198f611b236986105345d480a7a65cde07ffffa3f69de15d",
+      "eventVersionIds": [
+        "event-version-612d1c00970bcb442b740d59ceb6adc4d47d8963c9cfbb08dd28d61b2aecb4b8",
+        "event-version-249c0f91c93d94c1aea01b9cf69d64e100daf2c5b2af784e8acc87efbabd3bc2",
+        "event-version-ec5d75ed85a42f64147daf3c86da3ae84530bbc09fd91ed26b2e348f1f35daeb",
+        "event-version-55104e25d40047f5c03ed89e733d4b0139a31f00f8189df03d4d9e520e1a7464"
+      ],
+      "metrics": {
+        "totalExecutionMs": 286385,
+        "scopeContractModelCalls": 1,
+        "researchMapModelCalls": 2,
+        "queryPlanModelCalls": 1,
+        "groundingCalls": 5,
+        "providerReportedSearchQueries": 20,
+        "directRetrievalAttempts": 8,
+        "retrievalSuccesses": 6,
+        "retrievalFailures": 2,
+        "sourceDocumentsDiscovered": 41,
+        "sourceDocumentsSnapshotted": 6,
+        "cacheHits": 0,
+        "cacheRevalidated": 1,
+        "cacheRefetched": 1,
+        "cacheNotApplicable": 4,
+        "retrievalsSuppressedByHostCircuit": 0,
+        "evidencePackets": 8,
+        "evidencePacketSegments": 81,
+        "individualClaimsRejected": 0,
+        "researchQuestionsNoEvidence": 5,
+        "researchQuestionsPartial": 2,
+        "researchQuestionsSufficient": 1,
+        "researchQuestionsBlocked": 7,
+        "sourceClasses": [
+          "OTHER",
+          "PRIMARY_INSTITUTIONAL",
+          "WIKIPEDIA"
+        ],
+        "publisherIdentities": 5,
+        "claimsExtracted": 12,
+        "claimsSupported": 4,
+        "claimsRejected": 8,
+        "claimsRequiringReview": 0,
+        "conflictsDetected": 1,
+        "conflictsResolved": 0,
+        "conflictsUnresolved": 1,
+        "entityCandidates": 2,
+        "resolvedEntities": 2,
+        "eventCandidates": 4,
+        "resolvedCanonicalEventCandidates": 4,
+        "nonEventKnowledgeItems": 0,
+        "reusedExistingKnowledge": 0,
+        "newKnowledge": 18,
+        "modelRepairAttempts": 1,
+        "infrastructureRetries": 0,
+        "inputTokens": 415885,
+        "outputTokens": 11855,
+        "monetaryCost": null,
+        "monetaryCostMeasurement": "NOT_MEASURABLE",
+        "firestoreWrites": 583,
+        "cloudStorageWrites": 4,
+        "finalV2AVerdict": "PASS"
+      },
+      "blockingReasons": []
+    }
+  ]
+}

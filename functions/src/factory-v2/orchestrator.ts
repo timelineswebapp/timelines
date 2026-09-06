@@ -139,7 +139,7 @@ function provisionalSourceClass(publisher: PublisherAuthorityVersion | undefined
 }
 
 function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL" }) {
-  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: "factory-v2-a.8", executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, updatedAt: new Date().toISOString() });
+  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: "factory-v2-a.10", executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, updatedAt: new Date().toISOString() });
 }
 
 export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, config: FactoryV2Config, dependencies: OrchestratorDependencies = {}): Promise<V2AShadowResult> {
@@ -561,7 +561,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   });
   for (const coverage of questionCoverage) {
     const auditRecordId = contentAddressedId("audit", { runId: context.runId, action: "RESEARCH_QUESTION_COVERAGE", ...coverage });
-    const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "RESEARCH_QUESTION_COVERAGE", actorType: "POLICY", actorId: "factory-v2-a-coverage-policy.7", artifactRefs: [{ collection: "v2ResearchMaps", id: mapResult.map.researchMapId, payloadHash: mapResult.map.payloadHash }], details: coverage });
+    const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "RESEARCH_QUESTION_COVERAGE", actorType: "POLICY", actorId: "factory-v2-a-coverage-policy.9", artifactRefs: [{ collection: "v2ResearchMaps", id: mapResult.map.researchMapId, payloadHash: mapResult.map.payloadHash }], details: { ...coverage, generationSource: coverage.questionId.startsWith("software-chronology-question-") ? "SOFTWARE_GENERATED" : "MODEL_OR_SOFTWARE_COVERAGE_COMPLETION" } });
     await persist("v2AuditRecords", audit);
   }
   assertDeadline();

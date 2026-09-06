@@ -68,6 +68,37 @@ function normalizedLabel(value: string): string {
   return value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
 }
 
+function distinctLockedLabels(values: readonly string[], limit: number): string[] {
+  const seen = new Set<string>();
+  return values.flatMap((value) => {
+    const key = normalizedLabel(value);
+    if (seen.has(key)) return [];
+    seen.add(key);
+    return [value];
+  }).slice(0, limit);
+}
+
+function lockedTemporalScopeLabel(scope: ScopeContract): string {
+  const end = scope.chronologyEnd?.label || scope.ongoingAsOf;
+  return end ? `${scope.chronologyStart.label} through ${end}` : `from ${scope.chronologyStart.label}`;
+}
+
+function chronologyAuthorityPriors(topicClass: ScopeContract["topicClass"]): string[] {
+  if (topicClass === "BIOGRAPHY") return ["Archival biographical records", "Scholarly biographies", "Edited authoritative references"];
+  if (topicClass === "INSTITUTION") return ["Official institutional histories", "Archival records", "Scholarly histories"];
+  if (topicClass === "LONG_DURATION") return ["National or institutional archives", "Academic chronologies", "Scholarly histories"];
+  if (topicClass === "ONGOING_SUBJECT") return ["Official institutional records", "Edited authoritative chronologies", "Scholarly histories"];
+  return ["Official institutional chronology", "Archival or mission records", "Scholarly historical chronology"];
+}
+
+function chronologyQueryTerms(topicClass: ScopeContract["topicClass"]): string {
+  if (topicClass === "BIOGRAPHY") return "authoritative biography chronology dates archives";
+  if (topicClass === "INSTITUTION") return "official institutional history chronology dates";
+  if (topicClass === "LONG_DURATION") return "historical chronology dates archives";
+  if (topicClass === "ONGOING_SUBJECT") return "authoritative history chronology dates";
+  return "official chronology dates historical record";
+}
+
 function expectedClaimTypes(question: { text: string; dateCritical: boolean; contested: boolean }): Array<z.infer<typeof claimTypeSchema>> {
   const text = normalizedLabel(question.text);
   const values = new Set<z.infer<typeof claimTypeSchema>>(["OCCURRENCE"]);
@@ -257,8 +288,25 @@ export async function generateResearchMap(input: { context: ArtifactContext; sco
   const execution = result.executions[result.executions.length - 1]!;
   const phaseIds = new Map(input.scope.expectedPhases.map((label) => [normalizedLabel(label), contentAddressedId("phase", { scopeContractId: input.scope.scopeContractId, label: normalizedLabel(label) })]));
   const dimensionIds = new Map(input.scope.requiredDimensions.map((label) => [normalizedLabel(label), contentAddressedId("dimension", { scopeContractId: input.scope.scopeContractId, label: normalizedLabel(label) })]));
-  const seenQuestions = new Set<string>();
-  const questions = result.value.questions.flatMap((question) => {
+  const chronologyQuestionText = `What discrete dated occurrences establish the chronology of "${input.scope.title}" within the locked temporal scope ${lockedTemporalScopeLabel(input.scope)}, including participants or locations only where evidenced?`;
+  const chronologyQuestionKey = normalizedLabel(chronologyQuestionText);
+  const chronologyQuestion = {
+    text: chronologyQuestionText,
+    questionId: contentAddressedId("software-chronology-question", { scopeContractId: input.scope.scopeContractId, text: chronologyQuestionKey }),
+    phaseIds: [...phaseIds.values()].slice(0, 8),
+    dimensionIds: [...dimensionIds.values()].slice(0, 8),
+    claimTypesExpected: ["OCCURRENCE" as const, "DATE" as const, "IDENTITY" as const, "LOCATION" as const],
+    likelySourceClasses: ["PRIMARY_INSTITUTIONAL" as const, "SCHOLARLY_SECONDARY" as const, "EDITED_REFERENCE" as const],
+    expectedAuthorities: chronologyAuthorityPriors(input.scope.topicClass),
+    languages: [input.scope.language],
+    geography: input.scope.spatialScope.included.slice(0, 12),
+    contested: false,
+    dateCritical: true,
+    priority: "CRITICAL" as const,
+    state: "UNRESEARCHED" as const
+  };
+  const seenQuestions = new Set<string>([chronologyQuestionKey]);
+  const questions: ResearchMap["questions"] = result.value.questions.flatMap((question) => {
     const key = normalizedLabel(question.text);
     const questionPhaseIds = question.phaseLabels.map((label) => phaseIds.get(normalizedLabel(label)));
     const questionDimensionIds = question.dimensionLabels.map((label) => dimensionIds.get(normalizedLabel(label)));
@@ -276,6 +324,7 @@ export async function generateResearchMap(input: { context: ArtifactContext; sco
       dimensionLabels: undefined
     }];
   }).map(({ phaseLabels: _phaseLabels, dimensionLabels: _dimensionLabels, ...question }) => question);
+  questions.unshift(chronologyQuestion);
 
   const expectedAuthorities = input.scope.centralEntities.map((entity) => entity.name).slice(0, 12);
   const geography = input.scope.spatialScope.included.slice(0, 12);
@@ -341,19 +390,35 @@ export async function generateQueryPlan(input: { context: ArtifactContext; scope
   const prompt = [
     "You are the bounded V2 query-plan stage. Return only JSON. Plan discovery/acquisition, never final event selection.",
     "Return focused, unique search expressions in priority order. The Scope Contract and Research Map are immutable read-only data. Reference research questions only by their supplied 1-based number.",
-    "Do not emit query roles, query IDs, research-question IDs, provider-reported queries, or result artifact IDs. Deterministic software owns those fields and caps execution to five searches: one orientation, three phase/dimension, and one authority-targeted slot.",
+    "Do not emit query roles, query IDs, research-question IDs, provider-reported queries, or result artifact IDs. Deterministic software owns those fields, reserves one chronology-orientation search, and caps model contribution to four searches: up to three phase/dimension and one authority-targeted slot. Total execution remains capped at five searches.",
     `SCOPE=${JSON.stringify({ scopeContractId: input.scope.scopeContractId, title: input.scope.title, topicClass: input.scope.topicClass, language: input.scope.language, spatialScope: input.scope.spatialScope, chronologyStart: input.scope.chronologyStart, chronologyEnd: input.scope.chronologyEnd })}\nQUESTIONS=${JSON.stringify(input.map.questions.map((question, index) => ({ number: index + 1, text: question.text, expectedAuthorities: question.expectedAuthorities, likelySourceClasses: question.likelySourceClasses, language: question.languages, geography: question.geography, priority: question.priority })))}`
   ].join("\n\n");
   const result = await structuredCall({ context: input.context, provider: input.provider, stage: "QUERY_PLAN", prompt, schema: queryPlanProposalSchema(input.map.questions.length), jsonSchema: jsonSchemaFor("query"), maximumRepairs: 1, inputArtifactIds: [input.scope.scopeContractId, input.map.researchMapId], deadlineAt: input.deadlineAt });
   const execution = result.executions[result.executions.length - 1]!;
-  const selectedQueries = result.value.queries.slice(0, 5);
-  const queries = selectedQueries.map((query, index) => {
-    const role = index === 0 ? "ORIENTATION" as const : index === 4 ? "AUTHORITY_TARGETED" as const : "PHASE_DIMENSION" as const;
+  const chronologyQuestion = input.map.questions.find((question) => question.questionId.startsWith("software-chronology-question-"));
+  if (!chronologyQuestion) throw new Error("Locked Research Map is missing the software-owned chronology question.");
+  const chronologyQuery = {
+    queryId: contentAddressedId("software-chronology-query", { researchMapId: input.map.researchMapId, questionId: chronologyQuestion.questionId, topicClass: input.scope.topicClass }),
+    researchQuestionIds: [chronologyQuestion.questionId],
+    role: "ORIENTATION" as const,
+    intendedSourceClass: "PRIMARY_INSTITUTIONAL" as const,
+    aliasesAndTerms: distinctLockedLabels([input.scope.title, ...input.scope.centralEntities.map((entity) => entity.name)], 30),
+    language: input.scope.language,
+    geography: input.scope.spatialScope.included.slice(0, 8),
+    providerQuery: `${input.scope.title} ${chronologyQueryTerms(input.scope.topicClass)}`,
+    providerReportedQueries: [],
+    budgetUnits: 1,
+    resultArtifactIds: []
+  };
+  const selectedQueries = result.value.queries.slice(0, 4);
+  const modelQueries = selectedQueries.map((query, index) => {
+    const role = index === 3 ? "AUTHORITY_TARGETED" as const : "PHASE_DIMENSION" as const;
     const researchQuestionIds = query.researchQuestionNumbers.map((number) => input.map.questions[number - 1]!.questionId);
     const queryId = contentAddressedId("query", { researchMapId: input.map.researchMapId, role, providerQuery: normalizedLabel(query.providerQuery), researchQuestionIds });
     const { researchQuestionNumbers: _researchQuestionNumbers, ...semanticQuery } = query;
     return { ...semanticQuery, role, queryId, researchQuestionIds, providerReportedQueries: [], resultArtifactIds: [] };
   });
+  const queries = [chronologyQuery, ...modelQueries];
   return { plan: buildQueryPlan(input.context, input.scope, input.map, { queries, budget: input.scope.researchBudget }, executionRef(execution)), executions: result.executions };
 }
 

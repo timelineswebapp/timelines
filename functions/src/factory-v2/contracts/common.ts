@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const V2_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "evidence-first-v2-a.7";
-export const V2_PROMPT_VERSION = "factory-v2-a-prompts.6";
+export const V2_POLICY_VERSION = "evidence-first-v2-a.9";
+export const V2_PROMPT_VERSION = "factory-v2-a-prompts.8";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);
 export const idSchema = z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u);

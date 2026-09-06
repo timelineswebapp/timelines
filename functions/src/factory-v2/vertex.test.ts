@@ -50,7 +50,14 @@ test("Research Map and Query Plan structured stages bind exact locked scope and 
   const scope = scopeFixture();
   const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
   assert.equal(mapResult.map.scopeContractId, scope.scopeContractId);
-  assert.match(mapResult.map.questions[0]!.questionId, /^question-/u);
+  const chronologyQuestion = mapResult.map.questions[0]!;
+  assert.match(chronologyQuestion.questionId, /^software-chronology-question-/u);
+  assert.equal(chronologyQuestion.dateCritical, true);
+  assert.equal(chronologyQuestion.priority, "CRITICAL");
+  assert.deepEqual(chronologyQuestion.claimTypesExpected, ["OCCURRENCE", "DATE", "IDENTITY", "LOCATION"]);
+  assert.match(chronologyQuestion.text, /Apollo 11 Mission/u);
+  assert.match(chronologyQuestion.text, /1969 through 1969/u);
+  assert.doesNotMatch(chronologyQuestion.text, /1961|1970|Fictional/u);
   assert.ok(!mapResult.map.questions.some((question) => question.text.includes("invented")));
   for (const phase of mapResult.map.phases) {
     assert.ok(mapResult.map.questions.some((question) => question.priority !== "SUPPORTING" && question.phaseIds.includes(phase.phaseId)), `missing question coverage for phase ${phase.label}`);
@@ -58,11 +65,54 @@ test("Research Map and Query Plan structured stages bind exact locked scope and 
   for (const dimension of mapResult.map.dimensions) {
     assert.ok(mapResult.map.questions.some((question) => question.dimensionIds.includes(dimension.dimensionId)), `missing question coverage for dimension ${dimension.label}`);
   }
-  const query = { queries: [{ researchQuestionNumbers: [1], intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["United States"], providerQuery: "Apollo 11 NASA mission history", budgetUnits: 1 }] };
+  const query = { queries: Array.from({ length: 6 }, (_, index) => ({ researchQuestionNumbers: [Math.min(index + 1, mapResult.map.questions.length)], intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["United States"], providerQuery: `Apollo 11 NASA mission history ${index + 1}`, budgetUnits: 1 })) };
   const planResult = await generateQueryPlan({ context: TEST_CONTEXT, scope, map: mapResult.map, provider: providerFrom([JSON.stringify(query)]) });
-  assert.equal(planResult.plan.queries.length, 1);
+  assert.equal(planResult.plan.queries.length, 5);
   assert.equal(planResult.plan.queries[0]!.role, "ORIENTATION");
+  assert.match(planResult.plan.queries[0]!.queryId, /^software-chronology-query-/u);
+  assert.deepEqual(planResult.plan.queries[0]!.researchQuestionIds, [chronologyQuestion.questionId]);
+  assert.equal(planResult.plan.queries.filter((item) => item.role === "PHASE_DIMENSION").length, 3);
+  assert.equal(planResult.plan.queries.filter((item) => item.role === "AUTHORITY_TARGETED").length, 1);
+  assert.equal(planResult.plan.budget.maximumGroundingCalls, scope.researchBudget.maximumGroundingCalls);
   assert.equal(planResult.plan.scopeContractId, scope.scopeContractId);
+});
+
+test("Software chronology coverage is stable, locked-scope-derived, and cannot be replaced by model output", async () => {
+  const scope = scopeFixture({
+    title: "A Locked Historical Subject",
+    chronologyStart: { ...date(1901, "YEAR"), label: "1901" },
+    chronologyEnd: { ...date(1905, "YEAR"), label: "1905" },
+    contextBefore: { ...date(1800, "YEAR"), label: "1800" },
+    contextAfter: { ...date(2000, "YEAR"), label: "2000" }
+  });
+  const first = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
+  const chronology = first.map.questions.find((question) => question.questionId.startsWith("software-chronology-question-"))!;
+  const replacementAttempt = {
+    questions: [{ text: chronology.text, phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["Model authority"], languages: ["en"], geography: ["Outside locked geography"], contested: true, dateCritical: false, priority: "SUPPORTING" }]
+  };
+  const second = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(replacementAttempt)]) });
+  const chronologyQuestions = second.map.questions.filter((question) => question.questionId.startsWith("software-chronology-question-"));
+  assert.equal(chronologyQuestions.length, 1);
+  assert.equal(chronologyQuestions[0]!.questionId, chronology.questionId);
+  assert.equal(chronologyQuestions[0]!.dateCritical, true);
+  assert.equal(chronologyQuestions[0]!.priority, "CRITICAL");
+  assert.match(chronologyQuestions[0]!.text, /1901 through 1905/u);
+  assert.doesNotMatch(chronologyQuestions[0]!.text, /1800|2000|Outside locked geography|Model authority/u);
+});
+
+test("Every chronological TiMELiNES topic class receives the software-owned minimum chronology path", async () => {
+  const classes = ["CLOSED_EPISODE", "BIOGRAPHY", "INSTITUTION", "LONG_DURATION", "ONGOING_SUBJECT"] as const;
+  for (const topicClass of classes) {
+    const ongoing = topicClass === "ONGOING_SUBJECT";
+    const scope = scopeFixture({ topicClass, chronologyEnd: ongoing ? null : date(1969, "YEAR"), ongoingAsOf: ongoing ? "2026-09-06" : null });
+    const map = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
+    const chronology = map.map.questions.filter((question) => question.questionId.startsWith("software-chronology-question-"));
+    assert.equal(chronology.length, 1, `missing chronology question for ${topicClass}`);
+    const plan = await generateQueryPlan({ context: TEST_CONTEXT, scope, map: map.map, provider: providerFrom([JSON.stringify({ queries: [{ researchQuestionNumbers: [2], intendedSourceClass: "SCHOLARLY_SECONDARY", aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["United States"], providerQuery: `model breadth ${topicClass}`, budgetUnits: 1 }] })]) });
+    assert.equal(plan.plan.queries[0]!.role, "ORIENTATION");
+    assert.match(plan.plan.queries[0]!.queryId, /^software-chronology-query-/u);
+    assert.equal(plan.plan.queries.length, 2);
+  }
 });
 
 test("Grounding contract persists provider queries, chunks, exact attributed spans, and rejects unattributable prose", async () => {
