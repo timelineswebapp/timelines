@@ -69,7 +69,11 @@ export const V2_CORPUS_COLLECTIONS = [
   "v2AuditRecords",
   "v2TopicOperations",
   "v2ReconnaissanceRecords",
-  "v2AcquisitionDiscoveries"
+  "v2AcquisitionDiscoveries",
+  "v2RankedCandidateSets",
+  "v2CoverageCells",
+  "v2TimelineViewSpecifications",
+  "v2TimelineEventMemberships"
 ] as const;
 
 export type V2CorpusCollectionName = (typeof V2_CORPUS_COLLECTIONS)[number];

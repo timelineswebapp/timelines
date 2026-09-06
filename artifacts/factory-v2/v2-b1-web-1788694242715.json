@@ -1,0 +1,108 @@
+{
+  "goal": "TL-KF-V2-B",
+  "gate": "B1_SELECTION_ENGINE",
+  "fixture": "The History of the World Wide Web",
+  "status": "FAIL",
+  "sourceKnowledgeRunId": "8b40de60-ad95-4d74-886c-1ffb0e1e585d",
+  "runId": "v2-b1-web-8517ffba-2260-41fd-8537-f7f1a3ada8cc",
+  "selectionArtifactId": "selection-591d5974133090090b1de9f8bfd31c64eee188fb8f9a66fb2e74d983267ab909",
+  "selectionModelExecutionId": "selection-execution-93237350cae7e58b6dd3299d6a747fb69dc9addd19f1dd24e8385f681da33aea",
+  "candidateCount": 11,
+  "eligibleCount": 11,
+  "selectedCount": 8,
+  "coverage": {
+    "requiredPhaseIds": [
+      "phase-e0cf1371f66924721662a3b0c29a6c99cf6eba83e2359d92f662096a4374c6ac",
+      "phase-6fccd79fc5208c12280f33bf1d23f43970c18ff49ed333bcf0803a67d010ca02",
+      "phase-08b5d0a032c15f8c18f9f9dee3d3cbc7cf6c0c9e83483d5ec75104e0da499d54",
+      "phase-fbb3849428118bb8c696e985a981e0927e253601f09837e4e532491ea743a4b8",
+      "phase-ba3bc90ddefd4611344f38dd31f1fd91ee9f24e3254786998154498a3b152c38"
+    ],
+    "coveredPhaseIds": [
+      "phase-e0cf1371f66924721662a3b0c29a6c99cf6eba83e2359d92f662096a4374c6ac",
+      "phase-6fccd79fc5208c12280f33bf1d23f43970c18ff49ed333bcf0803a67d010ca02"
+    ],
+    "missingPhaseIds": [
+      "phase-08b5d0a032c15f8c18f9f9dee3d3cbc7cf6c0c9e83483d5ec75104e0da499d54",
+      "phase-fbb3849428118bb8c696e985a981e0927e253601f09837e4e532491ea743a4b8",
+      "phase-ba3bc90ddefd4611344f38dd31f1fd91ee9f24e3254786998154498a3b152c38"
+    ],
+    "requiredDimensionIds": [
+      "dimension-192897bbb49fd7721fb1254984f7de884f3850df8adcf73e094809cf724802d0",
+      "dimension-2d68b13db5617f6afd4c08d05d9de3b4fa404e85f6c3e599ab3ce3ba58e8804a",
+      "dimension-88958756bc60a8190e05b248a984b297ec07d85cdaa1b527b56abdaab9071175",
+      "dimension-e7e956d1b629fab67865369eccdb16a5d56ae79bed516bfa142fd46f29ef66ef",
+      "dimension-d0281bcf9bbfa381fa6358f8678aa417dbf7e8759ddb3c878de777c531fd60f2"
+    ],
+    "coveredDimensionIds": [
+      "dimension-192897bbb49fd7721fb1254984f7de884f3850df8adcf73e094809cf724802d0",
+      "dimension-2d68b13db5617f6afd4c08d05d9de3b4fa404e85f6c3e599ab3ce3ba58e8804a",
+      "dimension-88958756bc60a8190e05b248a984b297ec07d85cdaa1b527b56abdaab9071175",
+      "dimension-e7e956d1b629fab67865369eccdb16a5d56ae79bed516bfa142fd46f29ef66ef",
+      "dimension-d0281bcf9bbfa381fa6358f8678aa417dbf7e8759ddb3c878de777c531fd60f2"
+    ],
+    "missingDimensionIds": []
+  },
+  "temporalDiagnostics": [
+    {
+      "code": "ONGOING_TOPIC_STALENESS",
+      "blocking": true,
+      "rationale": "The latest selected event is from 1994, more than five years before the locked ongoing-as-of year 2026.",
+      "eventVersionIds": [
+        "event-version-54a52ce1757f36078ec99414ea4e63ed0bfa64041afe1fad65f3b7aa089b83cf",
+        "event-version-c69b0272958d00f03182703db734af4665ef25bc21730dbf92b026a539c6520b",
+        "event-version-0c72e8f17a337ae2de5c4cd9d395d43ec48a33ace0b46a4aaba3622f75473c43",
+        "event-version-7fc889b1904bbbfb7a5b27508d5fbc8ce71ef9a12844612c4951dd4efe939982",
+        "event-version-589eaa81049473e551a12a2b52f0aa285c531b5512fed74495ece25ced9f8a65",
+        "event-version-85433168942f4e3d8fafccc2bdc2d1592db9dc31cb3c3f017045422e04bc5624",
+        "event-version-bd34f2edfeaf3a92bd839ac394df86a807c61d3791f112442a3ffd917cb9604b",
+        "event-version-c6f9e1101cb1df1262d765855a9f993fbf372dec28151c625cfc5fad838a5b07"
+      ]
+    },
+    {
+      "code": "EXTREME_EARLY_CONCENTRATION",
+      "blocking": true,
+      "rationale": "8 of 8 selected events fall in the first third of the locked ongoing chronology; this is an editorial warning, not an equal-time quota.",
+      "eventVersionIds": [
+        "event-version-54a52ce1757f36078ec99414ea4e63ed0bfa64041afe1fad65f3b7aa089b83cf",
+        "event-version-c69b0272958d00f03182703db734af4665ef25bc21730dbf92b026a539c6520b",
+        "event-version-0c72e8f17a337ae2de5c4cd9d395d43ec48a33ace0b46a4aaba3622f75473c43",
+        "event-version-7fc889b1904bbbfb7a5b27508d5fbc8ce71ef9a12844612c4951dd4efe939982",
+        "event-version-589eaa81049473e551a12a2b52f0aa285c531b5512fed74495ece25ced9f8a65",
+        "event-version-85433168942f4e3d8fafccc2bdc2d1592db9dc31cb3c3f017045422e04bc5624",
+        "event-version-bd34f2edfeaf3a92bd839ac394df86a807c61d3791f112442a3ffd917cb9604b",
+        "event-version-c6f9e1101cb1df1262d765855a9f993fbf372dec28151c625cfc5fad838a5b07"
+      ]
+    }
+  ],
+  "failureCodes": [
+    "COVERAGE_GAP_MATERIAL",
+    "MATERIAL_OMISSION_UNRESOLVED"
+  ],
+  "gateChecks": {
+    "verifiedCandidatePoolPreserved": true,
+    "selectedCountWithinSixAndTwenty": true,
+    "historicallyMeaningfulRequiredPhasesRepresented": false,
+    "noArtificialEqualTimeQuota": true,
+    "noSilentScopeExpansion": true,
+    "noNonEventChronologyEntries": true,
+    "selectionRationaleExists": true,
+    "noMajorKnownPhaseOmittedWithoutRationale": false,
+    "selectionArtifactPasses": false
+  },
+  "metrics": {
+    "selectionMs": 60463,
+    "selectionModelCalls": 1,
+    "inputTokens": 8237,
+    "outputTokens": 8331,
+    "firestoreWrites": 2,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "productionBoundary": {
+    "executionMode": "SHADOW",
+    "publicationEligible": false,
+    "governanceSubmissionAllowed": false,
+    "autonomousDiscoveryEnabled": false
+  }
+}
