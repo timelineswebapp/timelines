@@ -1,11 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assessEditorialPlan, assessTimelineQuality, classifyOmission, inferLegacyCandidateSemanticType, normalizeGeneratedTimeline, selectV3Chronology, upgradeLegacyPlanForV3 } from "./quality";
+import { assessEditorialPlan, assessTimelineQuality, classifyOmission, editorialScopesMatch, inferLegacyCandidateSemanticType, normalizeGeneratedTimeline, selectV3Chronology, upgradeLegacyPlanForV3 } from "./quality";
 import { evaluateRoutinePolicy } from "./pipeline";
+import type { ReaderEditorialAssessment } from "./editorial-reader";
 import { SOURCE_AUTHORITY_POLICY_VERSION, type SourceAuthorityAssessment } from "./source-authority";
 import type { GeneratedTimeline, TimelineEditorialPlan } from "./schemas";
 
 const significance = { consequence: 5, structuralChange: 4, innovation: 4, adoption: 4, institutionalImportance: 4, socialImpact: 4, persistence: 5 };
+
+function applyEditorialContract(plan: TimelineEditorialPlan, subjectClass: NonNullable<TimelineEditorialPlan["scope"]["subjectClass"]>) {
+  Object.assign(plan.scope, {
+    subjectClass,
+    titlePromise: `A bounded account that explains the material historical development of ${plan.scope.topic}.`,
+    inclusionRules: ["Include only trajectory-changing events within the declared subject and temporal scope."],
+    exclusionRules: ["Exclude remote context, later legacy, redundant developments, and famous but peripheral events."],
+    openingCriterion: "The opening milestone establishes the first material change inside the declared scope.",
+    terminalCriterion: plan.scope.isOngoing ? "The terminal milestone establishes the latest material present-state transition." : "The terminal milestone establishes the historically meaningful endpoint.",
+    selectedSetRationale: "The selected milestones are the smallest supported set that preserves the opening, turning points, major developments, and endpoint."
+  });
+  plan.candidates.forEach((candidate, index) => Object.assign(candidate, {
+    editorialClass: index === 0 || index === 2 || index === plan.candidates.length - 1 ? "ESSENTIAL" : "MAJOR",
+    narrativeRole: index === 0 ? "OPENING" : index === 2 ? "TURNING_POINT" : index === plan.candidates.length - 1 ? "TERMINAL" : "MAJOR_DEVELOPMENT",
+    selectionRationale: "This milestone is necessary to explain a material change in the subject's historical trajectory."
+  }));
+  return plan;
+}
 
 function fixture(input: { topic: string; type: TimelineEditorialPlan["scope"]["topicType"]; ongoing: boolean; start: number; end: number | null; eras: Array<{ id: string; start: number; end: number }>; events: Array<{ year: number; title: string; era: string }> }) {
   const plan: TimelineEditorialPlan = {
@@ -134,7 +153,12 @@ test("Governance routes failed editorial quality to human review and accepts a p
     sourceDiversity: { publisherCount: 2, sourceTypeCount: 2, primarySourceCount: 1, secondarySourceCount: 1, wikipediaSourceCount: 0, geographicContextCount: 2 },
     conflictFindings: [], unresolvedSourceIssues: [], policyLimitations: [], overallVerdict: "passed"
   } as SourceAuthorityAssessment;
-  assert.equal(evaluateRoutinePolicy(value.timeline, sources, quality, sourceAuthority).outcome, "routine");
+  const readerEditorial: ReaderEditorialAssessment = {
+    policyVersion: "reader-editorial-v1", verdict: "passed", criteria: [], findings: [], informedReaderVerdict: "publication_worthy",
+    summary: "The informed reader assessment found the complete historical product publication-worthy.", unresolvedReasons: []
+  };
+  assert.equal(evaluateRoutinePolicy(value.timeline, sources, quality, sourceAuthority, readerEditorial).outcome, "routine");
+  assert.match(evaluateRoutinePolicy(value.timeline, sources, quality, sourceAuthority).reasons.join(" "), /reader_editorial:missing_assessment/);
   assert.match(evaluateRoutinePolicy(value.timeline, sources, quality).reasons.join(" "), /missing_v2_assessment/);
   const failedQuality = { ...quality, verdict: "failed" as const, unresolvedReasons: ["eraCoverage:missing modern era"] };
   const decision = evaluateRoutinePolicy(value.timeline, sources, failedQuality, sourceAuthority);
@@ -240,4 +264,72 @@ test("same-day event order remains stable without fabricated clock times", () =>
   const events = ["Günter Schabowski press conference", "Berlin Wall opens"].map((title) => ({ date: "November 9, 1989", datePrecision: "day" as const, sortYear: 1989, sortMonth: 11, sortDay: 9, title, description: `A discrete Berlin historical event with enough detail for chronology: ${title}.`, evidenceSummary: "Grounded evidence establishes the same calendar day but no fabricated clock time.", importance: 5, location: "Berlin", sourceRefs: ["source-1"], evidenceRefs: ["evidence-1"], tags: ["Berlin"] }));
   const normalized = normalizeGeneratedTimeline({ title: "Berlin Wall Same-Day Regression", description: "A regression timeline preserving evidence-backed same-day order without inventing unsupported clock times.", category: "History", tags: ["Berlin", "history"], events: [...events, ...[1985, 1986, 1987, 1988].map((year, index) => ({ ...events[0]!, date: String(year), datePrecision: "year" as const, sortYear: year, sortMonth: null, sortDay: null, title: `Earlier event ${index + 1}` }))] }, [{ evidenceRef: "evidence-1", exactEvidence: "Grounded evidence supporting the event and its calendar-date chronology.", sourceRefs: ["source-1"], startIndex: null, endIndex: null }]);
   assert.deepEqual(normalized.events.slice(-2).map((event) => event.title), ["Günter Schabowski press conference", "Berlin Wall opens"]);
+});
+
+test("explicit editorial contract requires opening, turning point, terminal, and every essential milestone", () => {
+  const value = fixture({ topic: "A Bounded Conflict", type: "closed_episode", ongoing: false, start: 1950, end: 1955,
+    eras: [{ id: "opening", start: 1950, end: 1951 }, { id: "turning", start: 1952, end: 1953 }, { id: "closing", start: 1954, end: 1955 }],
+    events: [
+      { year: 1950, title: "Conflict begins", era: "opening" }, { year: 1951, title: "Initial campaign changes", era: "opening" },
+      { year: 1952, title: "Decisive turning point", era: "turning" }, { year: 1953, title: "Negotiations begin", era: "turning" },
+      { year: 1954, title: "Settlement framework is agreed", era: "closing" }, { year: 1955, title: "Settlement is implemented", era: "closing" },
+      { year: 1955, title: "Conflict reaches its terminal boundary", era: "closing" }
+    ] });
+  Object.assign(value.plan.scope, {
+    subjectClass: "conflict", titlePromise: "A bounded account of the conflict from outbreak through its historically meaningful settlement.",
+    inclusionRules: ["Include events that materially change the conflict trajectory."], exclusionRules: ["Exclude remote precursors and long-term legacy."],
+    openingCriterion: "The first armed or authoritative initiating event opens the chronology.", terminalCriterion: "The settlement that ends the bounded conflict closes the chronology.",
+    selectedSetRationale: "Six milestones are the smallest supported set that preserves the opening, central turn, negotiations, and settlement."
+  });
+  value.plan.candidates.forEach((candidate, index) => Object.assign(candidate, {
+    editorialClass: index === 0 || index === 2 || index === 6 ? "ESSENTIAL" : "MAJOR",
+    narrativeRole: index === 0 ? "OPENING" : index === 2 ? "TURNING_POINT" : index === 6 ? "TERMINAL" : "MAJOR_DEVELOPMENT",
+    selectionRationale: "This milestone is necessary to explain the conflict's material historical progression."
+  }));
+  assert.equal(assessEditorialPlan({ plan: value.plan, allowedSourceRefs: new Set(["source-1"]), allowedEvidenceRefs: new Set(["evidence-1"]), currentYear: 2026 }).length, 0);
+  value.plan.candidates[2]!.selected = false;
+  value.plan.candidates[2]!.rejectionReason = "Excluded to reproduce an invalid omission of an essential turning point.";
+  const reasons = assessEditorialPlan({ plan: value.plan, allowedSourceRefs: new Set(["source-1"]), allowedEvidenceRefs: new Set(["evidence-1"]), currentYear: 2026 });
+  assert.match(reasons.join("\n"), /no selected TURNING_POINT/);
+  assert.match(reasons.join("\n"), /ESSENTIAL candidate/);
+});
+
+test("heterogeneous editorial excellence corpus covers every required temporal and subject structure", () => {
+  const cases: Array<{ topic: string; type: TimelineEditorialPlan["scope"]["topicType"]; subjectClass: NonNullable<TimelineEditorialPlan["scope"]["subjectClass"]>; ongoing: boolean; start: number; end: number | null }> = [
+    { topic: "The Apollo 13 Mission", type: "closed_episode", subjectClass: "episode", ongoing: false, start: 1970, end: 1970 },
+    { topic: "The Cuban Missile Crisis", type: "closed_episode", subjectClass: "conflict", ongoing: false, start: 1962, end: 1962 },
+    { topic: "The Life of Marie Curie", type: "biography", subjectClass: "biography", ongoing: false, start: 1867, end: 1934 },
+    { topic: "The United Nations", type: "institution", subjectClass: "institution", ongoing: true, start: 1945, end: null },
+    { topic: "The World Wide Web", type: "ongoing_subject", subjectClass: "technology", ongoing: true, start: 1989, end: null },
+    { topic: "The Development of Germ Theory", type: "long_duration", subjectClass: "scientific_development", ongoing: false, start: 1546, end: 1890 },
+    { topic: "The Enlightenment", type: "long_duration", subjectClass: "cultural_intellectual_movement", ongoing: false, start: 1650, end: 1800 },
+    { topic: "The Printing Press", type: "long_duration", subjectClass: "long_duration_subject", ongoing: false, start: 1440, end: 1600 },
+    { topic: "Human Spaceflight", type: "ongoing_subject", subjectClass: "ongoing_subject", ongoing: true, start: 1961, end: null }
+  ];
+  for (const item of cases) {
+    const effectiveEnd = item.end ?? 2026;
+    const span = effectiveEnd - item.start;
+    const years = Array.from({ length: 6 }, (_, index) => Math.round(item.start + span * index / 5));
+    const eraOneEnd = years[1]!;
+    const eraTwoEnd = years[3]!;
+    const value = fixture({ topic: item.topic, type: item.type, ongoing: item.ongoing, start: item.start, end: item.end,
+      eras: [{ id: "opening", start: item.start, end: eraOneEnd }, { id: "development", start: years[2]!, end: eraTwoEnd }, { id: "maturity", start: years[4]!, end: effectiveEnd }],
+      events: years.map((year, index) => ({ year, title: `${item.topic} material milestone ${index + 1}`, era: index < 2 ? "opening" : index < 4 ? "development" : "maturity" })) });
+    applyEditorialContract(value.plan, item.subjectClass);
+    const assessment = assessTimelineQuality({ plan: value.plan, timeline: value.timeline, allowedSourceRefs: new Set(["source-1"]), allowedEvidenceRefs: new Set(["evidence-1"]), currentYear: 2026 });
+    assert.equal(assessment.verdict, "passed", `${item.topic}: ${assessment.unresolvedReasons.join("\n")}`);
+  }
+});
+
+test("bounded repair cannot silently broaden or narrow the accepted editorial scope", () => {
+  const value = fixture({ topic: "A Locked Crisis", type: "closed_episode", ongoing: false, start: 1962, end: 1962,
+    eras: [{ id: "opening", start: 1962, end: 1962 }, { id: "turning", start: 1962, end: 1962 }, { id: "closing", start: 1962, end: 1962 }],
+    events: Array.from({ length: 6 }, (_, index) => ({ year: 1962, title: `Locked event ${index + 1}`, era: index < 2 ? "opening" : index < 4 ? "turning" : "closing" })) });
+  applyEditorialContract(value.plan, "conflict");
+  const reordered = JSON.parse(JSON.stringify(value.plan.scope)) as TimelineEditorialPlan["scope"];
+  assert.equal(editorialScopesMatch(value.plan.scope, reordered), true);
+  const broadened = { ...reordered, endBoundary: "Long-term aftermath", endYear: 2000 };
+  assert.equal(editorialScopesMatch(value.plan.scope, broadened), false);
+  const reclassified = { ...reordered, subjectClass: "long_duration_subject" as const };
+  assert.equal(editorialScopesMatch(value.plan.scope, reclassified), false);
 });

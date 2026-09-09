@@ -161,6 +161,9 @@ test("serverless implementation retains institutional separation and bounded exe
   assert.match(vertex, /normalizeGeneratedTimeline/);
   assert.match(vertex, /timelineEditorialPlanSchema\.parse/);
   assert.match(pipeline, /qualityArtifactRef/);
+  assert.match(pipeline, /readerEditorialArtifactRef/);
+  assert.match(pipeline, /readerEditorialVerdict !== "passed"/);
+  assert.match(pipeline, /Reader editorial artifact lineage is missing, stale, non-passing, or corrupted/);
   assert.match(pipeline, /sourceAuthorityArtifactRef/);
   assert.match(pipeline, /sourceAuthorityVerdict !== "passed"/);
   assert.match(pipeline, /Candidate and Source Authority snapshot lineage do not match/);

@@ -167,7 +167,14 @@ export const timelineScopePlanSchema = z.object({
     rationale: boundedText(20, 500)
   })).min(2).max(16),
   selectionPrinciples: z.array(boundedText(10, 400)).min(2).max(12),
-  knownCoverageRisks: z.array(boundedText(10, 500)).max(12)
+  knownCoverageRisks: z.array(boundedText(10, 500)).max(12),
+  subjectClass: z.enum(["episode", "conflict", "biography", "institution", "technology", "scientific_development", "cultural_intellectual_movement", "long_duration_subject", "ongoing_subject"]).optional(),
+  titlePromise: boundedText(30, 800).optional(),
+  inclusionRules: z.array(boundedText(10, 400)).min(1).max(12).optional(),
+  exclusionRules: z.array(boundedText(10, 400)).min(1).max(12).optional(),
+  openingCriterion: boundedText(20, 600).optional(),
+  terminalCriterion: boundedText(20, 600).optional(),
+  selectedSetRationale: boundedText(30, 1000).optional()
 });
 
 export const timelineCandidateSchema = z.object({
@@ -179,6 +186,9 @@ export const timelineCandidateSchema = z.object({
   sortMonth: z.number().int().min(1).max(12).nullable(),
   sortDay: z.number().int().min(1).max(31).nullable(),
   semanticType: z.enum(["EVENT", "STATE_LEGACY", "CONTEXT", "FUTURE"]),
+  editorialClass: z.enum(["ESSENTIAL", "MAJOR", "SUPPORTING", "EXCLUDE"]).optional(),
+  narrativeRole: z.enum(["OPENING", "TURNING_POINT", "MAJOR_DEVELOPMENT", "TERMINAL", "SUPPORTING", "CONTEXTUAL"]).optional(),
+  selectionRationale: boundedText(20, 800).optional(),
   eraIds: z.array(boundedText(2, 80)).min(1).max(4),
   dimensionIds: z.array(boundedText(2, 80)).min(1).max(8),
   significance: z.object({
@@ -257,6 +267,59 @@ export const timelineEditorialPlanSchema = z.object({
   }
 });
 
+export const READER_EDITORIAL_CRITERIA = [
+  "scope_fidelity",
+  "chronological_intelligibility",
+  "milestone_significance",
+  "narrative_progression",
+  "omission_severity",
+  "redundancy",
+  "temporal_balance",
+  "title_summary_fidelity",
+  "publication_worthiness"
+] as const;
+
+export const READER_EDITORIAL_FINDING_CODES = [
+  "SCOPE_DRIFT",
+  "CHRONOLOGY_UNCLEAR",
+  "INSIGNIFICANT_MILESTONE",
+  "NARRATIVE_DISCONTINUITY",
+  "MATERIAL_OMISSION",
+  "SUBSTANTIVE_REDUNDANCY",
+  "TEMPORAL_IMBALANCE",
+  "TITLE_SUMMARY_MISMATCH",
+  "NOT_PUBLICATION_WORTHY"
+] as const;
+
+export const readerEditorialCriterionSchema = z.enum(READER_EDITORIAL_CRITERIA);
+
+export const readerEditorialReviewSchema = z.object({
+  criteria: z.array(z.object({
+    criterion: readerEditorialCriterionSchema,
+    verdict: z.enum(["passed", "failed"]),
+    rationale: boundedText(20, 1200)
+  }).strict()).length(9),
+  findings: z.array(z.object({
+    code: z.enum(READER_EDITORIAL_FINDING_CODES),
+    severity: z.enum(["material", "minor"]),
+    eventTitles: z.array(boundedText(3, 240)).max(20),
+    rationale: boundedText(20, 1200)
+  }).strict()).max(30),
+  informedReaderVerdict: z.enum(["publication_worthy", "not_publication_worthy"]),
+  summary: boundedText(40, 1600)
+}).strict().superRefine((review, context) => {
+  const expected = readerEditorialCriterionSchema.options;
+  const received = review.criteria.map((criterion) => criterion.criterion);
+  if (new Set(received).size !== expected.length || expected.some((criterion) => !received.includes(criterion))) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["criteria"], message: "Reader review must assess every criterion exactly once." });
+  }
+  const hasMaterialFinding = review.findings.some((finding) => finding.severity === "material");
+  const hasFailedCriterion = review.criteria.some((criterion) => criterion.verdict === "failed");
+  if (review.informedReaderVerdict === "publication_worthy" && (hasMaterialFinding || hasFailedCriterion)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["informedReaderVerdict"], message: "Publication-worthy verdict cannot coexist with a failed criterion or material finding." });
+  }
+});
+
 export const discoverySchema = z.object({
   candidates: z.array(z.object({
     title: boundedText(3, 120),
@@ -271,5 +334,6 @@ export type GeneratedTimeline = z.infer<typeof generatedTimelineSchema>;
 export type TimelineScopePlan = z.infer<typeof timelineScopePlanSchema>;
 export type TimelineEditorialPlan = z.infer<typeof timelineEditorialPlanSchema>;
 export type TimelineCandidate = z.infer<typeof timelineCandidateSchema>;
+export type ReaderEditorialReview = z.infer<typeof readerEditorialReviewSchema>;
 export type SourceCandidate = z.infer<typeof sourceCandidateSchema>;
 export type GroundedEvidenceSegment = z.infer<typeof groundedEvidenceSegmentSchema>;

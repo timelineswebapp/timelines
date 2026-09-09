@@ -44,6 +44,7 @@ export type TimelineQualityAssessment = {
     selectionIntegrity: QualityCheck;
     eventSemantics: QualityCheck;
     datePrecision: QualityCheck;
+    editorialContract: QualityCheck;
   };
   eraDistribution: Record<string, number>;
   eventDistribution: Record<string, number>;
@@ -52,6 +53,16 @@ export type TimelineQualityAssessment = {
 };
 
 type TemporalPoint = { sortYear: number; sortMonth: number | null; sortDay: number | null };
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") return `{${Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+
+export function editorialScopesMatch(left: TimelineEditorialPlan["scope"], right: TimelineEditorialPlan["scope"]): boolean {
+  return canonicalJson(left) === canonicalJson(right);
+}
 
 function interval(value: TemporalPoint) {
   const startMonth = value.sortMonth ?? 1;
@@ -204,6 +215,21 @@ export function assessEditorialPlan(input: {
   const eraCounts = new Map([...knownEras].map((eraId) => [eraId, 0]));
   const representedEras = new Set<string>();
   const reasons: string[] = [];
+  const hasEditorialContract = typeof plan.scope.subjectClass === "string";
+  if (hasEditorialContract) {
+    const opening = selected.filter((candidate) => candidate.narrativeRole === "OPENING");
+    const terminal = selected.filter((candidate) => candidate.narrativeRole === "TERMINAL");
+    if (opening.length !== 1) reasons.push(`scope: explicit editorial contract requires exactly one selected OPENING milestone; received ${opening.length}.`);
+    if (terminal.length !== 1) reasons.push(`scope: explicit editorial contract requires exactly one selected TERMINAL milestone; received ${terminal.length}.`);
+    if (selected.length >= 6 && !selected.some((candidate) => candidate.narrativeRole === "TURNING_POINT")) reasons.push("omissions: explicit editorial contract has no selected TURNING_POINT milestone.");
+    for (const candidate of selected) {
+      if (candidate.editorialClass === "EXCLUDE") reasons.push(`selectionIntegrity: selected ${candidate.candidateId} is editorially classified EXCLUDE.`);
+      if (candidate.narrativeRole === "CONTEXTUAL") reasons.push(`eventSemantics: selected ${candidate.candidateId} has a CONTEXTUAL narrative role.`);
+    }
+    for (const candidate of plan.candidates.filter((candidate) => !candidate.selected && candidate.editorialClass === "ESSENTIAL")) {
+      reasons.push(`omissions: ESSENTIAL candidate ${candidate.candidateId} is absent from the selected chronology.`);
+    }
+  }
   if (selected.length < 6 || selected.length > 20) reasons.push(`selectionIntegrity: selected ${selected.length} events; supported range is 6-20.`);
   for (const candidate of selected) if (candidate.semanticType !== "EVENT") reasons.push(`eventSemantics: selected ${candidate.candidateId} is ${candidate.semanticType}; only EVENT is chronology-eligible.`);
   for (const reason of closedBoundaryReasons(plan, selected)) reasons.push(`datePrecision: ${reason}`);
@@ -341,6 +367,12 @@ export function assessTimelineQuality(input: {
 }): TimelineQualityAssessment {
   const plan = timelineEditorialPlanSchema.parse(input.plan);
   const currentYear = input.currentYear ?? new Date().getUTCFullYear();
+  const editorialContractReasons = assessEditorialPlan({
+    plan,
+    allowedSourceRefs: input.allowedSourceRefs,
+    allowedEvidenceRefs: input.allowedEvidenceRefs,
+    currentYear
+  });
   const selected = plan.candidates.filter((candidate) => candidate.selected);
   const eraIds = new Set(plan.scope.majorEras.map((era) => era.eraId));
   const dimensionIds = new Set(plan.scope.majorDimensions.map((dimension) => dimension.dimensionId));
@@ -431,7 +463,10 @@ export function assessTimelineQuality(input: {
     eventSemantics: semanticReasons.length === 0 ? passed(["Every selected chronology item is an EVENT."]) : failed(semanticReasons),
     datePrecision: precisionMismatchReasons.length === 0 && closedPrecisionReasons.length === 0
       ? passed(["Date precision is preserved and closed-episode events are contained within actual boundaries."])
-      : failed([...precisionMismatchReasons, ...closedPrecisionReasons])
+      : failed([...precisionMismatchReasons, ...closedPrecisionReasons]),
+    editorialContract: editorialContractReasons.length === 0
+      ? passed(["The final plan preserves its explicit scope, editorial roles, essential milestones, and selected-set contract."])
+      : failed(editorialContractReasons)
   };
   const unresolvedReasons = Object.entries(checks).flatMap(([name, check]) => check.status === "failed" ? check.reasons.map((reason) => `${name}:${reason}`) : []);
   const eventDistribution: Record<string, number> = {};

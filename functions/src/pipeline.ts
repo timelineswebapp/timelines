@@ -18,6 +18,7 @@ import { generatedTimelineSchema, sourceCandidateSchema, timelineEditorialPlanSc
 import { groundedEvidenceSegmentSchema } from "./schemas";
 import { enqueueInstitutionalTask } from "./tasks";
 import { assessEditorialPlan, assessTimelineQuality, selectV3Chronology, upgradeLegacyPlanForV3, type TimelineQualityAssessment } from "./quality";
+import { assessReaderEditorialReview, READER_EDITORIAL_POLICY_VERSION, type ReaderEditorialAssessment } from "./editorial-reader";
 import {
   assessSourceAuthority,
   selectAuthoritativeEvidence,
@@ -26,6 +27,7 @@ import {
 } from "./source-authority";
 import {
   generateEditorialPlan,
+  generateReaderEditorialReview,
   generateStructuredTimeline,
   mergeResearchResults,
   researchAuthorityGaps,
@@ -50,6 +52,30 @@ function stableJson(value: unknown): string {
       .join(",")}}`;
   }
   return JSON.stringify(value);
+}
+
+async function persistReaderEditorialArtifact(
+  payload: TaskPayload,
+  assessment: ReaderEditorialAssessment,
+  execution: import("./vertex").VertexExecutionMetadata,
+  timelineObjectId: string
+) {
+  const artifactPayload = { ...assessment, candidateRef: timelineObjectId };
+  const artifactId = authorityId(payload.jobId, "reader-editorial", READER_EDITORIAL_POLICY_VERSION, hashValue(stableJson(artifactPayload)));
+  await createIfAbsent("qualityArtifacts", artifactId, {
+    qualityArtifactId: artifactId,
+    runId: payload.jobId,
+    topicId: payload.topicId,
+    objectRef: timelineObjectId,
+    artifactType: "reader_editorial_assessment",
+    policyVersion: READER_EDITORIAL_POLICY_VERSION,
+    payload: artifactPayload,
+    payloadHash: hashValue(stableJson(artifactPayload)),
+    modelProvenance: execution,
+    immutable: true,
+    createdAt: Timestamp.now()
+  });
+  return artifactId;
 }
 
 function authorityId(...parts: string[]) {
@@ -472,7 +498,8 @@ export function evaluateRoutinePolicy(
   timeline: GeneratedTimeline,
   sources: SourceCandidate[],
   quality: TimelineQualityAssessment,
-  sourceAuthority?: SourceAuthorityAssessment
+  sourceAuthority?: SourceAuthorityAssessment,
+  readerEditorial?: ReaderEditorialAssessment
 ) {
   const sourceIds = new Set(sources.map((source) => source.sourceId));
   const reasons: string[] = [];
@@ -483,6 +510,8 @@ export function evaluateRoutinePolicy(
     reasons.push("duplicate_milestone_signature");
   }
   if (quality.verdict !== "passed") reasons.push(...quality.unresolvedReasons.map((reason) => `timeline_quality:${reason}`));
+  if (!readerEditorial) reasons.push("reader_editorial:missing_assessment");
+  else if (readerEditorial.verdict !== "passed") reasons.push(...readerEditorial.unresolvedReasons);
   if (!sourceAuthority) reasons.push("source_authority:missing_v2_assessment");
   else if (sourceAuthority.overallVerdict !== "passed") {
     reasons.push(`source_authority:${sourceAuthority.overallVerdict}`);
@@ -490,7 +519,7 @@ export function evaluateRoutinePolicy(
     reasons.push(...sourceAuthority.conflictFindings.map((reason) => `source_authority_conflict:${reason}`));
   }
   return reasons.length === 0
-    ? { outcome: "routine" as const, reasons: ["Timeline Quality, claim-level Source Authority, evidence lineage, chronology, and duplicate gates passed."] }
+    ? { outcome: "routine" as const, reasons: ["Timeline Quality, reader-level editorial quality, claim-level Source Authority, evidence lineage, chronology, and duplicate gates passed."] }
     : { outcome: "exceptional" as const, reasons };
 }
 
@@ -547,11 +576,13 @@ async function createGovernancePackage(
   qualityArtifactId: string,
   sourceAuthority: SourceAuthorityAssessment,
   sourceAuthorityArtifactId: string,
-  sourceSnapshotId: string
+  sourceSnapshotId: string,
+  readerEditorial?: ReaderEditorialAssessment,
+  readerEditorialArtifactId?: string
 ) {
   const packageId = deterministicUuid(payload.jobId, "governance-package", GOVERNANCE_POLICY_VERSION);
   const queueId = authorityId(packageId, "publication-readiness-queue");
-  const policy = evaluateRoutinePolicy(timeline, sources, quality, sourceAuthority);
+  const policy = evaluateRoutinePolicy(timeline, sources, quality, sourceAuthority, readerEditorial);
   const now = Timestamp.now();
   await db.runTransaction(async (transaction) => {
     const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
@@ -575,6 +606,9 @@ async function createGovernancePackage(
         sourceAuthorityVerdict: sourceAuthority.overallVerdict,
         qualityPolicyVersion: quality.policyVersion,
         qualityVerdict: quality.verdict,
+        readerEditorialArtifactRef: readerEditorialArtifactId ?? null,
+        readerEditorialPolicyVersion: readerEditorial?.policyVersion ?? null,
+        readerEditorialVerdict: readerEditorial?.verdict ?? "failed",
         evidenceQuery: { topicId: payload.topicId, validationResult: "PASSED" },
         policyVersion: GOVERNANCE_POLICY_VERSION,
         policyEvaluation: policy,
@@ -619,7 +653,7 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
     let planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
     for (let planRepair = 1; planReasons.length > 0 && planRepair <= 2; planRepair += 1) {
       await setStage(payload, `editorial_plan_repair_${planRepair}`);
-      planResult = await generateEditorialPlan(lease.displayTitle, research, planReasons.join("\n"));
+      planResult = await generateEditorialPlan(lease.displayTitle, research, planReasons.join("\n"), planResult.plan.scope);
       planReasons = assessEditorialPlan({ plan: planResult.plan, allowedSourceRefs: new Set(research.sources.map((source) => source.sourceId)), allowedEvidenceRefs: new Set(research.evidenceSegments.map((segment) => segment.evidenceRef)) });
     }
     await setStage(payload, "editorial_intelligence");
@@ -632,7 +666,7 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
     });
     for (let editorialRepair = 1; assessment.verdict === "failed" && editorialRepair <= 2; editorialRepair += 1) {
       await setStage(payload, `editorial_quality_repair_${editorialRepair}`);
-      planResult = await generateEditorialPlan(lease.displayTitle, research, assessment.unresolvedReasons.join("\n"));
+      planResult = await generateEditorialPlan(lease.displayTitle, research, assessment.unresolvedReasons.join("\n"), planResult.plan.scope);
       generation = applyAuthorityEvidenceSelection(await generateStructuredTimeline(lease.displayTitle, research, planResult.plan), research);
       assessment = assessTimelineQuality({
         plan: planResult.plan,
@@ -684,6 +718,10 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
       sourceAuthority,
       authorityInput.research
     );
+    await setStage(payload, "reader_editorial_review");
+    const readerResult = await generateReaderEditorialReview(lease.displayTitle, planResult.plan, candidate.timeline);
+    const readerEditorial = assessReaderEditorialReview({ plan: planResult.plan, timeline: candidate.timeline, review: readerResult.review });
+    const readerEditorialArtifactId = await persistReaderEditorialArtifact(payload, readerEditorial, readerResult.execution, candidate.timelineObjectId);
     await setStage(payload, "governance_handoff");
     const governance = await createGovernancePackage(
       payload,
@@ -694,7 +732,9 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
       qualityArtifactId,
       sourceAuthority,
       sourceAuthorityArtifactId,
-      authorityInput.sourceSnapshotId
+      authorityInput.sourceSnapshotId,
+      readerEditorial,
+      readerEditorialArtifactId
     );
     if (governance.policy.outcome === "routine") {
       await enqueueInstitutionalTask({ ...payload, packageId: governance.packageId, decision: "routine" });
@@ -1127,6 +1167,9 @@ export async function reassessPersistedGeneration(payload: TaskPayload, priorQua
     sourceAuthority,
     research
   );
+  const readerResult = await generateReaderEditorialReview(plan.scope.topic, plan, timeline);
+  const readerEditorial = assessReaderEditorialReview({ plan, timeline, review: readerResult.review });
+  const readerEditorialArtifactId = await persistReaderEditorialArtifact(payload, readerEditorial, readerResult.execution, timelineObjectId);
   const governance = await createGovernancePackage(
     payload,
     timelineObjectId,
@@ -1136,7 +1179,9 @@ export async function reassessPersistedGeneration(payload: TaskPayload, priorQua
     qualityArtifactId,
     sourceAuthority,
     sourceAuthorityArtifactId,
-    resolvedResearch.sourceSnapshotId
+    resolvedResearch.sourceSnapshotId,
+    readerEditorial,
+    readerEditorialArtifactId
   );
   if (governance.policy.outcome !== "routine") return { status: "AWAITING_REVIEW" as const, assessment, qualityArtifactId, packageId: governance.packageId };
   await enqueueInstitutionalTask({ ...payload, packageId: governance.packageId, decision: "routine" });
@@ -1315,20 +1360,24 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
     packageData.policyVersion !== GOVERNANCE_POLICY_VERSION ||
     packageData.qualityVerdict !== "passed" ||
     packageData.qualityPolicyVersion !== QUALITY_POLICY_VERSION ||
+    packageData.readerEditorialVerdict !== "passed" ||
+    packageData.readerEditorialPolicyVersion !== READER_EDITORIAL_POLICY_VERSION ||
     packageData.sourceAuthorityVerdict !== "passed" ||
     packageData.sourceAuthorityPolicyVersion !== SOURCE_AUTHORITY_POLICY_VERSION ||
     typeof packageData.sourceAuthorityArtifactRef !== "string" ||
     typeof packageData.qualityArtifactRef !== "string" ||
+    typeof packageData.readerEditorialArtifactRef !== "string" ||
     typeof packageData.sourceSnapshotRef !== "string"
-  ) throw new Error("Governance package lacks a passing current Source Authority V2 verdict.");
+  ) throw new Error("Governance package lacks current passing Timeline Quality, Reader Editorial, or Source Authority verdicts.");
   const candidateDocument = candidateQuery.docs[0]!;
   if (!Array.isArray(packageData.factoryObjectRefs) || !packageData.factoryObjectRefs.includes(candidateDocument.id)) {
     throw new Error("Governance package does not reference the candidate timeline object.");
   }
   const timeline = generatedTimelineSchema.parse(candidateDocument.data().payload);
-  const [sourceAuthorityArtifact, qualityArtifact, research] = await Promise.all([
+  const [sourceAuthorityArtifact, qualityArtifact, readerEditorialArtifact, research] = await Promise.all([
     corpusCollection("sourceAuthorityArtifacts").doc(packageData.sourceAuthorityArtifactRef).get(),
     corpusCollection("qualityArtifacts").doc(packageData.qualityArtifactRef).get(),
+    corpusCollection("qualityArtifacts").doc(packageData.readerEditorialArtifactRef).get(),
     loadResearchSnapshot(packageData.sourceSnapshotRef)
   ]);
   if (
@@ -1340,6 +1389,22 @@ export async function executeInstitutionalTransition(payload: TaskPayload & { pa
     qualityArtifact.data()?.payload?.finalQualityVerdict !== "passed" ||
     qualityArtifact.data()?.payloadHash !== hashValue(stableJson(qualityArtifact.data()?.payload))
   ) throw new Error("Timeline Quality artifact lineage is missing, stale, non-passing, or corrupted.");
+  if (
+    !readerEditorialArtifact.exists ||
+    readerEditorialArtifact.data()?.topicId !== payload.topicId ||
+    readerEditorialArtifact.data()?.runId !== payload.jobId ||
+    readerEditorialArtifact.data()?.objectRef !== candidateDocument.id ||
+    readerEditorialArtifact.data()?.policyVersion !== READER_EDITORIAL_POLICY_VERSION ||
+    readerEditorialArtifact.data()?.payload?.candidateRef !== candidateDocument.id ||
+    readerEditorialArtifact.data()?.payload?.verdict !== "passed" ||
+    readerEditorialArtifact.data()?.payload?.informedReaderVerdict !== "publication_worthy" ||
+    !Array.isArray(readerEditorialArtifact.data()?.payload?.criteria) ||
+    readerEditorialArtifact.data()?.payload?.criteria.length !== 9 ||
+    readerEditorialArtifact.data()?.payload?.criteria.some((criterion: { verdict?: unknown }) => criterion.verdict !== "passed") ||
+    !Array.isArray(readerEditorialArtifact.data()?.payload?.unresolvedReasons) ||
+    readerEditorialArtifact.data()?.payload?.unresolvedReasons.length !== 0 ||
+    readerEditorialArtifact.data()?.payloadHash !== hashValue(stableJson(readerEditorialArtifact.data()?.payload))
+  ) throw new Error("Reader editorial artifact lineage is missing, stale, non-passing, or corrupted.");
   if (!sourceAuthorityArtifact.exists) throw new Error("Source Authority V2 artifact lineage is missing.");
   if (candidateDocument.data().sourceSnapshotId !== packageData.sourceSnapshotRef) throw new Error("Candidate and Source Authority snapshot lineage do not match.");
   if (candidateDocument.data().payloadHash !== hashValue(stableJson(timeline))) throw new Error("Candidate timeline payload integrity check failed.");
