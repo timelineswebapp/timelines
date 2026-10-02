@@ -83,11 +83,30 @@ function select(events: CanonicalEventVersion[], significance = proposal(events)
 
 test("B1 preserves a 30-candidate verified pool while selecting a bounded chronological view", () => {
   const events = Array.from({ length: 30 }, (_, index) => event(index % 8, { canonicalTitle: `Distinct candidate ${index}`, actionKey: `distinct-action-${index}` }));
-  const result = select(events);
+  const significance = proposal(events);
+  significance.judgments = significance.judgments.map((judgment, index) => ({
+    ...judgment,
+    significanceClass: index < 8 ? "ESSENTIAL" : "MAJOR"
+  }));
+  const result = select(events, significance);
   assert.equal(result.completeCandidateEventVersionIds.length, 30);
-  assert.equal(result.selectedEventVersionIds.length, 10);
+  assert.equal(result.selectedEventVersionIds.length, 8);
   assert.equal(result.status, "PASS");
   assert.equal(result.payloadHash.length, 64);
+});
+
+test("B1 fails closed rather than padding an editorially sufficient set to the schema floor", () => {
+  const events = Array.from({ length: 12 }, (_, index) => event(index % 8, { canonicalTitle: `Candidate ${index}`, actionKey: `candidate-action-${index}` }));
+  const significance = proposal(events);
+  significance.judgments = significance.judgments.map((judgment, index) => ({
+    ...judgment,
+    significanceClass: index < 3 ? "ESSENTIAL" : "SUPPORTING"
+  }));
+  const result = select(events, significance);
+  assert.equal(result.selectedEventVersionIds.length, 3);
+  assert.equal(result.status, "FAILED");
+  assert.ok(result.failureCodes.includes("EVENT_COUNT_BELOW_MINIMUM"));
+  assert.ok(result.assessments.slice(3).every((assessment) => assessment.selectionState === "EXCLUDED_CAPACITY"));
 });
 
 test("B1 deterministically excludes non-events, scope drift, unsupported claims, and failed authority", () => {

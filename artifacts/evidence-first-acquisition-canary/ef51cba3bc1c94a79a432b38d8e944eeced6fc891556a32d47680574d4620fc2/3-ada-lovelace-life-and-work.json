@@ -1,0 +1,117 @@
+{
+  "title": "Ada Lovelace: Life and Work",
+  "status": "COMPLETED_KNOWLEDGE_SET",
+  "telemetry": {
+    "acquisitionRounds": 2,
+    "providerCalls": 26,
+    "retries": 0,
+    "repairs": 1,
+    "queries": [
+      "Ada Lovelace archives",
+      "Ada Lovelace primary sources",
+      "Ada Lovelace biography institutional sources",
+      "Ada Lovelace chronology authoritative",
+      "Ada Lovelace papers archives",
+      "Bodleian Library Ada Lovelace",
+      "Science Museum Ada Lovelace archives",
+      "University of Oxford Ada Lovelace",
+      "Ada Lovelace timeline authoritative sources",
+      "Ada Lovelace biography scholarly sources",
+      "Ada Lovelace university collections",
+      "Ada Lovelace academic biography",
+      "Ada Lovelace university press biography",
+      "Ada Lovelace archival sources",
+      "Ada Lovelace Notes on Menabrea's memoir scholarly sources",
+      "Ada Lovelace Notes on Menabrea's memoir primary sources archive",
+      "Ada Lovelace Notes on Menabrea's memoir university library",
+      "Ada Lovelace Notes on Menabrea's memoir digital collection",
+      "Ada Lovelace legacy computer science AI scholarly sources",
+      "Ada Lovelace contributions to computing history academic",
+      "Ada Lovelace influence on artificial intelligence research archives",
+      "Ada Lovelace Babbage analytical engine historical documents",
+      "Ada Lovelace impact on programming academic journals",
+      "Ada Lovelace biography authoritative sources",
+      "Ada Lovelace chronology primary sources",
+      "Ada Lovelace challenges in work historical records",
+      "Ada Lovelace archives university",
+      "Ada Lovelace scholarly publications life work",
+      "Ada Lovelace museum collections",
+      "Ada Lovelace legacy historical analysis",
+      "Ada Lovelace posthumous recognition scholarly articles",
+      "Ada Lovelace Babbage collaboration historical records",
+      "Ada Lovelace university research",
+      "Ada Lovelace museum exhibits",
+      "Ada Lovelace publications history",
+      "Ada Lovelace life work legacy influence authoritative chronology history",
+      "Ada Lovelace scholarly biography"
+    ],
+    "sourcesDiscovered": 147,
+    "retrievalAttempts": 38,
+    "retrievalSuccesses": 34,
+    "retrievalFailures": 4,
+    "retrievalRejectionReasons": {
+      "SOURCE_RETRIEVAL_ROBOTS_DENIED": 4
+    },
+    "evidencePackets": 14,
+    "evidencePacketSegments": 109,
+    "claimsExtracted": 63,
+    "claimsSupported": 52,
+    "claimsRejected": 19,
+    "claimRejectionReasons": {
+      "normalizedAssertion": 3,
+      "object": 1,
+      "temporal.start.precision": 4
+    },
+    "authorityDistribution": {
+      "INSUFFICIENT": 11,
+      "SUPPORTED": 52
+    },
+    "conflictsDetected": 11,
+    "conflictsUnresolved": 11,
+    "eventCandidates": 9,
+    "resolvedEventCandidates": 6,
+    "rejectedNonEvents": 3,
+    "eventDispositionDistribution": {
+      "CONTEXT:INELIGIBLE": 3,
+      "EVENT:RESOLVED": 6
+    },
+    "eventResolutionDiagnostics": {
+      "NO_EVIDENCED_TEMPORAL_START": 7,
+      "NO_OCCURRENCE_OR_INSTITUTIONAL_ACTION": 3,
+      "NO_RELATED_RESOLVED_ENTITY": 12,
+      "NO_SUPPORTED_CORE_CLAIM": 7
+    },
+    "stageLatencyMs": {
+      "CLAIM_EXTRACTION": 102310,
+      "GROUNDING": 110984,
+      "QUERY_PLAN": 3102,
+      "RESEARCH_MAP": 16315,
+      "SCOPE": 7549
+    },
+    "totalLatencyMs": 690523,
+    "inputTokens": 33906,
+    "outputTokens": 33241,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "evidenceSegments": 1262,
+  "supportedClaims": 52,
+  "rejectedClaims": 11,
+  "authorityDistribution": {
+    "INSUFFICIENT": 11,
+    "SUPPORTED": 52
+  },
+  "conflicts": {
+    "total": 11,
+    "blocking": 0
+  },
+  "resolvedEventCandidates": 6,
+  "rejectedNonEvents": 3,
+  "coverage": {
+    "finalVerdict": "SUFFICIENT",
+    "unresolvedGapIds": []
+  },
+  "completionRound": 1,
+  "completedKnowledgeSetId": "completed-knowledge-set-3d92d8b6f7109ea137279aa3b2c361a94dbe9d4a28df7c4fc46d32fe0cb3aad3",
+  "completedKnowledgeSetHash": "6aac5e5bf098768eb6afa9e18d802edc4c62f94511cbfe36e8501c63b9dbdd5e"
+}

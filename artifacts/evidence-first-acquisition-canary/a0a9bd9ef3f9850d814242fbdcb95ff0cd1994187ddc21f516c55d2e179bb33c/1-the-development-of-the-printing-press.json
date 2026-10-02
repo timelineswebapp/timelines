@@ -1,0 +1,363 @@
+{
+  "title": "The Development of the Printing Press",
+  "status": "FAILED_CLOSED",
+  "stage": "GAP_COMPLETION",
+  "reason": "EVIDENCE_FIRST_GAP_COMPLETION_FAILED:NO_SUPPORTED_CLAIMS,NO_RESOLVED_EVENT_CANDIDATES",
+  "telemetry": {
+    "acquisitionRounds": 2,
+    "providerCalls": 25,
+    "retries": 0,
+    "repairs": 1,
+    "queries": [
+      "history of printing press archives primary sources",
+      "Gutenberg printing press institutional records",
+      "early printing technology university collections",
+      "museums with printing press historical documents",
+      "scholarly publications on printing press origins",
+      "history of printing press 200 AD to 1900 scholarly sources",
+      "chronology of printing technology development 3rd century to 19th century academic",
+      "origins of printing press development historical institutions",
+      "evolution of printing methods 200-1900 university press",
+      "major milestones in printing history 200 AD - 1900 museum archives",
+      "earliest woodblock printing technology East Asia scholarly sources",
+      "origin of woodblock printing China social impact academic",
+      "history of printing East Asia primary sources",
+      "social changes due to woodblock printing East Asia academic",
+      "woodblock printing invention East Asia authoritative sources",
+      "movable type East Asia Gutenberg comparison scholarly",
+      "Gutenberg printing press innovations East Asia movable type academic",
+      "history of printing technology China Korea Gutenberg scholarly sources",
+      "metal movable type East Asia Gutenberg comparison university",
+      "printing press innovations East Asia vs Gutenberg academic journal",
+      "Gutenberg printing press impact European economy scholarly sources",
+      "Gutenberg printing press impact European culture academic sources",
+      "Gutenberg printing press impact European language university research",
+      "Gutenberg printing press impact European politics historical analysis",
+      "Gutenberg printing press impact European science scholarly articles",
+      "impact of printing press on European society academic journals",
+      "history of printing press industrialization primary sources university",
+      "development of printing press scholarly articles chronology",
+      "museums history of printing technology archives",
+      "early printing press development institutional records",
+      "impact of printing press on industrial revolution scholarly",
+      "history of printing press development university archives",
+      "impact of printing press scholarly sources",
+      "consequences of printing press historical documents",
+      "gutenberg printing press primary sources museum",
+      "early printing technology institutional history",
+      "printing press invention academic journals",
+      "renaissance printing press impact scholarly",
+      "economic impact of printing press scholarly sources",
+      "history of printing press economic effects academic",
+      "printing press invention economic transformation historical analysis",
+      "early modern printing economic history university",
+      "impact of printing press on European economy academic",
+      "history of printing press geographical spread scholarly sources",
+      "development of printing press authoritative chronology",
+      "early printing press spread academic research",
+      "origins of printing press historical records",
+      "printing press invention and dissemination primary sources"
+    ],
+    "sourcesDiscovered": 134,
+    "retrievalAttempts": 28,
+    "retrievalSuccesses": 19,
+    "retrievalFailures": 9,
+    "retrievalRejectionReasons": {
+      "SOURCE_RETRIEVAL_ROBOTS_DENIED": 9
+    },
+    "retrievalFailureDetails": [
+      {
+        "urlHash": "b2553ab5aafe524302c741fa36f44b807f723d7ae5354bfab67b2763cae650f4",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 2003,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "18357eed5bdbe28c0d83abe0ad2082ca352e34b8e48846587fa7a6a2e83d4110",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 2136,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "5f1057485ccb1e8ef2e0131c70db83fd28ea7b578d8de4d809dd372a752857d1",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1666,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "909026fcb4924d4a71f3abd7971b7f90279a692b7a991357bfe7d207a6e9cb70",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1463,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "aa94d39411fb65bc262f6036245c7deecda30616ecaf927ac154df108c808021",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1774,
+        "acquisitionRound": 2
+      },
+      {
+        "urlHash": "804797d4f69a31ff4b28495e3c3838ca20cb5a7d76edb3cee428b099f4a3fbd3",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1581,
+        "acquisitionRound": 2
+      },
+      {
+        "urlHash": "5ec8178e3bb4d0b3cf4bdfb499c05d55c2db86a4baf9e12f1b34592de37328bc",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1617,
+        "acquisitionRound": 2
+      },
+      {
+        "urlHash": "6d118e5c3fce45d7d840e7b1089780903b7a1a82f71d4fc2c9e2faad961de71a",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1588,
+        "acquisitionRound": 2
+      },
+      {
+        "urlHash": "62de69d55418d4b7292c6d878ce4944cb58ad6a2e511ddb9a1a2c5a3173ef89b",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1419,
+        "acquisitionRound": 2
+      }
+    ],
+    "sourceRanking": [
+      {
+        "rank": 1,
+        "urlHash": "3db8f1e1ee9d9eff60471b2615f375cd1cfcae9916b11bfccc48846e47a6b089",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 2,
+        "urlHash": "58de930cf49e3b4d775e45a288e9abb71865a075e93b7bc99cedd0c578c6c4f5",
+        "domain": "ieee.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 3,
+        "urlHash": "b2553ab5aafe524302c741fa36f44b807f723d7ae5354bfab67b2763cae650f4",
+        "domain": "tamu.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 4,
+        "urlHash": "a24f3c235c4557a165e7b9a7541645ab476b90f42c3ce18c54fe255fc4270434",
+        "domain": "asianart.org",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 5,
+        "urlHash": "55105c5f19b38411968c8317433415505ab9e5788e8b1b086b758cb22285c636",
+        "domain": "unesco.org",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 6,
+        "urlHash": "18357eed5bdbe28c0d83abe0ad2082ca352e34b8e48846587fa7a6a2e83d4110",
+        "domain": "metmuseum.org",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 7,
+        "urlHash": "876341e03434f740b29a857264a119b53738bfa006cb7b4118e9c090b486251a",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 8,
+        "urlHash": "fdb40241ab47dfde128c0611e53b1bb40fb23025cb81fe360b7da914b8d6c345",
+        "domain": "unesco.org",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 9,
+        "urlHash": "5f1057485ccb1e8ef2e0131c70db83fd28ea7b578d8de4d809dd372a752857d1",
+        "domain": "clemson.edu",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 10,
+        "urlHash": "f6da8c8173bb4b6454abbbfce7b47e18d12d1b83b9e1702e498cab00e56f7940",
+        "domain": "lse.ac.uk",
+        "admittedQuestionCount": 5,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 11,
+        "urlHash": "909026fcb4924d4a71f3abd7971b7f90279a692b7a991357bfe7d207a6e9cb70",
+        "domain": "tamu.edu",
+        "admittedQuestionCount": 5,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 12,
+        "urlHash": "6aa6375f457b787642e70778bf242eb832343c3866bd2017460adfaf1f251826",
+        "domain": "arizona.edu",
+        "admittedQuestionCount": 5,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 1,
+        "urlHash": "5dec6c14053af128bec5f476d2859a34bc685f011048c0a3536c639fc64fd797",
+        "domain": "oup.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 2,
+        "urlHash": "64b4142157a9693d44603963e9d86683afafe12ccabb74d15ffba56ac1e607de",
+        "domain": "history.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 3,
+        "urlHash": "24e2a289252b977ed5014e3bd6b99a2caf82c3141bf254eb9e65e560f97af369",
+        "domain": "oup.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 4,
+        "urlHash": "5d0477c405e487b51625c11b9c171818e5a87956441901012215edd36a8d26d9",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 5,
+        "urlHash": "8e0a672ed13a895350ccbd9f19eb7cf85c84a00765ceb87f618ee4fca5ae56a8",
+        "domain": "researchgate.net",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 6,
+        "urlHash": "e8b63ac89f742b6bc8612602a010f4ae5b5206ac141bdd165bac1f0cda782dfd",
+        "domain": "worldhistory.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 7,
+        "urlHash": "a8b6843f6bf73c7db5459d59dde56ff65b1416a0dada4241a957a0ad9d2c722d",
+        "domain": "researchgate.net",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 8,
+        "urlHash": "2a04aaea9ef453b5e5a954330664324035ed48594319f443653fda845cef0d57",
+        "domain": "solopress.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 9,
+        "urlHash": "aa94d39411fb65bc262f6036245c7deecda30616ecaf927ac154df108c808021",
+        "domain": "academia.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 10,
+        "urlHash": "804797d4f69a31ff4b28495e3c3838ca20cb5a7d76edb3cee428b099f4a3fbd3",
+        "domain": "clemson.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 11,
+        "urlHash": "682e107ecc05cdbb412f91b2de827c55211a6f8bc52de385f1dcda1ba4392e17",
+        "domain": "repec.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 12,
+        "urlHash": "5ec8178e3bb4d0b3cf4bdfb499c05d55c2db86a4baf9e12f1b34592de37328bc",
+        "domain": "psprint.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 13,
+        "urlHash": "6d118e5c3fce45d7d840e7b1089780903b7a1a82f71d4fc2c9e2faad961de71a",
+        "domain": "lse.ac.uk",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 14,
+        "urlHash": "d532d9ce6d1ebd5ac00298a06c02b83ea97140c9e26fba22acaa355910f10f25",
+        "domain": "uwm.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 15,
+        "urlHash": "a0216ffab5f49acfbf4704a77a06a02a0766755cbd18ac18aa3e33e3c577854e",
+        "domain": "cambridge.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      },
+      {
+        "rank": 16,
+        "urlHash": "62de69d55418d4b7292c6d878ce4944cb58ad6a2e511ddb9a1a2c5a3173ef89b",
+        "domain": "tamu.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 2
+      }
+    ],
+    "evidencePackets": 12,
+    "evidencePacketSegments": 130,
+    "claimsExtracted": 54,
+    "claimsSupported": 18,
+    "claimsRejected": 39,
+    "claimRejectionReasons": {
+      "object": 3
+    },
+    "authorityDistribution": {
+      "INSUFFICIENT": 36,
+      "SUPPORTED": 18
+    },
+    "conflictsDetected": 9,
+    "conflictsUnresolved": 9,
+    "eventCandidates": 6,
+    "resolvedEventCandidates": 6,
+    "rejectedNonEvents": 0,
+    "eventDispositionDistribution": {
+      "EVENT:RESOLVED": 6
+    },
+    "eventResolutionDiagnostics": {
+      "NO_EVIDENCED_TEMPORAL_START": 8,
+      "NO_SUPPORTED_CORE_CLAIM": 30
+    },
+    "stageLatencyMs": {
+      "CLAIM_EXTRACTION": 76897,
+      "GROUNDING": 130910,
+      "QUERY_PLAN": 4467,
+      "RESEARCH_MAP": 22933,
+      "SCOPE": 8370
+    },
+    "totalLatencyMs": 589637,
+    "inputTokens": 249254,
+    "outputTokens": 29237,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "coverage": {
+    "initialAuditId": "knowledge-coverage-audit-e051be4743343b7e4ed1400dfa52cc44bc590fecde6403114281d33f880a1305",
+    "finalAuditId": null
+  }
+}

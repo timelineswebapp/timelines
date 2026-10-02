@@ -1,0 +1,115 @@
+{
+  "title": "The 1906 San Francisco Earthquake",
+  "status": "FAILED_CLOSED",
+  "reason": "EVIDENCE_FIRST_GAP_COMPLETION_FAILED:NO_DURABLE_SOURCE_SNAPSHOTS,NO_ATOMIC_CLAIMS,NO_SUPPORTED_CLAIMS,ACQUISITION_CONFIDENCE_FAIL",
+  "stage": "GAP_COMPLETION",
+  "metrics": {
+    "rounds": 2,
+    "providerCalls": 14,
+    "authorityRoutingModelCalls": 5,
+    "controlledResearchOperations": 17,
+    "groundingEscalationCalls": 3,
+    "directRetrievalAttempts": 7,
+    "retrievalSuccesses": 6,
+    "retrievalFailures": 1,
+    "sourcesSnapshotted": 6,
+    "claimsExtracted": 14,
+    "claimsSupported": 7,
+    "resolvedEvents": 2,
+    "inputTokens": 167277,
+    "outputTokens": 13210,
+    "monetaryCost": null,
+    "totalLatencyMs": 383570,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-ae4ad52ecbbd2ea21edc5b0283ad7c09e944562bc71a8cc917d0be2a32940994",
+      "topic-authority-set-9c225224c9b52b6d9c533ec3a79fc149d6f800f0dcaf73ad3c717e1e461f5952"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-09296dbd37cbd35c6531757a3622d18a33644f4046431e2987b7bde3fa09f9ec",
+      "authority-research-plan-51e347db1b7c74a69e36ebf385c2556bc82a731f544249511c19ac298b6aa93b"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-104c816e2a8654bcecbc513d4a22e8565ca06f955e4d3e63c92cbb178d6c27de",
+      "controlled-research-ledger-175128c59eff4f04798d5906dd6b47bed3773d80c8640257cfcd9944a37b668d"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-0f16205262740db14a7469630578cb7c5d43ed062d29addc1f0e6c27e9a917dd",
+      "perspective-audit-cb65e082674a7059f90274c55e203c2df2986a849041cb8518982c06b13ff8a6"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-4f7c66f06993f5fa6be0ce037b155d238f4d381b145aed0235fd242dc255ec32",
+      "acquisition-confidence-7ecc59e0f81700d928bd6fed24e4a8f6d8e4475522a217a7763b506a6dcb8432"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

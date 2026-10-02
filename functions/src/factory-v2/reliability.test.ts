@@ -3,7 +3,7 @@ import test from "node:test";
 import { bootstrapPublisherRegistry } from "./authority";
 import { buildEvidenceSegment } from "./contracts/builders";
 import type { ResearchMap } from "./contracts";
-import { admitSourcesByQuestion, rankCoverageSourcesByQuestion, selectEvidencePacket, selectUsableCoverageCandidates } from "./reliability";
+import { admitSourcesByQuestion, institutionalRetrievalPriority, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates } from "./reliability";
 import { TEST_CONTEXT } from "./test-fixtures";
 
 const question = {
@@ -46,11 +46,42 @@ test("coverage admission is gap-aware, temporal, event-aware, authoritative, bou
   assert.ok(first.retrievalCandidates.length <= 3);
 });
 
+test("verified authority status cannot admit a topic-irrelevant discovery page", () => {
+  const map = { phases: [{ phaseId: "phase-launch", label: "Launch phase (1969-1970)", temporalRule: "1969 through 1970", required: true, rationale: "locked" }], dimensions: [{ dimensionId: "dimension-operations", label: "Operations", required: true, rationale: "locked" }], questions: [question] } as ResearchMap;
+  const irrelevant = candidate("https://www.archives.gov/press/2025-museum-redesign", "Museum redesign", "New interactive exhibits opened in 2025.", 0, "archives.gov");
+  const relevant = candidate("https://www.nasa.gov/history/apollo-11-launch-1969", "Apollo 11 launch 1969", "Apollo 11 launched from Kennedy Space Center in 1969.", 1, "nasa.gov");
+  const result = rankCoverageSourcesByQuestion({ candidates: [irrelevant, relevant], map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 2 });
+  assert.equal(isDiscoveryRelevant(irrelevant, question, map), false);
+  assert.equal(result.decisions.find((item) => item.canonicalUrl === irrelevant.canonicalUrl)?.disposition, "EXCLUDED_IRRELEVANT");
+  assert.deepEqual(result.retrievalCandidates.map((item) => item.canonicalUrl), [relevant.canonicalUrl]);
+});
+
+test("generic development and press-release path terms cannot fake chronology relevance", () => {
+  const chronologyQuestion = { ...question, questionId: "software-chronology-question-printing", text: "What discrete dated occurrences establish the chronology of The Development of the Printing Press?", phaseIds: ["phase-printing"], dimensionIds: ["dimension-printing"] } as ResearchMap["questions"][number];
+  const map = { phases: [{ phaseId: "phase-printing", label: "Contemporary Developments", temporalRule: "modern printing developments", required: true, rationale: "locked" }], dimensions: [{ dimensionId: "dimension-printing", label: "Printing technology", required: true, rationale: "locked" }], questions: [chronologyQuestion] } as ResearchMap;
+  const irrelevant = { ...candidate("https://www.bl.uk/about/press/releases/groundbreaking-british-library-development-confirmed", "Groundbreaking British Library development confirmed", "", 0, "bl.uk"), researchQuestionIds: [chronologyQuestion.questionId] };
+  assert.equal(isDiscoveryRelevant(irrelevant, chronologyQuestion, map), false);
+  const result = rankCoverageSourcesByQuestion({ candidates: [irrelevant], map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 1 });
+  assert.equal(result.decisions[0]?.disposition, "EXCLUDED_IRRELEVANT");
+});
+
 test("coverage admission does not force diversity over materially stronger same-domain sources", () => {
   const map = { phases: [{ phaseId: "phase-launch", label: "Launch phase (1969-1970)", temporalRule: "1969 through 1970", required: true, rationale: "locked" }], dimensions: [{ dimensionId: "dimension-operations", label: "Operations", required: true, rationale: "locked" }], questions: [question] } as ResearchMap;
   const values = [candidate("https://www.nasa.gov/a", "Apollo 11 launch 1969", "NASA launched Apollo 11 in 1969.", 1), candidate("https://www.nasa.gov/b", "Apollo 11 conference 1969", "NASA announced the launch in 1969.", 2), candidate("https://weak.example/general", "Apollo history", "General context", 0, "weak.example")];
   const result = rankCoverageSourcesByQuestion({ candidates: values, map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 2 });
   assert.deepEqual(result.retrievalCandidates.map((item) => item.domain), ["nasa.gov", "nasa.gov"]);
+});
+
+test("gap completion retrieval remains bounded to four ranked alternatives per question", () => {
+  const map = {
+    phases: [{ phaseId: "phase-launch", label: "Launch phase (1969-1970)", temporalRule: "1969 through 1970", required: true, rationale: "locked" }],
+    dimensions: [{ dimensionId: "dimension-operations", label: "Operations", required: true, rationale: "locked" }],
+    questions: [question]
+  } as ResearchMap;
+  const values = Array.from({ length: 10 }, (_, index) => candidate(`https://source-${index}.example/history`, `Source ${index}`, "Apollo 11 launched in 1969", index, `source-${index}.example`));
+  const result = rankCoverageSourcesByQuestion({ candidates: values, map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 30 });
+  assert.equal(result.retrievalCandidates.length, 4);
+  assert.equal(result.decisions.filter((item) => item.disposition === "EXCLUDED_BUDGET").length, 6);
 });
 
 test("coverage extraction replaces an inaccessible higher-ranked source with the next bounded candidate", () => {
@@ -61,6 +92,30 @@ test("coverage extraction replaces an inaccessible higher-ranked source with the
     { canonicalKey: "d", admissionScore: 350, usable: true }
   ], 2);
   assert.deepEqual(selected.map((item) => item.canonicalKey), ["b", "c"]);
+});
+
+test("contested extraction prefers independent publisher groups before duplicate-group rank", () => {
+  const selected = selectIndependentCoverageCandidates([
+    { canonicalKey: "a", admissionScore: 500, usable: true, independenceGroupId: "group-1" },
+    { canonicalKey: "b", admissionScore: 490, usable: true, independenceGroupId: "group-1" },
+    { canonicalKey: "c", admissionScore: 450, usable: true, independenceGroupId: "group-2" }
+  ], 2);
+  assert.deepEqual(selected.map((item) => item.canonicalKey), ["a", "c"]);
+});
+
+test("initial admission excludes prohibited orientation sources and retains alternatives when the first authority is robots-denied or inaccessible", () => {
+  const map = { questions: [question] } as ResearchMap;
+  const candidates = [
+    candidate("https://en.wikipedia.org/wiki/Apollo_11", "Apollo 11", "orientation", 0, "wikipedia.org"),
+    candidate("https://www.nasa.gov/robots-denied", "NASA robots-denied", "Apollo 11 launch 1969", 1, "nasa.gov"),
+    candidate("https://www.archives.gov/alternative", "NARA alternative", "Apollo 11 launch 1969", 2, "archives.gov"),
+    candidate("https://airandspace.si.edu/alternative", "Museum alternative", "Apollo 11 launch 1969", 3, "airandspace.si.edu")
+  ];
+  const admitted = admitSourcesByQuestion({ candidates, map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 4 });
+  assert.equal(admitted.some((item) => item.domain === "wikipedia.org"), false);
+  assert.deepEqual(new Set(admitted.map((item) => item.domain)), new Set(["nasa.gov", "archives.gov", "airandspace.si.edu"]));
+  const usable = selectUsableCoverageCandidates(admitted.map((item) => ({ ...item, canonicalKey: item.canonicalUrl, usable: !item.canonicalUrl.includes("robots-denied") })), 2);
+  assert.deepEqual(usable.map((item) => item.domain).sort(), ["airandspace.si.edu", "archives.gov"]);
 });
 
 test("equally relevant verified authority outranks a provisional source", () => {
@@ -83,4 +138,14 @@ test("Source admission treats the global source budget as a ceiling and prioriti
   assert.equal(admitted[0]!.domain, "nasa.gov");
   assert.equal(new Set(admitted.map((item) => item.domain)).size, 2);
   assert.equal(admitted.some((item) => item.domain === "wikipedia.org"), false);
+});
+
+test("institutional research candidates outrank orientation sources without treating a suffix as authority", () => {
+  const map = { questions: [question] } as ResearchMap;
+  const academic = candidate("https://history.example.edu/archive", "University archive", "Apollo records", 2, "history.example.edu");
+  const orientation = { ...candidate("https://weak.example/summary", "General summary", "Apollo records", 0, "weak.example"), role: "ORIENTATION" as const, intendedSourceClass: "OTHER" as const };
+  const admitted = admitSourcesByQuestion({ candidates: [orientation, academic], map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 1, perQuestion: 1 });
+  assert.equal(admitted[0]!.domain, "history.example.edu");
+  assert.equal(institutionalRetrievalPriority(academic), 70);
+  assert.equal(institutionalRetrievalPriority({ ...academic, role: "ORIENTATION", intendedSourceClass: "OTHER" }), 0);
 });

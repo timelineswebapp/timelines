@@ -17,12 +17,60 @@ const legacyV2ASourceBundleSchema = z.object({
   promptVersion: z.literal("factory-v2-a-prompts.8")
 }).strict();
 const currentV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.30"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.1"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const a28AuthorityFirstV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.29"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.1"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const a28PriorAuthorityFirstV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.28"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.1"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const priorAuthorityFirstV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.27"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.1"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const formerAuthorityFirstV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.26"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.1"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const oldestAuthorityFirstV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.25"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.1"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const legacyAuthorityFirstV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.24"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.1"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const earlierAuthorityFirstV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.23"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.1"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const previousV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.13"),
   schemaVersion: z.literal("factory-v2-a.5"),
   policyVersion: z.literal("evidence-first-v2-a.11"),
   promptVersion: z.literal("factory-v2-a-prompts.8")
 }).strict();
-const previousV2ASourceBundleSchema = z.object({
+const olderV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.12"),
   schemaVersion: z.literal("factory-v2-a.4"),
   policyVersion: z.literal("evidence-first-v2-a.11"),
@@ -45,7 +93,7 @@ export const v2BEnvelopeFields = {
   runId: idSchema.nullable(),
   generation: z.number().int().positive(),
   sourceKnowledgeRunId: idSchema.nullable(),
-  sourceKnowledgeBundle: z.union([legacyV2ASourceBundleSchema, previousV2ASourceBundleSchema, currentV2ASourceBundleSchema]),
+  sourceKnowledgeBundle: z.union([legacyV2ASourceBundleSchema, olderV2ASourceBundleSchema, previousV2ASourceBundleSchema, legacyAuthorityFirstV2ASourceBundleSchema, oldestAuthorityFirstV2ASourceBundleSchema, earlierAuthorityFirstV2ASourceBundleSchema, formerAuthorityFirstV2ASourceBundleSchema, priorAuthorityFirstV2ASourceBundleSchema, a28PriorAuthorityFirstV2ASourceBundleSchema, a28AuthorityFirstV2ASourceBundleSchema, currentV2ASourceBundleSchema]),
   executionMode: z.literal("SHADOW"),
   publicationEligible: z.literal(false),
   governanceSubmissionAllowed: z.literal(false),

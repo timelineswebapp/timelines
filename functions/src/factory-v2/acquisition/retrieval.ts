@@ -54,6 +54,7 @@ export type RetrievalDependencies = {
   pdfExtractor?: SafePdfExtractor;
   now?: () => Date;
   cachedSource?: (canonicalUrl: string) => Promise<{ source: SourceDocument; snapshot: SourceSnapshot; evidenceSegments: EvidenceSegment[]; reusable: boolean } | null>;
+  signal?: AbortSignal;
 };
 
 export type RetrievalResult = { source: SourceDocument; snapshot: SourceSnapshot; evidenceSegments: EvidenceSegment[]; archiveWrites: number; cacheDisposition: "CACHE_HIT" | "REVALIDATED" | "REFETCHED" | "CACHE_NOT_APPLICABLE" };
@@ -62,13 +63,14 @@ function mediaType(headers: HeadersLike): string {
   return (headers.get("content-type") || "").split(";", 1)[0]!.trim().toLocaleLowerCase("en-US");
 }
 
-async function readBoundedBody(response: ResponseLike, maximumBytes: number): Promise<Uint8Array> {
+async function readBoundedBody(response: ResponseLike, maximumBytes: number, signal?: AbortSignal): Promise<Uint8Array> {
   const declared = Number(response.headers.get("content-length") || "0");
   if (Number.isFinite(declared) && declared > maximumBytes) throw new Error("SOURCE_RETRIEVAL_BODY_TOO_LARGE");
   if (!response.body) return new Uint8Array();
   const chunks: Uint8Array[] = [];
   let total = 0;
   for await (const chunk of response.body) {
+    if (signal?.aborted) throw new Error("WHOLE_RUN_DEADLINE_EXCEEDED");
     total += chunk.byteLength;
     if (total > maximumBytes) throw new Error("SOURCE_RETRIEVAL_DECOMPRESSED_BODY_TOO_LARGE");
     chunks.push(chunk);
@@ -134,16 +136,16 @@ function secureNodeFetch(dnsLookup: DnsLookup | undefined): FetchLike {
   });
 }
 
-async function robotsAllows(url: URL, fetcher: FetchLike, dnsLookup: DnsLookup | undefined): Promise<boolean> {
+async function robotsAllows(url: URL, fetcher: FetchLike, dnsLookup: DnsLookup | undefined, signal?: AbortSignal): Promise<boolean> {
   const robots = new URL("/robots.txt", url);
   await assertPublicHttpsDestination(robots.toString(), dnsLookup);
-  const response = await fetcher(robots.toString(), { method: "GET", redirect: "manual", signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "TiMELiNESResearchBot/2.0", Accept: "text/plain" } });
+  const response = await fetcher(robots.toString(), { method: "GET", redirect: "manual", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000), headers: { "User-Agent": "TiMELiNESResearchBot/2.0", Accept: "text/plain" } });
   // A missing policy means there is no published crawl restriction. All other
   // non-success responses fail closed; in particular, never treat an auth or
   // transient origin failure as permission to crawl.
   if (response.status === 404 || response.status === 410) return true;
   if (response.status < 200 || response.status >= 300) return false;
-  const body = await readBoundedBody(response, MAX_ROBOTS_BYTES);
+  const body = await readBoundedBody(response, MAX_ROBOTS_BYTES, signal);
   return parseRobotsPolicy(new TextDecoder("utf-8", { fatal: false }).decode(body), url.pathname);
 }
 
@@ -174,6 +176,7 @@ export async function retrieveSource(input: {
   respectRobots?: boolean;
 }, dependencies: RetrievalDependencies = {}): Promise<RetrievalResult> {
   const fetcher = dependencies.fetch || secureNodeFetch(dependencies.dnsLookup);
+  const requestSignal = (timeoutMs: number) => dependencies.signal ? AbortSignal.any([dependencies.signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
   let current = await assertPublicHttpsDestination(input.url, dependencies.dnsLookup);
   const redirectChain: string[] = [];
   let response: ResponseLike | null = null;
@@ -188,13 +191,14 @@ export async function retrieveSource(input: {
     // Grounding attribution URLs are signed navigation relays, not publisher
     // content. Follow the relay, then enforce robots policy on the resolved
     // publisher URL before downloading its body.
-    if (input.respectRobots !== false && !isGroundingAttributionRelay(current) && !(await robotsAllows(current, fetcher, dependencies.dnsLookup))) {
+    if (dependencies.signal?.aborted) throw new Error("WHOLE_RUN_DEADLINE_EXCEEDED");
+    if (input.respectRobots !== false && !isGroundingAttributionRelay(current) && !(await robotsAllows(current, fetcher, dependencies.dnsLookup, dependencies.signal))) {
       throw new Error("SOURCE_RETRIEVAL_ROBOTS_DENIED");
     }
     const conditionalHeaders: Record<string, string> = {};
     if (staleCache?.snapshot.etag) conditionalHeaders["If-None-Match"] = staleCache.snapshot.etag;
     if (staleCache?.snapshot.lastModified) conditionalHeaders["If-Modified-Since"] = staleCache.snapshot.lastModified;
-    response = await fetcher(current.toString(), { method: "GET", redirect: "manual", signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "TiMELiNESResearchBot/2.0", Accept: "text/html,text/plain,application/xhtml+xml,application/pdf,application/json,application/ld+json", ...conditionalHeaders } });
+    response = await fetcher(current.toString(), { method: "GET", redirect: "manual", signal: requestSignal(30_000), headers: { "User-Agent": "TiMELiNESResearchBot/2.0", Accept: "text/html,text/plain,application/xhtml+xml,application/pdf,application/json,application/ld+json", ...conditionalHeaders } });
     if (response.status === 304 && staleCache) return { source: staleCache.source, snapshot: staleCache.snapshot, evidenceSegments: staleCache.evidenceSegments, archiveWrites: 0, cacheDisposition: "REVALIDATED" };
     if (![301, 302, 303, 307, 308].includes(response.status)) break;
     if (hop === MAX_REDIRECTS) throw new Error("SOURCE_RETRIEVAL_REDIRECT_LIMIT");

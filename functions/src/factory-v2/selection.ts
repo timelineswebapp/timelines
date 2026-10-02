@@ -1,4 +1,4 @@
-import { historicalDateSchema, type AtomicClaimVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimConflictSet, type ResearchMap, type ScopeContract } from "./contracts";
+import { historicalDateSchema, V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_PIPELINE_VERSION, V2_POLICY_VERSION, V2_PROMPT_VERSION, type AtomicClaimVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimConflictSet, type ResearchMap, type ScopeContract } from "./contracts";
 import { selectionArtifactSchema, significanceProposalSchema, V2_B_PIPELINE_VERSION, V2_B_PROMPT_VERSION, V2_B_SCHEMA_VERSION, V2_B_SELECTION_POLICY_VERSION, type SelectionArtifact, type SignificanceProposal } from "./contracts/assembly";
 import { attachPayloadHash, contentAddressedId } from "./hashing";
 import { eventWithinLockedScope } from "./resolution";
@@ -210,14 +210,6 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
   for (const phase of input.researchMap.phases.filter((phase) => phase.required)) addCoverageCandidate("phase", phase.phaseId);
   for (const dimension of input.researchMap.dimensions.filter((dimension) => dimension.required)) addCoverageCandidate("dimension", dimension.dimensionId);
 
-  const minimum = input.scope.granularity === "OVERVIEW" ? 6 : 10;
-  const allowedMinimum = minimum;
-  const desiredCount = Math.min(20, Math.max(allowedMinimum, Math.min(available.length, minimum)));
-  for (const judgment of available) {
-    if (selected.size >= desiredCount) break;
-    selected.add(judgment.eventVersionId);
-  }
-
   const requiredPhases = input.researchMap.phases.filter((phase) => phase.required).map((phase) => phase.phaseId);
   const requiredDimensions = input.researchMap.dimensions.filter((dimension) => dimension.required).map((dimension) => dimension.dimensionId);
   const covers = (kind: "phase" | "dimension", id: string) => [...selected].some((eventId) => {
@@ -230,6 +222,11 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
   const missingPhases = requiredPhases.filter((id) => !coveredPhases.includes(id));
   const missingDimensions = requiredDimensions.filter((id) => !coveredDimensions.includes(id));
   if (missingPhases.length || missingDimensions.length) failures.add("COVERAGE_GAP_MATERIAL");
+  // Selection is an editorial consequence, not a count-filling operation. The
+  // deterministic selector includes every ESSENTIAL event plus the strongest
+  // candidates required to satisfy the locked phase/dimension contract. If
+  // that historically justified set is smaller than the currently supported
+  // product floor, fail closed instead of padding it with weaker milestones.
   if (selected.size < 6) failures.add("EVENT_COUNT_BELOW_MINIMUM");
 
   const completenessFindings: SignificanceProposal["completenessFindings"] = [...input.significance.completenessFindings];
@@ -296,7 +293,7 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     runId: null,
     generation: input.context.generation,
     sourceKnowledgeRunId: null,
-    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.13", schemaVersion: "factory-v2-a.5", policyVersion: "evidence-first-v2-a.11", promptVersion: "factory-v2-a-prompts.8" },
+    sourceKnowledgeBundle: { pipelineVersion: V2_PIPELINE_VERSION, schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION },
     executionMode: "SHADOW",
     publicationEligible: false,
     governanceSubmissionAllowed: false,
@@ -319,7 +316,7 @@ export function assembleTimelineSelection(rawInput: SelectionInput): SelectionAr
     runId: null,
     generation: input.context.generation,
     sourceKnowledgeRunId: null,
-    sourceKnowledgeBundle: { pipelineVersion: "factory-v2-a.13" as const, schemaVersion: "factory-v2-a.5" as const, policyVersion: "evidence-first-v2-a.11" as const, promptVersion: "factory-v2-a-prompts.8" as const },
+    sourceKnowledgeBundle: { pipelineVersion: V2_PIPELINE_VERSION, schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION },
     executionMode: "SHADOW" as const,
     publicationEligible: false as const,
     governanceSubmissionAllowed: false as const,

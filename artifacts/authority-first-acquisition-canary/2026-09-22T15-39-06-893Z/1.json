@@ -1,0 +1,132 @@
+{
+  "title": "The 1906 San Francisco Earthquake",
+  "status": "VALID_CKS",
+  "completedKnowledgeSetId": "completed-knowledge-set-b3a76b76df17e92b6f5bf8648418bf01f1eb8e74a1de070f35a401197f0aed75",
+  "completedKnowledgeSetHash": "bdf39ee3e39340c5df645b7173ab463f6cf05be525cdf7ab3080bde8ab67e1b3",
+  "finalCoverageVerdict": "SUFFICIENT",
+  "authorityAcquisitionRounds": [
+    {
+      "topicAuthoritySetId": "topic-authority-set-213a1e0cd43cb8417a421d40d41a00b475901ea78c1b6261c954ace30a982711",
+      "authorityResearchPlanId": "authority-research-plan-ce5c68ade1e9214a0442ccf35812b9922ca5d7e89a7d172713d64e2cdc14804b",
+      "controlledResearchLedgerId": "controlled-research-ledger-055076816e614bd2dc4c407e16f1ebf95a37307829189cef501414836e0398d3",
+      "perspectiveAuditId": "perspective-audit-f5ffdb462d6e303fa4261b0a75c494ab1189d1e10724a849edaca358734fbd00",
+      "confidenceVectorId": "acquisition-confidence-6708f3c975287b98e03db138eb364d3fb67c71e84ba49d88f723440f35a57a0e"
+    },
+    {
+      "topicAuthoritySetId": "topic-authority-set-261b02e024fdd9fbde5e86ff7ab9646cf6ba26672b8e84f547b8e0aed2fd4dba",
+      "authorityResearchPlanId": "authority-research-plan-faa03c96bfa4f1137f437b2e9aeffa2c81f3c79a56ae852d027a770b06ca0dd9",
+      "controlledResearchLedgerId": "controlled-research-ledger-8b73ff61e1871c367f0a24fb16c34bc2fa36b34b06615fe1fc00b2b822f33f5a",
+      "perspectiveAuditId": "perspective-audit-4cb1f1e343ca3942d173f3c656cad97574dcab2ff2d399bbdeab3beece437090",
+      "confidenceVectorId": "acquisition-confidence-d7bc221bf914f68c5a5194e20bcc4dc503c171bdacb1eb3fe2a9978aef3f8791"
+    }
+  ],
+  "telemetry": {
+    "rounds": 2,
+    "providerCalls": 18,
+    "authorityRoutingModelCalls": 3,
+    "controlledResearchOperations": 18,
+    "groundingEscalationCalls": 4,
+    "directRetrievalAttempts": 10,
+    "retrievalSuccesses": 10,
+    "retrievalFailures": 0,
+    "sourcesSnapshotted": 9,
+    "claimsExtracted": 21,
+    "claimsSupported": 20,
+    "resolvedEvents": 6,
+    "inputTokens": 166267,
+    "outputTokens": 16201,
+    "monetaryCost": null,
+    "totalLatencyMs": 514013,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-213a1e0cd43cb8417a421d40d41a00b475901ea78c1b6261c954ace30a982711",
+      "topic-authority-set-261b02e024fdd9fbde5e86ff7ab9646cf6ba26672b8e84f547b8e0aed2fd4dba"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-ce5c68ade1e9214a0442ccf35812b9922ca5d7e89a7d172713d64e2cdc14804b",
+      "authority-research-plan-faa03c96bfa4f1137f437b2e9aeffa2c81f3c79a56ae852d027a770b06ca0dd9"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-055076816e614bd2dc4c407e16f1ebf95a37307829189cef501414836e0398d3",
+      "controlled-research-ledger-8b73ff61e1871c367f0a24fb16c34bc2fa36b34b06615fe1fc00b2b822f33f5a"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-f5ffdb462d6e303fa4261b0a75c494ab1189d1e10724a849edaca358734fbd00",
+      "perspective-audit-4cb1f1e343ca3942d173f3c656cad97574dcab2ff2d399bbdeab3beece437090"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-6708f3c975287b98e03db138eb364d3fb67c71e84ba49d88f723440f35a57a0e",
+      "acquisition-confidence-d7bc221bf914f68c5a5194e20bcc4dc503c171bdacb1eb3fe2a9978aef3f8791"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

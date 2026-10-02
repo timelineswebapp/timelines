@@ -1,0 +1,569 @@
+{
+  "program": "TL-EVIDENCE-FIRST-GENERATION-001",
+  "executionType": "ACQUISITION_CANARY",
+  "release": {
+    "generationReleaseId": "ef51cba3bc1c94a79a432b38d8e944eeced6fc891556a32d47680574d4620fc2",
+    "manifest": {
+      "manifestSchemaVersion": "generation-release-manifest-v1",
+      "sourceRevision": "c458062fc02eec6aeef70c6a7ffbc812aa019767",
+      "sourceTreeSha256": "7f812fe4353c5d6dbf89f3816eb0df70515cce959a66e5fe01b2bed06f7db8a4",
+      "dependencyLocks": {
+        "rootSha256": "2df5fa8271c715296e582dcc0a6b5ae9a31d962a6985e86270c55965bdee5cc6",
+        "functionsSha256": "c3e97e051302f9574afa53aace5edd161abbfc739a4d70bf1918515fa242f82b"
+      },
+      "configurationBundleHash": "1519c353844e86a9cab9f5e43c86ccd32f1831cdc60266566b80b20e4d5353b0",
+      "generationCapability": "evidence-first-generation-v1",
+      "legacyPipelineVersion": "serverless-pipeline-v5-editorial-excellence",
+      "knowledgeBundle": {
+        "pipelineVersion": "factory-v2-a.13",
+        "policyVersion": "evidence-first-v2-a.11",
+        "promptVersion": "factory-v2-a-prompts.8",
+        "schemaVersion": "factory-v2-a.5"
+      },
+      "selectionBundle": {
+        "pipelineVersion": "factory-v2-b.2",
+        "policyVersion": "evidence-backed-selection-v2-b.1",
+        "schemaVersion": "factory-v2-b.3"
+      },
+      "compositionBundle": {
+        "eventLockSchemaVersion": "event-lock-v1",
+        "compositionSchemaVersion": "locked-composition-v1"
+      },
+      "institutionalGateBundle": {
+        "promptVersion": "historical-research-v5-editorial-excellence",
+        "generatedTimelineSchemaVersion": "generated-timeline-v2",
+        "timelineQualityPolicyVersion": "timeline-quality-v3-event-semantics",
+        "sourceAuthorityPolicyVersion": "source-authority-v2.0.1-certified-2026-09-05",
+        "readerPolicyVersion": "reader-editorial-v1",
+        "governancePolicyVersion": "routine-governance-v5-reader-editorial"
+      }
+    }
+  },
+  "subjects": [
+    "The 1906 San Francisco Earthquake",
+    "The Berlin Blockade and Airlift",
+    "Ada Lovelace: Life and Work",
+    "The Development of the Printing Press",
+    "The History of the Olympic Games"
+  ],
+  "results": [
+    {
+      "title": "The 1906 San Francisco Earthquake",
+      "status": "COMPLETED_KNOWLEDGE_SET",
+      "telemetry": {
+        "acquisitionRounds": 1,
+        "providerCalls": 17,
+        "retries": 0,
+        "repairs": 1,
+        "queries": [
+          "1906 San Francisco Earthquake official chronology historical record primary sources",
+          "1906 San Francisco Earthquake government records chronology",
+          "1906 San Francisco Earthquake archival records dates",
+          "USGS 1906 San Francisco Earthquake chronology",
+          "California Historical Society 1906 San Francisco Earthquake records",
+          "Bancroft Library 1906 San Francisco Earthquake chronology",
+          "1906 San Francisco earthquake official chronology April-July",
+          "1906 San Francisco earthquake historical records April-July",
+          "USGS 1906 San Francisco earthquake timeline",
+          "California Historical Society 1906 earthquake events April-July",
+          "Bancroft Library 1906 San Francisco earthquake chronology",
+          "1906 San Francisco earthquake rupture magnitude scholarly sources",
+          "1906 San Francisco earthquake soil conditions geology shaking damage scholarly sources",
+          "San Andreas Fault 1906 earthquake historical records authoritative",
+          "USGS 1906 San Francisco earthquake research",
+          "UC Berkeley 1906 earthquake studies",
+          "California Geological Survey 1906 earthquake reports",
+          "Seismological Society of America 1906 earthquake publications",
+          "1906 San Francisco earthquake primary sources fires ignition",
+          "1906 San Francisco earthquake police army response official records",
+          "1906 San Francisco earthquake relief shelters historical documents",
+          "1906 San Francisco earthquake reconstruction official reports",
+          "1906 San Francisco earthquake infrastructure damage archival records",
+          "Library of Congress 1906 San Francisco earthquake",
+          "National Archives 1906 San Francisco earthquake",
+          "University of California Berkeley 1906 San Francisco earthquake archives",
+          "California Historical Society 1906 San Francisco earthquake",
+          "1906 San Francisco earthquake fatalities official report",
+          "1906 San Francisco earthquake injuries archival records",
+          "1906 San Francisco earthquake daily life historical accounts",
+          "1906 San Francisco earthquake commerce impact scholarly",
+          "1906 San Francisco earthquake social impact academic sources",
+          "University of California Berkeley 1906 earthquake archives",
+          "Stanford University 1906 earthquake research",
+          "California Historical Society 1906 earthquake"
+        ],
+        "sourcesDiscovered": 94,
+        "retrievalAttempts": 12,
+        "retrievalSuccesses": 11,
+        "retrievalFailures": 1,
+        "retrievalRejectionReasons": {
+          "SOURCE_RETRIEVAL_ROBOTS_DENIED": 1
+        },
+        "evidencePackets": 8,
+        "evidencePacketSegments": 96,
+        "claimsExtracted": 27,
+        "claimsSupported": 27,
+        "claimsRejected": 10,
+        "claimRejectionReasons": {
+          "normalizedAssertion": 5,
+          "predicate": 9
+        },
+        "authorityDistribution": {
+          "SUPPORTED": 27
+        },
+        "conflictsDetected": 4,
+        "conflictsUnresolved": 4,
+        "eventCandidates": 5,
+        "resolvedEventCandidates": 5,
+        "rejectedNonEvents": 0,
+        "eventDispositionDistribution": {
+          "EVENT:RESOLVED": 5
+        },
+        "eventResolutionDiagnostics": {
+          "NO_EVIDENCED_TEMPORAL_START": 6,
+          "NO_OCCURRENCE_OR_INSTITUTIONAL_ACTION": 1,
+          "NO_RELATED_RESOLVED_ENTITY": 1
+        },
+        "stageLatencyMs": {
+          "CLAIM_EXTRACTION": 50171,
+          "GROUNDING": 97945,
+          "QUERY_PLAN": 4905,
+          "RESEARCH_MAP": 19521,
+          "SCOPE": 8774
+        },
+        "totalLatencyMs": 323891,
+        "inputTokens": 91395,
+        "outputTokens": 20686,
+        "monetaryCost": null,
+        "costMeasurement": "NOT_MEASURABLE"
+      },
+      "evidenceSegments": 151,
+      "supportedClaims": 27,
+      "rejectedClaims": 0,
+      "authorityDistribution": {
+        "SUPPORTED": 27
+      },
+      "conflicts": {
+        "total": 4,
+        "blocking": 0
+      },
+      "resolvedEventCandidates": 5,
+      "rejectedNonEvents": 0,
+      "coverage": {
+        "finalVerdict": "SUFFICIENT",
+        "unresolvedGapIds": []
+      },
+      "completionRound": 0,
+      "completedKnowledgeSetId": "completed-knowledge-set-5873a4f619fb55b4190bdbcc0fe38adca71b910f4a5637fd3a1a2458928cb12a",
+      "completedKnowledgeSetHash": "7c09b6cd0f43c348317a47fdc0759232634ed165bfa3d27c05a081d5c419d0bd"
+    },
+    {
+      "title": "The Berlin Blockade and Airlift",
+      "status": "COMPLETED_KNOWLEDGE_SET",
+      "telemetry": {
+        "acquisitionRounds": 1,
+        "providerCalls": 17,
+        "retries": 0,
+        "repairs": 1,
+        "queries": [
+          "Berlin Blockade and Airlift official chronology dates historical record",
+          "US National Archives Berlin Blockade Airlift chronology",
+          "UK National Archives Berlin Blockade Airlift chronology",
+          "German archives Berlin Blockade Airlift chronology",
+          "Berlin Airlift historical documents dates",
+          "Berlin Blockade primary sources dates",
+          "Berlin Blockade and Airlift timeline primary sources",
+          "Berlin Blockade and Airlift timeline archival records",
+          "Berlin Blockade and Airlift timeline university",
+          "Berlin Blockade and Airlift timeline scholarly publisher",
+          "Berlin Blockade and Airlift timeline museum",
+          "Berlin Blockade and Airlift timeline edited references",
+          "scholarly articles Berlin Blockade origins currency reform",
+          "academic journals Berlin Blockade currency reform causes",
+          "university press Berlin Blockade currency reform",
+          "archival sources Berlin Blockade currency reform",
+          "USAF Berlin Airlift operational reports",
+          "RAF Berlin Airlift operational reports",
+          "USAF Berlin Airlift statistics primary sources",
+          "RAF Berlin Airlift statistics primary sources",
+          "National Archives Berlin Airlift operational records",
+          "UK National Archives Berlin Airlift records",
+          "Air Force Historical Research Agency Berlin Airlift",
+          "Royal Air Force Museum Berlin Airlift records",
+          "West Berliners experience Berlin Blockade Airlift propaganda scholarly sources",
+          "Berlin Blockade Airlift propaganda impact West Berliners archival records",
+          "West Berlin residents' perception of propaganda during Berlin Airlift",
+          "primary sources West Berlin propaganda Berlin Blockade",
+          "academic studies on West Berlin public opinion Berlin Airlift propaganda"
+        ],
+        "sourcesDiscovered": 81,
+        "retrievalAttempts": 12,
+        "retrievalSuccesses": 12,
+        "retrievalFailures": 0,
+        "retrievalRejectionReasons": {},
+        "evidencePackets": 8,
+        "evidencePacketSegments": 83,
+        "claimsExtracted": 39,
+        "claimsSupported": 38,
+        "claimsRejected": 5,
+        "claimRejectionReasons": {
+          "object": 1,
+          "predicate": 3
+        },
+        "authorityDistribution": {
+          "INSUFFICIENT": 1,
+          "SUPPORTED": 38
+        },
+        "conflictsDetected": 2,
+        "conflictsUnresolved": 2,
+        "eventCandidates": 6,
+        "resolvedEventCandidates": 6,
+        "rejectedNonEvents": 0,
+        "eventDispositionDistribution": {
+          "EVENT:RESOLVED": 6
+        },
+        "eventResolutionDiagnostics": {
+          "NO_EVIDENCED_TEMPORAL_START": 14,
+          "NO_OCCURRENCE_OR_INSTITUTIONAL_ACTION": 2,
+          "NO_RELATED_RESOLVED_ENTITY": 9,
+          "NO_SUPPORTED_CORE_CLAIM": 1
+        },
+        "stageLatencyMs": {
+          "CLAIM_EXTRACTION": 64743,
+          "GROUNDING": 65719,
+          "QUERY_PLAN": 4373,
+          "RESEARCH_MAP": 23682,
+          "SCOPE": 8686
+        },
+        "totalLatencyMs": 375870,
+        "inputTokens": 110632,
+        "outputTokens": 24271,
+        "monetaryCost": null,
+        "costMeasurement": "NOT_MEASURABLE"
+      },
+      "evidenceSegments": 616,
+      "supportedClaims": 38,
+      "rejectedClaims": 1,
+      "authorityDistribution": {
+        "INSUFFICIENT": 1,
+        "SUPPORTED": 38
+      },
+      "conflicts": {
+        "total": 2,
+        "blocking": 0
+      },
+      "resolvedEventCandidates": 6,
+      "rejectedNonEvents": 0,
+      "coverage": {
+        "finalVerdict": "SUFFICIENT",
+        "unresolvedGapIds": []
+      },
+      "completionRound": 0,
+      "completedKnowledgeSetId": "completed-knowledge-set-ddaf4b01400b36329063b5a8ac16866dcc44308438821a12853f6e92cd2e96f1",
+      "completedKnowledgeSetHash": "11840a9df41cf5466cc6be5367386f961607865e4f38851272a5cbcbcc33db8d"
+    },
+    {
+      "title": "Ada Lovelace: Life and Work",
+      "status": "COMPLETED_KNOWLEDGE_SET",
+      "telemetry": {
+        "acquisitionRounds": 2,
+        "providerCalls": 26,
+        "retries": 0,
+        "repairs": 1,
+        "queries": [
+          "Ada Lovelace archives",
+          "Ada Lovelace primary sources",
+          "Ada Lovelace biography institutional sources",
+          "Ada Lovelace chronology authoritative",
+          "Ada Lovelace papers archives",
+          "Bodleian Library Ada Lovelace",
+          "Science Museum Ada Lovelace archives",
+          "University of Oxford Ada Lovelace",
+          "Ada Lovelace timeline authoritative sources",
+          "Ada Lovelace biography scholarly sources",
+          "Ada Lovelace university collections",
+          "Ada Lovelace academic biography",
+          "Ada Lovelace university press biography",
+          "Ada Lovelace archival sources",
+          "Ada Lovelace Notes on Menabrea's memoir scholarly sources",
+          "Ada Lovelace Notes on Menabrea's memoir primary sources archive",
+          "Ada Lovelace Notes on Menabrea's memoir university library",
+          "Ada Lovelace Notes on Menabrea's memoir digital collection",
+          "Ada Lovelace legacy computer science AI scholarly sources",
+          "Ada Lovelace contributions to computing history academic",
+          "Ada Lovelace influence on artificial intelligence research archives",
+          "Ada Lovelace Babbage analytical engine historical documents",
+          "Ada Lovelace impact on programming academic journals",
+          "Ada Lovelace biography authoritative sources",
+          "Ada Lovelace chronology primary sources",
+          "Ada Lovelace challenges in work historical records",
+          "Ada Lovelace archives university",
+          "Ada Lovelace scholarly publications life work",
+          "Ada Lovelace museum collections",
+          "Ada Lovelace legacy historical analysis",
+          "Ada Lovelace posthumous recognition scholarly articles",
+          "Ada Lovelace Babbage collaboration historical records",
+          "Ada Lovelace university research",
+          "Ada Lovelace museum exhibits",
+          "Ada Lovelace publications history",
+          "Ada Lovelace life work legacy influence authoritative chronology history",
+          "Ada Lovelace scholarly biography"
+        ],
+        "sourcesDiscovered": 147,
+        "retrievalAttempts": 38,
+        "retrievalSuccesses": 34,
+        "retrievalFailures": 4,
+        "retrievalRejectionReasons": {
+          "SOURCE_RETRIEVAL_ROBOTS_DENIED": 4
+        },
+        "evidencePackets": 14,
+        "evidencePacketSegments": 109,
+        "claimsExtracted": 63,
+        "claimsSupported": 52,
+        "claimsRejected": 19,
+        "claimRejectionReasons": {
+          "normalizedAssertion": 3,
+          "object": 1,
+          "temporal.start.precision": 4
+        },
+        "authorityDistribution": {
+          "INSUFFICIENT": 11,
+          "SUPPORTED": 52
+        },
+        "conflictsDetected": 11,
+        "conflictsUnresolved": 11,
+        "eventCandidates": 9,
+        "resolvedEventCandidates": 6,
+        "rejectedNonEvents": 3,
+        "eventDispositionDistribution": {
+          "CONTEXT:INELIGIBLE": 3,
+          "EVENT:RESOLVED": 6
+        },
+        "eventResolutionDiagnostics": {
+          "NO_EVIDENCED_TEMPORAL_START": 7,
+          "NO_OCCURRENCE_OR_INSTITUTIONAL_ACTION": 3,
+          "NO_RELATED_RESOLVED_ENTITY": 12,
+          "NO_SUPPORTED_CORE_CLAIM": 7
+        },
+        "stageLatencyMs": {
+          "CLAIM_EXTRACTION": 102310,
+          "GROUNDING": 110984,
+          "QUERY_PLAN": 3102,
+          "RESEARCH_MAP": 16315,
+          "SCOPE": 7549
+        },
+        "totalLatencyMs": 690523,
+        "inputTokens": 33906,
+        "outputTokens": 33241,
+        "monetaryCost": null,
+        "costMeasurement": "NOT_MEASURABLE"
+      },
+      "evidenceSegments": 1262,
+      "supportedClaims": 52,
+      "rejectedClaims": 11,
+      "authorityDistribution": {
+        "INSUFFICIENT": 11,
+        "SUPPORTED": 52
+      },
+      "conflicts": {
+        "total": 11,
+        "blocking": 0
+      },
+      "resolvedEventCandidates": 6,
+      "rejectedNonEvents": 3,
+      "coverage": {
+        "finalVerdict": "SUFFICIENT",
+        "unresolvedGapIds": []
+      },
+      "completionRound": 1,
+      "completedKnowledgeSetId": "completed-knowledge-set-3d92d8b6f7109ea137279aa3b2c361a94dbe9d4a28df7c4fc46d32fe0cb3aad3",
+      "completedKnowledgeSetHash": "6aac5e5bf098768eb6afa9e18d802edc4c62f94511cbfe36e8501c63b9dbdd5e"
+    },
+    {
+      "title": "The Development of the Printing Press",
+      "status": "FAILED_CLOSED",
+      "stage": "INITIAL_ACQUISITION",
+      "reason": "EVIDENCE_FIRST_INITIAL_ACQUISITION_FAILED:NO_SUPPORTED_CLAIMS,NO_RESOLVED_EVENT_CANDIDATES",
+      "telemetry": {
+        "acquisitionRounds": 1,
+        "providerCalls": 16,
+        "retries": 0,
+        "repairs": 1,
+        "queries": [
+          "printing press history archives primary sources",
+          "Gutenberg printing press original documents",
+          "early printing history university library",
+          "history of printing scholarly publications",
+          "museums with printing press collections historical records",
+          "history of printing press scholarly sources 200 AD to 1900",
+          "chronology of printing technology academic",
+          "origins of printing press historical records",
+          "development of printing press university archives",
+          "printing history museum collections",
+          "early printing techniques scholarly articles",
+          "Johannes Gutenberg printing press innovations scholarly sources",
+          "Gutenberg's contributions to printing technology academic",
+          "history of printing press Gutenberg innovations university",
+          "Gutenberg museum printing press innovations",
+          "scholarly articles Johannes Gutenberg printing press",
+          "early woodblock printing East Asia technological advancements scholarly sources",
+          "history of woodblock printing China Korea Japan academic",
+          "origins of woodblock printing technology East Asia university",
+          "ancient East Asian printing techniques historical records",
+          "technological innovations woodblock printing Tang Dynasty Song Dynasty",
+          "economic impact printing press Europe 15th 16th centuries scholarly sources",
+          "printing press economic history Europe 1500s academic",
+          "Gutenberg printing press economic effects academic articles",
+          "early modern Europe printing press economic transformation scholarly",
+          "economic changes due to printing press Renaissance academic"
+        ],
+        "sourcesDiscovered": 75,
+        "retrievalAttempts": 12,
+        "retrievalSuccesses": 10,
+        "retrievalFailures": 2,
+        "retrievalRejectionReasons": {
+          "SOURCE_RETRIEVAL_ROBOTS_DENIED": 1,
+          "The operation was aborted": 1
+        },
+        "evidencePackets": 7,
+        "evidencePacketSegments": 79,
+        "claimsExtracted": 40,
+        "claimsSupported": 0,
+        "claimsRejected": 42,
+        "claimRejectionReasons": {
+          "evidenceSegmentIds": 2
+        },
+        "authorityDistribution": {
+          "INSUFFICIENT": 40
+        },
+        "conflictsDetected": 2,
+        "conflictsUnresolved": 2,
+        "eventCandidates": 0,
+        "resolvedEventCandidates": 0,
+        "rejectedNonEvents": 0,
+        "eventDispositionDistribution": {},
+        "eventResolutionDiagnostics": {
+          "NO_SUPPORTED_CORE_CLAIM": 28
+        },
+        "stageLatencyMs": {
+          "CLAIM_EXTRACTION": 53941,
+          "GROUNDING": 58770,
+          "QUERY_PLAN": 3997,
+          "RESEARCH_MAP": 19363,
+          "SCOPE": 8095
+        },
+        "totalLatencyMs": 370144,
+        "inputTokens": 23664,
+        "outputTokens": 21359,
+        "monetaryCost": null,
+        "costMeasurement": "NOT_MEASURABLE"
+      },
+      "coverage": {
+        "initialAuditId": null,
+        "finalAuditId": null
+      }
+    },
+    {
+      "title": "The History of the Olympic Games",
+      "status": "NOT_EXECUTED_AFTER_CANARY_FAILURE"
+    }
+  ],
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "unchanged": true
+  },
+  "discoveryState": "PAUSED",
+  "configuration": {
+    "operatingMode": "SHADOW",
+    "killSwitch": false,
+    "pipelineVersion": "factory-v2-a.13",
+    "artifactPolicyBundle": {
+      "schemaVersion": "factory-v2-a.5",
+      "policyVersion": "evidence-first-v2-a.11",
+      "promptVersion": "factory-v2-a-prompts.8"
+    },
+    "budgetBundle": {
+      "maximumGroundingCalls": 7,
+      "maximumProviderQueries": 40,
+      "maximumSourceDocuments": 60,
+      "maximumAtomicClaims": 300,
+      "maximumSemanticRepairs": 2,
+      "maximumTransportAttemptsPerCall": 3,
+      "maximumConcurrency": 3,
+      "maximumWorkerSeconds": 1200
+    },
+    "autonomousDiscoveryEnabled": false,
+    "publicationEnabled": false,
+    "governanceSubmissionEnabled": false,
+    "updatedAt": "2026-09-09T06:11:29.401Z"
+  },
+  "verdict": "NOT_READY_FOR_SHADOW",
+  "generatedAt": "2026-09-09T07:54:37.557Z"
+}

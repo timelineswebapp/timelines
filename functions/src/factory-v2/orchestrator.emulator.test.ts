@@ -26,30 +26,37 @@ test("Full V2-A shadow orchestration creates verified candidate knowledge withou
     async generateContent(request) {
       if (request.contents.includes("narrow V2 scope-proposal")) return { text: JSON.stringify(scope), usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 100, totalTokenCount: 200 } };
       if (request.contents.includes("V2 Research Map stage")) return { text: JSON.stringify(map), usageMetadata: { totalTokenCount: 200 } };
-      if (request.contents.includes("bounded V2 query-plan")) {
-        return { text: JSON.stringify({ queries: [{ researchQuestionNumbers: [1], intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: ["Apollo 11"], language: "en", geography: ["United States"], providerQuery: "Apollo 11 launch NASA", budgetUnits: 1 }] }), usageMetadata: { totalTokenCount: 100 } };
+      if (request.contents.includes("Authority-First topic-routing stage")) return { text: JSON.stringify({ authorities: [
+        { publisherNumber: 1, researchQuestionNumbers: [1, 2], roles: ["PRIMARY_RECORD"], claimTypes: ["OCCURRENCE", "DATE", "IDENTITY", "LOCATION"], subjectRelationship: "SUBJECT_SELF", perspectiveTags: ["United States"], rationale: "NASA is the registered primary authority for Apollo 11 mission chronology." },
+        { publisherNumber: 8, researchQuestionNumbers: [1, 2], roles: ["CORROBORATION"], claimTypes: ["OCCURRENCE", "DATE", "IDENTITY", "LOCATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["United States", "International"], rationale: "The Smithsonian independently corroborates Apollo 11 aviation and spaceflight chronology." }
+      ] }), usageMetadata: { totalTokenCount: 100 } };
+      if (Array.isArray(request.config.tools) && request.config.tools.some((tool) => typeof tool === "object" && tool !== null && "googleSearch" in tool)) {
+        const text = "Apollo 11 launched on July 16, 1969.";
+        return { text, candidates: [{ groundingMetadata: { webSearchQueries: ["Apollo 11 launch NASA"], groundingChunks: [{ web: { uri: "https://www.nasa.gov/apollo-11-fixture", title: "NASA Apollo 11 launch", domain: "nasa.gov" } }], groundingSupports: [{ segment: { startIndex: 0, endIndex: text.length, text }, groundingChunkIndices: [0] }], searchEntryPoint: {} } }], usageMetadata: { totalTokenCount: 100 } };
       }
-      if (request.contents.includes("Use Google Search only")) return { text: "Apollo 11 launched on July 16, 1969.", candidates: [{ groundingMetadata: { webSearchQueries: ["Apollo 11 launch NASA"], groundingChunks: [{ web: { uri: "https://www.nasa.gov/apollo-11-fixture", title: "Apollo 11", domain: "nasa.gov" } }], groundingSupports: [{ segment: { text: "Apollo 11 launched on July 16, 1969.", startIndex: 0, endIndex: 39 }, groundingChunkIndices: [0] }], searchEntryPoint: {} } }], usageMetadata: { totalTokenCount: 200 } };
       if (request.contents.includes("atomic-claim extraction stage")) {
         const segmentId = request.contents.match(/segment-[a-f0-9]{64}/u)?.[0];
         assert.ok(segmentId);
         const temporal = { start: { ...date(1969, "DAY", 7, 16), label: "July 16, 1969" }, end: null };
         return { text: JSON.stringify({ claims: [
-          { subject: { kind: "EVENT", id: null, label: "mission launch" }, predicate: "OCCURRENCE", object: { kind: "TEXT", id: null, value: "launched" }, normalizedAssertion: "The mission launched on July 16, 1969", claimType: "OCCURRENCE", risk: "MATERIAL", temporal, candidateEventClusterId: "apollo-11-launch", qualifiers: [], evidenceSegmentIds: [segmentId], semanticClass: "EVENT" },
-          { subject: { kind: "EVENT", id: null, label: "mission launch" }, predicate: "DATE", object: { kind: "DATE", id: null, value: temporal.start }, normalizedAssertion: "The launch occurred July 16, 1969", claimType: "DATE", risk: "MATERIAL", temporal, candidateEventClusterId: "apollo-11-launch", qualifiers: [], evidenceSegmentIds: [segmentId], semanticClass: "EVENT" }
+          { subject: { kind: "EVENT", label: "mission launch" }, predicate: "OCCURRENCE", object: { kind: "TEXT", value: "launched" }, normalizedAssertion: "The mission launched on July 16, 1969", claimType: "OCCURRENCE", risk: "MATERIAL", temporal, eventClusterKey: "Apollo 11 launch", qualifiers: [], evidenceSegmentIds: [segmentId], semanticClass: "EVENT" },
+          { subject: { kind: "EVENT", label: "mission launch" }, predicate: "DATE", object: { kind: "DATE", value: temporal.start }, normalizedAssertion: "The launch occurred July 16, 1969", claimType: "DATE", risk: "MATERIAL", temporal, eventClusterKey: "Apollo 11 launch", qualifiers: [], evidenceSegmentIds: [segmentId], semanticClass: "EVENT" }
         ] }), usageMetadata: { totalTokenCount: 200 } };
       }
       throw new Error("Unexpected model stage");
     }
   };
   const fetch = async (url: string) => {
-    const body = url.endsWith("/robots.txt") ? "User-agent: *\nAllow: /" : "<html lang='en'><title>NASA Apollo 11</title><body><p>Apollo 11 launched on July 16, 1969.</p></body></html>";
+    const body = url.endsWith("/robots.txt") ? "User-agent: *\nAllow: /" : `<html lang='en'><title>${url.includes("airandspace.si.edu") ? "Smithsonian" : "NASA"} Apollo 11</title><body><p>Apollo 11 launched on July 16, 1969.</p></body></html>`;
     return { status: 200, headers: { get: (name: string) => name.toLocaleLowerCase("en-US") === "content-type" ? (url.endsWith("/robots.txt") ? "text/plain" : "text/html") : null }, body: Readable.from([new TextEncoder().encode(body)]) as unknown as AsyncIterable<Uint8Array> };
   };
   const app = getApps()[0] || initializeApp({ projectId: "tiimeliines" });
   const repository = new V2FirestoreRepository({ firestore: getFirestore(app), corpusId: "test-clean-corpus" });
-  const result = await runV2AShadowFixture({ title: "Apollo 11 Mission", language: "en", ongoingAsOf: "2026-09-06" }, shadowConfig(), { repository, provider, retrieval: { fetch, dnsLookup: (async () => [{ address: "93.184.216.34", family: 4 }]) as never, archive: { async save(path) { return { objectRef: `gs://private/${path}#1`, generation: "1" }; } } } });
-  assert.equal(result.metrics.finalV2AVerdict, "PASS");
+  const institutionalDiscoveryTransport = async (url: string) => new Response(url.includes("airandspace.si.edu")
+    ? "<urlset><url><loc>https://airandspace.si.edu/apollo-11-launch-fixture</loc></url></urlset>"
+    : "<urlset><url><loc>https://www.nasa.gov/apollo-11-launch-fixture</loc></url></urlset>", { status: 200, headers: { "content-type": "application/xml" } });
+  const result = await runV2AShadowFixture({ title: "Apollo 11 Mission", language: "en", ongoingAsOf: "2026-09-06" }, shadowConfig(), { repository, provider, institutionalDiscoveryTransport, retrieval: { fetch, dnsLookup: (async () => [{ address: "93.184.216.34", family: 4 }]) as never, archive: { async save(path) { return { objectRef: `gs://private/${path}#1`, generation: "1" }; } } } });
+  assert.equal(result.metrics.finalV2AVerdict, "PASS", JSON.stringify({ blockingReasons: result.blockingReasons, confidenceVectorId: result.confidenceVectorId, metrics: result.metrics }));
   assert.equal(result.metrics.claimsSupported, 2);
   assert.equal(result.metrics.resolvedCanonicalEventCandidates, 1);
   assert.equal(result.blockingReasons.length, 0);
@@ -69,8 +76,8 @@ test("Full V2-A shadow orchestration creates verified candidate knowledge withou
     const ids = entity.data().identityEvidenceSegmentIds as string[];
     assert.equal(new Set(ids).size, ids.length);
   }
-  const second = await runV2AShadowFixture({ title: "Apollo 11 Mission", language: "en", ongoingAsOf: "2026-09-06" }, shadowConfig(), { repository, provider, retrieval: { fetch, dnsLookup: (async () => [{ address: "93.184.216.34", family: 4 }]) as never, archive: { async save(path) { return { objectRef: `gs://private/${path}#1`, generation: "1" }; } } } });
-  assert.equal(second.metrics.cacheHits, 1);
+  const second = await runV2AShadowFixture({ title: "Apollo 11 Mission", language: "en", ongoingAsOf: "2026-09-06" }, shadowConfig(), { repository, provider, institutionalDiscoveryTransport, retrieval: { fetch, dnsLookup: (async () => [{ address: "93.184.216.34", family: 4 }]) as never, archive: { async save(path) { return { objectRef: `gs://private/${path}#1`, generation: "1" }; } } } });
+  assert.equal(second.metrics.cacheHits, 2);
   assert.equal(second.metrics.resolvedCanonicalEventCandidates, 1);
   const entityHeads = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("v2CanonicalEntities").limit(20).get();
   const eventHeads = await getFirestore(app).collection("corpora").doc("test-clean-corpus").collection("v2CanonicalEvents").limit(20).get();

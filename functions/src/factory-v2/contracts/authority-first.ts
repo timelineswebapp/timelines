@@ -1,0 +1,229 @@
+import { z } from "zod";
+import { boundedText, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields, languageSchema } from "./common";
+import { claimTypeSchema } from "./knowledge";
+
+const unique = <T>(values: T[]) => new Set(values).size === values.length;
+const ids = (maximum: number, minimum = 0) => z.array(idSchema).min(minimum).max(maximum).refine(unique, "IDs must be unique.");
+const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, itemMaximum)).max(maximum).refine(unique, "Values must be unique.");
+
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.1" as const;
+export const AUTHORITY_REGISTRY_VERSION = "authority-registry.1" as const;
+export const CONTROLLED_RESEARCH_BUDGET_VERSION = "controlled-research-budget.1" as const;
+
+export const authorityFamilySchema = z.enum([
+  "EDITED_REFERENCE",
+  "ARCHIVE_LIBRARY",
+  "PUBLIC_SCIENTIFIC_INSTITUTION",
+  "INTERNATIONAL_STANDARDS_BODY",
+  "ACADEMIC_SCHOLARLY",
+  "MUSEUM_HERITAGE_MEMORY",
+  "CONTEMPORARY_JOURNALISM",
+  "COMMUNITY_CUSTODIAL",
+  "SPECIALIST",
+  "SUBJECT_ASSOCIATED"
+]);
+
+export const authorityResearchRoleSchema = z.enum([
+  "ORIENTATION",
+  "PRIMARY_RECORD",
+  "CORROBORATION",
+  "INTERPRETATION",
+  "PERSPECTIVE_TESTIMONY"
+]);
+
+export const subjectRelationshipSchema = z.enum([
+  "INDEPENDENT",
+  "SUBJECT_SELF",
+  "STATE_PARTY",
+  "PARTICIPANT",
+  "COMMUNITY_CUSTODIAN"
+]);
+
+export const institutionalDiscoveryMechanismSchema = z.enum([
+  "DIRECT_URL",
+  "OFFICIAL_API",
+  "INSTITUTIONAL_SITE_SEARCH",
+  "SITEMAP",
+  "REGISTERED_DOMAIN_DISCOVERY",
+  "GOOGLE_GROUNDING_ESCALATION"
+]);
+
+export const authorityRegistryCapabilitySchema = z.object({
+  authorityFamily: authorityFamilySchema,
+  officialEndpoints: z.array(httpsUrlSchema).min(1).max(20).refine(unique),
+  historicalPeriods: strings(20, 160),
+  defaultSubjectRelationship: subjectRelationshipSchema,
+  discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(5).refine(unique),
+  storageConstraints: strings(20, 500),
+  registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION)
+}).strict();
+
+export const topicAuthorityProposalSchema = z.object({
+  publisherVersionId: idSchema,
+  researchQuestionIds: ids(120, 1),
+  roles: z.array(authorityResearchRoleSchema).min(1).max(5).refine(unique),
+  claimTypes: z.array(claimTypeSchema).min(1).max(12).refine(unique),
+  subjectRelationship: subjectRelationshipSchema,
+  perspectiveTags: strings(20, 160),
+  rationale: boundedText(10, 1000)
+}).strict();
+
+export const topicAuthorityBindingSchema = topicAuthorityProposalSchema.extend({
+  bindingId: idSchema,
+  publisherId: z.string().uuid(),
+  authorityFamily: authorityFamilySchema,
+  independenceGroupId: idSchema,
+  verifiedDomains: z.array(boundedText(3, 253)).min(1).max(30).refine(unique),
+  languages: z.array(languageSchema).min(1).max(20).refine(unique),
+  geography: strings(20, 160),
+  officialEndpoints: z.array(httpsUrlSchema).min(1).max(20).refine(unique),
+  discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(5).refine(unique),
+  validationStatus: z.literal("ELIGIBLE")
+}).strict();
+
+export const topicAuthoritySetSchema = z.object({
+  ...immutableEnvelopeFields,
+  topicAuthoritySetId: idSchema,
+  scopeContractId: idSchema,
+  scopePayloadHash: hashSchema,
+  researchMapId: idSchema,
+  researchMapPayloadHash: hashSchema,
+  registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION),
+  registryHash: hashSchema,
+  bindings: z.array(topicAuthorityBindingSchema).min(1).max(24),
+  rejectedPublisherVersionIds: ids(60),
+  criticalQuestionIds: ids(120),
+  contestedQuestionIds: ids(120),
+  validationStatus: z.literal("VALIDATED")
+}).strict().superRefine((set, context) => {
+  if (set.artifactId !== set.topicAuthoritySetId) context.addIssue({ code: z.ZodIssueCode.custom, path: ["topicAuthoritySetId"], message: "Topic Authority Set identity must match the artifact identity." });
+  const covered = new Set(set.bindings.filter((binding) => binding.roles.some((role) => role !== "ORIENTATION")).flatMap((binding) => binding.researchQuestionIds));
+  for (const questionId of set.criticalQuestionIds) if (!covered.has(questionId)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["bindings"], message: `Critical question ${questionId} lacks evidentiary-core authority coverage.` });
+});
+
+export const controlledResearchBudgetSchema = z.object({
+  version: z.literal(CONTROLLED_RESEARCH_BUDGET_VERSION),
+  maximumControlledDiscoveryOperations: z.literal(25),
+  maximumGapRepairOperations: z.literal(5),
+  maximumGroundingEscalationCalls: z.literal(2),
+  maximumDirectRetrievals: z.literal(40),
+  maximumConcurrency: z.literal(3),
+  maximumCompletionRounds: z.literal(1),
+  maximumWholeRunSeconds: z.literal(1200),
+  maximumGapRoundSeconds: z.literal(480)
+}).strict();
+
+export const authorityResearchPlanOperationSchema = z.object({
+  plannedOperationId: idSchema,
+  authorityBindingId: idSchema,
+  researchQuestionIds: ids(120, 1),
+  layer: z.enum(["ORIENTATION", "EVIDENTIARY_CORE"]),
+  mechanism: institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"]),
+  endpoint: httpsUrlSchema,
+  purpose: boundedText(10, 1000)
+}).strict();
+
+export const authorityResearchPlanSchema = z.object({
+  ...immutableEnvelopeFields,
+  authorityResearchPlanId: idSchema,
+  topicAuthoritySetId: idSchema,
+  budget: controlledResearchBudgetSchema,
+  operations: z.array(authorityResearchPlanOperationSchema).min(1).max(25),
+  coveredCriticalQuestionIds: ids(120),
+  state: z.literal("AUTHORIZED")
+}).strict().superRefine((plan, context) => {
+  if (plan.artifactId !== plan.authorityResearchPlanId) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorityResearchPlanId"], message: "Authority Research Plan identity must match the artifact identity." });
+  const covered = new Set(plan.operations.filter((operation) => operation.layer === "EVIDENTIARY_CORE").flatMap((operation) => operation.researchQuestionIds));
+  for (const questionId of plan.coveredCriticalQuestionIds) if (!covered.has(questionId)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: `Critical question ${questionId} lacks an evidentiary-core operation.` });
+});
+
+export const controlledResearchOperationSchema = z.object({
+  operationId: idSchema,
+  researchQuestionIds: ids(120, 1),
+  authorityBindingId: idSchema.nullable(),
+  layer: z.enum(["ORIENTATION", "EVIDENTIARY_CORE", "GAP_CONTEST_ESCALATION"]),
+  mechanism: institutionalDiscoveryMechanismSchema,
+  endpoint: httpsUrlSchema,
+  purpose: boundedText(10, 1000),
+  status: z.enum(["PLANNED", "SUCCEEDED", "FAILED", "NOT_AUTHORIZED"]),
+  returnedUrls: z.array(httpsUrlSchema).max(60).refine(unique),
+  providerInternalQueries: strings(40, 500),
+  latencyMs: z.number().int().nonnegative().max(1_200_000).nullable(),
+  failureReason: boundedText(3, 1000).nullable()
+}).strict().superRefine((operation, context) => {
+  if (operation.mechanism !== "GOOGLE_GROUNDING_ESCALATION" && operation.authorityBindingId === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorityBindingId"], message: "Institutional operations require a registered authority binding." });
+  if (operation.layer !== "GAP_CONTEST_ESCALATION" && operation.mechanism === "GOOGLE_GROUNDING_ESCALATION") context.addIssue({ code: z.ZodIssueCode.custom, path: ["mechanism"], message: "Google Grounding is escalation-only." });
+});
+
+export const controlledResearchLedgerSchema = z.object({
+  ...immutableEnvelopeFields,
+  controlledResearchLedgerId: idSchema,
+  topicAuthoritySetId: idSchema,
+  budget: controlledResearchBudgetSchema,
+  operations: z.array(controlledResearchOperationSchema).max(25),
+  gapRepairOperationCount: z.number().int().nonnegative().max(5),
+  groundingEscalationCallCount: z.number().int().nonnegative().max(2),
+  directRetrievalCount: z.number().int().nonnegative().max(40)
+}).strict().superRefine((ledger, context) => {
+  const gapCount = ledger.operations.filter((operation) => operation.layer === "GAP_CONTEST_ESCALATION").length;
+  const groundingCount = ledger.operations.filter((operation) => operation.mechanism === "GOOGLE_GROUNDING_ESCALATION").length;
+  if (ledger.operations.length > ledger.budget.maximumControlledDiscoveryOperations) context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: "Controlled discovery operation budget exceeded." });
+  if (ledger.gapRepairOperationCount !== gapCount) context.addIssue({ code: z.ZodIssueCode.custom, path: ["gapRepairOperationCount"], message: "Gap-operation counter does not match the ledger." });
+  if (ledger.groundingEscalationCallCount !== groundingCount) context.addIssue({ code: z.ZodIssueCode.custom, path: ["groundingEscalationCallCount"], message: "Grounding counter does not match the ledger." });
+});
+
+export const perspectiveAuditSchema = z.object({
+  ...immutableEnvelopeFields,
+  perspectiveAuditId: idSchema,
+  topicAuthoritySetId: idSchema,
+  contested: z.boolean(),
+  representedPerspectiveTags: strings(40, 160),
+  missingPerspectiveTags: strings(40, 160),
+  independentGroupCount: z.number().int().nonnegative().max(24),
+  hasIndependentScholarship: z.boolean(),
+  onlySelfInterestedEvidence: z.boolean(),
+  verdict: z.enum(["SUFFICIENT", "INADEQUATE", "REVIEW_REQUIRED"]),
+  reasonCodes: z.array(z.enum(["PERSPECTIVE_REQUIREMENTS_MET", "MISSING_REQUIRED_PERSPECTIVE", "INSUFFICIENT_INDEPENDENCE", "ONLY_SELF_INTERESTED_EVIDENCE", "CONTESTED_HUMAN_REVIEW"])).min(1).max(8).refine(unique)
+}).strict();
+
+export const acquisitionConfidenceVectorSchema = z.object({
+  ...immutableEnvelopeFields,
+  confidenceVectorId: idSchema,
+  topicAuthoritySetId: idSchema,
+  authorityApplicability: z.enum(["PASS", "FAIL"]),
+  evidenceDirectness: z.enum(["PASS", "QUALIFIED", "FAIL"]),
+  independentCorroboration: z.enum(["PASS", "QUALIFIED", "FAIL"]),
+  perspectiveAdequacy: z.enum(["PASS", "REVIEW_REQUIRED", "FAIL"]),
+  conflictStatus: z.enum(["PASS", "QUALIFIED", "REVIEW_REQUIRED", "FAIL"]),
+  coverageCompleteness: z.enum(["PASS", "FAIL"]),
+  temporalPrecision: z.enum(["PASS", "QUALIFIED", "FAIL"]),
+  provenanceIntegrity: z.enum(["PASS", "FAIL"]),
+  verdict: z.enum(["PASS", "QUALIFIED", "REVIEW_REQUIRED", "FAIL"]),
+  reasonCodes: strings(30, 160)
+}).strict();
+
+export const escalationDecisionSchema = z.object({
+  ...immutableEnvelopeFields,
+  escalationDecisionId: idSchema,
+  topicAuthoritySetId: idSchema,
+  researchQuestionIds: ids(120, 1),
+  gapIds: ids(200, 1),
+  reason: z.enum(["MATERIAL_COVERAGE_GAP", "PERSPECTIVE_GAP", "UNRESOLVED_CONFLICT", "AUTHORITY_INACCESSIBLE", "MISSING_INDEPENDENT_CORROBORATION"]),
+  mappedAuthorityOperationsAttempted: z.number().int().positive().max(25),
+  remainingGapOperations: z.number().int().positive().max(5),
+  allowedPurpose: boundedText(10, 1000),
+  state: z.literal("AUTHORIZED")
+}).strict();
+
+export type AuthorityFamily = z.infer<typeof authorityFamilySchema>;
+export type AuthorityRegistryCapability = z.infer<typeof authorityRegistryCapabilitySchema>;
+export type AuthorityResearchRole = z.infer<typeof authorityResearchRoleSchema>;
+export type SubjectRelationship = z.infer<typeof subjectRelationshipSchema>;
+export type TopicAuthorityProposal = z.infer<typeof topicAuthorityProposalSchema>;
+export type TopicAuthorityBinding = z.infer<typeof topicAuthorityBindingSchema>;
+export type TopicAuthoritySet = z.infer<typeof topicAuthoritySetSchema>;
+export type ControlledResearchBudget = z.infer<typeof controlledResearchBudgetSchema>;
+export type AuthorityResearchPlan = z.infer<typeof authorityResearchPlanSchema>;
+export type ControlledResearchOperation = z.infer<typeof controlledResearchOperationSchema>;
+export type PerspectiveAudit = z.infer<typeof perspectiveAuditSchema>;
+export type AcquisitionConfidenceVector = z.infer<typeof acquisitionConfidenceVectorSchema>;

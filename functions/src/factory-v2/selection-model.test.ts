@@ -49,3 +49,13 @@ test("B1 model execution identity covers exact usage and timing provenance", asy
   const changedUsage = await evaluateHistoricalSignificance({ context, scope, researchMap: map, eligibleEvents: [event], approvedClaims: [claim], provider: { generateContent: async () => ({ text: response(), usageMetadata: { promptTokenCount: 101, candidatesTokenCount: 50, totalTokenCount: 151 } }) } });
   assert.notEqual(changedUsage.execution.executionId, first.execution.executionId);
 });
+
+test("B1 deterministic selection repair re-evaluates the same locked Completed Knowledge Set", async () => {
+  const requests: V2GenerateRequest[] = [];
+  await evaluateHistoricalSignificance({ context: { ...TEST_CONTEXT, ...LINEAGE }, scope, researchMap: map, eligibleEvents: [event], approvedClaims: [claim], selectionFeedback: ["MISSING_REQUIRED_PHASE", "The opening phase was not represented."], provider: { generateContent: async (request) => { requests.push(request); return { text: response() }; } } });
+  assert.equal(requests.length, 1);
+  assert.match(String(requests[0]!.contents), /PRIOR_DETERMINISTIC_SELECTION_FAILURES/u);
+  assert.match(String(requests[0]!.contents), new RegExp(event.eventVersionId, "u"));
+  assert.match(String(requests[0]!.contents), new RegExp(LINEAGE.completedKnowledgeSetId, "u"));
+  assert.equal(requests[0]!.config.tools, undefined);
+});

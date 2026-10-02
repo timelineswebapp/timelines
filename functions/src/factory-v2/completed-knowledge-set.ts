@@ -13,6 +13,7 @@ import {
   scopeContractSchema,
   V2_PIPELINE_VERSION,
   V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION,
+  V2_POLICY_VERSION,
   type AtomicClaimVersion,
   type CanonicalEventVersion,
   type ClaimAuthorityVerdict,
@@ -162,7 +163,9 @@ export async function reconstructCompletedKnowledgeSetForB1(reader: CompletedKno
     ...conflicts.map((value) => ["Conflict Set", value] as const)
   ] as const) assertArtifactBoundary(set, artifact, label);
 
-  if ([initialCoverageAudit, finalCoverageAudit, completionPlan, researchMap].some((artifact) => artifact.schemaVersion !== "factory-v2-a.4" || artifact.policyVersion !== set.policyVersion)) throw new Error("B1_LINEAGE_SEMANTIC_VERSION_INCOMPATIBLE: coverage chain.");
+  if ([initialCoverageAudit, finalCoverageAudit, completionPlan].some((artifact) => artifact.schemaVersion !== "factory-v2-a.4" || artifact.policyVersion !== set.policyVersion)) throw new Error("B1_LINEAGE_SEMANTIC_VERSION_INCOMPATIBLE: coverage chain.");
+  const expectedResearchMapPolicy = completionPlan.round === 0 ? V2_POLICY_VERSION : set.policyVersion;
+  if (researchMap.schemaVersion !== "factory-v2-a.4" || researchMap.policyVersion !== expectedResearchMapPolicy || originalResearchMap.schemaVersion !== "factory-v2-a.4" || originalResearchMap.policyVersion !== V2_POLICY_VERSION) throw new Error("B1_LINEAGE_SEMANTIC_VERSION_INCOMPATIBLE: research maps.");
 
   if (set.parentArtifactId !== completionPlan.completionPlanId || completionPlan.parentArtifactId !== initialCoverageAudit.coverageAuditId || completionPlan.parentCoverageAuditId !== initialCoverageAudit.coverageAuditId) throw new Error("B1_LINEAGE_COMPLETION_PLAN_MISMATCH.");
   if (initialCoverageAudit.auditStage !== "INITIAL" || initialCoverageAudit.payloadHash !== set.initialCoverageAuditPayloadHash) throw new Error("B1_LINEAGE_INITIAL_AUDIT_MISMATCH.");
@@ -170,7 +173,10 @@ export async function reconstructCompletedKnowledgeSetForB1(reader: CompletedKno
   if (set.finalVerdict !== finalCoverageAudit.verdict || !sameIds(set.unresolvedGapIds, finalCoverageAudit.gaps.map((gap) => gap.gapId))) throw new Error("B1_LINEAGE_FINAL_COVERAGE_RESULT_MISMATCH.");
   if (scope.payloadHash !== set.scopePayloadHash || finalCoverageAudit.scopeContractId !== scope.scopeContractId || finalCoverageAudit.scopePayloadHash !== scope.payloadHash) throw new Error("B1_LINEAGE_SCOPE_MISMATCH: final coverage lineage.");
   if (researchMap.payloadHash !== set.researchMapPayloadHash || researchMap.scopeContractId !== scope.scopeContractId || researchMap.scopePayloadHash !== scope.payloadHash || finalCoverageAudit.parentArtifactId !== researchMap.researchMapId || finalCoverageAudit.researchMapId !== researchMap.researchMapId || finalCoverageAudit.researchMapPayloadHash !== researchMap.payloadHash) throw new Error("B1_LINEAGE_RESEARCH_MAP_MISMATCH.");
-  if (completionPlan.originalScopeContractId !== scope.scopeContractId || originalResearchMap.scopeContractId !== scope.scopeContractId || originalResearchMap.scopePayloadHash !== scope.payloadHash || initialCoverageAudit.parentArtifactId !== originalResearchMap.researchMapId || initialCoverageAudit.scopeContractId !== scope.scopeContractId || initialCoverageAudit.scopePayloadHash !== scope.payloadHash || initialCoverageAudit.researchMapId !== originalResearchMap.researchMapId || initialCoverageAudit.researchMapPayloadHash !== originalResearchMap.payloadHash || researchMap.parentArtifactId !== originalResearchMap.researchMapId) throw new Error("B1_LINEAGE_COMPLETION_PARENT_MISMATCH.");
+  const researchMapLineageValid = completionPlan.round === 0
+    ? researchMap.researchMapId === originalResearchMap.researchMapId && researchMap.payloadHash === originalResearchMap.payloadHash
+    : researchMap.parentArtifactId === originalResearchMap.researchMapId;
+  if (completionPlan.originalScopeContractId !== scope.scopeContractId || originalResearchMap.scopeContractId !== scope.scopeContractId || originalResearchMap.scopePayloadHash !== scope.payloadHash || initialCoverageAudit.parentArtifactId !== originalResearchMap.researchMapId || initialCoverageAudit.scopeContractId !== scope.scopeContractId || initialCoverageAudit.scopePayloadHash !== scope.payloadHash || initialCoverageAudit.researchMapId !== originalResearchMap.researchMapId || initialCoverageAudit.researchMapPayloadHash !== originalResearchMap.payloadHash || !researchMapLineageValid) throw new Error("B1_LINEAGE_COMPLETION_PARENT_MISMATCH.");
   if (!sameIds(set.candidateEventVersionIds, finalCoverageAudit.candidateEventVersionIds)) throw new Error("B1_LINEAGE_CANDIDATE_MEMBERSHIP_MISMATCH.");
 
   const claimIds = new Set(claims.map((claim) => claim.claimVersionId));

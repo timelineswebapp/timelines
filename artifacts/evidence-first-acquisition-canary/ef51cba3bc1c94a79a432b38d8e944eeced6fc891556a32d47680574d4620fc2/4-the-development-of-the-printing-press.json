@@ -1,0 +1,84 @@
+{
+  "title": "The Development of the Printing Press",
+  "status": "FAILED_CLOSED",
+  "stage": "INITIAL_ACQUISITION",
+  "reason": "EVIDENCE_FIRST_INITIAL_ACQUISITION_FAILED:NO_SUPPORTED_CLAIMS,NO_RESOLVED_EVENT_CANDIDATES",
+  "telemetry": {
+    "acquisitionRounds": 1,
+    "providerCalls": 16,
+    "retries": 0,
+    "repairs": 1,
+    "queries": [
+      "printing press history archives primary sources",
+      "Gutenberg printing press original documents",
+      "early printing history university library",
+      "history of printing scholarly publications",
+      "museums with printing press collections historical records",
+      "history of printing press scholarly sources 200 AD to 1900",
+      "chronology of printing technology academic",
+      "origins of printing press historical records",
+      "development of printing press university archives",
+      "printing history museum collections",
+      "early printing techniques scholarly articles",
+      "Johannes Gutenberg printing press innovations scholarly sources",
+      "Gutenberg's contributions to printing technology academic",
+      "history of printing press Gutenberg innovations university",
+      "Gutenberg museum printing press innovations",
+      "scholarly articles Johannes Gutenberg printing press",
+      "early woodblock printing East Asia technological advancements scholarly sources",
+      "history of woodblock printing China Korea Japan academic",
+      "origins of woodblock printing technology East Asia university",
+      "ancient East Asian printing techniques historical records",
+      "technological innovations woodblock printing Tang Dynasty Song Dynasty",
+      "economic impact printing press Europe 15th 16th centuries scholarly sources",
+      "printing press economic history Europe 1500s academic",
+      "Gutenberg printing press economic effects academic articles",
+      "early modern Europe printing press economic transformation scholarly",
+      "economic changes due to printing press Renaissance academic"
+    ],
+    "sourcesDiscovered": 75,
+    "retrievalAttempts": 12,
+    "retrievalSuccesses": 10,
+    "retrievalFailures": 2,
+    "retrievalRejectionReasons": {
+      "SOURCE_RETRIEVAL_ROBOTS_DENIED": 1,
+      "The operation was aborted": 1
+    },
+    "evidencePackets": 7,
+    "evidencePacketSegments": 79,
+    "claimsExtracted": 40,
+    "claimsSupported": 0,
+    "claimsRejected": 42,
+    "claimRejectionReasons": {
+      "evidenceSegmentIds": 2
+    },
+    "authorityDistribution": {
+      "INSUFFICIENT": 40
+    },
+    "conflictsDetected": 2,
+    "conflictsUnresolved": 2,
+    "eventCandidates": 0,
+    "resolvedEventCandidates": 0,
+    "rejectedNonEvents": 0,
+    "eventDispositionDistribution": {},
+    "eventResolutionDiagnostics": {
+      "NO_SUPPORTED_CORE_CLAIM": 28
+    },
+    "stageLatencyMs": {
+      "CLAIM_EXTRACTION": 53941,
+      "GROUNDING": 58770,
+      "QUERY_PLAN": 3997,
+      "RESEARCH_MAP": 19363,
+      "SCOPE": 8095
+    },
+    "totalLatencyMs": 370144,
+    "inputTokens": 23664,
+    "outputTokens": 21359,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "coverage": {
+    "initialAuditId": null,
+    "finalAuditId": null
+  }
+}

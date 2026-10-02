@@ -45,7 +45,11 @@ export const taskPayloadSchema = z.object({
   jobId: z.string().uuid(),
   generation: z.number().int().positive(),
   origin: z.enum(["user", "founder", "autonomous", "migration", "retry"])
-});
+}).strict();
+
+export const evidenceFirstTaskPayloadSchema = taskPayloadSchema.extend({
+  generationReleaseId: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict();
 
 export const institutionalTaskPayloadSchema = taskPayloadSchema.extend({
   // Deterministic policy revisions use a content-addressed run identifier. Normal
@@ -249,7 +253,7 @@ const omissionReviewItemSchema = z.object({
 
 export const timelineEditorialPlanSchema = z.object({
   scope: timelineScopePlanSchema,
-  candidates: z.array(timelineCandidateSchema).min(6).max(60),
+  candidates: z.array(timelineCandidateSchema).min(6).max(200),
   redundancyReview: z.array(z.object({
     candidateIds: z.array(boundedText(1, 100)).min(2).max(12),
     resolution: z.enum(["distinct", "merged", "excluded", "excessive_unresolved"]),
@@ -330,6 +334,7 @@ export const discoverySchema = z.object({
 
 export type TopicRequestInput = z.infer<typeof topicRequestSchema>;
 export type TaskPayload = z.infer<typeof taskPayloadSchema>;
+export type EvidenceFirstTaskPayload = z.infer<typeof evidenceFirstTaskPayloadSchema>;
 export type GeneratedTimeline = z.infer<typeof generatedTimelineSchema>;
 export type TimelineScopePlan = z.infer<typeof timelineScopePlanSchema>;
 export type TimelineEditorialPlan = z.infer<typeof timelineEditorialPlanSchema>;

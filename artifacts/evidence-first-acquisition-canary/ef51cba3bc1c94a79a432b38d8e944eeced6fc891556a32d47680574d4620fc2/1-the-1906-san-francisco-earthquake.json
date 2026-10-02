@@ -1,0 +1,110 @@
+{
+  "title": "The 1906 San Francisco Earthquake",
+  "status": "COMPLETED_KNOWLEDGE_SET",
+  "telemetry": {
+    "acquisitionRounds": 1,
+    "providerCalls": 17,
+    "retries": 0,
+    "repairs": 1,
+    "queries": [
+      "1906 San Francisco Earthquake official chronology historical record primary sources",
+      "1906 San Francisco Earthquake government records chronology",
+      "1906 San Francisco Earthquake archival records dates",
+      "USGS 1906 San Francisco Earthquake chronology",
+      "California Historical Society 1906 San Francisco Earthquake records",
+      "Bancroft Library 1906 San Francisco Earthquake chronology",
+      "1906 San Francisco earthquake official chronology April-July",
+      "1906 San Francisco earthquake historical records April-July",
+      "USGS 1906 San Francisco earthquake timeline",
+      "California Historical Society 1906 earthquake events April-July",
+      "Bancroft Library 1906 San Francisco earthquake chronology",
+      "1906 San Francisco earthquake rupture magnitude scholarly sources",
+      "1906 San Francisco earthquake soil conditions geology shaking damage scholarly sources",
+      "San Andreas Fault 1906 earthquake historical records authoritative",
+      "USGS 1906 San Francisco earthquake research",
+      "UC Berkeley 1906 earthquake studies",
+      "California Geological Survey 1906 earthquake reports",
+      "Seismological Society of America 1906 earthquake publications",
+      "1906 San Francisco earthquake primary sources fires ignition",
+      "1906 San Francisco earthquake police army response official records",
+      "1906 San Francisco earthquake relief shelters historical documents",
+      "1906 San Francisco earthquake reconstruction official reports",
+      "1906 San Francisco earthquake infrastructure damage archival records",
+      "Library of Congress 1906 San Francisco earthquake",
+      "National Archives 1906 San Francisco earthquake",
+      "University of California Berkeley 1906 San Francisco earthquake archives",
+      "California Historical Society 1906 San Francisco earthquake",
+      "1906 San Francisco earthquake fatalities official report",
+      "1906 San Francisco earthquake injuries archival records",
+      "1906 San Francisco earthquake daily life historical accounts",
+      "1906 San Francisco earthquake commerce impact scholarly",
+      "1906 San Francisco earthquake social impact academic sources",
+      "University of California Berkeley 1906 earthquake archives",
+      "Stanford University 1906 earthquake research",
+      "California Historical Society 1906 earthquake"
+    ],
+    "sourcesDiscovered": 94,
+    "retrievalAttempts": 12,
+    "retrievalSuccesses": 11,
+    "retrievalFailures": 1,
+    "retrievalRejectionReasons": {
+      "SOURCE_RETRIEVAL_ROBOTS_DENIED": 1
+    },
+    "evidencePackets": 8,
+    "evidencePacketSegments": 96,
+    "claimsExtracted": 27,
+    "claimsSupported": 27,
+    "claimsRejected": 10,
+    "claimRejectionReasons": {
+      "normalizedAssertion": 5,
+      "predicate": 9
+    },
+    "authorityDistribution": {
+      "SUPPORTED": 27
+    },
+    "conflictsDetected": 4,
+    "conflictsUnresolved": 4,
+    "eventCandidates": 5,
+    "resolvedEventCandidates": 5,
+    "rejectedNonEvents": 0,
+    "eventDispositionDistribution": {
+      "EVENT:RESOLVED": 5
+    },
+    "eventResolutionDiagnostics": {
+      "NO_EVIDENCED_TEMPORAL_START": 6,
+      "NO_OCCURRENCE_OR_INSTITUTIONAL_ACTION": 1,
+      "NO_RELATED_RESOLVED_ENTITY": 1
+    },
+    "stageLatencyMs": {
+      "CLAIM_EXTRACTION": 50171,
+      "GROUNDING": 97945,
+      "QUERY_PLAN": 4905,
+      "RESEARCH_MAP": 19521,
+      "SCOPE": 8774
+    },
+    "totalLatencyMs": 323891,
+    "inputTokens": 91395,
+    "outputTokens": 20686,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "evidenceSegments": 151,
+  "supportedClaims": 27,
+  "rejectedClaims": 0,
+  "authorityDistribution": {
+    "SUPPORTED": 27
+  },
+  "conflicts": {
+    "total": 4,
+    "blocking": 0
+  },
+  "resolvedEventCandidates": 5,
+  "rejectedNonEvents": 0,
+  "coverage": {
+    "finalVerdict": "SUFFICIENT",
+    "unresolvedGapIds": []
+  },
+  "completionRound": 0,
+  "completedKnowledgeSetId": "completed-knowledge-set-5873a4f619fb55b4190bdbcc0fe38adca71b910f4a5637fd3a1a2458928cb12a",
+  "completedKnowledgeSetHash": "7c09b6cd0f43c348317a47fdc0759232634ed165bfa3d27c05a081d5c419d0bd"
+}

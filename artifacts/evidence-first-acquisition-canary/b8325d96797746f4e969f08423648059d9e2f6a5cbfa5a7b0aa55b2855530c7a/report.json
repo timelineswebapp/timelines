@@ -1,0 +1,157 @@
+{
+  "program": "TL-EVIDENCE-FIRST-GENERATION-001",
+  "executionType": "TARGETED_ACQUISITION_CANARY_CONTINUATION",
+  "release": {
+    "generationReleaseId": "b8325d96797746f4e969f08423648059d9e2f6a5cbfa5a7b0aa55b2855530c7a",
+    "manifest": {
+      "manifestSchemaVersion": "generation-release-manifest-v1",
+      "sourceRevision": "c458062fc02eec6aeef70c6a7ffbc812aa019767",
+      "sourceTreeSha256": "d7e49f09ba53eab9b6646f7d526cefeb2ac9b2db0e38e9641ab80c7b3df0faaa",
+      "dependencyLocks": {
+        "rootSha256": "2df5fa8271c715296e582dcc0a6b5ae9a31d962a6985e86270c55965bdee5cc6",
+        "functionsSha256": "c3e97e051302f9574afa53aace5edd161abbfc739a4d70bf1918515fa242f82b"
+      },
+      "configurationBundleHash": "1519c353844e86a9cab9f5e43c86ccd32f1831cdc60266566b80b20e4d5353b0",
+      "generationCapability": "evidence-first-generation-v1",
+      "legacyPipelineVersion": "serverless-pipeline-v5-editorial-excellence",
+      "knowledgeBundle": {
+        "pipelineVersion": "factory-v2-a.13",
+        "policyVersion": "evidence-first-v2-a.11",
+        "promptVersion": "factory-v2-a-prompts.8",
+        "schemaVersion": "factory-v2-a.5"
+      },
+      "selectionBundle": {
+        "pipelineVersion": "factory-v2-b.2",
+        "policyVersion": "evidence-backed-selection-v2-b.1",
+        "schemaVersion": "factory-v2-b.3"
+      },
+      "compositionBundle": {
+        "eventLockSchemaVersion": "event-lock-v1",
+        "compositionSchemaVersion": "locked-composition-v1"
+      },
+      "institutionalGateBundle": {
+        "promptVersion": "historical-research-v5-editorial-excellence",
+        "generatedTimelineSchemaVersion": "generated-timeline-v2",
+        "timelineQualityPolicyVersion": "timeline-quality-v3-event-semantics",
+        "sourceAuthorityPolicyVersion": "source-authority-v2.0.1-certified-2026-09-05",
+        "readerPolicyVersion": "reader-editorial-v1",
+        "governancePolicyVersion": "routine-governance-v5-reader-editorial"
+      }
+    }
+  },
+  "subjects": [
+    "The Development of the Printing Press",
+    "The History of the Olympic Games"
+  ],
+  "results": [
+    {
+      "title": "The Development of the Printing Press",
+      "status": "FAILED_CLOSED",
+      "stage": "UNHANDLED",
+      "reason": "V2_A_RUN_FAILED:evidence-first-completion-d911ea88-29ab-4f40-a7a2-ee47d8777ae5:WHOLE_RUN_DEADLINE_EXCEEDED",
+      "telemetry": null
+    },
+    {
+      "title": "The History of the Olympic Games",
+      "status": "NOT_EXECUTED_AFTER_CANARY_FAILURE"
+    }
+  ],
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "unchanged": true
+  },
+  "discoveryState": "PAUSED",
+  "configuration": {
+    "operatingMode": "SHADOW",
+    "killSwitch": false,
+    "pipelineVersion": "factory-v2-a.13",
+    "artifactPolicyBundle": {
+      "schemaVersion": "factory-v2-a.5",
+      "policyVersion": "evidence-first-v2-a.11",
+      "promptVersion": "factory-v2-a-prompts.8"
+    },
+    "budgetBundle": {
+      "maximumGroundingCalls": 7,
+      "maximumProviderQueries": 40,
+      "maximumSourceDocuments": 60,
+      "maximumAtomicClaims": 300,
+      "maximumSemanticRepairs": 2,
+      "maximumTransportAttemptsPerCall": 3,
+      "maximumConcurrency": 3,
+      "maximumWorkerSeconds": 1200
+    },
+    "autonomousDiscoveryEnabled": false,
+    "publicationEnabled": false,
+    "governanceSubmissionEnabled": false,
+    "updatedAt": "2026-09-09T06:11:29.401Z"
+  },
+  "verdict": "NOT_READY_FOR_SHADOW",
+  "generatedAt": "2026-09-09T09:09:27.303Z"
+}

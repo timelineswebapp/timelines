@@ -1,0 +1,105 @@
+{
+  "title": "The Berlin Blockade and Airlift",
+  "status": "COMPLETED_KNOWLEDGE_SET",
+  "telemetry": {
+    "acquisitionRounds": 1,
+    "providerCalls": 17,
+    "retries": 0,
+    "repairs": 1,
+    "queries": [
+      "Berlin Blockade and Airlift official chronology dates historical record",
+      "US National Archives Berlin Blockade Airlift chronology",
+      "UK National Archives Berlin Blockade Airlift chronology",
+      "German archives Berlin Blockade Airlift chronology",
+      "Berlin Airlift historical documents dates",
+      "Berlin Blockade primary sources dates",
+      "Berlin Blockade and Airlift timeline primary sources",
+      "Berlin Blockade and Airlift timeline archival records",
+      "Berlin Blockade and Airlift timeline university",
+      "Berlin Blockade and Airlift timeline scholarly publisher",
+      "Berlin Blockade and Airlift timeline museum",
+      "Berlin Blockade and Airlift timeline edited references",
+      "scholarly articles Berlin Blockade origins currency reform",
+      "academic journals Berlin Blockade currency reform causes",
+      "university press Berlin Blockade currency reform",
+      "archival sources Berlin Blockade currency reform",
+      "USAF Berlin Airlift operational reports",
+      "RAF Berlin Airlift operational reports",
+      "USAF Berlin Airlift statistics primary sources",
+      "RAF Berlin Airlift statistics primary sources",
+      "National Archives Berlin Airlift operational records",
+      "UK National Archives Berlin Airlift records",
+      "Air Force Historical Research Agency Berlin Airlift",
+      "Royal Air Force Museum Berlin Airlift records",
+      "West Berliners experience Berlin Blockade Airlift propaganda scholarly sources",
+      "Berlin Blockade Airlift propaganda impact West Berliners archival records",
+      "West Berlin residents' perception of propaganda during Berlin Airlift",
+      "primary sources West Berlin propaganda Berlin Blockade",
+      "academic studies on West Berlin public opinion Berlin Airlift propaganda"
+    ],
+    "sourcesDiscovered": 81,
+    "retrievalAttempts": 12,
+    "retrievalSuccesses": 12,
+    "retrievalFailures": 0,
+    "retrievalRejectionReasons": {},
+    "evidencePackets": 8,
+    "evidencePacketSegments": 83,
+    "claimsExtracted": 39,
+    "claimsSupported": 38,
+    "claimsRejected": 5,
+    "claimRejectionReasons": {
+      "object": 1,
+      "predicate": 3
+    },
+    "authorityDistribution": {
+      "INSUFFICIENT": 1,
+      "SUPPORTED": 38
+    },
+    "conflictsDetected": 2,
+    "conflictsUnresolved": 2,
+    "eventCandidates": 6,
+    "resolvedEventCandidates": 6,
+    "rejectedNonEvents": 0,
+    "eventDispositionDistribution": {
+      "EVENT:RESOLVED": 6
+    },
+    "eventResolutionDiagnostics": {
+      "NO_EVIDENCED_TEMPORAL_START": 14,
+      "NO_OCCURRENCE_OR_INSTITUTIONAL_ACTION": 2,
+      "NO_RELATED_RESOLVED_ENTITY": 9,
+      "NO_SUPPORTED_CORE_CLAIM": 1
+    },
+    "stageLatencyMs": {
+      "CLAIM_EXTRACTION": 64743,
+      "GROUNDING": 65719,
+      "QUERY_PLAN": 4373,
+      "RESEARCH_MAP": 23682,
+      "SCOPE": 8686
+    },
+    "totalLatencyMs": 375870,
+    "inputTokens": 110632,
+    "outputTokens": 24271,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "evidenceSegments": 616,
+  "supportedClaims": 38,
+  "rejectedClaims": 1,
+  "authorityDistribution": {
+    "INSUFFICIENT": 1,
+    "SUPPORTED": 38
+  },
+  "conflicts": {
+    "total": 2,
+    "blocking": 0
+  },
+  "resolvedEventCandidates": 6,
+  "rejectedNonEvents": 0,
+  "coverage": {
+    "finalVerdict": "SUFFICIENT",
+    "unresolvedGapIds": []
+  },
+  "completionRound": 0,
+  "completedKnowledgeSetId": "completed-knowledge-set-ddaf4b01400b36329063b5a8ac16866dcc44308438821a12853f6e92cd2e96f1",
+  "completedKnowledgeSetHash": "11840a9df41cf5466cc6be5367386f961607865e4f38851272a5cbcbcc33db8d"
+}

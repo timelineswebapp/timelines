@@ -1,0 +1,115 @@
+{
+  "title": "The 1906 San Francisco Earthquake",
+  "status": "FAILED_CLOSED",
+  "reason": "EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION",
+  "stage": "FINAL_COVERAGE",
+  "metrics": {
+    "rounds": 2,
+    "providerCalls": 19,
+    "authorityRoutingModelCalls": 5,
+    "controlledResearchOperations": 24,
+    "groundingEscalationCalls": 4,
+    "directRetrievalAttempts": 15,
+    "retrievalSuccesses": 15,
+    "retrievalFailures": 0,
+    "sourcesSnapshotted": 13,
+    "claimsExtracted": 22,
+    "claimsSupported": 18,
+    "resolvedEvents": 3,
+    "inputTokens": 170796,
+    "outputTokens": 19406,
+    "monetaryCost": null,
+    "totalLatencyMs": 465434,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-66f977fb26623c15f9ded18a51c5dbdbbfc2f116853d979a3db18effa341a66c",
+      "topic-authority-set-2fa87f2a198152d11ff4bf14d7bbcd1834f054d8559574af96941794a8cc2afb"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-33cf737af4d314a3edcf77a6350eb92a2beb6c8307f80eb394ee8b5bb72ac11f",
+      "authority-research-plan-350fba3ddbef3c84dd6d289e5a80adb655911a7c1d1f2fdbd4920aaf884730e8"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-0847b933566185c13c5e4a40bcdc68397704428aa12e6507a379675254b8e99b",
+      "controlled-research-ledger-20ab58d892d6366cb3a9569c1610675e6b38b2df4a9fe1aafed2119f848aeb49"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-6728e467b52c1c4735e7705d43e2f6a6ae7b43aeeaf7042527b77a26483209c5",
+      "perspective-audit-60871823b1fcc10b63d3256f27f66dfab1ac7b11d3ed913d56138795ad9d3fa0"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-7b7cc338f4f6bf4fbdd6a2e0cb3182781f42e2bc6628e63935e9ee1aeb1689c3",
+      "acquisition-confidence-c243951502372b677553c0df78865853dc7cab9147c8514b787a9523ed4c7d97"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

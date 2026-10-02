@@ -1,0 +1,208 @@
+{
+  "title": "The History of the Olympic Games",
+  "status": "FAILED_CLOSED",
+  "stage": "INITIAL_ACQUISITION",
+  "reason": "EVIDENCE_FIRST_INITIAL_ACQUISITION_FAILED:NO_RESOLVED_EVENT_CANDIDATES",
+  "telemetry": {
+    "acquisitionRounds": 1,
+    "providerCalls": 14,
+    "retries": 0,
+    "repairs": 2,
+    "queries": [
+      "academic journals pierre de coubertin olympic games",
+      "ancient olympic games chronology dates events scholarly sources",
+      "ancient olympic games competitive practices scholarly sources",
+      "ancient olympic games foundational rituals scholarly sources",
+      "ancient olympic games historical chronology archives",
+      "ancient olympic games historical timeline academic",
+      "ancient olympic games museum collections rituals",
+      "ancient olympic games primary sources institutions",
+      "british museum ancient olympic games chronology",
+      "cambridge university press ancient olympic games",
+      "causes for the discontinuation of ancient greek games academic",
+      "christianity impact on ancient olympic games end",
+      "dates of the first ancient olympic games scholarly",
+      "decline cessation ancient olympic games reasons scholarly sources",
+      "end of ancient olympics historical accounts",
+      "events of the ancient olympic games historical records",
+      "international olympic committee archives history chronology",
+      "international olympic committee archives pierre de coubertin",
+      "louvre ancient olympic games dates",
+      "modern olympic games historical chronology archives",
+      "museums olympic games historical records",
+      "olympic games ancient history university",
+      "olympic games historical records primary sources",
+      "origins of olympic games rituals academic",
+      "origins of the ancient olympic games primary sources",
+      "oxford university press ancient olympic games",
+      "pierre de coubertin motivations founding modern olympic games scholarly sources",
+      "pierre de coubertin primary sources olympic games",
+      "pierre de coubertin strategies founding modern olympic games academic research",
+      "roman influence on ancient olympic games cessation",
+      "university collections olympic history primary sources",
+      "university research ancient olympic games practices"
+    ],
+    "sourcesDiscovered": 91,
+    "retrievalAttempts": 11,
+    "retrievalSuccesses": 6,
+    "retrievalFailures": 5,
+    "retrievalRejectionReasons": {
+      "SOURCE_RETRIEVAL_ROBOTS_DENIED": 3,
+      "The operation was aborted": 2
+    },
+    "retrievalFailureDetails": [
+      {
+        "urlHash": "dbf54ef0c0f29f0461188b903066893fa505a4ecab60aae6ec8d33d6840cb83a",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 2196,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "557399028b370890c8f840f64c7ce1c9e2d0b74138b0ce5af224c60443c0239f",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1611,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "49bfdb879a4f0e9acc2fc504a248b2e3be810f2854f49580638aac8a23d36f6f",
+        "reason": "The operation was aborted",
+        "latencyMs": 11573,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "a00d960cec0ae859a435d0f374ac6779c3ba727ebd8b3a28f3b028bcb3b52781",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1722,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "c3823076460d35d2c200ed9ec03a8900c235c6ad272f678461b95d697ed33c44",
+        "reason": "The operation was aborted",
+        "latencyMs": 11429,
+        "acquisitionRound": 1
+      }
+    ],
+    "sourceRanking": [
+      {
+        "rank": 1,
+        "urlHash": "49bfdb879a4f0e9acc2fc504a248b2e3be810f2854f49580638aac8a23d36f6f",
+        "domain": "olympics.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 2,
+        "urlHash": "90a0585d8033d51752b7a18d873faa33c77cc7db68563ee7d2130d0f50189c87",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 3,
+        "urlHash": "7a8fbb1a99c29eb47823aefbff4b99407e295546e8aecb64d4b131d731268371",
+        "domain": "cambridge.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 4,
+        "urlHash": "126dd8e8ad780333d12f1a46f48bc957dc4abaf344b82d11bed3eb895926ed24",
+        "domain": "cambridge.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 5,
+        "urlHash": "dbf54ef0c0f29f0461188b903066893fa505a4ecab60aae6ec8d33d6840cb83a",
+        "domain": "metmuseum.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 6,
+        "urlHash": "557399028b370890c8f840f64c7ce1c9e2d0b74138b0ce5af224c60443c0239f",
+        "domain": "open.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 7,
+        "urlHash": "c3823076460d35d2c200ed9ec03a8900c235c6ad272f678461b95d697ed33c44",
+        "domain": "olympics.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 8,
+        "urlHash": "dedebfbfdaef4d0b2731b979abf737cf7c89128f0d7b92c02c30a83b6469ac8f",
+        "domain": "brown.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 9,
+        "urlHash": "d7c1d1835951d250a51852505810dee8a4dab18c1970e1188128a7b15ebfb19a",
+        "domain": "biblicalarchaeology.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 10,
+        "urlHash": "06f7a4b9541fad5dcad0e84857e25e9d643d422e515f0f5599cdad8f50ffb902",
+        "domain": "olympics.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 11,
+        "urlHash": "a00d960cec0ae859a435d0f374ac6779c3ba727ebd8b3a28f3b028bcb3b52781",
+        "domain": "academia.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 12,
+        "urlHash": "6be41d8970bdefbfd1d443644748267c8b9c4ee110ae6b776c09fbe3eba265e9",
+        "domain": "ebsco.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      }
+    ],
+    "evidencePackets": 4,
+    "evidencePacketSegments": 48,
+    "claimsExtracted": 24,
+    "claimsSupported": 6,
+    "claimsRejected": 18,
+    "claimRejectionReasons": {},
+    "authorityDistribution": {
+      "INSUFFICIENT": 18,
+      "SUPPORTED": 6
+    },
+    "conflictsDetected": 2,
+    "conflictsUnresolved": 2,
+    "eventCandidates": 0,
+    "resolvedEventCandidates": 0,
+    "rejectedNonEvents": 0,
+    "eventDispositionDistribution": {},
+    "eventResolutionDiagnostics": {
+      "NO_RESOLVED_ENTITY": 5,
+      "NO_SUPPORTED_CORE_CLAIM": 12
+    },
+    "stageLatencyMs": {
+      "CLAIM_EXTRACTION": 34304,
+      "GROUNDING": 73447,
+      "QUERY_PLAN": 3220,
+      "RESEARCH_MAP": 18696,
+      "SCOPE": 18994
+    },
+    "totalLatencyMs": 299019,
+    "inputTokens": 16585,
+    "outputTokens": 18723,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "coverage": {
+    "initialAuditId": null,
+    "finalAuditId": null
+  }
+}

@@ -11,12 +11,15 @@ import {
   type PublisherAuthorityVersion
 } from "./contracts";
 import { contentAddressedId, deterministicUuid, payloadHash } from "./hashing";
+import { claimAuthorityApplicability } from "./authority-first";
+import type { TopicAuthorityBinding } from "./contracts";
 
 export type AuthorityEvaluationInput = {
   context: ArtifactContext;
   claim: AtomicClaimVersion;
   evidenceEdges: ClaimEvidenceEdge[];
   publishersByVersionId: ReadonlyMap<string, PublisherAuthorityVersion>;
+  authorityBindingsByPublisherVersionId?: ReadonlyMap<string, TopicAuthorityBinding>;
   conflictSet?: ClaimConflictSet | null;
 };
 
@@ -59,6 +62,13 @@ export function evaluateClaimAuthority(input: AuthorityEvaluationInput): ClaimAu
       reasonCodes.add("WIKIPEDIA_EXCLUDED");
       continue;
     }
+    const binding = edge.publisherVersionId ? input.authorityBindingsByPublisherVersionId?.get(edge.publisherVersionId) : undefined;
+    const applicability = binding ? claimAuthorityApplicability({ binding, claimType: input.claim.claimType, risk: input.claim.risk }) : null;
+    if (input.authorityBindingsByPublisherVersionId && (!binding || !applicability?.eligible)) {
+      rejected.push(edge.claimEvidenceId);
+      reasonCodes.add("CLAIM_RELATIVE_AUTHORITY_MISMATCH");
+      continue;
+    }
     if (!isStrong(edge, publisher)) {
       rejected.push(edge.claimEvidenceId);
       reasonCodes.add(edge.authorityFinding === "UNCLASSIFIED" || publisher?.state !== "VERIFIED" ? "WEAK_AUTHORITY" : "MISSING_EVIDENCE");
@@ -67,7 +77,8 @@ export function evaluateClaimAuthority(input: AuthorityEvaluationInput): ClaimAu
     accepted.push(edge.claimEvidenceId);
     strongGroups.add(edge.independenceGroupId);
     if (isSecondary(publisher)) secondaryGroups.add(edge.independenceGroupId);
-    if (isDefinitivePrimary(edge, publisher, input.claim)) definitivePrimary = true;
+    if (applicability && !applicability.independentlySufficient) reasonCodes.add("SELF_INTERESTED_REQUIRES_CORROBORATION");
+    if (isDefinitivePrimary(edge, publisher, input.claim) && (!applicability || applicability.independentlySufficient)) definitivePrimary = true;
   }
   const duplicateCount = accepted.length - strongGroups.size;
   if (duplicateCount > 0) reasonCodes.add("DEPENDENT_DUPLICATE");
@@ -89,12 +100,20 @@ export function evaluateClaimAuthority(input: AuthorityEvaluationInput): ClaimAu
   } else if (input.claim.risk === "CONTESTED" && strongGroups.size >= 2 && input.conflictSet?.state === "HISTORICALLY_CONTESTED") verdict = "QUALIFIED";
   if (accepted.length === 0) reasonCodes.add("MISSING_EVIDENCE");
   const evidenceSetHash = payloadHash(uniqueEvidenceEdges.map((edge) => ({ id: edge.claimEvidenceId, hash: edge.payloadHash })).sort((left, right) => left.id.localeCompare(right.id)));
-  const claimAuthorityVerdictId = semanticArtifactId("claim-verdict", authorityContext, { claimVersionId: input.claim.claimVersionId, evidenceSetHash });
+  const evaluationContextHash = payloadHash({
+    authorityBindings: [...new Set(uniqueEvidenceEdges.flatMap((edge) => edge.publisherVersionId ? [edge.publisherVersionId] : []))].sort().map((publisherVersionId) => {
+      const binding = input.authorityBindingsByPublisherVersionId?.get(publisherVersionId);
+      return binding ? { publisherVersionId, bindingId: binding.bindingId } : { publisherVersionId, bindingId: null };
+    }),
+    conflict: input.conflictSet ? { conflictSetId: input.conflictSet.conflictSetId, payloadHash: input.conflictSet.payloadHash } : null
+  });
+  const claimAuthorityVerdictId = semanticArtifactId("claim-verdict", authorityContext, { claimVersionId: input.claim.claimVersionId, evidenceSetHash, evaluationContextHash });
   return parseSealedArtifact(claimAuthorityVerdictSchema, {
     ...semanticEnvelope(authorityContext, claimAuthorityVerdictId, input.claim.claimVersionId),
     claimAuthorityVerdictId,
     claimVersionId: input.claim.claimVersionId,
     evidenceSetHash,
+    evaluationContextHash,
     risk: input.claim.risk,
     verdict,
     reasonCodes: [...reasonCodes].sort(),
@@ -206,6 +225,22 @@ const BOOTSTRAP_PUBLISHERS: BootstrapPublisher[] = [
   { canonicalName: "Reuters", aliases: [], parentPublisherId: null, institutionType: "NEWSROOM", authorityDomains: ["Contemporary reporting"], geographicScope: ["International"], languages: ["en"], primarySecondaryTendency: "SECONDARY", knownDomains: ["reuters.com"], externalIdentifiers: [], independenceGroupId: "publisher-reuters", accessLimitations: [], state: "VERIFIED" },
   { canonicalName: "BBC", aliases: ["British Broadcasting Corporation"], parentPublisherId: null, institutionType: "NEWSROOM", authorityDomains: ["Edited journalism and historical reference"], geographicScope: ["United Kingdom", "International"], languages: ["en"], primarySecondaryTendency: "SECONDARY", knownDomains: ["bbc.com", "bbc.co.uk"], externalIdentifiers: [], independenceGroupId: "publisher-bbc", accessLimitations: [], state: "VERIFIED" },
   { canonicalName: "Encyclopaedia Britannica", aliases: ["Britannica"], parentPublisherId: null, institutionType: "EDITED_REFERENCE", authorityDomains: ["General edited historical reference"], geographicScope: ["International"], languages: ["en"], primarySecondaryTendency: "SECONDARY", knownDomains: ["britannica.com"], externalIdentifiers: [], independenceGroupId: "publisher-britannica", accessLimitations: ["Some pages may be access limited"], state: "VERIFIED" },
+  { canonicalName: "United States Geological Survey", aliases: ["USGS"], parentPublisherId: null, institutionType: "GOVERNMENT", authorityDomains: ["Earth science, hazards, earthquakes, and United States geological records"], geographicScope: ["United States", "International"], languages: ["en"], primarySecondaryTendency: "PRIMARY", knownDomains: ["usgs.gov"], externalIdentifiers: [], independenceGroupId: "publisher-usgs", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "Library of Congress", aliases: ["LOC"], parentPublisherId: null, institutionType: "ARCHIVE", authorityDomains: ["United States historical collections, publications, and primary records"], geographicScope: ["United States", "International"], languages: ["en", "multilingual"], primarySecondaryTendency: "PRIMARY", knownDomains: ["loc.gov"], externalIdentifiers: [], independenceGroupId: "publisher-library-of-congress", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "International Atomic Energy Agency", aliases: ["IAEA"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["Nuclear energy, nuclear safety, and official international nuclear records"], geographicScope: ["International"], languages: ["en", "fr", "es", "ru", "ar", "zh"], primarySecondaryTendency: "PRIMARY", knownDomains: ["iaea.org"], externalIdentifiers: [], independenceGroupId: "publisher-iaea", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "OECD Nuclear Energy Agency", aliases: ["NEA"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["Nuclear safety, policy, and historical technical assessments"], geographicScope: ["International"], languages: ["en", "fr"], primarySecondaryTendency: "MIXED", knownDomains: ["oecd-nea.org"], externalIdentifiers: [], independenceGroupId: "publisher-oecd-nea", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "Government of the United Kingdom", aliases: ["UK Government"], parentPublisherId: null, institutionType: "GOVERNMENT", authorityDomains: ["United Kingdom public records, legislation, policy, and official histories"], geographicScope: ["United Kingdom"], languages: ["en", "cy"], primarySecondaryTendency: "PRIMARY", knownDomains: ["gov.uk"], externalIdentifiers: [], independenceGroupId: "publisher-uk-government", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "Met Office", aliases: ["United Kingdom Meteorological Office"], parentPublisherId: null, institutionType: "GOVERNMENT", authorityDomains: ["Meteorology, climate, weather observations, and institutional records"], geographicScope: ["United Kingdom", "International"], languages: ["en"], primarySecondaryTendency: "PRIMARY", knownDomains: ["metoffice.gov.uk"], externalIdentifiers: [], independenceGroupId: "publisher-met-office", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "United Nations", aliases: ["UN"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["United Nations institutions, international law, peace and security, and official records"], geographicScope: ["International"], languages: ["en", "fr", "es", "ru", "ar", "zh"], primarySecondaryTendency: "PRIMARY", knownDomains: ["un.org"], externalIdentifiers: [], independenceGroupId: "publisher-united-nations", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "United States Holocaust Memorial Museum", aliases: ["USHMM"], parentPublisherId: null, institutionType: "MUSEUM", authorityDomains: ["Genocide, Holocaust, mass atrocities, and documentary historical records"], geographicScope: ["International"], languages: ["en", "multilingual"], primarySecondaryTendency: "MIXED", knownDomains: ["ushmm.org"], externalIdentifiers: [], independenceGroupId: "publisher-ushmm", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "International Olympic Committee", aliases: ["IOC", "Olympics"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["Olympic institutions, competitions, records, and official Olympic history"], geographicScope: ["International"], languages: ["en", "fr"], primarySecondaryTendency: "PRIMARY", knownDomains: ["olympics.com"], externalIdentifiers: [], independenceGroupId: "publisher-ioc", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "British Library", aliases: ["BL"], parentPublisherId: null, institutionType: "ARCHIVE", authorityDomains: ["Historical collections, manuscripts, publications, and cultural history"], geographicScope: ["United Kingdom", "International"], languages: ["en", "multilingual"], primarySecondaryTendency: "PRIMARY", knownDomains: ["bl.uk"], externalIdentifiers: [], independenceGroupId: "publisher-british-library", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "UNESCO", aliases: ["United Nations Educational, Scientific and Cultural Organization"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["UNESCO cultural heritage, documentary heritage, education, science, and institutional records"], geographicScope: ["International"], languages: ["en", "fr", "es", "multilingual"], primarySecondaryTendency: "MIXED", knownDomains: ["unesco.org"], externalIdentifiers: [], independenceGroupId: "publisher-unesco", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "Metropolitan Museum of Art", aliases: ["The Met"], parentPublisherId: null, institutionType: "MUSEUM", authorityDomains: ["Art history, material culture, museum collections, and conservation research"], geographicScope: ["International"], languages: ["en"], primarySecondaryTendency: "MIXED", knownDomains: ["metmuseum.org"], externalIdentifiers: [], independenceGroupId: "publisher-metropolitan-museum", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "Asian Art Museum of San Francisco", aliases: ["Asian Art Museum"], parentPublisherId: null, institutionType: "MUSEUM", authorityDomains: ["Asian art history, material culture, and museum collections"], geographicScope: ["Asia", "United States"], languages: ["en"], primarySecondaryTendency: "MIXED", knownDomains: ["asianart.org"], externalIdentifiers: [], independenceGroupId: "publisher-asian-art-museum", accessLimitations: [], state: "VERIFIED" },
+  { canonicalName: "Oxford University Press", aliases: ["OUP"], parentPublisherId: null, institutionType: "SCHOLARLY_PUBLISHER", authorityDomains: ["Peer-reviewed academic and scholarly reference publishing"], geographicScope: ["International"], languages: ["en", "multilingual"], primarySecondaryTendency: "SECONDARY", knownDomains: ["oup.com", "academic.oup.com"], externalIdentifiers: [], independenceGroupId: "publisher-oxford-university-press", accessLimitations: ["Some publications may be access limited"], state: "VERIFIED" },
+  { canonicalName: "Cambridge University Press & Assessment", aliases: ["Cambridge University Press", "CUP"], parentPublisherId: null, institutionType: "SCHOLARLY_PUBLISHER", authorityDomains: ["Peer-reviewed academic monographs, journals, textbooks, and scholarly reference publishing"], geographicScope: ["International"], languages: ["en", "multilingual"], primarySecondaryTendency: "SECONDARY", knownDomains: ["cambridge.org"], externalIdentifiers: [], independenceGroupId: "publisher-cambridge-university-press", accessLimitations: ["Some publications may be access limited"], state: "VERIFIED" },
+  { canonicalName: "Institute of Electrical and Electronics Engineers", aliases: ["IEEE"], parentPublisherId: null, institutionType: "SCHOLARLY_PUBLISHER", authorityDomains: ["Peer-reviewed engineering, computing, and technology scholarship and standards"], geographicScope: ["International"], languages: ["en"], primarySecondaryTendency: "SECONDARY", knownDomains: ["ieee.org", "ieeexplore.ieee.org"], externalIdentifiers: [], independenceGroupId: "publisher-ieee", accessLimitations: ["Some publications may be access limited"], state: "VERIFIED" },
   { canonicalName: "Wikimedia Foundation", aliases: ["Wikipedia"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["Orientation and reference discovery only"], geographicScope: ["International"], languages: ["multilingual"], primarySecondaryTendency: "SECONDARY", knownDomains: ["wikipedia.org"], externalIdentifiers: [], independenceGroupId: "publisher-wikimedia", accessLimitations: ["ORIENTATION_ONLY"], state: "VERIFIED" }
 ];
 

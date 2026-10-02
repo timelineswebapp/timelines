@@ -1,0 +1,26 @@
+{
+  "subject": {
+    "id": "bounded-earthquake-1906",
+    "class": "bounded_episode",
+    "title": "The 1906 San Francisco Earthquake",
+    "regression001d": true,
+    "difficulty": [
+      "material-omissions",
+      "date-precision",
+      "source-authority"
+    ]
+  },
+  "releaseId": "39be12ace94725f624d5a2f0693a3c61086242798104b22cd865d15e82c6e1e9",
+  "result": {
+    "status": "FAILED_CLOSED",
+    "terminalStage": "unhandled_failure",
+    "title": "The 1906 San Francisco Earthquake",
+    "failureReasons": [
+      "EVIDENCE_FIRST_INITIAL_ACQUISITION_FAILED:NO_SUPPORTED_CLAIMS,NO_RESOLVED_EVENT_CANDIDATES"
+    ],
+    "metrics": {
+      "totalLatencyMs": 255863
+    }
+  },
+  "recordedAt": "2026-09-09T06:16:23.996Z"
+}

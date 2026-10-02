@@ -1,0 +1,25 @@
+{
+  "subject": {
+    "id": "bounded-chernobyl-1986",
+    "class": "bounded_episode",
+    "title": "The Chernobyl Disaster",
+    "regression001d": false,
+    "difficulty": [
+      "conflicting-accounts",
+      "technical-and-political-phases"
+    ]
+  },
+  "releaseId": "39be12ace94725f624d5a2f0693a3c61086242798104b22cd865d15e82c6e1e9",
+  "result": {
+    "status": "FAILED_CLOSED",
+    "terminalStage": "unhandled_failure",
+    "title": "The Chernobyl Disaster",
+    "failureReasons": [
+      "EVIDENCE_FIRST_INITIAL_ACQUISITION_FAILED:NO_SUPPORTED_CLAIMS,NO_RESOLVED_EVENT_CANDIDATES"
+    ],
+    "metrics": {
+      "totalLatencyMs": 353447
+    }
+  },
+  "recordedAt": "2026-09-09T06:22:17.445Z"
+}

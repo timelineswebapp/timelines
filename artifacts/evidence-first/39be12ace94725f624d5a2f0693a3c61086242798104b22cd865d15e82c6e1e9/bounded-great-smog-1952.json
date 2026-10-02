@@ -1,0 +1,25 @@
+{
+  "subject": {
+    "id": "bounded-great-smog-1952",
+    "class": "bounded_episode",
+    "title": "The Great Smog of London",
+    "regression001d": false,
+    "difficulty": [
+      "episode-to-policy-aftermath",
+      "causal-attribution"
+    ]
+  },
+  "releaseId": "39be12ace94725f624d5a2f0693a3c61086242798104b22cd865d15e82c6e1e9",
+  "result": {
+    "status": "FAILED_CLOSED",
+    "terminalStage": "unhandled_failure",
+    "title": "The Great Smog of London",
+    "failureReasons": [
+      "EVIDENCE_FIRST_INITIAL_ACQUISITION_FAILED:NO_SUPPORTED_CLAIMS,NO_RESOLVED_EVENT_CANDIDATES"
+    ],
+    "metrics": {
+      "totalLatencyMs": 206753
+    }
+  },
+  "recordedAt": "2026-09-09T06:25:44.199Z"
+}

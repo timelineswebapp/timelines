@@ -89,7 +89,7 @@ export type CoverageAdmissionDecision = DiscoveredSourceCandidate & {
   matchedEventSignals: string[];
   admissionScore: number;
   rank: number;
-  disposition: "RETRIEVAL_CANDIDATE" | "EXCLUDED_PROHIBITED" | "EXCLUDED_BUDGET";
+  disposition: "RETRIEVAL_CANDIDATE" | "EXCLUDED_PROHIBITED" | "EXCLUDED_IRRELEVANT" | "EXCLUDED_BUDGET";
   exclusionReason: string | null;
 };
 
@@ -99,6 +99,21 @@ export function selectUsableCoverageCandidates<T extends { canonicalKey: string;
     .slice(0, Math.min(3, Math.max(1, maximum)));
 }
 
+export function selectIndependentCoverageCandidates<T extends { canonicalKey: string; admissionScore: number; usable: boolean; independenceGroupId: string }>(candidates: readonly T[], maximum = 2): T[] {
+  const ranked = candidates.filter((candidate) => candidate.usable)
+    .sort((left, right) => right.admissionScore - left.admissionScore || left.canonicalKey.localeCompare(right.canonicalKey));
+  const selected: T[] = [];
+  const groups = new Set<string>();
+  while (selected.length < Math.min(3, Math.max(1, maximum)) && selected.length < ranked.length) {
+    const next = ranked.find((candidate) => !selected.includes(candidate) && !groups.has(candidate.independenceGroupId))
+      || ranked.find((candidate) => !selected.includes(candidate));
+    if (!next) break;
+    selected.push(next);
+    groups.add(next.independenceGroupId);
+  }
+  return selected;
+}
+
 function publisherForDomain(domain: string, publishers: readonly PublisherAuthorityVersion[]): PublisherAuthorityVersion | undefined {
   const hostname = domain.toLocaleLowerCase("en-US").replace(/^www\./u, "");
   return publishers.find((publisher) => publisher.knownDomains.some((known) => hostname === known || hostname.endsWith(`.${known}`)));
@@ -106,10 +121,22 @@ function publisherForDomain(domain: string, publishers: readonly PublisherAuthor
 
 function sourceCandidateScore(candidate: DiscoveredSourceCandidate, publisher: PublisherAuthorityVersion | undefined): number {
   return (publisher?.state === "VERIFIED" ? 100 : 0)
+    + institutionalRetrievalPriority(candidate)
     + (candidate.role === "AUTHORITY_TARGETED" ? 35 : candidate.role === "PHASE_DIMENSION" ? 20 : 5)
     + (candidate.intendedSourceClass === "PRIMARY_INSTITUTIONAL" ? 20 : candidate.intendedSourceClass === "SCHOLARLY_SECONDARY" ? 15 : candidate.intendedSourceClass === "ESTABLISHED_JOURNALISM" ? 10 : 0)
     + (publisher?.primarySecondaryTendency === "PRIMARY" ? 15 : publisher?.primarySecondaryTendency === "SECONDARY" ? 8 : 0)
     - (candidate.domain.includes("wikipedia.org") ? 80 : 0);
+}
+
+/** A controlled namespace is only a retrieval-priority signal. It does not
+ * establish publisher authority or make evidence strong. The planned source
+ * class and non-orientation query role must independently identify an
+ * institutional/scholarly research intent. */
+export function institutionalRetrievalPriority(candidate: Pick<DiscoveredSourceCandidate, "domain" | "role" | "intendedSourceClass">): number {
+  const domain = candidate.domain.toLocaleLowerCase("en-US").replace(/^www\./u, "");
+  const controlledAcademic = domain.endsWith(".edu") || domain.endsWith(".ac.uk") || /\.(?:edu|ac)\.[a-z]{2}$/u.test(domain);
+  const admissibleIntent = candidate.role !== "ORIENTATION" && ["PRIMARY_INSTITUTIONAL", "SCHOLARLY_SECONDARY"].includes(candidate.intendedSourceClass);
+  return controlledAcademic && admissibleIntent ? 70 : 0;
 }
 
 const EVENT_TERMS = ["launch", "launched", "release", "released", "adopt", "adopted", "approve", "approved", "announce", "announced", "introduce", "introduced", "create", "created", "publish", "published", "standard", "standardized", "opened", "founded", "decision", "agreement", "conference", "deploy", "deployed", "shutdown", "shut down"];
@@ -129,19 +156,20 @@ function yearRange(question: ResearchMap["questions"][number], map: ResearchMap)
 
 function coverageComponents(candidate: DiscoveredSourceCandidate, question: ResearchMap["questions"][number], map: ResearchMap, publisher: PublisherAuthorityVersion | undefined, eligibility: AuthorityEligibility) {
   const text = normalizedIdentityText(`${candidate.title} ${candidate.canonicalUrl} ${candidate.discoveryText || ""}`);
+  const textTerms = new Set(terms(text));
   const phaseLabels = question.phaseIds.flatMap((id) => map.phases.filter((phase) => phase.phaseId === id).map((phase) => phase.label));
   const dimensionLabels = question.dimensionIds.flatMap((id) => map.dimensions.filter((dimension) => dimension.dimensionId === id).map((dimension) => dimension.label));
   const specificTerms = terms([...phaseLabels, ...dimensionLabels].join(" ")).filter((term) => !["history", "world", "wide", "web", "present", "development"].includes(term));
-  const questionTerms = terms(question.text).filter((term) => !["history", "world", "wide", "web", "authoritative", "dated", "evidence", "establishes", "locked", "phase", "dimension", "chronology"].includes(term));
-  const matchedTerms = [...new Set([...specificTerms, ...questionTerms].filter((term) => text.includes(term)))];
+  const questionTerms = terms(question.text).filter((term) => !["history", "world", "wide", "web", "authoritative", "dated", "evidence", "establishes", "locked", "phase", "dimension", "chronology", "development"].includes(term));
+  const matchedTerms = [...new Set([...specificTerms, ...questionTerms].filter((term) => textTerms.has(term)))];
   const range = yearRange(question, map);
   const observedYears = [...text.matchAll(/\b(?:1[0-9]{3}|20[0-9]{2})\b/gu)].map((match) => Number(match[0]));
   const inRangeYears = range ? [...new Set(observedYears.filter((year) => year >= range.minimum && year <= range.maximum))].sort() : [];
   const matchedPhaseLabels = phaseLabels.map(normalizedIdentityText).filter((label) => text.includes(label));
   const matchedEventSignals = EVENT_TERMS.filter((term) => new RegExp(`\\b${term.replace(" ", "\\s+")}\\b`, "u").test(text));
-  const genericPage = /^(?:home|homepage|welcome|world wide web consortium|w3c)$/u.test(normalizedIdentityText(candidate.title));
+  const genericPage = /^(?:home|homepage|welcome|social media|contact|contacts|directions|order online|visit|world wide web consortium|w3c)$/u.test(normalizedIdentityText(candidate.title));
   const components: CoverageAdmissionComponents = {
-    gapRelevance: Math.min(160, matchedTerms.length * 12 + matchedPhaseLabels.length * 40),
+    gapRelevance: Math.min(160, (matchedTerms.length >= 2 ? matchedTerms.length * 12 : 0) + matchedPhaseLabels.length * 40),
     temporalFit: Math.min(120, inRangeYears.length * 24 + matchedPhaseLabels.length * 40),
     eventUtility: Math.min(120, matchedEventSignals.length * 15),
     authorityEligibility: eligibility === "ELIGIBLE_FOR_EVIDENCE" ? 100 : eligibility === "PROVISIONAL" ? 30 : -1000,
@@ -152,6 +180,11 @@ function coverageComponents(candidate: DiscoveredSourceCandidate, question: Rese
   return { components, matchedTemporalSignals: [...matchedPhaseLabels, ...inRangeYears.map(String)], matchedEventSignals };
 }
 
+export function isDiscoveryRelevant(candidate: DiscoveredSourceCandidate, question: ResearchMap["questions"][number], map: ResearchMap): boolean {
+  const { components } = coverageComponents(candidate, question, map, undefined, "PROVISIONAL");
+  return components.gapRelevance > 0 || components.temporalFit > 0;
+}
+
 /** Coverage-completion admission keeps discovery intact, but excludes sources
  * that can never satisfy Source Authority from retrieval/extraction capacity. */
 export function rankCoverageSourcesByQuestion(input: {
@@ -159,8 +192,10 @@ export function rankCoverageSourcesByQuestion(input: {
   map: ResearchMap;
   publishers: readonly PublisherAuthorityVersion[];
   maximumSources: number;
+  maximumPerQuestion?: number;
 }): { retrievalCandidates: Array<DiscoveredSourceCandidate & { admittedQuestionIds: string[]; admissionScores: Record<string, number> }>; decisions: CoverageAdmissionDecision[] } {
   const ceiling = Math.min(60, Math.max(1, input.maximumSources));
+  const maximumPerQuestion = Math.min(4, Math.max(1, input.maximumPerQuestion ?? 4));
   const deduplicated = new Map<string, DiscoveredSourceCandidate>();
   for (const candidate of input.candidates) {
     const existing = deduplicated.get(candidate.canonicalUrl);
@@ -178,11 +213,15 @@ export function rankCoverageSourcesByQuestion(input: {
       const signals = coverageComponents(candidate, question, input.map, publisher, eligibility);
       return { ...candidate, questionId: question.questionId, authorityEligibility: eligibility, ...signals, admissionScore: Object.values(signals.components).reduce((sum, value) => sum + value, 0) };
     }).sort((left, right) => right.admissionScore - left.admissionScore || left.canonicalUrl.localeCompare(right.canonicalUrl));
-    ranked.forEach((candidate, index) => decisions.push({ ...candidate, rank: index + 1, disposition: candidate.authorityEligibility === "CATEGORICALLY_PROHIBITED" || candidate.authorityEligibility === "ORIENTATION_ONLY" ? "EXCLUDED_PROHIBITED" : "RETRIEVAL_CANDIDATE", exclusionReason: candidate.authorityEligibility === "CATEGORICALLY_PROHIBITED" || candidate.authorityEligibility === "ORIENTATION_ONLY" ? "SOURCE_AUTHORITY_ORIENTATION_ONLY" : null }));
+    ranked.forEach((candidate, index) => {
+      const prohibited = candidate.authorityEligibility === "CATEGORICALLY_PROHIBITED" || candidate.authorityEligibility === "ORIENTATION_ONLY";
+      const relevant = candidate.components.gapRelevance > 0 || candidate.components.temporalFit > 0;
+      decisions.push({ ...candidate, rank: index + 1, disposition: prohibited ? "EXCLUDED_PROHIBITED" : relevant ? "RETRIEVAL_CANDIDATE" : "EXCLUDED_IRRELEVANT", exclusionReason: prohibited ? "SOURCE_AUTHORITY_ORIENTATION_ONLY" : relevant ? null : "SOURCE_DISCOVERY_NOT_RELEVANT_TO_QUESTION" });
+    });
   }
   const eligible = decisions.filter((decision) => decision.disposition === "RETRIEVAL_CANDIDATE");
   const selectedUrls = new Set<string>();
-  const maximumRank = Math.max(0, ...eligible.map((decision) => decision.rank));
+  const maximumRank = Math.min(maximumPerQuestion, Math.max(0, ...eligible.map((decision) => decision.rank)));
   for (let rank = 1; rank <= maximumRank && selectedUrls.size < ceiling; rank += 1) {
     for (const question of input.map.questions.filter((item) => item.priority !== "SUPPORTING")) {
       const decision = eligible.find((item) => item.questionId === question.questionId && item.rank === rank);
@@ -213,7 +252,7 @@ export function admitSourcesByQuestion(input: {
   perQuestion?: number;
 }): Array<DiscoveredSourceCandidate & { admissionScore: number; admittedQuestionIds: string[] }> {
   const ceiling = Math.min(60, Math.max(1, input.maximumSources));
-  const perQuestion = Math.min(3, Math.max(1, input.perQuestion ?? 2));
+  const perQuestion = Math.min(4, Math.max(1, input.perQuestion ?? 3));
   const deduplicated = new Map<string, DiscoveredSourceCandidate>();
   for (const candidate of input.candidates) {
     const existing = deduplicated.get(candidate.canonicalUrl);
@@ -222,8 +261,9 @@ export function admitSourcesByQuestion(input: {
   }
   const ranked = [...deduplicated.values()].map((candidate) => {
     const publisher = publisherForDomain(candidate.domain, input.publishers);
-    return { ...candidate, admissionScore: sourceCandidateScore(candidate, publisher), admittedQuestionIds: [] as string[] };
-  }).sort((left, right) => right.admissionScore - left.admissionScore || left.discoveryOrder - right.discoveryOrder || left.canonicalUrl.localeCompare(right.canonicalUrl));
+    return { ...candidate, authorityEligibility: authorityEligibility(candidate, publisher), admissionScore: sourceCandidateScore(candidate, publisher), admittedQuestionIds: [] as string[] };
+  }).filter((candidate) => candidate.authorityEligibility !== "CATEGORICALLY_PROHIBITED" && candidate.authorityEligibility !== "ORIENTATION_ONLY")
+    .sort((left, right) => right.admissionScore - left.admissionScore || left.discoveryOrder - right.discoveryOrder || left.canonicalUrl.localeCompare(right.canonicalUrl));
 
   const admitted = new Map<string, typeof ranked[number]>();
   const questions = input.map.questions.filter((question) => question.priority !== "SUPPORTING");

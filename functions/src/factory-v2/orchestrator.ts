@@ -1,16 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, acquisitionDiscoverySchema, acquisitionRunSchema, auditRecordSchema, canonicalEntityRecordSchema, canonicalEventRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type EvidenceSegment, type PublisherAuthorityVersion, type QueryPlan, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot } from "./contracts";
-import { assertV2AShadowEnabled, type FactoryV2Config } from "./config";
-import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
+import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthoritySet } from "./contracts";
+import { assertV2AShadowEnabled, authorityFirstRunDeadlineAt, type FactoryV2Config } from "./config";
+import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
 import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, executionArtifactId, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { canReuseSnapshot, retrieveSource, type RetrievalDependencies } from "./acquisition/retrieval";
 import { canonicalizeUrl } from "./acquisition/url";
-import { contentAddressedId, deterministicUuid, payloadHash, sha256 } from "./hashing";
+import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { performBoundedReconnaissance } from "./reconnaissance";
 import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate } from "./resolution";
 import { V2FirestoreRepository } from "./repositories/firestore";
-import { extractAtomicClaims, generateQueryPlan, generateResearchMap, proposeScope, runGroundedAcquisition, StructuredStageError, type GroundingAcquisition, type V2ModelProvider } from "./vertex";
-import { admitSourcesByQuestion, claimPropositionKey, rankCoverageSourcesByQuestion, selectEvidencePacket, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
+import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2ModelProvider } from "./vertex";
+import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
+import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
+import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
 
@@ -19,8 +21,23 @@ export type V2ACertificationMetrics = {
   scopeContractModelCalls: number;
   researchMapModelCalls: number;
   queryPlanModelCalls: number;
+  authorityRoutingModelCalls: number;
   groundingCalls: number;
   providerReportedSearchQueries: number;
+  candidateQueriesProposed: number;
+  candidateQueriesAuthorized: number;
+  candidateQueriesRejected: number;
+  explicitQueriesExecuted: number;
+  explicitSearchRequests: number;
+  explicitSearchResults: number;
+  explicitSearchLatencyMs: number;
+  queryLedgerId: string | null;
+  topicAuthoritySetId: string | null;
+  authorityResearchPlanId: string | null;
+  controlledResearchLedgerId: string | null;
+  perspectiveAuditId: string | null;
+  confidenceVectorId: string | null;
+  controlledResearchOperations: number;
   directRetrievalAttempts: number;
   retrievalSuccesses: number;
   retrievalFailures: number;
@@ -31,9 +48,13 @@ export type V2ACertificationMetrics = {
   cacheRefetched: number;
   cacheNotApplicable: number;
   retrievalsSuppressedByHostCircuit: number;
+  retrievalRejectionReasons: Record<string, number>;
+  retrievalFailureDetails: Array<{ urlHash: string; reason: string; latencyMs: number }>;
+  sourceRanking: Array<{ rank: number; urlHash: string; domain: string; admittedQuestionCount: number }>;
   evidencePackets: number;
   evidencePacketSegments: number;
   individualClaimsRejected: number;
+  claimRejectionReasons: Record<string, number>;
   researchQuestionsNoEvidence: number;
   researchQuestionsPartial: number;
   researchQuestionsSufficient: number;
@@ -44,6 +65,7 @@ export type V2ACertificationMetrics = {
   claimsSupported: number;
   claimsRejected: number;
   claimsRequiringReview: number;
+  authorityVerdictDistribution: Record<string, number>;
   conflictsDetected: number;
   conflictsResolved: number;
   conflictsUnresolved: number;
@@ -52,24 +74,66 @@ export type V2ACertificationMetrics = {
   eventCandidates: number;
   resolvedCanonicalEventCandidates: number;
   nonEventKnowledgeItems: number;
+  eventDispositionDistribution: Record<string, number>;
+  eventResolutionDiagnostics: Record<string, number>;
   reusedExistingKnowledge: number;
   newKnowledge: number;
   modelRepairAttempts: number;
   infrastructureRetries: number;
+  providerCalls: number;
+  stageLatencyMs: Record<string, number>;
+  providerQueries: string[];
   inputTokens: number | null;
   outputTokens: number | null;
-  monetaryCost: null;
-  monetaryCostMeasurement: "NOT_MEASURABLE";
+  monetaryCost: number | null;
+  monetaryCostMeasurement: "MEASURED" | "NOT_MEASURABLE";
   firestoreWrites: number;
   cloudStorageWrites: number;
   finalV2AVerdict: "PASS" | "FAIL";
 };
 
+/** Keeps a bounded continuation's escalation capacity aligned with the sealed completion plan. */
+export function prioritizeContinuationQuestionIds(questionIds: readonly string[], continuationQuestionIds: readonly string[] | undefined): string[] {
+  if (!continuationQuestionIds) return [...questionIds];
+  const priority = new Map(continuationQuestionIds.map((questionId, index) => [questionId, index]));
+  return [...questionIds].sort((left, right) => (priority.get(left) ?? Number.MAX_SAFE_INTEGER) - (priority.get(right) ?? Number.MAX_SAFE_INTEGER));
+}
+
+/** Builds an escalation query from the sealed authority set without broadening source eligibility. */
+export function buildRegisteredAuthorityGroundingQuery(input: { title: string; question: string; verifiedDomains: readonly string[] }): string {
+  const domains = [...new Set(input.verifiedDomains.map((domain) => domain.toLocaleLowerCase("en-US").trim()).filter(Boolean))].sort().slice(0, 12);
+  // Google Grounding may rewrite search-operator syntax before searching. A
+  // natural-language constraint retains the sealed authority boundary without
+  // relying on provider-specific query grammar.
+  const domainConstraint = domains.length > 0 ? ` Return citations only from these registered authority domains: ${domains.join(", ")}.` : "";
+  return `${input.title} ${input.question}.${domainConstraint}`.slice(0, 500);
+}
+
+/** Records an unattributable Grounding response as a bounded failed operation, never as evidence. */
+export function failedGroundingEscalationOperation(input: { escalationDecisionId: string; researchQuestionId: string; purpose: string; error: unknown }): ControlledResearchOperation {
+  const failureReason = input.error instanceof Error ? input.error.message.slice(0, 1_000) : "GROUNDING_UNATTRIBUTABLE_SUPPORT";
+  const identity = {
+    researchQuestionIds: [input.researchQuestionId], authorityBindingId: null,
+    layer: "GAP_CONTEST_ESCALATION" as const, mechanism: "GOOGLE_GROUNDING_ESCALATION" as const,
+    endpoint: "https://google.com/", purpose: input.purpose
+  };
+  return {
+    ...identity,
+    operationId: contentAddressedId("controlled-research-operation", { escalationDecisionId: input.escalationDecisionId, ...identity }),
+    status: "FAILED", returnedUrls: [], providerInternalQueries: [], latencyMs: null, failureReason
+  };
+}
+
 export type V2AShadowResult = {
   context: ArtifactContext;
   scopeContractId: string;
   researchMapId: string;
-  queryPlanId: string;
+  queryPlanId: string | null;
+  topicAuthoritySetId: string;
+  authorityResearchPlanId: string;
+  controlledResearchLedgerId: string;
+  perspectiveAuditId: string;
+  confidenceVectorId: string;
   sourceSnapshotIds: string[];
   claimVersionIds: string[];
   authorityVerdictIds: string[];
@@ -79,10 +143,113 @@ export type V2AShadowResult = {
   blockingReasons: string[];
 };
 
+export class V2ARunError extends Error {
+  constructor(message: string, readonly metrics: V2ACertificationMetrics, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "V2ARunError";
+  }
+}
+
+export function minimumKnowledgeBlockingReasons(input: { continuation: boolean; durableSources: number; claims: number; supportedClaims: number; eventCandidates: number; unresolvedMaterialConflicts: number }): string[] {
+  const reasons: string[] = [];
+  if (input.durableSources === 0) reasons.push("NO_DURABLE_SOURCE_SNAPSHOTS");
+  if (input.claims === 0) reasons.push("NO_ATOMIC_CLAIMS");
+  if (input.supportedClaims === 0) reasons.push("NO_SUPPORTED_CLAIMS");
+  // A completion run augments the initial event inventory. Requiring it to
+  // independently recreate an event would reject useful gap evidence before
+  // the authoritative merged coverage audit can evaluate it.
+  if (!input.continuation && input.eventCandidates === 0) reasons.push("NO_RESOLVED_EVENT_CANDIDATES");
+  if (input.unresolvedMaterialConflicts > 0) reasons.push("CLAIM_CONFLICT_UNRESOLVED");
+  return reasons;
+}
+
+export function requiredPerspectiveTags(map: ResearchMap, requiredQuestionIds?: readonly string[]): string[] {
+  const perspectiveClaimTypes = new Set(["INTERPRETATION", "CAUSATION", "CONSEQUENCE", "ATTRIBUTION"]);
+  const required = requiredQuestionIds ? new Set(requiredQuestionIds) : null;
+  const canonicalGeography = (value: string): string | null => {
+    const normalized = value.normalize("NFKC").toLocaleLowerCase("en-US");
+    if (/\b(?:fault|tectonic|plate|river|ocean|sea|mountain|range|valley|basin|desert|glacier|volcano)\b/u.test(normalized)) return null;
+    if (/\b(?:usa|u\.s\.|united states|california)\b/u.test(normalized)) return "United States";
+    if (/\b(?:germany|german|berlin)\b/u.test(normalized)) return "Germany";
+    if (/\b(?:united kingdom|britain|british|england|scotland|wales)\b/u.test(normalized)) return "United Kingdom";
+    if (/\b(?:soviet union|ussr|russia|russian)\b/u.test(normalized)) return "Soviet Union/Russia";
+    if (/\b(?:france|french)\b/u.test(normalized)) return "France";
+    return value.normalize("NFKC").trim();
+  };
+  return [...new Set(map.questions
+    .filter((question) => (!required || required.has(question.questionId)) && question.contested && question.claimTypesExpected.some((claimType) => perspectiveClaimTypes.has(claimType)))
+    .flatMap((question) => question.geography.map(canonicalGeography).filter((value): value is string => value !== null)))].sort();
+}
+
+export function conflictConfidenceStatus(conflicts: readonly { state: string; material: boolean }[]): "PASS" | "QUALIFIED" | "FAIL" {
+  if (conflicts.some((conflict) => conflict.material && conflict.state === "UNRESOLVED")) return "FAIL";
+  if (conflicts.some((conflict) => conflict.state === "UNRESOLVED" || conflict.state === "QUALIFIED")) return "QUALIFIED";
+  return "PASS";
+}
+
+export function independentCorroborationStatus(
+  claims: readonly { independenceGroupCount: number; risk: AtomicClaimVersion["risk"] }[]
+): "PASS" | "QUALIFIED" | "FAIL" {
+  const requiresIndependentCorroboration = new Set<AtomicClaimVersion["risk"]>(["MATERIAL", "INTERPRETIVE", "CONTESTED", "SENSITIVE"]);
+  if (claims.some((claim) => requiresIndependentCorroboration.has(claim.risk) && claim.independenceGroupCount < 2)) return "FAIL";
+  if (claims.some((claim) => claim.independenceGroupCount < 1)) return "QUALIFIED";
+  return "PASS";
+}
+
+export function temporalPrecisionStatus(
+  events: readonly { temporal: { start: HistoricalDate; uncertainty: string | null } }[],
+  continuation: boolean
+): "PASS" | "QUALIFIED" | "FAIL" {
+  if (events.length === 0) return continuation ? "QUALIFIED" : "FAIL";
+  return events.some((event) => event.temporal.start.precision === "APPROXIMATE" || event.temporal.uncertainty !== null) ? "QUALIFIED" : "PASS";
+}
+
+export function confidenceRequiresAdditionalBlock(
+  confidence: Pick<AcquisitionConfidenceVector, "verdict" | "authorityApplicability" | "evidenceDirectness" | "independentCorroboration" | "perspectiveAdequacy" | "conflictStatus" | "provenanceIntegrity">,
+  existingBlockingReasons: readonly string[]
+): boolean {
+  if (confidence.verdict === "REVIEW_REQUIRED") return true;
+  if (confidence.verdict !== "FAIL") return false;
+  const missingEventOnly = existingBlockingReasons.length === 1 && existingBlockingReasons[0] === "NO_RESOLVED_EVENT_CANDIDATES";
+  const independentFailure = confidence.authorityApplicability === "FAIL"
+    || confidence.evidenceDirectness === "FAIL"
+    || confidence.independentCorroboration === "FAIL"
+    || confidence.perspectiveAdequacy !== "PASS"
+    || confidence.conflictStatus === "FAIL"
+    || confidence.conflictStatus === "REVIEW_REQUIRED"
+    || confidence.provenanceIntegrity === "FAIL";
+  return !missingEventOnly || independentFailure;
+}
+
+export function selectMostPreciseHistoricalDate<T>(values: readonly { value: T; date: HistoricalDate; stableId: string }[]): T | undefined {
+  const rank: Record<HistoricalDate["precision"], number> = { DAY: 4, MONTH: 3, YEAR: 2, APPROXIMATE: 1 };
+  return [...values].sort((left, right) => rank[right.date.precision] - rank[left.date.precision] || left.stableId.localeCompare(right.stableId))[0]?.value;
+}
+
+export function resolutionEntityContext(scopeEntities: ScopeContract["centralEntities"], current: readonly CanonicalEntityVersion[], reusable: readonly CanonicalEntityVersion[]): CanonicalEntityVersion[] {
+  const locked = new Set(scopeEntities.map((entity) => `${entity.type}:${normalizedIdentityText(entity.name)}`));
+  const byEntityId = new Map<string, CanonicalEntityVersion>();
+  for (const entity of reusable) if (entity.resolutionState === "RESOLVED" && locked.has(`${entity.entityType}:${normalizedIdentityText(entity.canonicalName)}`)) byEntityId.set(entity.entityId, entity);
+  for (const entity of current) if (entity.resolutionState === "RESOLVED" && locked.has(`${entity.entityType}:${normalizedIdentityText(entity.canonicalName)}`)) byEntityId.set(entity.entityId, entity);
+  return [...byEntityId.values()].sort((left, right) => left.entityVersionId.localeCompare(right.entityVersionId));
+}
+
+/** Legacy telemetry normalization retained only to reconstruct historical
+ * Google-grounded acquisition evidence. Authority-First does not use this as
+ * an execution budget or canonical acquisition ledger. */
+export function uniqueProviderQueries(acquisitions: readonly { webSearchQueries: string[] }[]): string[] {
+  return [...new Set(acquisitions.flatMap((acquisition) => acquisition.webSearchQueries).map((query) => query.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US")))].sort();
+}
+
+export function reconnaissanceArtifactId(context: ArtifactContext, reconnaissance: Record<string, unknown>): string {
+  return executionArtifactId("recon-record", context, reconnaissance);
+}
+
 export type OrchestratorDependencies = {
   repository?: V2FirestoreRepository;
   provider?: V2ModelProvider;
   retrieval?: RetrievalDependencies;
+  institutionalDiscoveryTransport?: InstitutionalDiscoveryTransport;
   /** A3 continuation mode reuses the locked scope and a versioned Research Map,
    * then executes the same certified acquisition/claim/authority/resolution path. */
   continuation?: {
@@ -90,7 +257,7 @@ export type OrchestratorDependencies = {
     originalKnowledgeRunId: string;
     scope: ScopeContract;
     researchMap: ResearchMap;
-    queryPlan: QueryPlan;
+    gapIdsByQuestionId?: ReadonlyMap<string, readonly string[]>;
   };
 };
 
@@ -102,18 +269,6 @@ function publisherForUrl(url: string, publishers: PublisherAuthorityVersion[]): 
 function publisherForDomain(domain: string, publishers: PublisherAuthorityVersion[]): PublisherAuthorityVersion | undefined {
   const hostname = domain.toLocaleLowerCase("en-US").replace(/^https?:\/\//u, "").replace(/^www\./u, "").split("/", 1)[0]!;
   return publishers.find((publisher) => publisher.knownDomains.some((known) => hostname === known || hostname.endsWith(`.${known}`)));
-}
-
-export function provisionalPublisher(context: ArtifactContext, url: string, language: string): PublisherAuthorityVersion {
-  void language;
-  const hostname = new URL(url).hostname.toLocaleLowerCase("en-US").replace(/^www\./u, "");
-  const registryContext: ArtifactContext = { ...context, topicId: "publisher-registry", runId: "provisional-v2-a", generation: 1, createdAt: "2026-09-06T00:00:00.000Z", policyVersion: V2_POLICY_VERSION };
-  const publisherId = deterministicUuid("timelines.publisher.provisional", hostname);
-  return buildPublisherAuthorityVersion(registryContext, {
-    publisherId, version: 2, effectiveAt: "2026-09-06T00:00:00.000Z", canonicalName: hostname, aliases: [], parentPublisherId: null,
-    institutionType: "OTHER", authorityDomains: ["Unclassified"], geographicScope: ["Unclassified"], languages: ["multilingual"], primarySecondaryTendency: "MIXED",
-    knownDomains: [hostname], externalIdentifiers: [], independenceGroupId: contentAddressedId("publisher-group", hostname), accessLimitations: [], state: "PROVISIONAL", classificationEvidenceSegmentIds: [], admittedBy: "POLICY"
-  });
 }
 
 async function mapLimit<T, R>(items: readonly T[], concurrency: number, task: (item: T, index: number) => Promise<R>): Promise<R[]> {
@@ -159,10 +314,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   assertV2AShadowEnabled(config);
   const repository = dependencies.repository || new V2FirestoreRepository();
   const startedAt = Date.now();
-  // V2-A is only one portion of the future sub-12-minute workflow. Ten minutes
-  // is the authoritative shadow deadline even when the broader worker safety
-  // ceiling remains 20 minutes.
-  const deadlineAt = startedAt + Math.min(config.budgetBundle.maximumWorkerSeconds * 1000, 600_000);
+  // Authority-First acquisition owns the complete knowledge-construction run.
+  // Its versioned Controlled Research Operation budget is authoritative; do
+  // not silently clamp it to the superseded V2-A ten-minute shadow target.
+  const deadlineAt = authorityFirstRunDeadlineAt(startedAt, config.budgetBundle.maximumWorkerSeconds);
   const assertDeadline = () => {
     if (Date.now() >= deadlineAt) throw new Error("WHOLE_RUN_DEADLINE_EXCEEDED");
   };
@@ -174,14 +329,26 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const topicId = context.topicId;
   if (continuation) {
     if (continuation.scope.topicId !== expectedTopicId || continuation.scope.title !== descriptor.title) throw new Error("A3 continuation Scope Contract does not match the requested topic.");
-    if (continuation.scope.corpusId !== context.corpusId || continuation.researchMap.corpusId !== context.corpusId || continuation.queryPlan.corpusId !== context.corpusId) throw new Error("A3 continuation artifacts cross the active corpus boundary.");
-    if (continuation.researchMap.scopeContractId !== continuation.scope.scopeContractId || continuation.queryPlan.scopeContractId !== continuation.scope.scopeContractId || continuation.queryPlan.researchMapId !== continuation.researchMap.researchMapId) throw new Error("A3 continuation lineage is invalid.");
+    if (continuation.scope.corpusId !== context.corpusId || continuation.researchMap.corpusId !== context.corpusId) throw new Error("A3 continuation artifacts cross the active corpus boundary.");
+    if (continuation.researchMap.scopeContractId !== continuation.scope.scopeContractId) throw new Error("A3 continuation lineage is invalid.");
     if (continuation.researchMap.parentArtifactId === null) throw new Error("A3 continuation requires a versioned Research Map linked to its immutable parent.");
   }
   const modelExecutions: Array<ReturnType<typeof modelExecutionSchema.parse>> = [];
   const blockingReasons: string[] = [];
   let firestoreWrites = 0;
   let cloudStorageWrites = 0;
+  const progress = {
+    sourceDocumentsDiscovered: 0, directRetrievalAttempts: 0, retrievalSuccesses: 0, retrievalFailures: 0,
+    retrievalsSuppressedByHostCircuit: 0, retrievalRejectionReasons: {} as Record<string, number>, sourceDocumentsSnapshotted: 0,
+    retrievalFailureDetails: [] as V2ACertificationMetrics["retrievalFailureDetails"],
+    evidencePackets: 0, evidencePacketSegments: 0, claimsExtracted: 0, claimsSupported: 0, claimsRejected: 0,
+    conflictsDetected: 0, conflictsResolved: 0, conflictsUnresolved: 0, entityCandidates: 0, resolvedEntities: 0,
+    eventCandidates: 0, resolvedCanonicalEventCandidates: 0, nonEventKnowledgeItems: 0,
+    sourceRanking: [] as V2ACertificationMetrics["sourceRanking"], providerQueries: [] as string[],
+    candidateQueriesProposed: 0, candidateQueriesAuthorized: 0, candidateQueriesRejected: 0, explicitQueriesExecuted: 0,
+    explicitSearchRequests: 0, explicitSearchResults: 0, explicitSearchLatencyMs: 0, explicitSearchCostUsd: 0, explicitSearchCostMeasured: true, queryLedgerId: null as string | null,
+    topicAuthoritySetId: null as string | null, authorityResearchPlanId: null as string | null, controlledResearchLedgerId: null as string | null, perspectiveAuditId: null as string | null, confidenceVectorId: null as string | null, controlledResearchOperations: 0
+  };
   let currentStage: Parameters<typeof operationProjection>[0]["stage"] = "A1_SCHEMAS";
   const persist = async (collection: Parameters<V2FirestoreRepository["createImmutable"]>[0], artifact: Record<string, unknown>) => {
     try {
@@ -234,7 +401,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   }
 
   const reconnaissance = await performBoundedReconnaissance({ repository, topicId, scopeContractId: scopeResult.scope.scopeContractId, entityNameKeys: scopeResult.scope.centralEntities.map((entity) => normalizedIdentityText(entity.name)), limitPerKind: 25 });
-  const reconnaissanceId = contentAddressedId("recon-record", reconnaissance);
+  const reconnaissanceId = reconnaissanceArtifactId(context, reconnaissance);
   const reconnaissanceArtifact = parseSealedArtifact(reconnaissanceRecordSchema, { ...immutableEnvelope(context, reconnaissanceId), reconnaissanceId, scopeContractId: scopeResult.scope.scopeContractId, knownEntityIds: reconnaissance.knownEntities.map((item) => String(item.entityId || item.id)), admittedEventVersionIds: reconnaissance.admittedEvents.map((item) => String(item.eventVersionId || item.id)), strongClaimVersionIds: reconnaissance.strongClaims.map((item) => String(item.claimVersionId || item.id)), reusableSnapshotIds: reconnaissance.reusableSnapshots.map((item) => String(item.sourceSnapshotId || item.id)), conflictSetIds: reconnaissance.conflicts.map((item) => String(item.conflictSetId || item.id)), gaps: reconnaissance.gaps, legacyInputsExcluded: true });
   await persist("v2ReconnaissanceRecords", reconnaissanceArtifact);
 
@@ -247,52 +414,145 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   await persist("v2ResearchMaps", mapResult.map);
   await persistSemanticDerivation("v2ResearchMaps", mapResult.map, mapResult.executions.at(-1));
   assertDeadline();
-  const planResult = continuation
-    ? { plan: continuation.queryPlan, executions: [] }
-    : await generateQueryPlan({ context, scope: scopeResult.scope, map: mapResult.map, provider: dependencies.provider, deadlineAt });
-  modelExecutions.push(...planResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
-  for (const execution of planResult.executions) await persist("v2ModelExecutions", execution);
-  await persist("v2QueryPlans", planResult.plan);
-  await persistSemanticDerivation("v2QueryPlans", planResult.plan, planResult.executions.at(-1));
+  const requiredAuthorityQuestionIds = continuation?.gapIdsByQuestionId ? [...continuation.gapIdsByQuestionId.keys()] : undefined;
+  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, provider: dependencies.provider, deadlineAt });
+  modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
+  for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
+  const allAuthorityProposals = [...authorityProposalResult.proposals];
+  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, requiredQuestionIds: requiredAuthorityQuestionIds });
+  await persist("v2TopicAuthoritySets", topicAuthoritySet);
+  await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));
+  const authorityResearchPlan = buildAuthorityResearchPlan({ context, set: topicAuthoritySet, researchMap: mapResult.map });
+  await persist("v2AuthorityResearchPlans", authorityResearchPlan);
+  let perspectiveAudit = auditPerspective({ context, set: topicAuthoritySet, requiredPerspectiveTags: requiredPerspectiveTags(mapResult.map, requiredAuthorityQuestionIds), sensitive: false });
+  await persist("v2PerspectiveAudits", perspectiveAudit);
+  if (perspectiveAudit.verdict === "INADEQUATE") throw new Error(`PERSPECTIVE_DIVERSITY_INADEQUATE:${perspectiveAudit.reasonCodes.join(",")}`);
+  progress.topicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
+  progress.authorityResearchPlanId = authorityResearchPlan.authorityResearchPlanId;
+  progress.perspectiveAuditId = perspectiveAudit.perspectiveAuditId;
 
   currentStage = "A2_SCOPE_ACQUISITION";
   await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING" }));
-  const groundedQueries = planResult.plan.queries.filter((query) => query.role !== "SOURCE_RETRIEVAL").slice(0, 5);
-  const acquisitions = await mapLimit(groundedQueries, config.budgetBundle.maximumConcurrency, async (query) => {
-    assertDeadline();
-    return runGroundedAcquisition({ context, query, provider: dependencies.provider, deadlineAt });
-  });
-  const actualQueryCount = acquisitions.reduce((total, acquisition) => total + acquisition.webSearchQueries.length, 0);
-  if (actualQueryCount > config.budgetBundle.maximumProviderQueries) throw new Error("ACQUISITION_BUDGET_EXHAUSTED: provider-reported query cap exceeded.");
-  if (acquisitions.length > config.budgetBundle.maximumGroundingCalls) throw new Error("ACQUISITION_BUDGET_EXHAUSTED: grounding call cap exceeded.");
-  for (const [index, acquisition] of acquisitions.entries()) {
+  assertDeadline();
+  const bindingById = new Map(topicAuthoritySet.bindings.map((binding) => [binding.bindingId, binding]));
+  const groundingAttributionByUrl = new Map<string, { publisherDomain: string; title: string; discoveryText: string }>();
+  const controlledOperations = (await mapLimit(authorityResearchPlan.operations, authorityResearchPlan.budget.maximumConcurrency, async (planned): Promise<ControlledResearchOperation> => {
+    const binding = bindingById.get(planned.authorityBindingId);
+    if (!binding) throw new Error(`AUTHORITY_RESEARCH_PLAN_BINDING_MISSING:${planned.authorityBindingId}`);
+    return executeInstitutionalDiscovery({ binding, researchQuestionIds: planned.researchQuestionIds, layer: planned.layer, mechanism: planned.mechanism, endpoint: planned.endpoint, purpose: planned.purpose, transport: dependencies.institutionalDiscoveryTransport, signal: AbortSignal.timeout(Math.max(1, deadlineAt - Date.now())) });
+  }));
+  const questionById = new Map(mapResult.map.questions.map((question) => [question.questionId, question]));
+  const initiallyCoveredQuestionIds = new Set(controlledOperations.filter((operation) => operation.status === "SUCCEEDED" && operation.returnedUrls.length > 0).flatMap((operation) => operation.researchQuestionIds.filter((questionId) => {
+    const question = questionById.get(questionId);
+    if (!question) return false;
+    return operation.returnedUrls.some((url) => {
+      try {
+        const canonicalUrl = canonicalizeUrl(url);
+        const parsed = new URL(canonicalUrl);
+        return isDiscoveryRelevant({ canonicalUrl, originalUrl: url, title: parsed.pathname.split("/").filter(Boolean).at(-1) || parsed.hostname, domain: parsed.hostname.replace(/^www\./u, ""), queryId: operation.operationId, researchQuestionIds: [questionId], role: "AUTHORITY_TARGETED", intendedSourceClass: "PRIMARY_INSTITUTIONAL", discoveryOrder: 0 }, question, mapResult.map);
+      } catch { return false; }
+    });
+  })));
+  const escalationQuestionIds = prioritizeContinuationQuestionIds(
+    mapResult.map.questions
+    .filter((question) => question.priority === "CRITICAL" && (!requiredAuthorityQuestionIds || requiredAuthorityQuestionIds.includes(question.questionId)) && !initiallyCoveredQuestionIds.has(question.questionId))
+    .map((question) => question.questionId),
+    continuation?.gapIdsByQuestionId ? [...continuation.gapIdsByQuestionId.keys()] : undefined
+  );
+  const escalationQuestions = escalationQuestionIds.map((questionId) => questionById.get(questionId)!)
+    .slice(0, Math.min(authorityResearchPlan.budget.maximumGroundingEscalationCalls, authorityResearchPlan.budget.maximumControlledDiscoveryOperations - controlledOperations.length));
+  for (const question of escalationQuestions) {
+    const mappedAttempts = controlledOperations.filter((operation) => operation.researchQuestionIds.includes(question.questionId)).length;
+    const gapIds = continuation?.gapIdsByQuestionId?.get(question.questionId) || [`authority-gap-${question.questionId}`];
+    const decision = authorizeEscalation({ context, set: topicAuthoritySet, researchQuestionIds: [question.questionId], gapIds: [...gapIds], reason: controlledOperations.some((operation) => operation.researchQuestionIds.includes(question.questionId) && operation.status === "FAILED") ? "AUTHORITY_INACCESSIBLE" : "MATERIAL_COVERAGE_GAP", mappedAuthorityOperationsAttempted: mappedAttempts, gapOperationsConsumed: controlledOperations.filter((operation) => operation.layer === "GAP_CONTEST_ESCALATION").length, allowedPurpose: `Locate directly retrievable registered-authority pages for the unmet Research Map question: ${question.text}` });
+    await persist("v2EscalationDecisions", decision);
+    const registeredDomains = topicAuthoritySet.bindings.filter((binding) => binding.researchQuestionIds.includes(question.questionId)).flatMap((binding) => binding.verifiedDomains);
+    const queryId = contentAddressedId("authority-escalation-query", { escalationDecisionId: decision.escalationDecisionId, questionId: question.questionId });
+    let acquisition: Awaited<ReturnType<typeof runGroundedAcquisition>>;
+    try {
+      acquisition = await runGroundedAcquisition({ context, provider: dependencies.provider, deadlineAt, query: {
+        queryId, researchQuestionIds: [question.questionId], role: "AUTHORITY_TARGETED", intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: [scopeResult.scope.title], language: descriptor.language,
+        geography: question.geography.length > 0 ? question.geography.slice(0, 8) : ["International"], providerQuery: buildRegisteredAuthorityGroundingQuery({ title: scopeResult.scope.title, question: question.text, verifiedDomains: registeredDomains }), providerReportedQueries: [], budgetUnits: 1, resultArtifactIds: []
+      } });
+    } catch (error) {
+      controlledOperations.push(failedGroundingEscalationOperation({ escalationDecisionId: decision.escalationDecisionId, researchQuestionId: question.questionId, purpose: decision.allowedPurpose, error }));
+      continue;
+    }
     modelExecutions.push(modelExecutionSchema.parse(acquisition.execution));
     await persist("v2ModelExecutions", acquisition.execution);
-    const query = groundedQueries[index]!;
-    const discoveryId = contentAddressedId("discovery", { queryId: query.queryId, executionId: acquisition.execution.executionId });
-    const discovery = parseSealedArtifact(acquisitionDiscoverySchema, { ...immutableEnvelope(context, discoveryId), discoveryId, acquisitionRunId: `acquisition-${acquisition.execution.executionId}`, queryId: query.queryId, providerQuery: query.providerQuery, providerReportedQueries: acquisition.webSearchQueries, responseBodyHash: sha256(acquisition.body), chunks: acquisition.chunks, supports: acquisition.supports, searchEntryPointPresent: acquisition.searchEntryPointPresent });
-    await persist("v2AcquisitionDiscoveries", discovery);
-    const acquisitionId = contentAddressedId("acquisition", { queryId: query.queryId, executionId: acquisition.execution.executionId });
-    const run = parseSealedArtifact(acquisitionRunSchema, { ...immutableEnvelope(context, acquisitionId), acquisitionRunId: acquisitionId, queryPlanId: planResult.plan.queryPlanId, queryId: query.queryId, role: query.role, providerReportedQueries: acquisition.webSearchQueries, groundingChunkCount: acquisition.chunks.length, groundingSupportCount: acquisition.supports.length, discoveredSourceIds: [], resultState: "ATTRIBUTABLE", budgetConsumed: { maximumGroundingCalls: 1, maximumProviderQueries: acquisition.webSearchQueries.length }, modelExecutionId: acquisition.execution.executionId });
-    await persist("v2AcquisitionRuns", run);
+    const expansionPublishers = registeredGroundingExpansionPublishers({ set: topicAuthoritySet, publishers, researchQuestionId: question.questionId, references: acquisition.chunks });
+    if (expansionPublishers.length > 0) {
+      try {
+        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], maximumRepairs: 0, provider: dependencies.provider, deadlineAt });
+        modelExecutions.push(...expansionResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
+        for (const execution of expansionResult.executions) await persist("v2ModelExecutions", execution);
+        const parentTopicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
+        allAuthorityProposals.push(...expansionResult.proposals);
+        topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId });
+        await persist("v2TopicAuthoritySets", topicAuthoritySet);
+        await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, expansionResult.executions.at(-1));
+        for (const binding of topicAuthoritySet.bindings) bindingById.set(binding.bindingId, binding);
+        perspectiveAudit = auditPerspective({ context, set: topicAuthoritySet, requiredPerspectiveTags: requiredPerspectiveTags(mapResult.map, requiredAuthorityQuestionIds), sensitive: false });
+        await persist("v2PerspectiveAudits", perspectiveAudit);
+        if (perspectiveAudit.verdict === "INADEQUATE") throw new Error(`PERSPECTIVE_DIVERSITY_INADEQUATE:${perspectiveAudit.reasonCodes.join(",")}`);
+        progress.topicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
+        progress.perspectiveAuditId = perspectiveAudit.perspectiveAuditId;
+      } catch (error) {
+        if (!(error instanceof StructuredStageError)) throw error;
+        for (const execution of error.executions) {
+          modelExecutions.push(modelExecutionSchema.parse(execution));
+          await persist("v2ModelExecutions", execution);
+        }
+        const failurePayload = { stage: "GROUNDING_AUTHORITY_EXPANSION", failureClass: "SOURCE_AUTHORITY_INSUFFICIENT" as const, severity: "WARNING" as const, retryable: false, message: error.message.slice(0, 1900), blockingArtifactIds: [topicAuthoritySet.topicAuthoritySetId, question.questionId], attemptsConsumed: error.executions.length, budgetConsumed: {} };
+        const failureRecordId = executionArtifactId("failure", context, failurePayload);
+        await persist("v2FailureRecords", parseSealedArtifact(v2FailureRecordSchema, { ...immutableEnvelope(context, failureRecordId), failureRecordId, ...failurePayload }));
+      }
+    }
+    const returnedUrls = acquisition.chunks.flatMap((chunk) => {
+      try {
+        const publisher = publisherForUrl(chunk.url, publishers) || (chunk.domain ? publisherForDomain(chunk.domain, publishers) : undefined);
+        if (!publisher) return [];
+        const binding = topicAuthoritySet.bindings.find((candidate) => candidate.publisherVersionId === publisher.publisherVersionId && candidate.researchQuestionIds.includes(question.questionId));
+        if (!binding) return [];
+        const canonicalUrl = canonicalizeUrl(chunk.url);
+        const discoveryText = acquisition.supports.filter((support) => support.chunkIndices.includes(chunk.chunkIndex)).map((support) => support.attributedText).join(" ").slice(0, 12_000);
+        groundingAttributionByUrl.set(canonicalUrl, { publisherDomain: publisher.knownDomains[0]!, title: chunk.title, discoveryText });
+        return [canonicalUrl];
+      } catch { return []; }
+    });
+    const authorizedUrls = [...new Set(returnedUrls)].slice(0, 60);
+    const operationIdentity = {
+      researchQuestionIds: [question.questionId], authorityBindingId: null,
+      layer: "GAP_CONTEST_ESCALATION" as const, mechanism: "GOOGLE_GROUNDING_ESCALATION" as const,
+      endpoint: "https://google.com/", purpose: decision.allowedPurpose
+    };
+    controlledOperations.push({ ...operationIdentity, operationId: contentAddressedId("controlled-research-operation", { escalationDecisionId: decision.escalationDecisionId, ...operationIdentity }), status: authorizedUrls.length > 0 ? "SUCCEEDED" : "FAILED", returnedUrls: authorizedUrls, providerInternalQueries: acquisition.webSearchQueries, latencyMs: acquisition.execution.latencyMs, failureReason: authorizedUrls.length > 0 ? null : "GROUNDING_NO_REGISTERED_AUTHORITY_URL" });
   }
-
+  progress.controlledResearchOperations = controlledOperations.length;
   const discovered = new Map<string, DiscoveredSourceCandidate>();
   let discoveryOrder = 0;
-  for (const [acquisitionIndex, acquisition] of acquisitions.entries()) for (const chunk of acquisition.chunks) {
-    const query = groundedQueries[acquisitionIndex]!;
+  for (const operation of controlledOperations) for (const returnedUrl of operation.returnedUrls) {
     let key: string;
-    try { key = canonicalizeUrl(chunk.url); } catch { continue; }
-    const domain = (chunk.domain || new URL(key).hostname).toLocaleLowerCase("en-US").replace(/^www\./u, "");
-    const discoveryText = acquisition.supports.filter((support) => support.chunkIndices.includes(chunk.chunkIndex)).map((support) => support.attributedText).join(" ").slice(0, 12_000);
+    try { key = canonicalizeUrl(returnedUrl); } catch { continue; }
+    const groundingAttribution = groundingAttributionByUrl.get(key);
+    const returnedPublisher = publisherForUrl(key, publishers) || (groundingAttribution ? publisherForDomain(groundingAttribution.publisherDomain, publishers) : undefined);
+    const binding = operation.authorityBindingId
+      ? bindingById.get(operation.authorityBindingId)
+      : topicAuthoritySet.bindings.find((candidate) => candidate.publisherVersionId === returnedPublisher?.publisherVersionId && candidate.researchQuestionIds.some((id) => operation.researchQuestionIds.includes(id)));
+    if (!binding) continue;
+    const domain = groundingAttribution?.publisherDomain || new URL(key).hostname.toLocaleLowerCase("en-US").replace(/^www\./u, "");
+    const publisher = publishers.find((candidate) => candidate.publisherVersionId === binding.publisherVersionId);
     const existing = discovered.get(key);
     if (existing) {
-      existing.researchQuestionIds = [...new Set([...existing.researchQuestionIds, ...query.researchQuestionIds])];
-      existing.discoveryText = [...new Set([existing.discoveryText, discoveryText].filter(Boolean))].join(" ").slice(0, 12_000);
-    } else discovered.set(key, { canonicalUrl: key, originalUrl: chunk.url, title: chunk.title, domain, queryId: query.queryId, researchQuestionIds: [...query.researchQuestionIds], role: query.role, intendedSourceClass: query.intendedSourceClass, discoveryOrder: discoveryOrder++, discoveryText });
+      existing.researchQuestionIds = [...new Set([...existing.researchQuestionIds, ...operation.researchQuestionIds])];
+      existing.discoveryText = [...new Set([existing.discoveryText, groundingAttribution?.discoveryText].filter((value): value is string => Boolean(value)))].join(" ").slice(0, 12_000);
+    } else discovered.set(key, { canonicalUrl: key, originalUrl: returnedUrl, title: groundingAttribution?.title || new URL(key).pathname.split("/").filter(Boolean).at(-1) || publisher?.canonicalName || domain, domain, queryId: operation.operationId, researchQuestionIds: [...operation.researchQuestionIds], role: operation.layer === "ORIENTATION" ? "ORIENTATION" : "AUTHORITY_TARGETED", intendedSourceClass: provisionalSourceClass(publisher), discoveryOrder: discoveryOrder++, discoveryText: groundingAttribution?.discoveryText || groundingAttribution?.title || "" });
   }
-  const coverageAdmission = continuation ? rankCoverageSourcesByQuestion({ candidates: [...discovered.values()], map: mapResult.map, publishers, maximumSources: config.budgetBundle.maximumSourceDocuments }) : null;
-  const sourceCandidates = coverageAdmission?.retrievalCandidates || admitSourcesByQuestion({ candidates: [...discovered.values()], map: mapResult.map, publishers, maximumSources: config.budgetBundle.maximumSourceDocuments }).map((candidate) => ({ ...candidate, admissionScores: {} as Record<string, number> }));
+  const coverageAdmission = rankCoverageSourcesByQuestion({ candidates: [...discovered.values()], map: mapResult.map, publishers, maximumSources: Math.min(40, config.budgetBundle.maximumSourceDocuments) });
+  const sourceCandidates = coverageAdmission.retrievalCandidates;
+  progress.sourceDocumentsDiscovered = discovered.size;
+  progress.directRetrievalAttempts = 0;
+  progress.sourceRanking = sourceCandidates.map((candidate, index) => ({ rank: index + 1, urlHash: sha256(candidate.canonicalUrl), domain: candidate.domain, admittedQuestionCount: candidate.admittedQuestionIds.length }));
   if (coverageAdmission) for (const decision of coverageAdmission.decisions) {
     const decisionPayload = { questionId: decision.questionId, urlHash: sha256(decision.canonicalUrl), rank: decision.rank, disposition: decision.disposition, exclusionReason: decision.exclusionReason, authorityEligibility: decision.authorityEligibility, admissionScore: decision.admissionScore, components: JSON.stringify(decision.components), temporalSignals: decision.matchedTemporalSignals.join(",").slice(0, 1000), eventSignals: decision.matchedEventSignals.join(",").slice(0, 1000), publisherDomain: decision.domain };
     const auditRecordId = contentAddressedId("audit", { runId: context.runId, action: "COVERAGE_SOURCE_ADMISSION", ...decisionPayload });
@@ -301,6 +561,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   }
   let retrievalFailures = 0;
   let retrievalsSuppressedByHostCircuit = 0;
+  const retrievalRejectionReasons = new Map<string, number>();
   const hostFailures = new Map<string, number>();
   const hostTails = new Map<string, Promise<void>>();
   async function serializedForHost<T>(host: string, task: () => Promise<T>): Promise<T> {
@@ -322,16 +583,21 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       }
       return null;
     }
+    const retrievalStartedAt = Date.now();
+    progress.directRetrievalAttempts += 1;
     try {
       assertDeadline();
       const existing = await repository.getReusableSource(candidate.canonicalUrl);
       const freshness = scopeResult.scope.topicClass === "ONGOING_SUBJECT" ? "ONGOING" : "IMMUTABLE_HISTORICAL";
       if (existing && canReuseSnapshot(existing.snapshot as SourceSnapshot, freshness, scopeResult.scope.ongoingAsOf)) {
+        progress.retrievalSuccesses += 1;
         return { source: existing.source as SourceDocument, snapshot: existing.snapshot as SourceSnapshot, evidenceSegments: existing.evidenceSegments as EvidenceSegment[], archiveWrites: 0, cacheDisposition: "CACHE_HIT", admittedQuestionIds: candidate.admittedQuestionIds, admissionScores: candidate.admissionScores };
       }
       const initialPublisher = publisherForDomain(candidate.domain, publishers) || publisherForUrl(candidate.canonicalUrl, publishers);
+      if (!initialPublisher || !topicAuthoritySet.bindings.some((binding) => binding.publisherVersionId === initialPublisher.publisherVersionId)) throw new Error(`SOURCE_OUTSIDE_TOPIC_AUTHORITY_SET:${candidate.canonicalUrl}`);
       const result = await retrieveSource({ context, url: candidate.originalUrl, titleHint: candidate.title, publisherId: initialPublisher?.publisherId || null, sourceClass: provisionalSourceClass(initialPublisher), primarySecondaryRole: initialPublisher?.primarySecondaryTendency || "UNKNOWN", languageHint: descriptor.language }, {
         ...dependencies.retrieval,
+        signal: AbortSignal.timeout(Math.max(1, deadlineAt - Date.now())),
         cachedSource: async (resolvedUrl) => {
           const cached = await repository.getReusableSource(resolvedUrl);
           if (!cached) return null;
@@ -339,11 +605,17 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
         }
       });
       cloudStorageWrites += result.archiveWrites;
+      progress.retrievalSuccesses += 1;
       return { ...result, admittedQuestionIds: candidate.admittedQuestionIds, admissionScores: candidate.admissionScores };
     } catch (error) {
       retrievalFailures += 1;
+      progress.retrievalFailures = retrievalFailures;
       hostFailures.set(candidate.domain, (hostFailures.get(candidate.domain) || 0) + 1);
       const message = error instanceof Error ? error.message.slice(0, 300) : "Unknown retrieval failure";
+      const rejectionCode = message.split(":", 1)[0]!.trim() || "UNKNOWN_RETRIEVAL_FAILURE";
+      retrievalRejectionReasons.set(rejectionCode, (retrievalRejectionReasons.get(rejectionCode) || 0) + 1);
+      progress.retrievalRejectionReasons = Object.fromEntries([...retrievalRejectionReasons.entries()].sort());
+      progress.retrievalFailureDetails.push({ urlHash: sha256(candidate.canonicalUrl), reason: rejectionCode, latencyMs: Date.now() - retrievalStartedAt });
       console.error(JSON.stringify({ severity: "WARNING", component: "factory-v2-source-retrieval", topicId, urlHash: sha256(candidate.canonicalUrl), message }));
       if (coverageAdmission) {
         const details = { urlHash: sha256(candidate.canonicalUrl), questionIds: candidate.admittedQuestionIds.join(",").slice(0, 1000), disposition: "RETRIEVAL_FAILED_REPLACED", publisherDomain: candidate.domain, message };
@@ -364,21 +636,19 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     else retrievedByContent.set(key, result);
   }
   const retrieved = [...retrievedByContent.values()];
+  progress.retrievalSuccesses = retrievedWithDuplicates.length;
+  progress.sourceDocumentsSnapshotted = retrieved.length;
+  progress.retrievalsSuppressedByHostCircuit = retrievalsSuppressedByHostCircuit;
+  const controlledResearchLedger = sealControlledResearchLedger({ context, set: topicAuthoritySet, operations: controlledOperations, directRetrievalCount: progress.directRetrievalAttempts });
+  await persist("v2ControlledResearchLedgers", controlledResearchLedger);
+  progress.controlledResearchLedgerId = controlledResearchLedger.controlledResearchLedgerId;
 
   const publisherVersions = [...publishers];
   const publisherBySource = new Map<string, PublisherAuthorityVersion>();
   for (const result of retrieved) {
     assertDeadline();
-    let publisher = publisherForUrl(result.source.canonicalUrl, publisherVersions);
-    if (!publisher) {
-      publisher = provisionalPublisher(context, result.source.canonicalUrl, result.source.language);
-      publisherVersions.push(publisher);
-      await persist("v2PublisherAuthorityVersions", publisher);
-      const current = await repository.getById("v2PublisherAuthorityRecords", publisher.publisherId);
-      const head = publisherAuthorityRecordSchema.parse({ publisherId: publisher.publisherId, corpusId: context.corpusId, canonicalNameKey: normalizedIdentityText(publisher.canonicalName), currentVersionId: publisher.publisherVersionId, currentVersion: publisher.version, state: publisher.state, updatedAt: context.createdAt });
-      const state = await repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: publisher.publisherId, expectedCurrentVersionId: typeof current?.currentVersionId === "string" ? current.currentVersionId : null, nextVersionId: publisher.publisherVersionId, data: head });
-      if (state !== "IDEMPOTENT") firestoreWrites += 1;
-    }
+    const publisher = publisherForUrl(result.source.canonicalUrl, publisherVersions);
+    if (!publisher || !topicAuthoritySet.bindings.some((binding) => binding.publisherVersionId === publisher.publisherVersionId)) throw new Error(`RETRIEVED_SOURCE_OUTSIDE_TOPIC_AUTHORITY_SET:${result.source.canonicalUrl}`);
     const { id: _repositoryId, ...sourcePayload } = result.source as SourceDocument & { id?: string };
     const source = sourceDocumentSchema.parse({ ...sourcePayload, publisherId: publisher.publisherId, sourceClass: provisionalSourceClass(publisher), primarySecondaryRole: publisher.primarySecondaryTendency, authorityDomains: publisher.authorityDomains });
     if (result.cacheDisposition === "CACHE_NOT_APPLICABLE" || result.cacheDisposition === "REFETCHED") {
@@ -399,14 +669,25 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
 
   currentStage = "A3_CLAIMS";
   await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { sources: retrieved.length }, finalVerdict: "PENDING" }));
-  const questionsForExtraction = mapResult.map.questions.filter((question) => question.priority !== "SUPPORTING");
+  const priorityRank = { CRITICAL: 0, IMPORTANT: 1, SUPPORTING: 2 } as const;
+  const requiresIndependentExtraction = (question: ResearchMap["questions"][number]) => question.contested || question.claimTypesExpected.some((claimType) => ["INTERPRETATION", "CAUSATION", "CONSEQUENCE", "ATTRIBUTION"].includes(claimType));
+  const questionsForExtraction = mapResult.map.questions.filter((question) => question.priority !== "SUPPORTING" && (!continuation?.gapIdsByQuestionId || continuation.gapIdsByQuestionId.has(question.questionId)))
+    .sort((left, right) => {
+      const leftTargeted = continuation?.gapIdsByQuestionId?.has(left.questionId) ? 0 : 1;
+      const rightTargeted = continuation?.gapIdsByQuestionId?.has(right.questionId) ? 0 : 1;
+      return leftTargeted - rightTargeted || priorityRank[left.priority] - priorityRank[right.priority] || left.questionId.localeCompare(right.questionId);
+    });
   const candidatesByQuestion = new Map(questionsForExtraction.map((question) => {
     const packetCandidates = retrieved.flatMap((result) => {
     if (!result.admittedQuestionIds.includes(question.questionId) || result.evidenceSegments.length === 0) return [];
     const packet = selectEvidencePacket({ question, segments: result.evidenceSegments, entityNames: scopeResult.scope.centralEntities.map((entity) => entity.name) });
     return packet.segments.length === 0 ? [] : [{ result, question, packet }];
     });
-    if (coverageAdmission) return [question.questionId, selectUsableCoverageCandidates(packetCandidates.map((item) => ({ ...item, canonicalKey: item.result.source.canonicalUrl, admissionScore: item.result.admissionScores[question.questionId] || 0, usable: item.result.snapshot.retrievalDisposition !== "UNAVAILABLE" && item.packet.segments.length > 0 })), 2)] as const;
+    if (coverageAdmission) {
+      const ranked = packetCandidates.map((item) => ({ ...item, canonicalKey: item.result.source.canonicalUrl, admissionScore: item.result.admissionScores[question.questionId] || 0, usable: item.result.snapshot.retrievalDisposition !== "UNAVAILABLE" && item.packet.segments.length > 0, independenceGroupId: publisherBySource.get(item.result.source.sourceId)?.independenceGroupId || item.result.source.sourceId }));
+      const requiresIndependentSelection = requiresIndependentExtraction(question);
+      return [question.questionId, requiresIndependentSelection ? selectIndependentCoverageCandidates(ranked, 2) : selectUsableCoverageCandidates(ranked, 2)] as const;
+    }
     return [question.questionId, packetCandidates.sort((left, right) => {
     const authority = (item: typeof left) => publisherBySource.get(item.result.source.sourceId)?.state === "VERIFIED" ? 100 : 0;
     return authority(right) - authority(left) || right.packet.score - left.packet.score || left.result.source.sourceId.localeCompare(right.result.source.sourceId);
@@ -424,13 +705,24 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       await persist("v2AuditRecords", audit);
     }
   }
-  // Eight packets bound both model work and graph fan-out. Interleaving the
-  // first-ranked source for each question before second-source corroboration
-  // preserves research breadth under the ceiling.
-  const claimInputs = [0, 1].flatMap((rank) => questionsForExtraction.flatMap((question) => {
+  // Ten packets bound model work and graph fan-out while reserving the second
+  // source for critical claims that require independent corroboration before
+  // lower-priority breadth consumes the extraction ceiling.
+  const criticalQuestions = questionsForExtraction.filter((question) => question.priority === "CRITICAL");
+  const importantQuestions = questionsForExtraction.filter((question) => question.priority === "IMPORTANT");
+  const candidateAt = (question: ResearchMap["questions"][number], rank: number) => {
     const candidate = candidatesByQuestion.get(question.questionId)?.[rank];
     return candidate ? [candidate] : [];
-  })).slice(0, 8);
+  };
+  const claimInputs = [
+    ...criticalQuestions.flatMap((question) => candidateAt(question, 0)),
+    ...criticalQuestions.filter(requiresIndependentExtraction).flatMap((question) => candidateAt(question, 1)),
+    ...importantQuestions.flatMap((question) => candidateAt(question, 0)),
+    ...criticalQuestions.filter((question) => !requiresIndependentExtraction(question)).flatMap((question) => candidateAt(question, 1)),
+    ...importantQuestions.flatMap((question) => candidateAt(question, 1))
+  ].slice(0, 10);
+  progress.evidencePackets = claimInputs.length;
+  progress.evidencePacketSegments = claimInputs.reduce((total, input) => total + input.packet.segments.length, 0);
   let claimExtractionFailures = 0;
   const extractedAttempts = await mapLimit(claimInputs, config.budgetBundle.maximumConcurrency, async ({ result, question, packet }) => {
     try {
@@ -469,6 +761,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     claimContributors.set(claimId, [...(claimContributors.get(claimId) || []), extracted]);
   }
   const claims = [...claimContributors.values()].map((contributors) => contributors[0]!);
+  progress.claimsExtracted = claims.length;
   const claimExecution = new Map(extractedGroups.flatMap((group) => group.claims.map((claim) => [claim.claimId, group.executions.at(-1)] as const)));
   const semanticClassByClaim = new Map(extractedGroups.flatMap((group) => [...group.semanticClasses.entries()]));
   for (let index = 0; index < claims.length; index += 1) {
@@ -517,19 +810,24 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       }
     }
   }
-
   currentStage = "A4_AUTHORITY_CONFLICTS";
   await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { claims: claims.length, evidenceEdges: evidenceEdges.length }, finalVerdict: "PENDING" }));
   const conflictSets = detectClaimConflicts({ context, claims, evidenceEdges });
   for (const conflict of conflictSets) await persist("v2ClaimConflictSets", conflict);
   const publishersByVersion = new Map(publisherVersions.map((publisher) => [publisher.publisherVersionId, publisher]));
+  const authorityBindingsByPublisherVersionId = new Map(topicAuthoritySet.bindings.map((binding) => [binding.publisherVersionId, binding]));
   const verdicts: ClaimAuthorityVerdict[] = [];
   for (const claim of claims) {
     const conflict = conflictSets.find((set) => set.claimVersionIds.includes(claim.claimVersionId));
-    const verdict = evaluateClaimAuthority({ context, claim, evidenceEdges: evidenceEdges.filter((edge) => edge.claimVersionId === claim.claimVersionId), publishersByVersionId: publishersByVersion, conflictSet: conflict });
+    const verdict = evaluateClaimAuthority({ context, claim, evidenceEdges: evidenceEdges.filter((edge) => edge.claimVersionId === claim.claimVersionId), publishersByVersionId: publishersByVersion, authorityBindingsByPublisherVersionId, conflictSet: conflict });
     verdicts.push(verdict);
     await persist("v2ClaimAuthorityVerdicts", verdict);
   }
+  progress.claimsSupported = verdicts.filter((verdict) => verdict.verdict === "SUPPORTED" || verdict.verdict === "QUALIFIED").length;
+  progress.claimsRejected = verdicts.filter((verdict) => verdict.verdict === "INSUFFICIENT" || verdict.verdict === "REJECTED").length;
+  progress.conflictsDetected = conflictSets.length;
+  progress.conflictsResolved = conflictSets.filter((conflict) => ["RESOLVED", "QUALIFIED"].includes(conflict.state)).length;
+  progress.conflictsUnresolved = conflictSets.filter((conflict) => conflict.state === "UNRESOLVED").length;
 
   currentStage = "A5_RESOLUTION_REUSE";
   await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { claims: claims.length, conflicts: conflictSets.length }, finalVerdict: "PENDING" }));
@@ -581,28 +879,45 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     await persist("v2EntityAliases", alias);
   }
 
+  const reusableEntities = (await Promise.all(reconnaissance.knownEntities.slice(0, 25).map(async (head) => {
+    const currentVersionId = typeof head.currentVersionId === "string" ? head.currentVersionId : null;
+    if (!currentVersionId) return null;
+    const value = await repository.getById("v2CanonicalEntityVersions", currentVersionId);
+    if (!value) return null;
+    const { id: _repositoryDocumentId, ...artifact } = value;
+    const parsed = canonicalEntityVersionSchema.safeParse(artifact);
+    return parsed.success ? parsed.data : null;
+  }))).filter((entity): entity is CanonicalEntityVersion => entity !== null);
+  const resolutionEntities = resolutionEntityContext(scopeResult.scope.centralEntities, entities, reusableEntities);
+
   const claimsByCluster = new Map<string, AtomicClaimVersion[]>();
   for (const claim of claims) {
     const key = claim.candidateEventClusterId || `claim-${claim.claimId}`;
     claimsByCluster.set(key, [...(claimsByCluster.get(key) || []), claim]);
   }
   const events: CanonicalEventVersion[] = [];
+  const eventResolutionDiagnostics = new Map<string, number>();
+  const rejectEventCluster = (reason: string) => eventResolutionDiagnostics.set(reason, (eventResolutionDiagnostics.get(reason) || 0) + 1);
   for (const cluster of claimsByCluster.values()) {
     const core = cluster.filter((claim) => passingClaimIds.has(claim.claimVersionId));
-    if (core.length === 0 || entities.length === 0) continue;
+    if (core.length === 0) { rejectEventCluster("NO_SUPPORTED_CORE_CLAIM"); continue; }
+    if (resolutionEntities.length === 0) { rejectEventCluster("NO_RESOLVED_ENTITY"); continue; }
     const clusterEvidenceText = core.flatMap((claim) => claim.extractedFromSegmentIds).flatMap((segmentId) => {
       const segment = segmentsById.get(segmentId);
       return segment ? [segment.exactText] : [];
     });
     const clusterText = normalizedIdentityText([...cluster.map((claim) => `${claim.subject.label} ${typeof claim.object.value === "string" || typeof claim.object.value === "number" ? claim.object.value : claim.object.value.label} ${claim.normalizedAssertion}`), ...clusterEvidenceText].join(" "));
-    const relatedEntities = entities.filter((entity) => clusterText.includes(normalizedIdentityText(entity.canonicalName)));
-    if (relatedEntities.length === 0) continue;
+    const relatedEntities = resolutionEntities.filter((entity) => clusterText.includes(normalizedIdentityText(entity.canonicalName)));
+    if (relatedEntities.length === 0) { rejectEventCluster("NO_RELATED_RESOLVED_ENTITY"); continue; }
     const semanticClass = semanticClassByClaim.get(cluster[0]!.claimVersionId) || "CONTEXT";
-    const temporalClaim = core.find((claim) => claim.temporal) || core.find((claim) => claim.claimType === "DATE" && typeof claim.object.value === "object");
+    const temporalClaim = selectMostPreciseHistoricalDate(core.flatMap((claim) => {
+      const date = claim.temporal?.start || (claim.claimType === "DATE" && typeof claim.object.value === "object" ? claim.object.value : null);
+      return date ? [{ value: claim, date, stableId: claim.claimVersionId }] : [];
+    }));
     const start = temporalClaim?.temporal?.start || (temporalClaim?.claimType === "DATE" && typeof temporalClaim.object.value === "object" ? temporalClaim.object.value : null);
-    if (!start) continue;
+    if (!start) { rejectEventCluster("NO_EVIDENCED_TEMPORAL_START"); continue; }
     const action = core.find((claim) => claim.claimType === "OCCURRENCE" || claim.claimType === "INSTITUTIONAL_ACTION");
-    if (!action) continue;
+    if (!action) { rejectEventCluster("NO_OCCURRENCE_OR_INSTITUTIONAL_ACTION"); continue; }
     let event = buildCanonicalEventVersion(context, { version: 1, scopeContractId: scopeResult.scope.scopeContractId, canonicalTitle: action.subject.label, semanticClass, eventSubtype: semanticClass === "EVENT" ? "OCCURRENCE" : null, temporal: { start, end: temporalClaim?.temporal?.end || null, uncertainty: start.precision === "APPROXIMATE" ? "Approximate date preserved from evidence." : null }, actionKey: action.normalizedAssertion.slice(0, 300), primaryEntityKeys: relatedEntities.map((entity) => entity.entityId).slice(0, 20), locationKeys: core.flatMap((claim) => claim.locationEntityIds).slice(0, 20), coreClaimVersionIds: core.map((claim) => claim.claimVersionId).slice(0, 20), supportingClaimVersionIds: cluster.filter((claim) => !core.includes(claim)).map((claim) => claim.claimVersionId).slice(0, 40), authorityState: "FACTORY_CANDIDATE", canonicalizationState: semanticClass === "EVENT" ? "RESOLVED" : "INELIGIBLE", parentEventId: null, supersedesEventVersionId: null });
     if (event.semanticClass === "EVENT" && !eventWithinLockedScope(scopeResult.scope, event)) {
       event = buildCanonicalEventVersion(context, { version: 1, scopeContractId: event.scopeContractId, canonicalTitle: event.canonicalTitle, semanticClass: "CONTEXT", eventSubtype: null, temporal: event.temporal, actionKey: event.actionKey, primaryEntityKeys: event.primaryEntityKeys, locationKeys: event.locationKeys, coreClaimVersionIds: event.coreClaimVersionIds, supportingClaimVersionIds: event.supportingClaimVersionIds, authorityState: event.authorityState, canonicalizationState: "INELIGIBLE", parentEventId: null, supersedesEventVersionId: null });
@@ -660,11 +975,12 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   }
 
   const unresolvedMaterialConflicts = conflictSets.filter((conflict) => conflict.blocksPass).length;
-  if (retrieved.length === 0) blockingReasons.push("NO_DURABLE_SOURCE_SNAPSHOTS");
-  if (claims.length === 0) blockingReasons.push("NO_ATOMIC_CLAIMS");
-  if (passingClaimIds.size === 0) blockingReasons.push("NO_SUPPORTED_CLAIMS");
-  if (events.filter((event) => event.semanticClass === "EVENT").length === 0) blockingReasons.push("NO_RESOLVED_EVENT_CANDIDATES");
-  if (unresolvedMaterialConflicts > 0) blockingReasons.push("CLAIM_CONFLICT_UNRESOLVED");
+  progress.entityCandidates = entities.length;
+  progress.resolvedEntities = entities.filter((entity) => entity.resolutionState === "RESOLVED").length;
+  progress.eventCandidates = events.length;
+  progress.resolvedCanonicalEventCandidates = events.filter((event) => event.semanticClass === "EVENT" && event.canonicalizationState === "RESOLVED").length;
+  progress.nonEventKnowledgeItems = events.filter((event) => event.semanticClass !== "EVENT").length;
+  blockingReasons.push(...minimumKnowledgeBlockingReasons({ continuation: Boolean(continuation), durableSources: retrieved.length, claims: claims.length, supportedClaims: passingClaimIds.size, eventCandidates: events.filter((event) => event.semanticClass === "EVENT").length, unresolvedMaterialConflicts }));
   const supportedClaimIds = new Set(claims.filter((claim) => passingClaimIds.has(claim.claimVersionId)).map((claim) => claim.claimId));
   const questionCoverage = mapResult.map.questions.map((question) => {
     const jobs = claimInputs.filter((input) => input.question.questionId === question.questionId);
@@ -677,26 +993,67 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const audit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "RESEARCH_QUESTION_COVERAGE", actorType: "POLICY", actorId: "factory-v2-a-coverage-policy.10", artifactRefs: [{ collection: "v2ResearchMaps", id: mapResult.map.researchMapId, payloadHash: mapResult.map.payloadHash }], details: { ...coverage, generationSource: coverage.questionId.startsWith("software-chronology-question-") ? "SOFTWARE_GENERATED" : "MODEL_OR_SOFTWARE_COVERAGE_COMPLETION" } });
     await persist("v2AuditRecords", audit);
   }
+  const acceptedEdgeIds = new Set(verdicts.flatMap((verdict) => verdict.acceptedEvidenceEdgeIds));
+  const acceptedEdges = evidenceEdges.filter((edge) => acceptedEdgeIds.has(edge.claimEvidenceId));
+  const passingVerdicts = verdicts.filter((verdict) => verdict.verdict === "SUPPORTED" || verdict.verdict === "QUALIFIED");
+  const corroborationInputs = passingVerdicts.flatMap((verdict) => {
+    const claim = claims.find((candidate) => candidate.claimVersionId === verdict.claimVersionId);
+    return claim ? [{ independenceGroupCount: verdict.independenceGroupCount, risk: claim.risk }] : [];
+  });
+  const resolvedEvents = events.filter((event) => event.semanticClass === "EVENT" && event.canonicalizationState === "RESOLVED");
+  const confidenceVector = buildConfidenceVector({
+    context,
+    topicAuthoritySetId: topicAuthoritySet.topicAuthoritySetId,
+    authorityApplicability: passingVerdicts.length > 0 && passingVerdicts.every((verdict) => !verdict.reasonCodes.includes("CLAIM_RELATIVE_AUTHORITY_MISMATCH")) ? "PASS" : "FAIL",
+    evidenceDirectness: acceptedEdges.length === 0 ? "FAIL" : acceptedEdges.every((edge) => edge.relevance === "DIRECT") ? "PASS" : "QUALIFIED",
+    independentCorroboration: independentCorroborationStatus(corroborationInputs),
+    perspectiveAdequacy: perspectiveAudit.verdict === "REVIEW_REQUIRED" ? "REVIEW_REQUIRED" : "PASS",
+    conflictStatus: conflictConfidenceStatus(conflictSets),
+    coverageCompleteness: blockingReasons.length === 0 ? "PASS" : "FAIL",
+    temporalPrecision: temporalPrecisionStatus(resolvedEvents, Boolean(continuation)),
+    provenanceIntegrity: acceptedEdges.length > 0 && acceptedEdges.every((edge) => edge.publisherVersionId !== null && authorityBindingsByPublisherVersionId.has(edge.publisherVersionId) && segmentsById.has(edge.evidenceSegmentId)) ? "PASS" : "FAIL",
+    reasonCodes: blockingReasons.length === 0 ? ["AUTHORITY_FIRST_DIAGNOSTICS_COMPLETE"] : blockingReasons
+  });
+  await persist("v2AcquisitionConfidenceVectors", confidenceVector);
+  progress.confidenceVectorId = confidenceVector.confidenceVectorId;
+  if (confidenceRequiresAdditionalBlock(confidenceVector, blockingReasons)) blockingReasons.push(`ACQUISITION_CONFIDENCE_${confidenceVector.verdict}`);
   assertDeadline();
   const tokenMetrics = modelTokens(modelExecutions);
   const individualClaimsRejected = extractedGroups.reduce((total, group) => total + group.rejectedClaims.length, 0);
+  const claimRejectionReasons = extractedGroups.flatMap((group) => group.rejectedClaims).flatMap((rejection) => rejection.reasons).reduce<Record<string, number>>((counts, reason) => {
+    const code = reason.split(":", 1)[0]!.trim() || "UNKNOWN_CLAIM_REJECTION";
+    counts[code] = (counts[code] || 0) + 1;
+    return counts;
+  }, {});
+  if (claimExtractionFailures > 0) claimRejectionReasons.CLAIM_EXTRACTION_STAGE_FAILURE = claimExtractionFailures;
+  const distribution = <T extends string>(values: readonly T[]): Record<string, number> => values.reduce<Record<string, number>>((counts, value) => {
+    counts[value] = (counts[value] || 0) + 1;
+    return counts;
+  }, {});
+  const stageLatencyMs = modelExecutions.reduce<Record<string, number>>((latencies, execution) => {
+    latencies[execution.stage] = (latencies[execution.stage] || 0) + execution.latencyMs;
+    return latencies;
+  }, {});
+  stageLatencyMs.AUTHORITY_DISCOVERY = controlledOperations.reduce((total, operation) => total + (operation.latencyMs || 0), 0);
   const metrics: V2ACertificationMetrics = {
-    totalExecutionMs: Date.now() - startedAt, scopeContractModelCalls: scopeResult.executions.length, researchMapModelCalls: mapResult.executions.length, queryPlanModelCalls: planResult.executions.length,
-    groundingCalls: acquisitions.length, providerReportedSearchQueries: actualQueryCount, directRetrievalAttempts: sourceCandidates.length - retrievalsSuppressedByHostCircuit, retrievalSuccesses: retrievedWithDuplicates.length, retrievalFailures,
+    totalExecutionMs: Date.now() - startedAt, scopeContractModelCalls: scopeResult.executions.length, researchMapModelCalls: mapResult.executions.length, queryPlanModelCalls: 0, authorityRoutingModelCalls: modelExecutions.filter((execution) => execution.stage === "AUTHORITY_ROUTING").length,
+    groundingCalls: controlledOperations.filter((operation) => operation.mechanism === "GOOGLE_GROUNDING_ESCALATION").length, providerReportedSearchQueries: controlledOperations.reduce((total, operation) => total + operation.providerInternalQueries.length, 0), candidateQueriesProposed: 0, candidateQueriesAuthorized: 0, candidateQueriesRejected: 0, explicitQueriesExecuted: 0, explicitSearchRequests: 0, explicitSearchResults: 0, explicitSearchLatencyMs: 0, queryLedgerId: null, topicAuthoritySetId: topicAuthoritySet.topicAuthoritySetId, authorityResearchPlanId: authorityResearchPlan.authorityResearchPlanId, controlledResearchLedgerId: controlledResearchLedger.controlledResearchLedgerId, perspectiveAuditId: perspectiveAudit.perspectiveAuditId, confidenceVectorId: confidenceVector.confidenceVectorId, controlledResearchOperations: controlledOperations.length, directRetrievalAttempts: sourceCandidates.length - retrievalsSuppressedByHostCircuit, retrievalSuccesses: retrievedWithDuplicates.length, retrievalFailures,
     sourceDocumentsDiscovered: discovered.size, sourceDocumentsSnapshotted: retrieved.length, cacheHits: retrieved.filter((item) => item.cacheDisposition === "CACHE_HIT").length,
     cacheRevalidated: retrieved.filter((item) => item.cacheDisposition === "REVALIDATED").length, cacheRefetched: retrieved.filter((item) => item.cacheDisposition === "REFETCHED").length, cacheNotApplicable: retrieved.filter((item) => item.cacheDisposition === "CACHE_NOT_APPLICABLE").length,
-    retrievalsSuppressedByHostCircuit,
-    evidencePackets: claimInputs.length, evidencePacketSegments: claimInputs.reduce((total, input) => total + input.packet.segments.length, 0), individualClaimsRejected,
+    retrievalsSuppressedByHostCircuit, retrievalRejectionReasons: Object.fromEntries([...retrievalRejectionReasons.entries()].sort()), retrievalFailureDetails: progress.retrievalFailureDetails,
+    sourceRanking: sourceCandidates.map((candidate, index) => ({ rank: index + 1, urlHash: sha256(candidate.canonicalUrl), domain: candidate.domain, admittedQuestionCount: candidate.admittedQuestionIds.length })),
+    evidencePackets: claimInputs.length, evidencePacketSegments: claimInputs.reduce((total, input) => total + input.packet.segments.length, 0), individualClaimsRejected, claimRejectionReasons,
     researchQuestionsNoEvidence: questionCoverage.filter((item) => item.status === "NO_EVIDENCE").length, researchQuestionsPartial: questionCoverage.filter((item) => item.status === "PARTIAL").length,
     researchQuestionsSufficient: questionCoverage.filter((item) => item.status === "SUFFICIENT").length, researchQuestionsBlocked: questionCoverage.filter((item) => item.status === "BLOCKED").length,
     sourceClasses: [...new Set(retrieved.map((item) => item.source.sourceClass))].sort(), publisherIdentities: new Set(retrieved.map((item) => item.source.publisherId).filter(Boolean)).size,
     claimsExtracted: claims.length, claimsSupported: verdicts.filter((verdict) => verdict.verdict === "SUPPORTED" || verdict.verdict === "QUALIFIED").length,
-    claimsRejected: verdicts.filter((verdict) => verdict.verdict === "INSUFFICIENT" || verdict.verdict === "REJECTED").length + claimExtractionFailures + individualClaimsRejected, claimsRequiringReview: verdicts.filter((verdict) => verdict.verdict === "REVIEW_REQUIRED").length,
+    claimsRejected: verdicts.filter((verdict) => verdict.verdict === "INSUFFICIENT" || verdict.verdict === "REJECTED").length + claimExtractionFailures + individualClaimsRejected, claimsRequiringReview: verdicts.filter((verdict) => verdict.verdict === "REVIEW_REQUIRED").length, authorityVerdictDistribution: distribution(verdicts.map((verdict) => verdict.verdict)),
     conflictsDetected: conflictSets.length, conflictsResolved: conflictSets.filter((conflict) => ["RESOLVED", "QUALIFIED"].includes(conflict.state)).length, conflictsUnresolved: conflictSets.filter((conflict) => conflict.state === "UNRESOLVED").length,
     entityCandidates: entities.length, resolvedEntities: entities.filter((entity) => entity.resolutionState === "RESOLVED").length, eventCandidates: events.length,
     resolvedCanonicalEventCandidates: events.filter((event) => event.semanticClass === "EVENT" && event.canonicalizationState === "RESOLVED").length,
-    nonEventKnowledgeItems: events.filter((event) => event.semanticClass !== "EVENT").length, reusedExistingKnowledge: reconnaissance.reuseClassifications.filter((item) => item.classification === "REUSE_DIRECTLY").length,
+    nonEventKnowledgeItems: events.filter((event) => event.semanticClass !== "EVENT").length, eventDispositionDistribution: distribution(events.map((event) => `${event.semanticClass}:${event.canonicalizationState}`)), eventResolutionDiagnostics: Object.fromEntries([...eventResolutionDiagnostics.entries()].sort()), reusedExistingKnowledge: reconnaissance.reuseClassifications.filter((item) => item.classification === "REUSE_DIRECTLY").length,
     newKnowledge: claims.length + entities.length + events.length, modelRepairAttempts: tokenMetrics.repairs, infrastructureRetries: tokenMetrics.retries,
+    providerCalls: modelExecutions.reduce((total, execution) => total + execution.transportAttempts, 0), stageLatencyMs, providerQueries: controlledOperations.flatMap((operation) => operation.providerInternalQueries),
     inputTokens: tokenMetrics.input, outputTokens: tokenMetrics.output, monetaryCost: null, monetaryCostMeasurement: "NOT_MEASURABLE", firestoreWrites, cloudStorageWrites,
     finalV2AVerdict: blockingReasons.length === 0 ? "PASS" : "FAIL"
   };
@@ -706,7 +1063,12 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     context,
     scopeContractId: scopeResult.scope.scopeContractId,
     researchMapId: mapResult.map.researchMapId,
-    queryPlanId: planResult.plan.queryPlanId,
+    queryPlanId: null,
+    topicAuthoritySetId: topicAuthoritySet.topicAuthoritySetId,
+    authorityResearchPlanId: authorityResearchPlan.authorityResearchPlanId,
+    controlledResearchLedgerId: controlledResearchLedger.controlledResearchLedgerId,
+    perspectiveAuditId: perspectiveAudit.perspectiveAuditId,
+    confidenceVectorId: confidenceVector.confidenceVectorId,
     sourceSnapshotIds: retrieved.map((item) => item.snapshot.sourceSnapshotId),
     claimVersionIds: claims.map((claim) => claim.claimVersionId),
     authorityVerdictIds: verdicts.map((verdict) => verdict.claimAuthorityVerdictId),
@@ -727,7 +1089,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const failureClass = message.includes("WHOLE_RUN_DEADLINE_EXCEEDED") ? "WHOLE_RUN_DEADLINE_EXCEEDED"
       : message.includes("ACQUISITION_BUDGET_EXHAUSTED") ? "ACQUISITION_BUDGET_EXHAUSTED"
       : /SOURCE_RETRIEVAL|PRIVATE_ADDRESS|ROBOTS/iu.test(message) ? "SECURITY_RETRIEVAL_REJECTED"
-      : /VERTEX|PROVIDER|MODEL|GOOGLE/iu.test(message) ? "PROVIDER_FAILURE"
+      : /VERTEX|PROVIDER|MODEL|GOOGLE|EXPLICIT_SEARCH/iu.test(message) ? "PROVIDER_FAILURE"
       : "FAILED_UNCLASSIFIED";
     const failurePayload = {
       stage: currentStage,
@@ -749,6 +1111,27 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     try {
       await repository.setOperation(context.runId, operationProjection({ context, state: "FAILED", stage: currentStage, startedAt, blockingReason: message.slice(0, 1000), counts: {}, finalVerdict: "FAIL" }));
     } catch { /* Preserve the originating failure. */ }
-    throw new Error(`V2_A_RUN_FAILED:${context.runId}:${message}`, { cause: error });
+    const tokenMetrics = modelTokens(modelExecutions);
+    const partialMetrics: V2ACertificationMetrics = {
+      totalExecutionMs: Date.now() - startedAt, scopeContractModelCalls: modelExecutions.filter((item) => item.stage === "SCOPE").length,
+      researchMapModelCalls: modelExecutions.filter((item) => item.stage === "RESEARCH_MAP").length, queryPlanModelCalls: 0, authorityRoutingModelCalls: modelExecutions.filter((item) => item.stage === "AUTHORITY_ROUTING").length,
+      groundingCalls: 0, providerReportedSearchQueries: 0, candidateQueriesProposed: 0, candidateQueriesAuthorized: 0, candidateQueriesRejected: 0, explicitQueriesExecuted: 0, explicitSearchRequests: 0, explicitSearchResults: 0, explicitSearchLatencyMs: 0, queryLedgerId: null, topicAuthoritySetId: progress.topicAuthoritySetId, authorityResearchPlanId: progress.authorityResearchPlanId, controlledResearchLedgerId: progress.controlledResearchLedgerId, perspectiveAuditId: progress.perspectiveAuditId, confidenceVectorId: progress.confidenceVectorId, controlledResearchOperations: progress.controlledResearchOperations,
+      directRetrievalAttempts: progress.directRetrievalAttempts, retrievalSuccesses: progress.retrievalSuccesses, retrievalFailures: progress.retrievalFailures,
+      sourceDocumentsDiscovered: progress.sourceDocumentsDiscovered, sourceDocumentsSnapshotted: progress.sourceDocumentsSnapshotted,
+      cacheHits: 0, cacheRevalidated: 0, cacheRefetched: 0, cacheNotApplicable: progress.sourceDocumentsSnapshotted,
+      retrievalsSuppressedByHostCircuit: progress.retrievalsSuppressedByHostCircuit, retrievalRejectionReasons: progress.retrievalRejectionReasons, retrievalFailureDetails: progress.retrievalFailureDetails, sourceRanking: progress.sourceRanking,
+      evidencePackets: progress.evidencePackets, evidencePacketSegments: progress.evidencePacketSegments, individualClaimsRejected: 0, claimRejectionReasons: {},
+      researchQuestionsNoEvidence: 0, researchQuestionsPartial: 0, researchQuestionsSufficient: 0, researchQuestionsBlocked: 0,
+      sourceClasses: [], publisherIdentities: 0, claimsExtracted: progress.claimsExtracted, claimsSupported: progress.claimsSupported, claimsRejected: progress.claimsRejected, claimsRequiringReview: 0,
+      authorityVerdictDistribution: {}, conflictsDetected: progress.conflictsDetected, conflictsResolved: progress.conflictsResolved, conflictsUnresolved: progress.conflictsUnresolved,
+      entityCandidates: progress.entityCandidates, resolvedEntities: progress.resolvedEntities, eventCandidates: progress.eventCandidates,
+      resolvedCanonicalEventCandidates: progress.resolvedCanonicalEventCandidates, nonEventKnowledgeItems: progress.nonEventKnowledgeItems,
+      eventDispositionDistribution: {}, eventResolutionDiagnostics: {}, reusedExistingKnowledge: 0, newKnowledge: progress.claimsExtracted + progress.entityCandidates + progress.eventCandidates,
+      modelRepairAttempts: tokenMetrics.repairs, infrastructureRetries: tokenMetrics.retries, providerCalls: modelExecutions.reduce((total, execution) => total + execution.transportAttempts, 0),
+      stageLatencyMs: modelExecutions.reduce<Record<string, number>>((latencies, execution) => { latencies[execution.stage] = (latencies[execution.stage] || 0) + execution.latencyMs; return latencies; }, {}),
+      providerQueries: progress.providerQueries, inputTokens: tokenMetrics.input, outputTokens: tokenMetrics.output, monetaryCost: null, monetaryCostMeasurement: "NOT_MEASURABLE",
+      firestoreWrites, cloudStorageWrites, finalV2AVerdict: "FAIL"
+    };
+    throw new V2ARunError(`V2_A_RUN_FAILED:${context.runId}:${message}`, partialMetrics, { cause: error });
   }
 }

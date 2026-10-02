@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion, detectClaimConflicts, evaluateClaimAuthority, independenceGroup, type PublisherAuthorityVersionInput } from "./authority";
 import { buildAtomicClaimVersion, buildClaimEvidenceEdge } from "./contracts/builders";
-import type { AtomicClaimVersion, ClaimEvidenceEdge, PublisherAuthorityVersion } from "./contracts";
+import type { AtomicClaimVersion, ClaimEvidenceEdge, PublisherAuthorityVersion, TopicAuthorityBinding } from "./contracts";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
 import { payloadHash } from "./hashing";
 
@@ -27,20 +27,24 @@ function edge(value: AtomicClaimVersion, publisher: PublisherAuthorityVersion | 
   });
 }
 
-test("Publisher Registry is deliberately small, versioned, alias-aware, and policy-admitted", () => {
-  assert.ok(publishers.length < 20);
+test("Publisher Registry remains bounded, versioned, alias-aware, and policy-admitted", () => {
+  assert.ok(publishers.length <= 32);
   assert.equal(byName("National Aeronautics and Space Administration").aliases.includes("NASA"), true);
   assert.equal(publishers.every((publisher) => publisher.state === "VERIFIED" && publisher.admittedBy === "POLICY"), true);
   assert.equal(new Set(publishers.map((publisher) => publisher.payloadHash)).size, publishers.length);
+  for (const authority of ["United States Geological Survey", "International Atomic Energy Agency", "Government of the United Kingdom", "United Nations", "International Olympic Committee", "Cambridge University Press & Assessment"]) {
+    assert.ok(byName(authority).authorityDomains.length > 0, `missing general authority policy for ${authority}`);
+  }
+  assert.deepEqual(byName("Cambridge University Press & Assessment").knownDomains, ["cambridge.org"]);
 });
 
 test("publisher bootstrap semantic state is independent from caller execution provenance", () => {
   const retryContext = { ...TEST_CONTEXT, topicId: "different-topic", runId: "v2-a3-web-retry", generation: 7, createdAt: "2026-09-07T12:34:56.000Z", policyVersion: "knowledge-coverage-v2-a3.1" };
   const retried = bootstrapPublisherRegistry(retryContext);
   assert.deepEqual(retried, publishers);
-  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-c4cace8f126a8d3bf288ea38135b18b7dcedc0f2cafcecbca0970f516c53a4e9");
+  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-c9f4b3b6f8282ca3d4d5144b869b19646c56bc3b6dc28c3b719d9455308e49ae");
   const productionBootstrap = bootstrapPublisherRegistry({ ...retryContext, corpusId: "timelines-clean-2026-09-v1" })[0]!;
-  assert.equal(productionBootstrap.payloadHash, "c355ee7b9f18a10151a5c0ccb9f519a3268ce2ad368a88000487a9d9c9ac3f7e");
+  assert.equal(productionBootstrap.payloadHash, "32eff57c32e68a60263460cf4ecf46e6826b079b6e8544a9d6ebfb6ea8f44769");
 });
 
 function successorInput(publisher: PublisherAuthorityVersion, overrides: Partial<PublisherAuthorityVersionInput> = {}): PublisherAuthorityVersionInput {
@@ -95,6 +99,37 @@ test("Duplicate claim-evidence inputs remain one accepted durable edge", () => {
   const verdict = evaluateClaimAuthority({ context: TEST_CONTEXT, claim: value, evidenceEdges: [durableEdge, durableEdge], publishersByVersionId: publisherMap });
   assert.equal(verdict.verdict, "SUPPORTED");
   assert.deepEqual(verdict.acceptedEvidenceEdgeIds, [durableEdge.claimEvidenceId]);
+});
+
+test("claim verdict identity includes the exact authority-binding evaluation context", () => {
+  const value = claim("ROUTINE", "DATE");
+  const nasa = byName("National Aeronautics and Space Administration");
+  const durableEdge = edge(value, nasa, "nasa");
+  const binding = (bindingId: string, claimTypes: TopicAuthorityBinding["claimTypes"]): TopicAuthorityBinding => ({
+    bindingId,
+    publisherVersionId: nasa.publisherVersionId,
+    researchQuestionIds: ["question-1"],
+    roles: ["PRIMARY_RECORD"],
+    claimTypes,
+    subjectRelationship: "SUBJECT_SELF",
+    perspectiveTags: [],
+    rationale: "Registry-bound test authority.",
+    publisherId: nasa.publisherId,
+    authorityFamily: "PUBLIC_SCIENTIFIC_INSTITUTION",
+    independenceGroupId: nasa.independenceGroupId,
+    verifiedDomains: nasa.knownDomains,
+    languages: nasa.languages,
+    geography: nasa.geographicScope,
+    officialEndpoints: ["https://nasa.gov/"],
+    discoveryMechanisms: ["DIRECT_URL"],
+    validationStatus: "ELIGIBLE"
+  });
+  const eligible = evaluateClaimAuthority({ context: TEST_CONTEXT, claim: value, evidenceEdges: [durableEdge], publishersByVersionId: publisherMap, authorityBindingsByPublisherVersionId: new Map([[nasa.publisherVersionId, binding("binding-eligible", ["DATE"])]]) });
+  const ineligible = evaluateClaimAuthority({ context: TEST_CONTEXT, claim: value, evidenceEdges: [durableEdge], publishersByVersionId: publisherMap, authorityBindingsByPublisherVersionId: new Map([[nasa.publisherVersionId, binding("binding-ineligible", ["LOCATION"])]]) });
+  assert.notEqual(eligible.claimAuthorityVerdictId, ineligible.claimAuthorityVerdictId);
+  assert.notEqual(eligible.evaluationContextHash, ineligible.evaluationContextHash);
+  assert.equal(eligible.verdict, "SUPPORTED");
+  assert.equal(ineligible.verdict, "INSUFFICIENT");
 });
 
 test("Interpretive claims require multiple independent strong secondary authorities", () => {

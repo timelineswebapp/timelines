@@ -1,11 +1,13 @@
 import { z } from "zod";
 
-export const V2_PIPELINE_VERSION = "factory-v2-a.13";
+// a.30 records an unattributable Grounding response as a failed bounded
+// escalation so other authorized evidence paths can complete or fail closed.
+export const V2_PIPELINE_VERSION = "factory-v2-a.30";
 export const V2_SCHEMA_VERSION = "factory-v2-a.4";
-export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.5";
+export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.6";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "evidence-first-v2-a.11";
-export const V2_PROMPT_VERSION = "factory-v2-a-prompts.8";
+export const V2_POLICY_VERSION = "authority-first-research.1";
+export const V2_PROMPT_VERSION = "factory-v2-a-prompts.11";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);
 export const idSchema = z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u);

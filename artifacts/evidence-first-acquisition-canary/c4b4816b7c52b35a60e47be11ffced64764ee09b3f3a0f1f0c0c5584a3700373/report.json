@@ -1,0 +1,394 @@
+{
+  "program": "TL-EVIDENCE-FIRST-GENERATION-001",
+  "executionType": "TARGETED_ACQUISITION_CANARY_CONTINUATION",
+  "release": {
+    "generationReleaseId": "c4b4816b7c52b35a60e47be11ffced64764ee09b3f3a0f1f0c0c5584a3700373",
+    "manifest": {
+      "manifestSchemaVersion": "generation-release-manifest-v1",
+      "sourceRevision": "c458062fc02eec6aeef70c6a7ffbc812aa019767",
+      "sourceTreeSha256": "e4b152a25925cc6c4e41e2376ec85dfe8e65de26a3e30b5090867afdb76f3d71",
+      "dependencyLocks": {
+        "rootSha256": "2df5fa8271c715296e582dcc0a6b5ae9a31d962a6985e86270c55965bdee5cc6",
+        "functionsSha256": "c3e97e051302f9574afa53aace5edd161abbfc739a4d70bf1918515fa242f82b"
+      },
+      "configurationBundleHash": "1519c353844e86a9cab9f5e43c86ccd32f1831cdc60266566b80b20e4d5353b0",
+      "generationCapability": "evidence-first-generation-v1",
+      "legacyPipelineVersion": "serverless-pipeline-v5-editorial-excellence",
+      "knowledgeBundle": {
+        "pipelineVersion": "factory-v2-a.13",
+        "policyVersion": "evidence-first-v2-a.11",
+        "promptVersion": "factory-v2-a-prompts.8",
+        "schemaVersion": "factory-v2-a.5"
+      },
+      "selectionBundle": {
+        "pipelineVersion": "factory-v2-b.2",
+        "policyVersion": "evidence-backed-selection-v2-b.1",
+        "schemaVersion": "factory-v2-b.3"
+      },
+      "compositionBundle": {
+        "eventLockSchemaVersion": "event-lock-v1",
+        "compositionSchemaVersion": "locked-composition-v1"
+      },
+      "institutionalGateBundle": {
+        "promptVersion": "historical-research-v5-editorial-excellence",
+        "generatedTimelineSchemaVersion": "generated-timeline-v2",
+        "timelineQualityPolicyVersion": "timeline-quality-v3-event-semantics",
+        "sourceAuthorityPolicyVersion": "source-authority-v2.0.1-certified-2026-09-05",
+        "readerPolicyVersion": "reader-editorial-v1",
+        "governancePolicyVersion": "routine-governance-v5-reader-editorial"
+      }
+    }
+  },
+  "subjects": [
+    "The Development of the Printing Press",
+    "The History of the Olympic Games"
+  ],
+  "results": [
+    {
+      "title": "The Development of the Printing Press",
+      "status": "COMPLETED_KNOWLEDGE_SET",
+      "telemetry": {
+        "acquisitionRounds": 1,
+        "providerCalls": 17,
+        "retries": 0,
+        "repairs": 1,
+        "queries": [
+          "characteristics of early movable type printing in asia museum archives",
+          "chronology of printing technology 3rd century to 19th century academic",
+          "development of printing technology east asia university press",
+          "earliest forms of woodblock printing technology scholarly sources",
+          "early movable type east asia scholarly sources",
+          "early printing methods timeline academic",
+          "early printing technology institutional archives",
+          "geographical origins of woodblock printing academic sources",
+          "gutenberg movable type east asia comparison scholarly",
+          "gutenberg printing press development historical accounts",
+          "gutenberg printing press historical documents",
+          "gutenberg's contributions to printing technology academic",
+          "history of movable type korea china academic",
+          "history of printing press 200 ad to 1900 scholarly sources",
+          "history of printing press gutenberg innovations primary sources",
+          "history of printing press primary sources archives",
+          "history of woodblock printing technology museum archives",
+          "industrial printing revolution history scholarly",
+          "johannes gutenberg specific innovations printing press scholarly sources",
+          "museum collections gutenberg printing press technology",
+          "museums with printing press historical collections",
+          "origins of printing in china and korea academic sources",
+          "origins of printing press scholarly publications",
+          "university libraries printing history special collections",
+          "university press gutenberg printing innovations",
+          "woodblock printing origins university research"
+        ],
+        "sourcesDiscovered": 78,
+        "retrievalAttempts": 12,
+        "retrievalSuccesses": 10,
+        "retrievalFailures": 2,
+        "retrievalRejectionReasons": {
+          "SOURCE_RETRIEVAL_ROBOTS_DENIED": 2
+        },
+        "retrievalFailureDetails": [
+          {
+            "urlHash": "004de0f24680d0526782431bfd0cd18c7abaf793232d73a34414ca1e814705ce",
+            "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+            "latencyMs": 2118,
+            "acquisitionRound": 1
+          },
+          {
+            "urlHash": "41004a4c7f43cb65ed3be375febe47713a5d8f8c1ce608804bd23d24e83c442d",
+            "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+            "latencyMs": 2469,
+            "acquisitionRound": 1
+          }
+        ],
+        "sourceRanking": [
+          {
+            "rank": 1,
+            "urlHash": "c69445f3b9942b1ce2487c1a8f26714149e9645ea148391d531538ec7979f43f",
+            "domain": "britannica.com",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 2,
+            "urlHash": "09534668d1074ca940cb036337f8947b9912b6f0922fc910cf5cdc27123dfe58",
+            "domain": "unesco.org",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 3,
+            "urlHash": "24ac8c48909e142db75967ed47b814b84df925affe6b0095211dc58183779fe0",
+            "domain": "asianart.org",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 4,
+            "urlHash": "be48a6df262ec35e8db9b7967864dcdb9eebfe044ac315ae74b87d08fc7ecfa4",
+            "domain": "asianart.org",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 5,
+            "urlHash": "004de0f24680d0526782431bfd0cd18c7abaf793232d73a34414ca1e814705ce",
+            "domain": "metmuseum.org",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 6,
+            "urlHash": "21d5d96dcd1ba18d493a8f7ddfec9f930f4d6d47fac62045cf1d0af6d3c87e6e",
+            "domain": "grinnell.edu",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 7,
+            "urlHash": "41004a4c7f43cb65ed3be375febe47713a5d8f8c1ce608804bd23d24e83c442d",
+            "domain": "columbia.edu",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 8,
+            "urlHash": "2cb9c2bcefa2adc6910eca34449d41fa659bf904bac92e3841a610cc6b38a1a2",
+            "domain": "usc.edu",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 9,
+            "urlHash": "360099a23af4bd14f22141f6847d08be20d0162a83abce5c5310042f2865dc27",
+            "domain": "utah.edu",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 10,
+            "urlHash": "47169f4ee36beafa210c0c9da9274a551284eff4662ffb4019a64c5f5ea2e1e4",
+            "domain": "britannica.com",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 11,
+            "urlHash": "79abaa499e66836a44be53bbfec9aeab03d2f869f5ba8b48787e3b8aeeeb9ba4",
+            "domain": "ebsco.com",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          },
+          {
+            "rank": 12,
+            "urlHash": "68ac888057b96d21efb4317bd6c191e7a808a37f4258f4e5b758ae4fef8fe5f1",
+            "domain": "journalism.university",
+            "admittedQuestionCount": 1,
+            "acquisitionRound": 1
+          }
+        ],
+        "evidencePackets": 8,
+        "evidencePacketSegments": 91,
+        "claimsExtracted": 44,
+        "claimsSupported": 17,
+        "claimsRejected": 28,
+        "claimRejectionReasons": {
+          "temporal.start.precision": 1
+        },
+        "authorityDistribution": {
+          "INSUFFICIENT": 27,
+          "SUPPORTED": 17
+        },
+        "conflictsDetected": 5,
+        "conflictsUnresolved": 5,
+        "eventCandidates": 14,
+        "resolvedEventCandidates": 14,
+        "rejectedNonEvents": 0,
+        "eventDispositionDistribution": {
+          "EVENT:RESOLVED": 14
+        },
+        "eventResolutionDiagnostics": {
+          "NO_EVIDENCED_TEMPORAL_START": 1,
+          "NO_OCCURRENCE_OR_INSTITUTIONAL_ACTION": 1,
+          "NO_SUPPORTED_CORE_CLAIM": 22
+        },
+        "stageLatencyMs": {
+          "CLAIM_EXTRACTION": 62462,
+          "GROUNDING": 56763,
+          "QUERY_PLAN": 3577,
+          "RESEARCH_MAP": 26700,
+          "SCOPE": 8775
+        },
+        "totalLatencyMs": 361930,
+        "inputTokens": 316862,
+        "outputTokens": 23129,
+        "monetaryCost": null,
+        "costMeasurement": "NOT_MEASURABLE"
+      },
+      "evidenceSegments": 394,
+      "supportedClaims": 17,
+      "rejectedClaims": 27,
+      "authorityDistribution": {
+        "INSUFFICIENT": 27,
+        "SUPPORTED": 17
+      },
+      "conflicts": {
+        "total": 5,
+        "blocking": 0
+      },
+      "resolvedEventCandidates": 14,
+      "rejectedNonEvents": 0,
+      "coverage": {
+        "finalVerdict": "SUFFICIENT",
+        "unresolvedGapIds": []
+      },
+      "completionRound": 0,
+      "completedKnowledgeSetId": "completed-knowledge-set-92fa3a83e280606c460bdee5c793b7c78b5d492acfaa890aca555d91fc2cbce6",
+      "completedKnowledgeSetHash": "b4d0da43fa8cbb14af9a82a89941d6659ebedfcd1442b2c97334b50097c1eb67"
+    },
+    {
+      "title": "The History of the Olympic Games",
+      "status": "FAILED_CLOSED",
+      "stage": "INITIAL_ACQUISITION",
+      "reason": "V2_A_RUN_FAILED:b52b7f50-fc8d-4f23-8272-92f162bbe4e2:MODEL_SCHEMA_VALIDATION_EXHAUSTED:SCOPE:[\n  {\n    \"code\": \"custom\",\n    \"path\": [\n      \"ongoingAsOf\"\n    ],\n    \"message\": \"Only ongoing subjects may set ongoingAsOf.\"\n  }\n]",
+      "telemetry": {
+        "acquisitionRounds": 1,
+        "providerCalls": 3,
+        "retries": 0,
+        "repairs": 2,
+        "queries": [],
+        "sourcesDiscovered": 0,
+        "retrievalAttempts": 0,
+        "retrievalSuccesses": 0,
+        "retrievalFailures": 0,
+        "retrievalRejectionReasons": {},
+        "retrievalFailureDetails": [],
+        "sourceRanking": [],
+        "evidencePackets": 0,
+        "evidencePacketSegments": 0,
+        "claimsExtracted": 0,
+        "claimsSupported": 0,
+        "claimsRejected": 0,
+        "claimRejectionReasons": {},
+        "authorityDistribution": {},
+        "conflictsDetected": 0,
+        "conflictsUnresolved": 0,
+        "eventCandidates": 0,
+        "resolvedEventCandidates": 0,
+        "rejectedNonEvents": 0,
+        "eventDispositionDistribution": {},
+        "eventResolutionDiagnostics": {},
+        "stageLatencyMs": {
+          "SCOPE": 28221
+        },
+        "totalLatencyMs": 86084,
+        "inputTokens": 796,
+        "outputTokens": 5086,
+        "monetaryCost": null,
+        "costMeasurement": "NOT_MEASURABLE"
+      },
+      "coverage": {
+        "initialAuditId": null,
+        "finalAuditId": null
+      }
+    }
+  ],
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "unchanged": true
+  },
+  "discoveryState": "PAUSED",
+  "configuration": {
+    "operatingMode": "SHADOW",
+    "killSwitch": false,
+    "pipelineVersion": "factory-v2-a.13",
+    "artifactPolicyBundle": {
+      "schemaVersion": "factory-v2-a.5",
+      "policyVersion": "evidence-first-v2-a.11",
+      "promptVersion": "factory-v2-a-prompts.8"
+    },
+    "budgetBundle": {
+      "maximumGroundingCalls": 7,
+      "maximumProviderQueries": 40,
+      "maximumSourceDocuments": 60,
+      "maximumAtomicClaims": 300,
+      "maximumSemanticRepairs": 2,
+      "maximumTransportAttemptsPerCall": 3,
+      "maximumConcurrency": 3,
+      "maximumWorkerSeconds": 1200
+    },
+    "autonomousDiscoveryEnabled": false,
+    "publicationEnabled": false,
+    "governanceSubmissionEnabled": false,
+    "updatedAt": "2026-09-09T06:11:29.401Z"
+  },
+  "verdict": "NOT_READY_FOR_SHADOW",
+  "generatedAt": "2026-09-09T17:04:37.990Z"
+}

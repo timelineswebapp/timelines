@@ -1,0 +1,253 @@
+{
+  "program": "TL-AUTHORITY-FIRST-RESEARCH-001",
+  "phase": "ACQUISITION_CANARY_PHASE_1",
+  "olympicGamesAuthorized": false,
+  "olympicGamesExecuted": false,
+  "subjects": [
+    "The 1906 San Francisco Earthquake",
+    "The Berlin Blockade and Airlift",
+    "Ada Lovelace: Life and Work",
+    "The Development of the Printing Press"
+  ],
+  "result": "0/4",
+  "verdict": "PHASE_1_FAIL_CLOSED",
+  "remoteConfig": {
+    "operatingMode": "SHADOW",
+    "killSwitch": false,
+    "pipelineVersion": "factory-v2-a.13",
+    "artifactPolicyBundle": {
+      "schemaVersion": "factory-v2-a.5",
+      "policyVersion": "evidence-first-v2-a.11",
+      "promptVersion": "factory-v2-a-prompts.8"
+    },
+    "budgetBundle": {
+      "maximumGroundingCalls": 7,
+      "maximumProviderQueries": 40,
+      "maximumSourceDocuments": 60,
+      "maximumAtomicClaims": 300,
+      "maximumSemanticRepairs": 2,
+      "maximumTransportAttemptsPerCall": 3,
+      "maximumConcurrency": 3,
+      "maximumWorkerSeconds": 1200
+    },
+    "autonomousDiscoveryEnabled": false,
+    "publicationEnabled": false,
+    "governanceSubmissionEnabled": false,
+    "updatedAt": "2026-09-09T06:11:29.401Z"
+  },
+  "localCanaryConfig": {
+    "operatingMode": "SHADOW",
+    "killSwitch": false,
+    "pipelineVersion": "factory-v2-a.14",
+    "artifactPolicyBundle": {
+      "schemaVersion": "factory-v2-a.6",
+      "policyVersion": "authority-first-research.1",
+      "promptVersion": "factory-v2-a-prompts.10"
+    },
+    "budgetBundle": {
+      "maximumGroundingCalls": 7,
+      "maximumProviderQueries": 40,
+      "maximumSourceDocuments": 60,
+      "maximumAtomicClaims": 300,
+      "maximumSemanticRepairs": 2,
+      "maximumTransportAttemptsPerCall": 3,
+      "maximumConcurrency": 3,
+      "maximumWorkerSeconds": 1200
+    },
+    "autonomousDiscoveryEnabled": false,
+    "publicationEnabled": false,
+    "governanceSubmissionEnabled": false,
+    "updatedAt": "2026-09-22T05:32:57.633Z"
+  },
+  "discoveryState": "PAUSED",
+  "deploymentState": [
+    {
+      "service": "priority-topic-generation",
+      "latestReadyRevisionName": "priority-topic-generation-00012-pav",
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "priority-topic-generation-00012-pav"
+        }
+      ],
+      "url": "https://priority-topic-generation-uypmpek3va-uc.a.run.app",
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-09-08T15:48:59.368902Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-09-08T15:48:52.623550Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-09-08T15:48:59.315290Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ]
+    },
+    {
+      "service": "autonomous-topic-generation",
+      "latestReadyRevisionName": "autonomous-topic-generation-00018-sum",
+      "traffic": [
+        {
+          "latestRevision": true,
+          "percent": 100,
+          "revisionName": "autonomous-topic-generation-00018-sum"
+        }
+      ],
+      "url": "https://autonomous-topic-generation-uypmpek3va-uc.a.run.app",
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-09-08T18:13:08.914124Z",
+          "status": "True",
+          "type": "Ready"
+        },
+        {
+          "lastTransitionTime": "2026-09-08T18:13:03.393355Z",
+          "status": "True",
+          "type": "ConfigurationsReady"
+        },
+        {
+          "lastTransitionTime": "2026-09-08T18:13:08.852957Z",
+          "status": "True",
+          "type": "RoutesReady"
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "title": "The 1906 San Francisco Earthquake",
+      "status": "FAILED_CLOSED",
+      "reason": "EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_PHASE_KNOWLEDGE,MISSING_PHASE_KNOWLEDGE,MISSING_PHASE_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION",
+      "stage": "FINAL_COVERAGE",
+      "metrics": {
+        "rounds": 2,
+        "providerCalls": 26,
+        "authorityRoutingModelCalls": 3,
+        "controlledResearchOperations": 36,
+        "groundingEscalationCalls": 4,
+        "directRetrievalAttempts": 25,
+        "retrievalSuccesses": 23,
+        "retrievalFailures": 2,
+        "sourcesSnapshotted": 22,
+        "claimsExtracted": 16,
+        "claimsSupported": 13,
+        "resolvedEvents": 3,
+        "inputTokens": 194399,
+        "outputTokens": 17779,
+        "monetaryCost": null,
+        "totalLatencyMs": 597951,
+        "topicAuthoritySetIds": [
+          "topic-authority-set-798eae4ba3ba0eee9b01925564607261f86d0e822bd5d0a4cf4cc6adf4a9d75b",
+          "topic-authority-set-c6e0af06facbf52a8cec396c8e56583915251f80b3bd2effc802100b1b0e2ece"
+        ],
+        "authorityResearchPlanIds": [
+          "authority-research-plan-08463d0c73f7865bb93614d274d43a113b73d31b0cd3ee74cb5fbf8915c021e9",
+          "authority-research-plan-63da5d731f762963b7a493d1a3377f03d7164cb7f84faa1aadebbad5c144a71e"
+        ],
+        "controlledResearchLedgerIds": [
+          "controlled-research-ledger-1f95c12e1b96640f2f6ade276e6c5a9cf1346b55d9c8c0c3c858e840e3a14a6f",
+          "controlled-research-ledger-d54489fc4f7e3e52127d040966c05f61701b46a0d080955510a8695a5e6661ab"
+        ],
+        "perspectiveAuditIds": [
+          "perspective-audit-7d8d0b9cfb10ab23008be88dedcc47503c2e19e97dde91c5107fed912603cac5",
+          "perspective-audit-5b9b57d74ac843f13905317e82beb42239ed8abc4c8e43ab7c9b4461b29f15b6"
+        ],
+        "confidenceVectorIds": [
+          "acquisition-confidence-d617ce40c076e40fab54d2810e1795b772e77285ce80cb476afd11c17061b0ea",
+          "acquisition-confidence-99e05462f1f12dd4c86df7e538a3e76b6f3b6e9d2fb098251225457ffb94ef01"
+        ]
+      },
+      "protectedState": {
+        "before": {
+          "governancePackages": {
+            "count": 8,
+            "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+          },
+          "governanceDecisions": {
+            "count": 4,
+            "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+          },
+          "governanceQueues": {
+            "count": 4,
+            "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+          },
+          "libraryAdmissions": {
+            "count": 4,
+            "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+          },
+          "publishedMemory": {
+            "count": 4,
+            "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+          },
+          "platformReadModels": {
+            "count": 46,
+            "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+          },
+          "searchDocuments": {
+            "count": 46,
+            "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+          },
+          "sitemapDocuments": {
+            "count": 46,
+            "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+          }
+        },
+        "after": {
+          "governancePackages": {
+            "count": 8,
+            "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+          },
+          "governanceDecisions": {
+            "count": 4,
+            "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+          },
+          "governanceQueues": {
+            "count": 4,
+            "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+          },
+          "libraryAdmissions": {
+            "count": 4,
+            "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+          },
+          "publishedMemory": {
+            "count": 4,
+            "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+          },
+          "platformReadModels": {
+            "count": 46,
+            "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+          },
+          "searchDocuments": {
+            "count": 46,
+            "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+          },
+          "sitemapDocuments": {
+            "count": 46,
+            "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+          }
+        },
+        "exactParity": true
+      }
+    },
+    {
+      "title": "The Berlin Blockade and Airlift",
+      "status": "NOT_EXECUTED_AFTER_FAILURE"
+    },
+    {
+      "title": "Ada Lovelace: Life and Work",
+      "status": "NOT_EXECUTED_AFTER_FAILURE"
+    },
+    {
+      "title": "The Development of the Printing Press",
+      "status": "NOT_EXECUTED_AFTER_FAILURE"
+    }
+  ],
+  "generatedAt": "2026-09-22T05:43:05.580Z"
+}

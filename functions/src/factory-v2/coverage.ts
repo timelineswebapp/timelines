@@ -3,6 +3,7 @@ import {
   knowledgeCompletionResultSchema,
   knowledgeCoverageAuditSchema,
   researchMapSchema,
+  V2_PIPELINE_VERSION,
   type AtomicClaimVersion,
   type CanonicalEventVersion,
   type ClaimAuthorityVerdict,
@@ -21,7 +22,7 @@ import {
 import { parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId } from "./hashing";
 
-export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.2" as const;
+export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.9" as const;
 
 export const DEFAULT_COMPLETION_BUDGET = {
   maximumRounds: 1 as const,
@@ -96,8 +97,17 @@ function makeGap(input: Omit<KnowledgeCoverageGap, "gapId">): KnowledgeCoverageG
 
 export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageAudit {
   const startedAt = Date.now();
-  const supported = new Set(input.authorityVerdicts.filter((item) => item.verdict === "SUPPORTED" || item.verdict === "QUALIFIED").map((item) => item.claimVersionId));
   const claimsById = new Map(input.claims.map((claim) => [claim.claimVersionId, claim]));
+  const claimWithinScope = (claim: AtomicClaimVersion) => {
+    if (!claim.temporal || input.scope.topicClass !== "CLOSED_EPISODE" || !input.scope.chronologyEnd) return true;
+    const start = claim.temporal.start.earliestYear ?? claim.temporal.start.year;
+    const end = claim.temporal.end?.latestYear ?? claim.temporal.end?.year ?? claim.temporal.start.latestYear ?? claim.temporal.start.year;
+    return start <= input.scope.chronologyEnd.year && end >= input.scope.chronologyStart.year;
+  };
+  const supported = new Set(input.authorityVerdicts.filter((item) => item.verdict === "SUPPORTED" || item.verdict === "QUALIFIED").map((item) => item.claimVersionId).filter((id) => {
+    const claim = claimsById.get(id);
+    return claim ? claimWithinScope(claim) : false;
+  }));
   const questionsById = new Map(input.researchMap.questions.map((question) => [question.questionId, question]));
   const blockingConflicts = input.conflicts.filter((item) => item.blocksPass);
   const eligibleEvents = input.events.filter((event) => event.semanticClass === "EVENT" && event.canonicalizationState === "RESOLVED" && event.coreClaimVersionIds.some((id) => supported.has(id)));
@@ -110,7 +120,7 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
   const phaseCells = input.researchMap.phases.map((phase) => {
     const temporal = phaseYears(`${phase.label} ${phase.temporalRule}`, ongoingYear);
     const questionIds = new Set(input.researchMap.questions.filter((question) => question.phaseIds.includes(phase.phaseId)).map((question) => question.questionId));
-    const relevantClaims = input.claims.filter((claim) => claimQuestionIds(claim).some((id) => questionIds.has(id)) || (temporal !== null && claim.temporal !== null && intersects({ start: claim.temporal.start.earliestYear ?? claim.temporal.start.year, end: (claim.temporal.end?.latestYear ?? claim.temporal.end?.year) || claim.temporal.start.latestYear || claim.temporal.start.year }, temporal)));
+    const relevantClaims = input.claims.filter((claim) => claimWithinScope(claim) && (claimQuestionIds(claim).some((id) => questionIds.has(id)) || (temporal !== null && claim.temporal !== null && intersects({ start: claim.temporal.start.earliestYear ?? claim.temporal.start.year, end: (claim.temporal.end?.latestYear ?? claim.temporal.end?.year) || claim.temporal.start.latestYear || claim.temporal.start.year }, temporal))));
     const supportingClaims = relevantClaims.filter((claim) => supported.has(claim.claimVersionId));
     const relevantEvents = eligibleEvents.filter((event) => (temporal !== null && intersects(eventYears(event), temporal)) || (eventQuestionIds.get(event.eventVersionId) || []).some((id) => questionIds.has(id)));
     const conflicts = blockingConflicts.filter((conflict) => conflict.claimVersionIds.some((id) => relevantClaims.some((claim) => claim.claimVersionId === id)));
@@ -121,7 +131,7 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
 
   const dimensionCells = input.researchMap.dimensions.map((dimension) => {
     const questionIds = new Set(input.researchMap.questions.filter((question) => question.dimensionIds.includes(dimension.dimensionId)).map((question) => question.questionId));
-    const relevantClaims = input.claims.filter((claim) => claimQuestionIds(claim).some((id) => questionIds.has(id)));
+    const relevantClaims = input.claims.filter((claim) => claimWithinScope(claim) && claimQuestionIds(claim).some((id) => questionIds.has(id)));
     const supportingClaims = relevantClaims.filter((claim) => supported.has(claim.claimVersionId));
     const relevantEvents = eligibleEvents.filter((event) => (eventQuestionIds.get(event.eventVersionId) || []).some((id) => questionIds.has(id)));
     const conflicts = blockingConflicts.filter((conflict) => conflict.claimVersionIds.some((id) => relevantClaims.some((claim) => claim.claimVersionId === id)));
@@ -133,7 +143,7 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
   const phaseState = new Map(phaseCells.map((cell) => [cell.lockedRefId, cell.state]));
   const dimensionState = new Map(dimensionCells.map((cell) => [cell.lockedRefId, cell.state]));
   const questionCells = input.researchMap.questions.map((question) => {
-    const relevantClaims = input.claims.filter((claim) => claimQuestionIds(claim).includes(question.questionId));
+    const relevantClaims = input.claims.filter((claim) => claimWithinScope(claim) && claimQuestionIds(claim).includes(question.questionId));
     const supportingClaims = relevantClaims.filter((claim) => supported.has(claim.claimVersionId));
     const relevantEvents = eligibleEvents.filter((event) => (eventQuestionIds.get(event.eventVersionId) || []).includes(question.questionId));
     const conflicts = blockingConflicts.filter((conflict) => conflict.claimVersionIds.some((id) => relevantClaims.some((claim) => claim.claimVersionId === id)));
@@ -187,39 +197,95 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
 export function planGapDirectedCompletion(input: { context: ArtifactContext; scope: ScopeContract; researchMap: ResearchMap; audit: KnowledgeCoverageAudit; originalKnowledgeRunId: string; budget?: typeof DEFAULT_COMPLETION_BUDGET }): KnowledgeCompletionPlan {
   if (input.audit.verdict === "SUFFICIENT") throw new Error("Coverage completion cannot run when the initial audit is already sufficient.");
   const budget = input.budget || DEFAULT_COMPLETION_BUDGET;
-  const tasks: KnowledgeCompletionTask[] = [];
-  const plannedGapIds = new Set<string>();
+  type Candidate = Omit<KnowledgeCompletionTask, "taskId" | "questionId"> & { stableKey: string; priorityRank: number };
+  const candidates: Candidate[] = [];
   const phaseGaps = input.audit.gaps.filter((gap) => ["MISSING_PHASE_KNOWLEDGE", "WEAK_PHASE_KNOWLEDGE", "STALE_ONGOING_SCOPE"].includes(gap.code));
+  const dimensionGaps = input.audit.gaps.filter((gap) => ["MISSING_DIMENSION_KNOWLEDGE", "WEAK_DIMENSION_KNOWLEDGE"].includes(gap.code));
+  const unansweredGaps = input.audit.gaps.filter((gap) => gap.code === "UNANSWERED_CRITICAL_RESEARCH_QUESTION");
+  const priorityRank = { CRITICAL: 0, IMPORTANT: 1, SUPPORTING: 2 } as const;
+  const chronologyQuestion = input.researchMap.questions.find((question) => question.questionId.startsWith("software-chronology-question-"));
+  // Chronology is a cross-cutting question.  It must not claim ownership of
+  // every phase/dimension gap merely because it references them: doing so
+  // makes the greedy planner believe the specific remediation tasks are
+  // already planned and can leave all of those cells unresolved.
+  const chronologyGapIds = input.audit.gaps.filter((gap) => chronologyQuestion && gap.code === "MISSING_CHRONOLOGY")
+    .map((gap) => gap.gapId);
+  const reservedChronologyCandidate: Candidate | null = chronologyQuestion && chronologyGapIds.length > 0 ? {
+    stableKey: `chronology:${chronologyQuestion.questionId}`,
+    priorityRank: -1,
+    gapIds: unique(chronologyGapIds),
+    phaseIds: chronologyQuestion.phaseIds,
+    dimensionIds: chronologyQuestion.dimensionIds,
+    questionIds: [chronologyQuestion.questionId],
+    question: `For "${input.scope.title}": ${chronologyQuestion.text}`,
+    intendedSourceClass: "PRIMARY_INSTITUTIONAL",
+    state: "PLANNED"
+  } : null;
+
+  // Prefer precise locked questions that can close multiple audited gaps. The
+  // software-wide chronology question is intentionally excluded here because
+  // its all-phase/all-dimension shape would crowd out specific remediation.
+  for (const question of input.researchMap.questions.filter((item) => !item.questionId.startsWith("software-chronology-question-"))) {
+    const related = input.audit.gaps.filter((gap) =>
+      gap.questionIds.includes(question.questionId)
+      || gap.phaseIds.some((id) => question.phaseIds.includes(id))
+      || gap.dimensionIds.some((id) => question.dimensionIds.includes(id))
+    );
+    if (related.length === 0) continue;
+    const intendedSourceClass = question.likelySourceClasses.includes("PRIMARY_INSTITUTIONAL") ? "PRIMARY_INSTITUTIONAL" as const : "SCHOLARLY_SECONDARY" as const;
+    candidates.push({ stableKey: `question:${question.questionId}`, priorityRank: priorityRank[question.priority], gapIds: unique(related.map((gap) => gap.gapId)), phaseIds: question.phaseIds, dimensionIds: question.dimensionIds, questionIds: [question.questionId], question: `For "${input.scope.title}": ${question.text}`, intendedSourceClass, state: "PLANNED" });
+  }
+
   for (const phase of input.researchMap.phases) {
-    if (tasks.length >= budget.maximumGapQuestions) break;
     const related = phaseGaps.filter((gap) => gap.phaseIds.includes(phase.phaseId));
-    if (related.length === 0 || tasks.some((task) => task.phaseIds.includes(phase.phaseId))) continue;
+    if (related.length === 0) continue;
     const relatedQuestions = input.researchMap.questions.filter((question) => question.phaseIds.includes(phase.phaseId));
     const relatedDimensionIds = unique(relatedQuestions.flatMap((question) => question.dimensionIds));
     const alreadyCoveredDimensionId = relatedDimensionIds.find((id) => input.audit.cells.some((cell) => cell.kind === "DIMENSION" && cell.lockedRefId === id && cell.state === "SUFFICIENT"));
     const dimensionIds = [alreadyCoveredDimensionId || relatedDimensionIds[0] || input.researchMap.dimensions[0]!.dimensionId];
     const questionIds = unique(relatedQuestions.map((question) => question.questionId));
     const question = `What authoritative dated evidence establishes material developments in the locked phase "${phase.label}" for "${input.scope.title}" within ${phase.temporalRule}?`;
-    const taskBase = { gapIds: unique(related.flatMap((gap) => [gap.gapId, ...input.audit.gaps.filter((candidate) => candidate.code === "UNANSWERED_CRITICAL_RESEARCH_QUESTION" && candidate.phaseIds.includes(phase.phaseId)).map((candidate) => candidate.gapId)])), phaseIds: [phase.phaseId], dimensionIds, questionIds, question, providerQuery: `${input.scope.title} ${phase.label} authoritative dated chronology development history`, intendedSourceClass: "PRIMARY_INSTITUTIONAL" as const, state: "PLANNED" as const };
-    const questionId = contentAddressedId("coverage-question", taskBase);
-    tasks.push({ taskId: contentAddressedId("coverage-task", { ...taskBase, questionId }), ...taskBase, questionId });
-    taskBase.gapIds.forEach((id) => plannedGapIds.add(id));
+    candidates.push({ stableKey: `phase:${phase.phaseId}`, priorityRank: 3, gapIds: unique([...related, ...unansweredGaps.filter((gap) => gap.phaseIds.includes(phase.phaseId))].map((gap) => gap.gapId)), phaseIds: [phase.phaseId], dimensionIds, questionIds, question, intendedSourceClass: "PRIMARY_INSTITUTIONAL", state: "PLANNED" });
   }
   for (const dimension of input.researchMap.dimensions) {
-    if (tasks.length >= budget.maximumGapQuestions) break;
-    const related = input.audit.gaps.filter((gap) => ["MISSING_DIMENSION_KNOWLEDGE", "WEAK_DIMENSION_KNOWLEDGE"].includes(gap.code) && gap.dimensionIds.includes(dimension.dimensionId));
+    const related = dimensionGaps.filter((gap) => gap.dimensionIds.includes(dimension.dimensionId));
     if (related.length === 0) continue;
     const relatedQuestions = input.researchMap.questions.filter((question) => question.dimensionIds.includes(dimension.dimensionId));
     const phaseIds = unique(relatedQuestions.flatMap((question) => question.phaseIds));
     const questionIds = unique(relatedQuestions.map((question) => question.questionId));
     const question = `What authoritative dated evidence establishes the locked dimension "${dimension.label}" across the scoped chronology of "${input.scope.title}"?`;
-    const taskBase = { gapIds: unique(related.map((gap) => gap.gapId)), phaseIds, dimensionIds: [dimension.dimensionId], questionIds, question, providerQuery: `${input.scope.title} ${dimension.label} authoritative dated chronology development history`, intendedSourceClass: "SCHOLARLY_SECONDARY" as const, state: "PLANNED" as const };
+    candidates.push({ stableKey: `dimension:${dimension.dimensionId}`, priorityRank: 3, gapIds: unique([...related, ...unansweredGaps.filter((gap) => gap.dimensionIds.includes(dimension.dimensionId))].map((gap) => gap.gapId)), phaseIds, dimensionIds: [dimension.dimensionId], questionIds, question, intendedSourceClass: "SCHOLARLY_SECONDARY", state: "PLANNED" });
+  }
+  const tasks: KnowledgeCompletionTask[] = [];
+  const plannedGapIds = new Set<string>();
+  const remaining = [...candidates];
+  const appendTask = (selected: Candidate) => {
+    const { stableKey: _stableKey, priorityRank: _priorityRank, ...taskBase } = selected;
     const questionId = contentAddressedId("coverage-question", taskBase);
     tasks.push({ taskId: contentAddressedId("coverage-task", { ...taskBase, questionId }), ...taskBase, questionId });
     taskBase.gapIds.forEach((id) => plannedGapIds.add(id));
+  };
+  if (reservedChronologyCandidate && tasks.length < budget.maximumGapQuestions) appendTask(reservedChronologyCandidate);
+  while (tasks.length < budget.maximumGapQuestions && remaining.length > 0) {
+    remaining.sort((left, right) => {
+      const leftGain = left.gapIds.filter((id) => !plannedGapIds.has(id)).length;
+      const rightGain = right.gapIds.filter((id) => !plannedGapIds.has(id)).length;
+      return rightGain - leftGain || left.priorityRank - right.priorityRank || left.stableKey.localeCompare(right.stableKey);
+    });
+    const selected = remaining.shift()!;
+    if (selected.gapIds.every((id) => plannedGapIds.has(id))) break;
+    appendTask(selected);
   }
   if (tasks.length === 0) throw new Error("KNOWLEDGE_COVERAGE_INSUFFICIENT: no bounded completion task can be derived from locked gaps.");
   const planPayload = { parentCoverageAuditId: input.audit.coverageAuditId, originalScopeContractId: input.scope.scopeContractId, originalResearchMapId: input.researchMap.researchMapId, originalKnowledgeRunId: null, round: 1 as const, budget, tasks, unplannedMaterialGapIds: input.audit.gaps.filter((gap) => !plannedGapIds.has(gap.gapId)).map((gap) => gap.gapId) };
+  const completionPlanId = semanticArtifactId("knowledge-completion-plan", input.context, planPayload);
+  return parseSealedArtifact(knowledgeCompletionPlanSchema, { ...semanticEnvelope(input.context, completionPlanId, input.audit.coverageAuditId), artifactId: completionPlanId, completionPlanId, ...planPayload });
+}
+
+export function sealNoCompletionRequired(input: { context: ArtifactContext; scope: ScopeContract; researchMap: ResearchMap; audit: KnowledgeCoverageAudit }): KnowledgeCompletionPlan {
+  if (input.audit.verdict !== "SUFFICIENT" || input.audit.auditStage !== "INITIAL") throw new Error("NO_COMPLETION_REQUIRES_SUFFICIENT_INITIAL_AUDIT");
+  if (input.audit.scopeContractId !== input.scope.scopeContractId || input.audit.researchMapId !== input.researchMap.researchMapId) throw new Error("NO_COMPLETION_LINEAGE_MISMATCH");
+  const planPayload = { parentCoverageAuditId: input.audit.coverageAuditId, originalScopeContractId: input.scope.scopeContractId, originalResearchMapId: input.researchMap.researchMapId, originalKnowledgeRunId: null, round: 0 as const, budget: DEFAULT_COMPLETION_BUDGET, tasks: [], unplannedMaterialGapIds: [] };
   const completionPlanId = semanticArtifactId("knowledge-completion-plan", input.context, planPayload);
   return parseSealedArtifact(knowledgeCompletionPlanSchema, { ...semanticEnvelope(input.context, completionPlanId, input.audit.coverageAuditId), artifactId: completionPlanId, completionPlanId, ...planPayload });
 }
@@ -235,17 +301,18 @@ export type KnowledgeCompletionResultInput = Omit<CompletedKnowledgeSet, keyof R
 export function buildKnowledgeCompletionResult(context: ArtifactContext, payload: KnowledgeCompletionResultInput): CompletedKnowledgeSet {
   const semanticPayload = {
     ...payload,
-    knowledgePipelineVersion: "factory-v2-a.13" as const,
+    knowledgePipelineVersion: V2_PIPELINE_VERSION,
+    authorityAcquisitionRounds: [...payload.authorityAcquisitionRounds].sort((left, right) => left.controlledResearchLedgerId.localeCompare(right.controlledResearchLedgerId)),
     candidateEventVersionIds: unique([...payload.candidateEventVersionIds]),
     candidateClaimVersionIds: unique([...payload.candidateClaimVersionIds]),
     authorityVerdictIds: unique([...payload.authorityVerdictIds]),
     conflictSetIds: unique([...payload.conflictSetIds]),
     unresolvedGapIds: unique([...payload.unresolvedGapIds])
   };
-  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: "factory-v2-a.5" });
+  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: "factory-v2-a.6" });
   return parseSealedArtifact(knowledgeCompletionResultSchema, {
     ...semanticEnvelope(context, completedKnowledgeSetId, payload.completionPlanId),
-    schemaVersion: "factory-v2-a.5",
+    schemaVersion: "factory-v2-a.6",
     artifactId: completedKnowledgeSetId,
     completionResultId: completedKnowledgeSetId,
     completedKnowledgeSetId,
@@ -265,14 +332,14 @@ export function expectedCompletedKnowledgeSetId(set: CompletedKnowledgeSet): str
 }
 
 export function buildCompletionResearchMap(input: { context: ArtifactContext; scope: ScopeContract; parent: ResearchMap; plan: KnowledgeCompletionPlan }): ResearchMap {
-  const completionQuestions = input.plan.tasks.map((task) => ({
-    questionId: task.questionId, text: task.question, phaseIds: task.phaseIds, dimensionIds: task.dimensionIds, claimTypesExpected: ["OCCURRENCE", "DATE"] as const,
-    likelySourceClasses: [task.intendedSourceClass], expectedAuthorities: unique(input.parent.questions.filter((question) => question.phaseIds.some((id) => task.phaseIds.includes(id)) || question.dimensionIds.some((id) => task.dimensionIds.includes(id))).flatMap((question) => question.expectedAuthorities)).slice(0, 12).length > 0
-      ? unique(input.parent.questions.filter((question) => question.phaseIds.some((id) => task.phaseIds.includes(id)) || question.dimensionIds.some((id) => task.dimensionIds.includes(id))).flatMap((question) => question.expectedAuthorities)).slice(0, 12)
-      : ["Authoritative institutional or scholarly sources"],
-    languages: [input.scope.language], geography: input.scope.spatialScope.included.slice(0, 12), contested: false, dateCritical: true, priority: "CRITICAL" as const, state: "UNRESEARCHED" as const
-  }));
-  const payload = { version: input.parent.version + 1, phases: input.parent.phases, dimensions: input.parent.dimensions, entities: input.parent.entities, questions: [...input.parent.questions, ...completionQuestions], terminology: input.parent.terminology, knownUncertainty: input.parent.knownUncertainty };
+  // Completion must target the original locked questions. Adding synthetic
+  // questions leaves their unresolved parents in the final map, where they
+  // remain unanswered even when the completion evidence is sound.
+  const targetedQuestionIds = new Set(input.plan.tasks.flatMap((task) => task.questionIds));
+  const questions = input.parent.questions.map((question) => targetedQuestionIds.has(question.questionId)
+    ? { ...question, priority: "CRITICAL" as const, state: "UNRESEARCHED" as const }
+    : question);
+  const payload = { version: input.parent.version + 1, phases: input.parent.phases, dimensions: input.parent.dimensions, entities: input.parent.entities, questions, terminology: input.parent.terminology, knownUncertainty: input.parent.knownUncertainty };
   const researchMapId = semanticArtifactId("research-map", input.context, { scopeContractId: input.scope.scopeContractId, scopePayloadHash: input.scope.payloadHash, parentArtifactId: input.parent.researchMapId, payload });
   return parseSealedArtifact(researchMapSchema, { ...semanticEnvelope(input.context, researchMapId, input.parent.researchMapId), artifactId: researchMapId, ...payload, researchMapId, scopeContractId: input.scope.scopeContractId, scopePayloadHash: input.scope.payloadHash });
 }

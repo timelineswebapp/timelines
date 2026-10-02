@@ -1,0 +1,115 @@
+{
+  "title": "Ada Lovelace: Life and Work",
+  "status": "FAILED_CLOSED",
+  "reason": "V2_A_RUN_FAILED:evidence-first-completion-58a92677-51da-42aa-9688-44ca63c37488:PERSPECTIVE_DIVERSITY_INADEQUATE:MISSING_REQUIRED_PERSPECTIVE",
+  "stage": "GAP_COMPLETION",
+  "metrics": {
+    "rounds": 2,
+    "providerCalls": 14,
+    "authorityRoutingModelCalls": 2,
+    "controlledResearchOperations": 12,
+    "groundingEscalationCalls": 0,
+    "directRetrievalAttempts": 8,
+    "retrievalSuccesses": 8,
+    "retrievalFailures": 0,
+    "sourcesSnapshotted": 8,
+    "claimsExtracted": 23,
+    "claimsSupported": 22,
+    "resolvedEvents": 7,
+    "inputTokens": 135993,
+    "outputTokens": 11292,
+    "monetaryCost": null,
+    "totalLatencyMs": 831826,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-6fe6d6509511c0768aa46b4813513f9f6b2298af02286dcbc3613cde99b0d19a",
+      null
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-a8c1c086856fe8b3201ea31d2212c0ed610639c75c7aa1954ee7859777a10e79",
+      null
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-95a6b9ff0f0edb8777ec6ad02a3ccc097daaae3e945ffbe87b6acb8e4cd4fb24",
+      null
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-2396e629e0865fd7ec4ec460508c181465a023dd5ba2d785e5dc100314472708",
+      null
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-bc9c02a149bfc3e060a140bff4b77358d3f70c3e4e787ba303cfb8f8d200f317",
+      null
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

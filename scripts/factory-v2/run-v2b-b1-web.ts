@@ -6,6 +6,7 @@ import {
   auditRecordSchema,
 } from "../../functions/src/factory-v2/contracts";
 import { V2_B_PROMPT_VERSION } from "../../functions/src/factory-v2/contracts/assembly";
+import { V2_PIPELINE_VERSION } from "../../functions/src/factory-v2/contracts";
 import { executionArtifactId, immutableEnvelope, parseSealedArtifact } from "../../functions/src/factory-v2/contracts/builders";
 import { parseCompletedKnowledgeSetB1CliArguments, reconstructCompletedKnowledgeSetForB1 } from "../../functions/src/factory-v2/completed-knowledge-set";
 import { factoryV2ConfigSchema } from "../../functions/src/factory-v2/config";
@@ -27,7 +28,7 @@ async function main() {
   const configSnapshot = await db.collection("factoryV2").doc("config").get();
   if (!configSnapshot.exists) throw new Error("Factory V2 shadow config is absent.");
   const config = factoryV2ConfigSchema.parse(configSnapshot.data());
-  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== "factory-v2-a.13" || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("B1 requires the certified non-public V2-A shadow configuration.");
+  if (config.operatingMode !== "SHADOW" || config.pipelineVersion !== V2_PIPELINE_VERSION || config.publicationEnabled || config.governanceSubmissionEnabled || config.autonomousDiscoveryEnabled) throw new Error("B1 requires the certified non-public V2-A shadow configuration.");
 
   const repository = new V2FirestoreRepository({ firestore: db, corpusId: CORPUS_ID });
   const reconstructed = await reconstructCompletedKnowledgeSetForB1(repository, lineageRequest);
@@ -64,7 +65,7 @@ async function main() {
 
   const gateChecks = {
     verifiedCandidatePoolPreserved: selection.completeCandidateEventVersionIds.length === events.length,
-    selectedCountWithinSixAndTwenty: selection.selectedEventVersionIds.length >= 6 && selection.selectedEventVersionIds.length <= 20,
+    selectedCountWithinSupportedBoundsWithoutPadding: selection.status === "PASS" && selection.selectedEventVersionIds.length >= 6 && selection.selectedEventVersionIds.length <= 20,
     historicallyMeaningfulRequiredPhasesRepresented: selection.coverageSummary.missingPhaseIds.length === 0,
     noArtificialEqualTimeQuota: true,
     noSilentScopeExpansion: selection.assessments.every((assessment) => !assessment.eligible || !assessment.eligibilityReasons.includes("SCOPE_INCOMPATIBLE")),

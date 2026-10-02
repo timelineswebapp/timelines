@@ -4,7 +4,7 @@ import { db } from "./firestore";
 import { ACTIVE_CORPUS_ID, MAX_REQUESTS_PER_IP_PER_DAY, MAX_TOPIC_ATTEMPTS } from "./config";
 import { corpusCollection, corpusRecord } from "./corpus";
 import { hashValue, normalizeTopic } from "./normalization";
-import { taskPayloadSchema, type TopicRequestInput, type TaskPayload } from "./schemas";
+import { evidenceFirstTaskPayloadSchema, taskPayloadSchema, type TopicRequestInput, type TaskPayload } from "./schemas";
 import { enqueueGenerationTask } from "./tasks";
 
 export type TopicState =
@@ -12,12 +12,13 @@ export type TopicState =
   | "QUEUED"
   | "PROCESSING"
   | "AWAITING_REVIEW"
+  | "SHADOW_COMPLETED"
   | "PUBLISHED"
   | "RETRY_SCHEDULED"
   | "FAILED"
   | "CANCELLED";
 
-const ACTIVE_STATES = new Set<TopicState>(["NEW", "QUEUED", "PROCESSING", "AWAITING_REVIEW", "RETRY_SCHEDULED"]);
+const ACTIVE_STATES = new Set<TopicState>(["NEW", "QUEUED", "PROCESSING", "AWAITING_REVIEW", "SHADOW_COMPLETED", "RETRY_SCHEDULED"]);
 
 function requireIpSalt() {
   const salt = process.env.IP_HASH_SALT;
@@ -281,13 +282,15 @@ export async function retryDeferredEnqueues(limit = 50) {
   for (const document of snapshot.docs) {
     const data = document.data();
     if (typeof data.activeJobId !== "string" || !Number.isInteger(data.generation) || data.generation < 1) continue;
-    const payload = taskPayloadSchema.parse({
+    const rawPayload = {
       corpusId: ACTIVE_CORPUS_ID,
       topicId: document.id,
       jobId: data.activeJobId,
       generation: data.generation,
-      origin: "retry"
-    });
+      origin: "retry" as const,
+      ...(typeof data.generationReleaseId === "string" ? { generationReleaseId: data.generationReleaseId } : {})
+    };
+    const payload = "generationReleaseId" in rawPayload ? evidenceFirstTaskPayloadSchema.parse(rawPayload) : taskPayloadSchema.parse(rawPayload);
     await enqueueGenerationTask(payload, data.origin !== "autonomous");
     await document.ref.update({ state: "QUEUED", currentStage: "queued", nextRetryAt: null, lastError: null, updatedAt: Timestamp.now() });
     requeued += 1;

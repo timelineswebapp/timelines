@@ -1,0 +1,110 @@
+{
+  "title": "The 1906 San Francisco Earthquake",
+  "status": "FAILED_CLOSED",
+  "reason": "V2_A_RUN_FAILED:fa4b6748-d970-4e15-93ac-4c2ea301639f:v2ClaimAuthorityVerdicts/claim-verdict-70f610982a233dbed519023fecc00d7f5f41d289dee561462ebd10d9f821064c: Immutable artifact ID collision with a different payload.",
+  "stage": "INITIAL_ACQUISITION",
+  "metrics": {
+    "rounds": 1,
+    "providerCalls": 13,
+    "authorityRoutingModelCalls": 1,
+    "controlledResearchOperations": 12,
+    "groundingEscalationCalls": 0,
+    "directRetrievalAttempts": 7,
+    "retrievalSuccesses": 7,
+    "retrievalFailures": 0,
+    "sourcesSnapshotted": 5,
+    "claimsExtracted": 8,
+    "claimsSupported": 0,
+    "resolvedEvents": 0,
+    "inputTokens": 136404,
+    "outputTokens": 6832,
+    "monetaryCost": null,
+    "totalLatencyMs": 205815,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-aaea586b370a62731f3eb15e2af4ea118efac4862dca3e2a1b51d4197dbf40bb"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-9d2a9b223f42f1380e7b3ddfafb793bf3e0daea47f93efc442f4f04041d48406"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-61031242377b05f3bee3c0d4f675b5b3cf1f115b53ab1c66a40e3820b09c6d3d"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-72e0b72573e77ba2130fd2092a2cf7ea7971dc01728318384694ee04dbae1b9b"
+    ],
+    "confidenceVectorIds": [
+      null
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

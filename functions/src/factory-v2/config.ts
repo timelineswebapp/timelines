@@ -31,6 +31,10 @@ export function shadowConfig(updatedAt = new Date().toISOString()): FactoryV2Con
   return factoryV2ConfigSchema.parse({ operatingMode: "SHADOW", killSwitch: false, pipelineVersion: V2_PIPELINE_VERSION, artifactPolicyBundle: { schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION }, budgetBundle: DEFAULT_V2_BUDGET, autonomousDiscoveryEnabled: false, publicationEnabled: false, governanceSubmissionEnabled: false, updatedAt });
 }
 
+export function authorityFirstRunDeadlineAt(startedAt: number, maximumWorkerSeconds: number): number {
+  return startedAt + maximumWorkerSeconds * 1000;
+}
+
 export async function loadFactoryV2Config(): Promise<FactoryV2Config> {
   const snapshot = await db.collection("factoryV2").doc("config").get();
   if (!snapshot.exists) throw new Error("Factory V2 is OFF because factoryV2/config is absent.");

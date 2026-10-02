@@ -1,0 +1,115 @@
+{
+  "title": "Ada Lovelace: Life and Work",
+  "status": "FAILED_CLOSED",
+  "reason": "EVIDENCE_FIRST_GAP_COMPLETION_FAILED:NO_DURABLE_SOURCE_SNAPSHOTS,NO_ATOMIC_CLAIMS,NO_SUPPORTED_CLAIMS,ACQUISITION_CONFIDENCE_FAIL",
+  "stage": "GAP_COMPLETION",
+  "metrics": {
+    "rounds": 2,
+    "providerCalls": 17,
+    "authorityRoutingModelCalls": 3,
+    "controlledResearchOperations": 20,
+    "groundingEscalationCalls": 2,
+    "directRetrievalAttempts": 10,
+    "retrievalSuccesses": 8,
+    "retrievalFailures": 2,
+    "sourcesSnapshotted": 8,
+    "claimsExtracted": 21,
+    "claimsSupported": 16,
+    "resolvedEvents": 6,
+    "inputTokens": 159194,
+    "outputTokens": 13928,
+    "monetaryCost": null,
+    "totalLatencyMs": 841376,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-6e04557396f8416f828d88409378be38201ccba8587febfa2cc552735dfc0f14",
+      "topic-authority-set-88882aa8251d93f4d76311ef9a45167d6c8b088cefaa2cbaa4bae074c8aee52f"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-c3e2b83e711f7c1c0489bc34c92f07ad916e9cbd1dfdce58908fa1b4a1ef92c8",
+      "authority-research-plan-d1126055c912b948401b23796dd8363846c2a0209d3539b4f7118fb746413ff5"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-ddcea61c89f4a2923171a28d1f43e1ad400b6b5c34f09eb302ae70d5d269a30f",
+      "controlled-research-ledger-36535d343d40ec4936493550f104fc5cea21eb7effcf78a935e38caa5fb043ef"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-c49856dacce4c4dc9a73804175b3aecaa69565048390c4aa165939b449fd23d6",
+      "perspective-audit-4fb49528520d2164d9bfe07c2d26b4c659518059b3ccbe64ed3ee50bd26f4d93"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-8d89b434d88fa53b4c95b2f2cecbefa15df88292640489acf2cdc46041824435",
+      "acquisition-confidence-0f5e5d7138c148c9a548d1d74aeca37559e9b832e4604cc753f140f11c00beea"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

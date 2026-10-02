@@ -1,0 +1,110 @@
+{
+  "title": "Ada Lovelace: Life and Work",
+  "status": "FAILED_CLOSED",
+  "reason": "V2_A_RUN_FAILED:0bb4a6c3-bfd3-4230-8919-b8eaf870f528:WHOLE_RUN_DEADLINE_EXCEEDED",
+  "stage": "INITIAL_ACQUISITION",
+  "metrics": {
+    "rounds": 1,
+    "providerCalls": 3,
+    "authorityRoutingModelCalls": 1,
+    "controlledResearchOperations": 12,
+    "groundingEscalationCalls": 0,
+    "directRetrievalAttempts": 4,
+    "retrievalSuccesses": 0,
+    "retrievalFailures": 4,
+    "sourcesSnapshotted": 0,
+    "claimsExtracted": 0,
+    "claimsSupported": 0,
+    "resolvedEvents": 0,
+    "inputTokens": 114110,
+    "outputTokens": 4237,
+    "monetaryCost": null,
+    "totalLatencyMs": 635817,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-6fe6d6509511c0768aa46b4813513f9f6b2298af02286dcbc3613cde99b0d19a"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-a8c1c086856fe8b3201ea31d2212c0ed610639c75c7aa1954ee7859777a10e79"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-5670405c62e5b9c1be4ce453e35de81f2563c8651370aec5fa030a1b592c7579"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-2396e629e0865fd7ec4ec460508c181465a023dd5ba2d785e5dc100314472708"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-b0910d96c53ff40c4e7f2380751677d8b992ad8e68648a5312b89fad6bbddef4"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

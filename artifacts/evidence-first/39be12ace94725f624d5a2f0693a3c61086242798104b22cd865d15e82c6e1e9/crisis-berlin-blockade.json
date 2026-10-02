@@ -1,0 +1,25 @@
+{
+  "subject": {
+    "id": "crisis-berlin-blockade",
+    "class": "crisis_conflict",
+    "title": "The Berlin Blockade and Airlift",
+    "regression001d": false,
+    "difficulty": [
+      "multi-actor-crisis",
+      "precursor-boundary"
+    ]
+  },
+  "releaseId": "39be12ace94725f624d5a2f0693a3c61086242798104b22cd865d15e82c6e1e9",
+  "result": {
+    "status": "FAILED_CLOSED",
+    "terminalStage": "unhandled_failure",
+    "title": "The Berlin Blockade and Airlift",
+    "failureReasons": [
+      "[\n  {\n    \"code\": \"unrecognized_keys\",\n    \"keys\": [\n      \"id\"\n    ],\n    \"path\": [],\n    \"message\": \"Unrecognized key(s) in object: 'id'\"\n  }\n]"
+    ],
+    "metrics": {
+      "totalLatencyMs": 429177
+    }
+  },
+  "recordedAt": "2026-09-09T06:32:53.378Z"
+}

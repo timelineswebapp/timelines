@@ -8,10 +8,12 @@ import {
   type CompletedKnowledgeSet
 } from "./contracts";
 import { buildAtomicClaimVersion, buildCanonicalEventVersion, buildResearchMap, parseSealedArtifact, semanticArtifactId, semanticEnvelope } from "./contracts/builders";
-import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, KNOWLEDGE_COVERAGE_POLICY_VERSION, planGapDirectedCompletion } from "./coverage";
+import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, KNOWLEDGE_COVERAGE_POLICY_VERSION, planGapDirectedCompletion, sealNoCompletionRequired } from "./coverage";
 import { parseCompletedKnowledgeSetB1CliArguments, reconstructCompletedKnowledgeSetForB1, type CompletedKnowledgeSetReader } from "./completed-knowledge-set";
 import { attachPayloadHash } from "./hashing";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
+
+const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
 import type { V2CorpusCollectionName } from "../corpus";
 
 class MemoryReader implements CompletedKnowledgeSetReader {
@@ -99,6 +101,7 @@ function completedSet(yearForLastQuestion: number): { set: CompletedKnowledgeSet
   const finalAudit = auditKnowledgeCoverage({ context: coverageContext, stage: "FINAL", scope, researchMap: completionMap, sourceKnowledgeRunIds: ["historical-execution", "completion-execution"], claims: values.claims, authorityVerdicts: values.verdicts, conflicts: [], events: values.events });
   assert.equal(finalAudit.verdict, "SUFFICIENT");
   const set = buildKnowledgeCompletionResult(coverageContext, {
+    authorityAcquisitionRounds: AUTHORITY_LINEAGE,
     completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash,
     finalCoverageAuditId: finalAudit.coverageAuditId, finalCoverageAuditPayloadHash: finalAudit.payloadHash, scopeContractId: scope.scopeContractId,
     scopePayloadHash: scope.payloadHash, researchMapId: completionMap.researchMapId, researchMapPayloadHash: completionMap.payloadHash,
@@ -144,6 +147,41 @@ test("B1 reconstructs only exact completed-set membership and excludes stale and
   assert.notEqual(newKnowledge.set.completedKnowledgeSetId, oldKnowledge.set.completedKnowledgeSetId);
 });
 
+test("B1 reconstructs an exact zero-round completed knowledge chain without inventing a completion map", async () => {
+  const values = knowledge(2024);
+  const sufficientInitial = auditKnowledgeCoverage({ context: coverageContext, stage: "INITIAL", scope, researchMap: originalMap, sourceKnowledgeRunIds: ["sufficient-initial-run"], claims: values.claims, authorityVerdicts: values.verdicts, conflicts: [], events: values.events });
+  assert.equal(sufficientInitial.verdict, "SUFFICIENT");
+  const zeroRoundPlan = sealNoCompletionRequired({ context: coverageContext, scope, researchMap: originalMap, audit: sufficientInitial });
+  const sufficientFinal = auditKnowledgeCoverage({ context: coverageContext, stage: "FINAL", scope, researchMap: originalMap, sourceKnowledgeRunIds: ["sufficient-initial-run"], claims: values.claims, authorityVerdicts: values.verdicts, conflicts: [], events: values.events });
+  const zeroRoundSet = buildKnowledgeCompletionResult(coverageContext, {
+    authorityAcquisitionRounds: AUTHORITY_LINEAGE,
+    completionPlanId: zeroRoundPlan.completionPlanId,
+    initialCoverageAuditId: sufficientInitial.coverageAuditId,
+    initialCoverageAuditPayloadHash: sufficientInitial.payloadHash,
+    finalCoverageAuditId: sufficientFinal.coverageAuditId,
+    finalCoverageAuditPayloadHash: sufficientFinal.payloadHash,
+    scopeContractId: scope.scopeContractId,
+    scopePayloadHash: scope.payloadHash,
+    researchMapId: originalMap.researchMapId,
+    researchMapPayloadHash: originalMap.payloadHash,
+    candidateEventVersionIds: values.events.map((event) => event.eventVersionId),
+    candidateClaimVersionIds: values.claims.map((claim) => claim.claimVersionId),
+    authorityVerdictIds: values.verdicts.map((item) => item.claimAuthorityVerdictId),
+    conflictSetIds: [],
+    unresolvedGapIds: [],
+    finalVerdict: "SUFFICIENT"
+  });
+  const reader = new MemoryReader();
+  [scope, originalMap, sufficientInitial, sufficientFinal, zeroRoundPlan, zeroRoundSet, ...values.events, ...values.claims, ...values.verdicts].forEach((artifact) => {
+    const collection = artifact === scope ? "v2ScopeContracts" : artifact === originalMap ? "v2ResearchMaps" : artifact === sufficientInitial || artifact === sufficientFinal ? "v2KnowledgeCoverageAudits" : artifact === zeroRoundPlan ? "v2KnowledgeCompletionPlans" : artifact === zeroRoundSet ? "v2KnowledgeCompletionResults" : "eventVersionId" in artifact ? "v2CanonicalEventVersions" : "claimAuthorityVerdictId" in artifact ? "v2ClaimAuthorityVerdicts" : "v2AtomicClaimVersions";
+    reader.put(collection, artifact);
+  });
+  const reconstructed = await reconstructCompletedKnowledgeSetForB1(reader, request(zeroRoundSet));
+  assert.equal(reconstructed.completionPlan.round, 0);
+  assert.equal(reconstructed.researchMap.researchMapId, reconstructed.originalResearchMap.researchMapId);
+  assert.equal(reconstructed.completedKnowledgeSet.completedKnowledgeSetId, zeroRoundSet.completedKnowledgeSetId);
+});
+
 test("B1 completed-set input fails closed for absent, invalid, mismatched, tampered, and non-passing lineage", async () => {
   assert.throws(() => parseCompletedKnowledgeSetB1CliArguments([]), /--topic-id/);
   assert.throws(() => parseCompletedKnowledgeSetB1CliArguments(["--topic-id", scope.topicId]), /--completed-knowledge-set-id/);
@@ -160,6 +198,7 @@ test("B1 completed-set input fails closed for absent, invalid, mismatched, tampe
   await assert.rejects(reconstructCompletedKnowledgeSetForB1(tampered, request()), /HASH_MISMATCH/);
 
   const failedSet = buildKnowledgeCompletionResult(coverageContext, {
+    authorityAcquisitionRounds: AUTHORITY_LINEAGE,
     completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash,
     finalCoverageAuditId: "failed-final-audit", finalCoverageAuditPayloadHash: "a".repeat(64), scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash,
     researchMapId: completionMap.researchMapId, researchMapPayloadHash: completionMap.payloadHash, candidateEventVersionIds: [], candidateClaimVersionIds: [],
@@ -169,7 +208,7 @@ test("B1 completed-set input fails closed for absent, invalid, mismatched, tampe
   failedReader.put("v2KnowledgeCompletionResults", failedSet);
   await assert.rejects(reconstructCompletedKnowledgeSetForB1(failedReader, request(failedSet)), /COVERAGE_NOT_SUFFICIENT/);
 
-  const nonFinalAuditSet = buildKnowledgeCompletionResult(coverageContext, { completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash, finalCoverageAuditId: initialAudit.coverageAuditId, finalCoverageAuditPayloadHash: initialAudit.payloadHash, scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash, researchMapId: completionMap.researchMapId, researchMapPayloadHash: completionMap.payloadHash, candidateEventVersionIds: [], candidateClaimVersionIds: [], authorityVerdictIds: [], conflictSetIds: [], unresolvedGapIds: [], finalVerdict: "SUFFICIENT" });
+  const nonFinalAuditSet = buildKnowledgeCompletionResult(coverageContext, { authorityAcquisitionRounds: AUTHORITY_LINEAGE, completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash, finalCoverageAuditId: initialAudit.coverageAuditId, finalCoverageAuditPayloadHash: initialAudit.payloadHash, scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash, researchMapId: completionMap.researchMapId, researchMapPayloadHash: completionMap.payloadHash, candidateEventVersionIds: [], candidateClaimVersionIds: [], authorityVerdictIds: [], conflictSetIds: [], unresolvedGapIds: [], finalVerdict: "SUFFICIENT" });
   const nonFinalReader = reader.copy();
   nonFinalReader.put("v2KnowledgeCompletionResults", nonFinalAuditSet);
   await assert.rejects(reconstructCompletedKnowledgeSetForB1(nonFinalReader, request(nonFinalAuditSet)), /FINAL_AUDIT_MISMATCH/);
@@ -189,6 +228,7 @@ test("completed knowledge-set semantic versions coexist and retry/order normaliz
   assert.ok(reader.records.has(`v2KnowledgeCompletionResults/${oldKnowledge.set.completedKnowledgeSetId}`));
   assert.ok(reader.records.has(`v2KnowledgeCompletionResults/${newKnowledge.set.completedKnowledgeSetId}`));
   const replay = buildKnowledgeCompletionResult({ ...coverageContext, runId: "retry-execution", createdAt: "2027-01-01T00:00:00.000Z" }, {
+    authorityAcquisitionRounds: AUTHORITY_LINEAGE,
     completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash,
     finalCoverageAuditId: newKnowledge.finalAudit.coverageAuditId, finalCoverageAuditPayloadHash: newKnowledge.finalAudit.payloadHash, scopeContractId: scope.scopeContractId,
     scopePayloadHash: scope.payloadHash, researchMapId: completionMap.researchMapId, researchMapPayloadHash: completionMap.payloadHash,

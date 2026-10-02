@@ -13,7 +13,7 @@ import {
 } from "./config";
 import { assertActiveCorpus, corpusCollection, corpusRecord, requireTaskCorpus, type CorpusCollectionName } from "./corpus";
 import { hashValue, slugifyTopic } from "./normalization";
-import type { GeneratedTimeline, SourceCandidate, TaskPayload } from "./schemas";
+import type { EvidenceFirstTaskPayload, GeneratedTimeline, SourceCandidate, TaskPayload } from "./schemas";
 import { generatedTimelineSchema, sourceCandidateSchema, timelineEditorialPlanSchema } from "./schemas";
 import { groundedEvidenceSegmentSchema } from "./schemas";
 import { enqueueInstitutionalTask } from "./tasks";
@@ -36,8 +36,10 @@ import {
   type GenerationResult,
   type ResearchResult
 } from "./vertex";
+import { assertV2AShadowEnabled, loadFactoryV2Config } from "./factory-v2/config";
+import { runEvidenceFirstShadowSubject } from "./evidence-first/orchestrator";
 
-type LeaseResult = { acquired: true; displayTitle: string; normalizedTitle: string; attemptCount: number } | { acquired: false; reason: string };
+type LeaseResult = { acquired: true; displayTitle: string; normalizedTitle: string; language: string; attemptCount: number } | { acquired: false; reason: string };
 
 function applyAuthorityEvidenceSelection(generation: GenerationResult, research: ResearchResult): GenerationResult {
   return { ...generation, timeline: selectAuthoritativeEvidence({ timeline: generation.timeline, sources: research.sources, evidenceSegments: research.evidenceSegments }) };
@@ -114,6 +116,9 @@ async function acquireLease(payload: TaskPayload, leaseOwner: string): Promise<L
     if (data.generation !== payload.generation || data.activeJobId !== payload.jobId) {
       return { acquired: false, reason: "stale_generation" };
     }
+    if ("generationReleaseId" in payload && data.generationReleaseId !== payload.generationReleaseId) {
+      return { acquired: false, reason: "stale_generation_release" };
+    }
     if (data.state === "PUBLISHED" || data.state === "CANCELLED") {
       return { acquired: false, reason: data.state.toLocaleLowerCase("en-US") };
     }
@@ -151,6 +156,7 @@ async function acquireLease(payload: TaskPayload, leaseOwner: string): Promise<L
       acquired: true,
       displayTitle: String(data.displayTitle),
       normalizedTitle: String(data.normalizedTitle),
+      language: typeof data.language === "string" ? data.language : "en",
       attemptCount
     };
   });
@@ -741,6 +747,43 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
       return { status: "GOVERNANCE_QUEUED", packageId: governance.packageId };
     }
     return { status: "AWAITING_REVIEW", packageId: governance.packageId };
+  } catch (error) {
+    await recordFailure(payload, error);
+    throw error;
+  }
+}
+
+export async function executeEvidenceFirstShadowGeneration(payload: EvidenceFirstTaskPayload, leaseOwner: string) {
+  requireTaskCorpus(payload.corpusId);
+  if (process.env.EVIDENCE_FIRST_MODE !== "SHADOW") throw new Error("EVIDENCE_FIRST_TASK_REQUIRES_SHADOW_MODE");
+  if (!process.env.GENERATION_RELEASE_ID || process.env.GENERATION_RELEASE_ID !== payload.generationReleaseId) throw new Error("STALE_GENERATION_RELEASE");
+  const config = await loadFactoryV2Config();
+  assertV2AShadowEnabled(config);
+  const lease = await acquireLease(payload, leaseOwner);
+  if (!lease.acquired) return { status: "NO_OP" as const, reason: lease.reason };
+  try {
+    await setStage(payload, "evidence_first_shadow");
+    const result = await runEvidenceFirstShadowSubject({
+      descriptor: { title: lease.displayTitle, language: lease.language, ongoingAsOf: new Date().toISOString().slice(0, 10) },
+      generationReleaseId: payload.generationReleaseId,
+      config,
+      deadlineAt: Date.now() + 1_200_000
+    });
+    const passed = result.status === "PASSED_ALL_SHADOW_GATES";
+    const now = Timestamp.now();
+    await db.runTransaction(async (transaction) => {
+      const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
+      const jobRef = corpusCollection("generationJobs").doc(payload.jobId);
+      const snapshots = await transaction.getAll(ledgerRef, jobRef);
+      const ledger = snapshots[0]!;
+      const job = snapshots[1]!;
+      if (!ledger.exists || !job.exists || ledger.data()?.activeJobId !== payload.jobId || ledger.data()?.generation !== payload.generation || ledger.data()?.generationReleaseId !== payload.generationReleaseId) throw new Error("Evidence-first Topic Ledger ownership changed during execution.");
+      const state = passed ? "SHADOW_COMPLETED" : "FAILED";
+      const currentStage = passed ? "evidence_first_shadow_complete" : `evidence_first_${result.terminalStage}`;
+      transaction.update(ledgerRef, { state, currentStage, leaseOwner: null, leaseExpiresAt: null, nextRetryAt: null, lastError: passed ? null : result.failureReasons.join("; ").slice(0, 2000), updatedAt: now });
+      transaction.update(jobRef, { state, currentStage, generationReleaseId: payload.generationReleaseId, leaseOwner: null, leaseExpiresAt: null, lastError: passed ? null : result.failureReasons.join("; ").slice(0, 2000), completedAt: now, updatedAt: now });
+    });
+    return { status: passed ? "SHADOW_COMPLETED" as const : "FAILED_CLOSED" as const, shadowResult: result };
   } catch (error) {
     await recordFailure(payload, error);
     throw error;

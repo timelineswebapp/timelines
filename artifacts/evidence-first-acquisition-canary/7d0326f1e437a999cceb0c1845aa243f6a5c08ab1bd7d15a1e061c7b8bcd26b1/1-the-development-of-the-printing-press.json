@@ -1,0 +1,189 @@
+{
+  "title": "The Development of the Printing Press",
+  "status": "FAILED_CLOSED",
+  "stage": "GAP_COMPLETION",
+  "reason": "V2_A_RUN_FAILED:evidence-first-completion-f29072a0-e1c7-49f9-9ec2-bd4cc4afe9a0:ACQUISITION_BUDGET_EXHAUSTED: provider-reported query cap exceeded.",
+  "telemetry": {
+    "acquisitionRounds": 2,
+    "providerCalls": 17,
+    "retries": 0,
+    "repairs": 1,
+    "queries": [
+      "history of printing press primary sources archives",
+      "Gutenberg printing press historical documents",
+      "early printing technology institutional archives",
+      "origins of printing press scholarly publications",
+      "museums with printing press historical collections",
+      "chronology of printing press development 200 AD to 1900 scholarly sources",
+      "history of printing technology 3rd century to 19th century academic",
+      "origins of printing press timeline university archives",
+      "major milestones in printing history academic journals",
+      "printing press evolution historical records",
+      "earliest woodblock printing technology China scholarly sources",
+      "earliest woodblock printing technology Korea scholarly sources",
+      "earliest woodblock printing technology Japan scholarly sources",
+      "history of woodblock printing academic sources",
+      "origin of woodblock printing East Asia academic",
+      "invention of movable type printing East Asia scholarly sources",
+      "who invented movable type printing in China",
+      "when was movable type invented in Korea",
+      "Jikji movable type invention",
+      "Bi Sheng movable type invention",
+      "Goryeo Dynasty movable type",
+      "Gutenberg press technological innovations scholarly sources",
+      "history of printing press components academic",
+      "Gutenberg's innovations in printing technology primary sources",
+      "early printing press design university archives",
+      "museums Gutenberg press technology"
+    ],
+    "sourcesDiscovered": 72,
+    "retrievalAttempts": 12,
+    "retrievalSuccesses": 10,
+    "retrievalFailures": 2,
+    "retrievalRejectionReasons": {
+      "SOURCE_RETRIEVAL_ROBOTS_DENIED": 2
+    },
+    "retrievalFailureDetails": [
+      {
+        "urlHash": "5fe459a000b3e4dee3cf9763d7e8ca5580daa802112cb2558a17bdbffc4210b4",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 2066,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "2a92e7a656841e775e98583bb05b41f0dabc1174b4018f7283bd4c6ddc6f0cac",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 2454,
+        "acquisitionRound": 1
+      }
+    ],
+    "sourceRanking": [
+      {
+        "rank": 1,
+        "urlHash": "0e8b7da3844bfc813bcf3856a63028d6821f76df54f59e076aa9d764ef554253",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 2,
+        "urlHash": "c692cd808b703999667c65250304f0d7a0416fdb7dd726f879027f8399641c3c",
+        "domain": "ieee.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 3,
+        "urlHash": "827a0a02710486d1ad738362b5835397822b9630322fc399681f6e7b4737a8c7",
+        "domain": "starprintwa.com.au",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 4,
+        "urlHash": "c24af61ef774106a697abf9d237ac99ad75ede8847bd81c337128e1f7f068665",
+        "domain": "asianart.org",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 5,
+        "urlHash": "d90801b730f876488781e687fbf85c21d41f36830724a3cdc72b3055cca17dca",
+        "domain": "unesco.org",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 6,
+        "urlHash": "5fe459a000b3e4dee3cf9763d7e8ca5580daa802112cb2558a17bdbffc4210b4",
+        "domain": "metmuseum.org",
+        "admittedQuestionCount": 2,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 7,
+        "urlHash": "d3bb7063cd37737ba59cdf09690baf9eef8611c00450ec2a0f4d618e7ebfe8ea",
+        "domain": "unesco.org",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 8,
+        "urlHash": "2a92e7a656841e775e98583bb05b41f0dabc1174b4018f7283bd4c6ddc6f0cac",
+        "domain": "columbia.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 9,
+        "urlHash": "0ace35a44094d52249e2b032eb4a32b6192d2990149abbee86c035cde37fd71e",
+        "domain": "scu.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 10,
+        "urlHash": "285bbe00740dac6cc664ec1826c15fce5bc6729b3d2ee62bdc51c6b74a4695db",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 11,
+        "urlHash": "9999626c5fcf24b79049ee84286fcb00009bb7527a4ea145dc18ff0c7d61a95c",
+        "domain": "ebsco.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 12,
+        "urlHash": "73a35156fefbeb180fb5fd733720416d99b67a4b55978e79ad21b3605bf2c41d",
+        "domain": "reformationstewards.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      }
+    ],
+    "evidencePackets": 8,
+    "evidencePacketSegments": 86,
+    "claimsExtracted": 43,
+    "claimsSupported": 20,
+    "claimsRejected": 25,
+    "claimRejectionReasons": {
+      "object": 1,
+      "temporal.start.precision": 1
+    },
+    "authorityDistribution": {
+      "INSUFFICIENT": 23,
+      "SUPPORTED": 20
+    },
+    "conflictsDetected": 4,
+    "conflictsUnresolved": 4,
+    "eventCandidates": 10,
+    "resolvedEventCandidates": 9,
+    "rejectedNonEvents": 1,
+    "eventDispositionDistribution": {
+      "CONTEXT:INELIGIBLE": 1,
+      "EVENT:RESOLVED": 9
+    },
+    "eventResolutionDiagnostics": {
+      "NO_EVIDENCED_TEMPORAL_START": 6,
+      "NO_SUPPORTED_CORE_CLAIM": 18
+    },
+    "stageLatencyMs": {
+      "CLAIM_EXTRACTION": 65421,
+      "GROUNDING": 72444,
+      "QUERY_PLAN": 3623,
+      "RESEARCH_MAP": 39281,
+      "SCOPE": 7971
+    },
+    "totalLatencyMs": 499514,
+    "inputTokens": 311578,
+    "outputTokens": 23008,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "coverage": {
+    "initialAuditId": "knowledge-coverage-audit-2677a6b119e28189a6044dd31dc83c8535e75ff162c86c50184ee98e620f413a",
+    "finalAuditId": null
+  }
+}

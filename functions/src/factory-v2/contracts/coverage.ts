@@ -82,7 +82,6 @@ export const knowledgeCompletionTaskSchema = z.object({
   questionIds: ids(120),
   questionId: idSchema,
   question: boundedText(10, 900),
-  providerQuery: boundedText(3, 500),
   intendedSourceClass: z.enum(["PRIMARY_INSTITUTIONAL", "SCHOLARLY_SECONDARY", "EDITED_REFERENCE", "ESTABLISHED_JOURNALISM"]),
   state: z.enum(["PLANNED", "COMPLETED", "FAILED", "BUDGET_EXHAUSTED"])
 }).strict();
@@ -94,11 +93,14 @@ export const knowledgeCompletionPlanSchema = z.object({
   originalScopeContractId: idSchema,
   originalResearchMapId: idSchema,
   originalKnowledgeRunId: idSchema.nullable(),
-  round: z.literal(1),
+  round: z.union([z.literal(0), z.literal(1)]),
   budget: completionBudgetSchema,
-  tasks: z.array(knowledgeCompletionTaskSchema).min(1).max(5),
+  tasks: z.array(knowledgeCompletionTaskSchema).max(5),
   unplannedMaterialGapIds: ids(200)
-}).strict();
+}).strict().superRefine((plan, context) => {
+  if (plan.round === 0 && plan.tasks.length !== 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ["tasks"], message: "A no-completion plan cannot contain tasks." });
+  if (plan.round === 1 && plan.tasks.length === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ["tasks"], message: "A completion round requires at least one gap-directed task." });
+});
 
 const legacyKnowledgeCompletionResultSchema = z.object({
   ...immutableEnvelopeFields,
@@ -139,6 +141,16 @@ export const completedKnowledgeSetSchema = z.object({
   scopePayloadHash: hashSchema,
   researchMapId: idSchema,
   researchMapPayloadHash: hashSchema,
+  authorityAcquisitionRounds: z.array(z.object({
+    topicAuthoritySetId: idSchema,
+    authorityResearchPlanId: idSchema,
+    controlledResearchLedgerId: idSchema,
+    perspectiveAuditId: idSchema,
+    confidenceVectorId: idSchema
+  }).strict()).min(1).max(2).refine((rounds) => unique(rounds.map((round) => round.controlledResearchLedgerId)), "Authority acquisition rounds must be unique."),
+  /** Historical pre-Authority-First lineage only. New canonical CKS artifacts
+   * use authorityAcquisitionRounds and never populate queryLedgerId. */
+  queryLedgerId: idSchema.optional(),
   candidateEventVersionIds: ids(400),
   candidateClaimVersionIds: ids(600),
   authorityVerdictIds: ids(600),

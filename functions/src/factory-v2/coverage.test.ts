@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildAtomicClaimVersion, buildCanonicalEventVersion, buildResearchMap, immutableEnvelope, parseSealedArtifact } from "./contracts/builders";
 import { claimAuthorityVerdictSchema, claimConflictSetSchema, type AtomicClaimVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimConflictSet } from "./contracts";
-import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion } from "./coverage";
+import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion, sealNoCompletionRequired } from "./coverage";
 import { contentAddressedId, deterministicUuid } from "./hashing";
 import { date, scopeFixture, TEST_CONTEXT } from "./test-fixtures";
+
+const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
 
 const scope = scopeFixture({
   title: "A Technology History",
@@ -53,6 +55,15 @@ test("adequate multi-phase knowledge passes without equal-time quotas", () => {
   assert.equal(result.ongoingFreshness, "CURRENT_LOCKED_PHASE_REPRESENTED");
 });
 
+test("sufficient initial knowledge seals a zero-round completion plan without redundant research", () => {
+  const claims = [claim("claim-1989-zero", "q-foundation-tech", 1989), claim("claim-2010-zero", "q-expansion-tech", 2010), claim("claim-2024-zero", "q-current-society", 2024)];
+  const result = audit(claims, claims.map((item) => verdict(item)), claims.map((item) => event(item, item.temporal!.start.year)));
+  const plan = sealNoCompletionRequired({ context: TEST_CONTEXT, scope, researchMap: map, audit: result });
+  assert.equal(plan.round, 0);
+  assert.deepEqual(plan.tasks, []);
+  assert.throws(() => planGapDirectedCompletion({ context: TEST_CONTEXT, scope, researchMap: map, audit: result, originalKnowledgeRunId: "source-run" }), /cannot run when the initial audit is already sufficient/);
+});
+
 test("missing and weak material phases are distinct and create locked gap tasks", () => {
   const foundation = claim("claim-foundation", "q-foundation-tech", 1989);
   const expansion = claim("claim-expansion", "q-expansion-tech", 2010);
@@ -81,14 +92,39 @@ test("ongoing staleness follows the latest locked phase while closed topics have
   assert.equal(closedAudit.ongoingFreshness, "NOT_APPLICABLE");
 });
 
-test("phase and dimension gaps create bounded, topic-derived questions without milestones", () => {
+test("out-of-scope dated claims cannot satisfy closed-episode coverage", () => {
+  const closed = scopeFixture({ title: scope.title, expectedPhases: scope.expectedPhases, requiredDimensions: scope.requiredDimensions, chronologyStart: date(1980), chronologyEnd: date(2020), topicClass: "CLOSED_EPISODE", ongoingAsOf: null });
+  const foundation = claim("claim-closed-foundation", "q-foundation-tech", 1989);
+  const expansion = claim("claim-closed-expansion", "q-expansion-tech", 2010);
+  const future = claim("claim-closed-future", "q-current-society", 2027);
+  const result = auditKnowledgeCoverage({ context: TEST_CONTEXT, stage: "FINAL", scope: closed, researchMap: map, sourceKnowledgeRunIds: ["source-run"], claims: [foundation, expansion, future], authorityVerdicts: [foundation, expansion, future].map((item) => verdict(item)), conflicts: [], events: [event(foundation, 1989), event(expansion, 2010), event(future, 2027)] });
+  assert.equal(result.cells.find((cell) => cell.lockedRefId === "dimension-society")?.state, "MISSING");
+  assert.equal(result.verdict, "KNOWLEDGE_COVERAGE_INSUFFICIENT");
+});
+
+test("phase and dimension gaps create bounded research questions without software-authored search queries", () => {
   const foundation = claim("claim-only-foundation", "q-foundation-tech", 1989);
   const result = audit([foundation], [verdict(foundation)], [event(foundation, 1989)]);
   const plan = planGapDirectedCompletion({ context: TEST_CONTEXT, scope, researchMap: map, audit: result, originalKnowledgeRunId: "source-run" });
   assert.ok(plan.tasks.length <= DEFAULT_COMPLETION_BUDGET.maximumGapQuestions);
   assert.ok(plan.tasks.some((task) => task.dimensionIds.includes("dimension-society")));
-  assert.ok(plan.tasks.every((task) => task.providerQuery.includes(scope.title)));
-  assert.ok(plan.tasks.every((task) => !/iphone|mosaic|social network/iu.test(task.providerQuery)));
+  assert.ok(plan.tasks.every((task) => task.question.includes(scope.title)));
+  assert.ok(plan.tasks.every((task) => !("providerQuery" in task)));
+});
+
+test("missing chronology reserves one bounded completion task without suppressing specific gap remediation", () => {
+  const chronology = question("software-chronology-question-test", "phase-foundation", "dimension-tech");
+  const chronologyMap = buildResearchMap(TEST_CONTEXT, scope, { version: 1, phases, dimensions, entities: [], questions: [...map.questions, chronology], terminology: [], knownUncertainty: [] });
+  const foundation = claim("claim-chronology-reservation", "q-foundation-tech", 1989);
+  const result = auditKnowledgeCoverage({ context: TEST_CONTEXT, stage: "INITIAL", scope, researchMap: chronologyMap, sourceKnowledgeRunIds: ["source-run"], claims: [foundation], authorityVerdicts: [verdict(foundation)], conflicts: [], events: [] });
+  assert.ok(result.gaps.some((gap) => gap.code === "MISSING_CHRONOLOGY"));
+  const plan = planGapDirectedCompletion({ context: TEST_CONTEXT, scope, researchMap: chronologyMap, audit: result, originalKnowledgeRunId: "source-run" });
+  assert.ok(plan.tasks[0]!.questionIds.includes(chronology.questionId));
+  const chronologyGapIds = result.gaps.filter((gap) => gap.code === "MISSING_CHRONOLOGY").map((gap) => gap.gapId);
+  assert.ok(chronologyGapIds.every((gapId) => plan.tasks[0]!.gapIds.includes(gapId)));
+  assert.ok(plan.tasks.some((task) => task.phaseIds.includes("phase-expansion")));
+  assert.ok(plan.tasks.some((task) => task.phaseIds.includes("phase-current")));
+  assert.ok(plan.tasks.length <= DEFAULT_COMPLETION_BUDGET.maximumGapQuestions);
 });
 
 test("completion budget exhaustion is explicit and immutable lineage is preserved", () => {
@@ -101,6 +137,9 @@ test("completion budget exhaustion is explicit and immutable lineage is preserve
   assert.equal(revision.parentArtifactId, map.researchMapId);
   assert.equal(map.parentArtifactId, null);
   assert.equal(revision.version, 2);
+  assert.equal(revision.questions.length, map.questions.length);
+  assert.ok(plan.tasks[0]!.questionIds.every((id) => revision.questions.find((question) => question.questionId === id)?.priority === "CRITICAL"));
+  assert.ok(revision.questions.every((question) => !question.questionId.startsWith("coverage-question-")));
 });
 
 test("re-audit passes after sufficient new knowledge and fails when a material gap remains", () => {
@@ -154,7 +193,7 @@ test("final coverage audit and completed knowledge set normalize membership acro
   const eventIds = auditInput.events.map((item) => item.eventVersionId);
   const claimIds = values.map((item) => item.claimVersionId);
   const verdictIds = auditInput.authorityVerdicts.map((item) => item.claimAuthorityVerdictId);
-  const resultPayload = { completionPlanId: "completion-plan", initialCoverageAuditId: "initial-audit", initialCoverageAuditPayloadHash: "a".repeat(64), finalCoverageAuditId: firstAudit.coverageAuditId, finalCoverageAuditPayloadHash: firstAudit.payloadHash, scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash, researchMapId: map.researchMapId, researchMapPayloadHash: map.payloadHash, candidateEventVersionIds: eventIds, candidateClaimVersionIds: claimIds, authorityVerdictIds: verdictIds, conflictSetIds: [], unresolvedGapIds: [], finalVerdict: firstAudit.verdict };
+  const resultPayload = { authorityAcquisitionRounds: AUTHORITY_LINEAGE, completionPlanId: "completion-plan", initialCoverageAuditId: "initial-audit", initialCoverageAuditPayloadHash: "a".repeat(64), finalCoverageAuditId: firstAudit.coverageAuditId, finalCoverageAuditPayloadHash: firstAudit.payloadHash, scopeContractId: scope.scopeContractId, scopePayloadHash: scope.payloadHash, researchMapId: map.researchMapId, researchMapPayloadHash: map.payloadHash, candidateEventVersionIds: eventIds, candidateClaimVersionIds: claimIds, authorityVerdictIds: verdictIds, conflictSetIds: [], unresolvedGapIds: [], finalVerdict: firstAudit.verdict };
   const firstResult = buildKnowledgeCompletionResult(TEST_CONTEXT, resultPayload);
   const retryResult = buildKnowledgeCompletionResult(secondContext, { ...resultPayload, candidateEventVersionIds: [...eventIds].reverse(), candidateClaimVersionIds: [...claimIds].reverse(), authorityVerdictIds: [...verdictIds].reverse() });
   assert.equal(retryResult.completionResultId, firstResult.completionResultId);

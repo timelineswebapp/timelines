@@ -148,11 +148,7 @@ export const queryPlanSchema = z.object({
 }).strict().superRefine((plan, context) => {
   const normalized = plan.queries.map((query) => query.providerQuery.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US"));
   if (!unique(normalized)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["queries"], message: "Provider queries must be deterministically deduplicated." });
-  const roleCounts = new Map<string, number>();
-  for (const query of plan.queries) roleCounts.set(query.role, (roleCounts.get(query.role) || 0) + 1);
-  if ((roleCounts.get("ORIENTATION") || 0) > 1) context.addIssue({ code: z.ZodIssueCode.custom, path: ["queries"], message: "Only one orientation query is allowed." });
-  if ((roleCounts.get("PHASE_DIMENSION") || 0) > 3) context.addIssue({ code: z.ZodIssueCode.custom, path: ["queries"], message: "At most three phase/dimension queries are allowed." });
-  if ((roleCounts.get("AUTHORITY_TARGETED") || 0) > 1) context.addIssue({ code: z.ZodIssueCode.custom, path: ["queries"], message: "At most one authority-targeted query is allowed in V2-A." });
+  if (plan.queries.length > Math.min(plan.budget.maximumProviderQueries, 25)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["queries"], message: "Explicit search queries cannot exceed the pre-execution authorization budget." });
 });
 
 export const publisherAuthorityVersionSchema = z.object({
@@ -310,9 +306,10 @@ export const claimAuthorityVerdictSchema = z.object({
   claimAuthorityVerdictId: idSchema,
   claimVersionId: idSchema,
   evidenceSetHash: hashSchema,
+  evaluationContextHash: hashSchema.optional(),
   risk: claimRiskSchema,
   verdict: z.enum(["SUPPORTED", "QUALIFIED", "INSUFFICIENT", "REVIEW_REQUIRED", "REJECTED"]),
-  reasonCodes: z.array(z.enum(["DIRECT_STRONG_SOURCE", "DEFINITIVE_PRIMARY", "INDEPENDENT_CORROBORATION", "INTERPRETIVE_SECONDARY_BURDEN", "WIKIPEDIA_EXCLUDED", "MENTION_ONLY", "WEAK_AUTHORITY", "DEPENDENT_DUPLICATE", "UNRESOLVED_CONFLICT", "SENSITIVE_HUMAN_REVIEW", "MISSING_EVIDENCE"])).min(1).max(20),
+  reasonCodes: z.array(z.enum(["DIRECT_STRONG_SOURCE", "DEFINITIVE_PRIMARY", "INDEPENDENT_CORROBORATION", "INTERPRETIVE_SECONDARY_BURDEN", "CLAIM_RELATIVE_AUTHORITY_MISMATCH", "SELF_INTERESTED_REQUIRES_CORROBORATION", "WIKIPEDIA_EXCLUDED", "MENTION_ONLY", "WEAK_AUTHORITY", "DEPENDENT_DUPLICATE", "UNRESOLVED_CONFLICT", "SENSITIVE_HUMAN_REVIEW", "MISSING_EVIDENCE"])).min(1).max(20),
   qualifyingText: boundedText(3, 1000).nullable(),
   acceptedEvidenceEdgeIds: z.array(idSchema).max(50).refine(unique),
   rejectedEvidenceEdgeIds: z.array(idSchema).max(50).refine(unique),
@@ -403,7 +400,7 @@ export const eventRelationSchema = z.object({ ...eventEdgeBase, eventRelationId:
 export const modelExecutionSchema = z.object({
   ...executionEnvelopeFields,
   executionId: idSchema,
-  stage: z.enum(["SCOPE", "RESEARCH_MAP", "QUERY_PLAN", "GROUNDING", "SOURCE_RETRIEVAL", "CLAIM_EXTRACTION", "CLAIM_ASSESSMENT", "ENTITY_RESOLUTION", "EVENT_RESOLUTION"]),
+  stage: z.enum(["SCOPE", "RESEARCH_MAP", "AUTHORITY_ROUTING", "QUERY_PLAN", "GROUNDING", "SOURCE_RETRIEVAL", "CLAIM_EXTRACTION", "CLAIM_ASSESSMENT", "ENTITY_RESOLUTION", "EVENT_RESOLUTION"]),
   model: boundedText(2, 160), location: boundedText(2, 80), inputArtifactIds: z.array(idSchema).max(100).refine(unique), inputHash: hashSchema,
   promptHash: hashSchema, responseHash: hashSchema, validationState: z.enum(["VALID", "INVALID", "REPAIRED", "FAILED"]),
   boundedResponse: z.string().max(60_000), responseTruncated: z.boolean(),

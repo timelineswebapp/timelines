@@ -126,3 +126,13 @@ test("Robots denial stops document retrieval rather than bypassing access constr
   const fetcher = fetchSequence([response(200, "User-agent: *\nDisallow: /history", { "content-type": "text/plain" })]);
   await assert.rejects(retrieveSource({ ...base, respectRobots: true }, { dnsLookup: publicDns, fetch: fetcher }), /ROBOTS_DENIED/);
 });
+
+test("whole-run cancellation reaches source retrieval and aborts an in-flight request", async () => {
+  const controller = new AbortController();
+  const pending: FetchLike = async (_url, init) => new Promise((_resolve, reject) => {
+    init.signal?.addEventListener("abort", () => reject(new Error("WHOLE_RUN_DEADLINE_EXCEEDED")), { once: true });
+  });
+  const run = retrieveSource(base, { dnsLookup: publicDns, fetch: pending, signal: controller.signal });
+  controller.abort();
+  await assert.rejects(run, /WHOLE_RUN_DEADLINE_EXCEEDED/);
+});

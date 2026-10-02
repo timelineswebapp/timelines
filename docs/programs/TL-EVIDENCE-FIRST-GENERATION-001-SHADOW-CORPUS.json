@@ -1,0 +1,45 @@
+{
+  "program": "TL-EVIDENCE-FIRST-GENERATION-001",
+  "frozenAt": "2026-09-09T00:00:00.000Z",
+  "executionMode": "SHADOW",
+  "subjects": [
+    { "id": "bounded-earthquake-1906", "class": "bounded_episode", "title": "The 1906 San Francisco Earthquake", "regression001d": true, "difficulty": ["material-omissions", "date-precision", "source-authority"] },
+    { "id": "bounded-chernobyl-1986", "class": "bounded_episode", "title": "The Chernobyl Disaster", "regression001d": false, "difficulty": ["conflicting-accounts", "technical-and-political-phases"] },
+    { "id": "bounded-great-smog-1952", "class": "bounded_episode", "title": "The Great Smog of London", "regression001d": false, "difficulty": ["episode-to-policy-aftermath", "causal-attribution"] },
+
+    { "id": "crisis-berlin-blockade", "class": "crisis_conflict", "title": "The Berlin Blockade and Airlift", "regression001d": false, "difficulty": ["multi-actor-crisis", "precursor-boundary"] },
+    { "id": "crisis-rwandan-genocide", "class": "crisis_conflict", "title": "The Rwandan Genocide", "regression001d": false, "difficulty": ["sensitive-history", "contested-claims"] },
+    { "id": "crisis-partition-india", "class": "crisis_conflict", "title": "The Partition of India", "regression001d": false, "difficulty": ["multi-regional", "mass-violence", "boundary-selection"] },
+
+    { "id": "biography-ada-lovelace", "class": "biography", "title": "Ada Lovelace: Life and Work", "regression001d": true, "difficulty": ["material-omissions", "myth-versus-evidence"] },
+    { "id": "biography-toussaint", "class": "biography", "title": "Toussaint Louverture: Life and Revolution", "regression001d": false, "difficulty": ["biography-with-conflict", "imperial-sources"] },
+    { "id": "biography-maathai", "class": "biography", "title": "Wangari Maathai: Life and Environmental Leadership", "regression001d": false, "difficulty": ["ongoing-legacy", "regional-source-diversity"] },
+    { "id": "biography-ibn-al-haytham", "class": "biography", "title": "Ibn al-Haytham: Life and Scientific Work", "regression001d": false, "difficulty": ["medieval-date-precision", "later-legend"] },
+
+    { "id": "institution-un", "class": "institution", "title": "The History of the United Nations", "regression001d": false, "difficulty": ["long-duration-institution", "ongoing-endpoint"] },
+    { "id": "institution-royal-society", "class": "institution", "title": "The History of the Royal Society", "regression001d": false, "difficulty": ["centuries-long", "phase-compression"] },
+    { "id": "institution-red-cross", "class": "institution", "title": "The History of the International Red Cross and Red Crescent Movement", "regression001d": false, "difficulty": ["institutional-complexity", "global-coverage"] },
+
+    { "id": "technology-printing-press", "class": "technology", "title": "The Development of the Printing Press", "regression001d": false, "difficulty": ["non-western-precursors", "diffusion"] },
+    { "id": "technology-telegraph", "class": "technology", "title": "The Development of the Electric Telegraph", "regression001d": false, "difficulty": ["multiple-inventors", "adoption-versus-invention"] },
+    { "id": "technology-transistor", "class": "technology", "title": "The Development of the Transistor", "regression001d": false, "difficulty": ["technical-milestones", "institutional-credit"] },
+    { "id": "technology-container", "class": "technology", "title": "The Development of Container Shipping", "regression001d": false, "difficulty": ["standards-and-adoption", "global-consequences"] },
+
+    { "id": "science-germ-theory", "class": "scientific_development", "title": "The Development of Germ Theory", "regression001d": false, "difficulty": ["distributed-discovery", "experimental-evidence"] },
+    { "id": "science-plate-tectonics", "class": "scientific_development", "title": "The Development of Plate Tectonics", "regression001d": false, "difficulty": ["rejection-to-consensus", "multiple-disciplines"] },
+    { "id": "science-dna", "class": "scientific_development", "title": "The Discovery of DNA Structure", "regression001d": false, "difficulty": ["credit-and-evidence", "scope-boundary"] },
+    { "id": "science-nuclear-fission", "class": "scientific_development", "title": "The Discovery of Nuclear Fission", "regression001d": false, "difficulty": ["distributed-credit", "rapid-consequences"] },
+
+    { "id": "movement-abolitionism", "class": "cultural_intellectual_movement", "title": "The History of Abolitionism", "regression001d": false, "difficulty": ["global-scope", "long-duration"] },
+    { "id": "movement-harlem-renaissance", "class": "cultural_intellectual_movement", "title": "The Harlem Renaissance", "regression001d": false, "difficulty": ["events-versus-cultural-state", "diffuse-boundaries"] },
+    { "id": "movement-enlightenment", "class": "cultural_intellectual_movement", "title": "The Enlightenment", "regression001d": false, "difficulty": ["context-versus-event", "multi-national"] },
+    { "id": "movement-decolonization", "class": "cultural_intellectual_movement", "title": "The Global Decolonization Movement", "regression001d": false, "difficulty": ["global-representativeness", "many-competing-events"] },
+
+    { "id": "long-olympic-games", "class": "long_duration_subject", "title": "The History of the Olympic Games", "regression001d": true, "difficulty": ["non-event-pressure", "era-concentration", "event-count-pressure"] },
+    { "id": "long-silk-road", "class": "long_duration_subject", "title": "The History of the Silk Roads", "regression001d": false, "difficulty": ["nonlinear-network", "uncertain-dates"] },
+    { "id": "long-money", "class": "long_duration_subject", "title": "The History of Money", "regression001d": false, "difficulty": ["millennia-long", "global-representativeness"] },
+
+    { "id": "ongoing-internet-governance", "class": "ongoing_subject", "title": "The History of Internet Governance", "regression001d": false, "difficulty": ["ongoing-endpoint", "institutional-complexity"] },
+    { "id": "ongoing-climate-science", "class": "ongoing_subject", "title": "The Development of Climate Change Science", "regression001d": false, "difficulty": ["ongoing-endpoint", "evidence-conflict", "long-duration"] }
+  ]
+}

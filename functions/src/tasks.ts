@@ -1,6 +1,6 @@
 import { CloudTasksClient, protos } from "@google-cloud/tasks";
 import { ACTIVE_CORPUS_ID, COMPUTE_REGION, FUNCTION_NAMES, PROJECT_ID, QUEUES, TASK_INVOKER_EMAIL } from "./config";
-import type { TaskPayload } from "./schemas";
+import type { EvidenceFirstTaskPayload, TaskPayload } from "./schemas";
 
 const client = new CloudTasksClient();
 
@@ -53,7 +53,7 @@ async function createHttpTask(input: {
   }
 }
 
-export function enqueueGenerationTask(payload: TaskPayload, priority: boolean, scheduleTime?: Date) {
+export function enqueueGenerationTask(payload: TaskPayload | EvidenceFirstTaskPayload, priority: boolean, scheduleTime?: Date) {
   const queue = priority ? QUEUES.priority : QUEUES.autonomous;
   const functionName = priority ? FUNCTION_NAMES.priorityWorker : FUNCTION_NAMES.autonomousWorker;
   return createHttpTask({

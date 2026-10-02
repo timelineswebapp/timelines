@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { normalizeTopic } from "./normalization";
-import { generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
+import { evidenceFirstTaskPayloadSchema, generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
 
 function event(sortYear: number, title: string) {
@@ -57,6 +57,25 @@ test("generation schema accepts BCE chronology and rejects out-of-order authorit
 test("task payload rejects stale or unbounded identities", () => {
   assert.equal(taskPayloadSchema.safeParse({ topicId: "bad", jobId: "bad", generation: 0, origin: "user" }).success, false);
   assert.equal(taskPayloadSchema.safeParse({ corpusId: ACTIVE_CORPUS_ID, topicId: "a".repeat(40), jobId: "4af86d2f-1596-4b8c-a927-42e9e25b646d", generation: 1, origin: "user" }).success, true);
+});
+
+test("evidence-first tasks require an exact content-addressed generation release", () => {
+  const base = { corpusId: ACTIVE_CORPUS_ID, topicId: "a".repeat(40), jobId: "4af86d2f-1596-4b8c-a927-42e9e25b646d", generation: 1, origin: "founder" };
+  assert.equal(evidenceFirstTaskPayloadSchema.safeParse(base).success, false);
+  assert.equal(evidenceFirstTaskPayloadSchema.safeParse({ ...base, generationReleaseId: "b".repeat(64) }).success, true);
+  assert.equal(evidenceFirstTaskPayloadSchema.safeParse({ ...base, generationReleaseId: "b".repeat(63) }).success, false);
+  assert.equal(evidenceFirstTaskPayloadSchema.safeParse({ ...base, generationReleaseId: "B".repeat(64) }).success, false);
+  assert.equal(taskPayloadSchema.safeParse({ ...base, generationReleaseId: "invalid-release" }).success, false);
+});
+
+test("generation workers route only explicitly release-pinned tasks into the dormant evidence-first shadow path", () => {
+  const index = readFileSync("src/index.ts", "utf8");
+  const pipeline = readFileSync("src/pipeline.ts", "utf8");
+  assert.match(index, /evidenceFirstTaskPayloadSchema\.safeParse/u);
+  assert.match(index, /executeEvidenceFirstShadowGeneration/u);
+  assert.match(pipeline, /process\.env\.GENERATION_RELEASE_ID !== payload\.generationReleaseId/u);
+  assert.match(pipeline, /EVIDENCE_FIRST_TASK_REQUIRES_SHADOW_MODE/u);
+  assert.match(pipeline, /state = passed \? "SHADOW_COMPLETED" : "FAILED"/u);
 });
 
 test("institutional tasks admit bounded content-addressed policy revisions without widening generation jobs", () => {

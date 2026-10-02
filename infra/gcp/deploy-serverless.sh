@@ -10,6 +10,7 @@ SCHEDULER_SA="timelines-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
 ARCHIVE_BUCKET="${PROJECT_ID}-institutional-archive"
 ACTIVE_CORPUS_ID="${ACTIVE_CORPUS_ID:-}"
 PUBLIC_ID_BASE="${PUBLIC_ID_BASE:-}"
+EVIDENCE_FIRST_MODE="${EVIDENCE_FIRST_MODE:-SHADOW}"
 
 if [[ ! "${ACTIVE_CORPUS_ID}" =~ ^[a-z0-9][a-z0-9-]{2,62}$ ]]; then
   echo "Refusing deployment: set ACTIVE_CORPUS_ID to the activated clean corpus identifier." >&2
@@ -35,6 +36,22 @@ npm --prefix functions ci
 npm --prefix functions test
 npm --prefix functions run typecheck
 npm --prefix functions run build
+
+if [[ "${EVIDENCE_FIRST_MODE}" != "SHADOW" ]]; then
+  echo "Refusing deployment: Evidence-First Generation is authorized only in SHADOW mode." >&2
+  exit 1
+fi
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "Refusing deployment: generation release identity requires a clean repository." >&2
+  exit 1
+fi
+GENERATION_RELEASE_JSON="$(ACTIVE_CORPUS_ID="${ACTIVE_CORPUS_ID}" PUBLIC_ID_BASE="${PUBLIC_ID_BASE}" EVIDENCE_FIRST_MODE="${EVIDENCE_FIRST_MODE}" npm --prefix functions run --silent release:manifest)"
+GENERATION_RELEASE_ID="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.generationReleaseId)' "${GENERATION_RELEASE_JSON}")"
+GENERATION_SOURCE_REVISION="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.manifest.sourceRevision)' "${GENERATION_RELEASE_JSON}")"
+GENERATION_SOURCE_TREE_SHA256="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.manifest.sourceTreeSha256)' "${GENERATION_RELEASE_JSON}")"
+GENERATION_ROOT_LOCK_SHA256="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.manifest.dependencyLocks.rootSha256)' "${GENERATION_RELEASE_JSON}")"
+GENERATION_FUNCTIONS_LOCK_SHA256="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.manifest.dependencyLocks.functionsSha256)' "${GENERATION_RELEASE_JSON}")"
+GENERATION_CONFIG_BUNDLE_SHA256="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.manifest.configurationBundleHash)' "${GENERATION_RELEASE_JSON}")"
 
 ensure_service_account() {
   local account_id="$1"
@@ -107,7 +124,7 @@ deploy_function() {
     --cpu=1 \
     --concurrency="${concurrency}" \
     --max-instances="${max_instances}" \
-    --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},FUNCTION_REGION=${REGION},VERTEX_LOCATION=global,VERTEX_MODEL=gemini-2.5-flash,TASK_INVOKER_EMAIL=${TASKS_SA},ACTIVE_CORPUS_ID=${ACTIVE_CORPUS_ID},PUBLIC_ID_BASE=${PUBLIC_ID_BASE}" \
+    --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},FUNCTION_REGION=${REGION},VERTEX_LOCATION=global,VERTEX_MODEL=gemini-2.5-flash,TASK_INVOKER_EMAIL=${TASKS_SA},ACTIVE_CORPUS_ID=${ACTIVE_CORPUS_ID},PUBLIC_ID_BASE=${PUBLIC_ID_BASE},EVIDENCE_FIRST_MODE=${EVIDENCE_FIRST_MODE},GENERATION_RELEASE_ID=${GENERATION_RELEASE_ID},GENERATION_SOURCE_REVISION=${GENERATION_SOURCE_REVISION},GENERATION_SOURCE_TREE_SHA256=${GENERATION_SOURCE_TREE_SHA256},GENERATION_ROOT_LOCK_SHA256=${GENERATION_ROOT_LOCK_SHA256},GENERATION_FUNCTIONS_LOCK_SHA256=${GENERATION_FUNCTIONS_LOCK_SHA256},GENERATION_CONFIG_BUNDLE_SHA256=${GENERATION_CONFIG_BUNDLE_SHA256}" \
     "$@" \
     --quiet
 }
@@ -124,7 +141,6 @@ gcloud iam service-accounts add-iam-policy-binding "${TASKS_SA}" --project="${PR
 
 ensure_secret IP_HASH_SALT
 ensure_secret BACKEND_SHARED_SECRET
-
 ensure_queue priority-topic-generation 5 5
 ensure_queue autonomous-topic-generation 1 2
 ensure_queue institutional-transitions 10 10
@@ -145,6 +161,21 @@ deploy_function topic-discovery topicDiscovery 900s 1Gi 1 1 --no-allow-unauthent
 deploy_function timelines-public-api publicApi 60s 512Mi 80 20 \
   --set-secrets="IP_HASH_SALT=IP_HASH_SALT:latest,BACKEND_SHARED_SECRET=BACKEND_SHARED_SECRET:latest" \
   --allow-unauthenticated
+
+verify_generation_release() {
+  local service="$1"
+  local actual_release
+  local actual_revision
+  actual_release="$(gcloud run services describe "${service}" --region="${REGION}" --project="${PROJECT_ID}" --format='value(spec.template.spec.containers[0].env[?name=GENERATION_RELEASE_ID].value)')"
+  actual_revision="$(gcloud run services describe "${service}" --region="${REGION}" --project="${PROJECT_ID}" --format='value(spec.template.spec.containers[0].env[?name=GENERATION_SOURCE_REVISION].value)')"
+  if [[ "${actual_release}" != "${GENERATION_RELEASE_ID}" || "${actual_revision}" != "${GENERATION_SOURCE_REVISION}" ]]; then
+    echo "Generation release postflight failed for ${service}: expected release ${GENERATION_RELEASE_ID} at ${GENERATION_SOURCE_REVISION}." >&2
+    exit 1
+  fi
+}
+
+verify_generation_release priority-topic-generation
+verify_generation_release autonomous-topic-generation
 
 for service in priority-topic-generation autonomous-topic-generation institutional-transitions; do
   gcloud run services add-iam-policy-binding "${service}" --region="${REGION}" --project="${PROJECT_ID}" \

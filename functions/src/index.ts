@@ -3,8 +3,8 @@ import { Timestamp } from "firebase-admin/firestore";
 import { ACTIVE_CORPUS_ID, MAX_DISCOVERY_CANDIDATES, MAX_DISCOVERY_PROMOTIONS } from "./config";
 import { assertActiveCorpus, corpusCollection, corpusRecord, requireTaskCorpus } from "./corpus";
 import { handlePublicApi } from "./public-api";
-import { executeGeneration, executeInstitutionalTransition } from "./pipeline";
-import { institutionalTaskPayloadSchema, taskPayloadSchema } from "./schemas";
+import { executeEvidenceFirstShadowGeneration, executeGeneration, executeInstitutionalTransition } from "./pipeline";
+import { evidenceFirstTaskPayloadSchema, institutionalTaskPayloadSchema, taskPayloadSchema } from "./schemas";
 import { claimAutonomousTopic, retryDeferredEnqueues } from "./topic-ledger";
 import { discoverTopics } from "./vertex";
 
@@ -29,7 +29,8 @@ async function generationWorker(request: Request, response: Response) {
   const leaseOwner = requireTask(request, response);
   if (!leaseOwner) return;
   try {
-    const parsed = taskPayloadSchema.safeParse(request.body);
+    const evidenceFirst = evidenceFirstTaskPayloadSchema.safeParse(request.body);
+    const parsed = evidenceFirst.success ? evidenceFirst : taskPayloadSchema.safeParse(request.body);
     if (!parsed.success) {
       console.warn(JSON.stringify({ severity: "WARNING", component: "generation_worker", taskName: leaseOwner, action: "discard_unscoped_task" }));
       response.status(200).json({ ok: true, data: { status: "REJECTED_UNSCOPED_TASK" } });
@@ -42,7 +43,9 @@ async function generationWorker(request: Request, response: Response) {
     }
     requireTaskCorpus(payload.corpusId);
     await assertActiveCorpus();
-    const result = await executeGeneration(payload, leaseOwner);
+    const result = evidenceFirst.success
+      ? await executeEvidenceFirstShadowGeneration(evidenceFirst.data, leaseOwner)
+      : await executeGeneration(payload, leaseOwner);
     response.status(200).json({ ok: true, data: result });
   } catch (error) {
     console.error(JSON.stringify({ severity: "ERROR", component: "generation_worker", taskName: leaseOwner, message: error instanceof Error ? error.message : String(error) }));

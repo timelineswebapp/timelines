@@ -1,0 +1,115 @@
+{
+  "title": "The 1906 San Francisco Earthquake",
+  "status": "FAILED_CLOSED",
+  "reason": "EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_PHASE_KNOWLEDGE,WEAK_PHASE_KNOWLEDGE,MISSING_PHASE_KNOWLEDGE,WEAK_PHASE_KNOWLEDGE,MISSING_PHASE_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,MISSING_DIMENSION_KNOWLEDGE,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,UNANSWERED_CRITICAL_RESEARCH_QUESTION,MISSING_CHRONOLOGY",
+  "stage": "FINAL_COVERAGE",
+  "metrics": {
+    "rounds": 2,
+    "providerCalls": 28,
+    "authorityRoutingModelCalls": 2,
+    "controlledResearchOperations": 22,
+    "groundingEscalationCalls": 4,
+    "directRetrievalAttempts": 16,
+    "retrievalSuccesses": 15,
+    "retrievalFailures": 1,
+    "sourcesSnapshotted": 15,
+    "claimsExtracted": 15,
+    "claimsSupported": 9,
+    "resolvedEvents": 0,
+    "inputTokens": 160449,
+    "outputTokens": 12572,
+    "monetaryCost": null,
+    "totalLatencyMs": 460189,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-c7af785b8093a586645d25c4c4beb19be334a8a84251ffb8c9fc2392d7f71eb9",
+      "topic-authority-set-14f8230930980f9572bd742ee7fff7f1fbee24451ca17913b0704be455813cfb"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-6385a8066d89831d6fff53bbb8a3b211b721d55b7364c820018346b3d816d25d",
+      "authority-research-plan-0a796aebf2e0db831390fa554c8b64a99b5e46ba1d5e186bbbae512312ad3d30"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-da6a671c375c28b0a948abef860c7ac732a311ab502b6db8a1b36bde07dc6fb6",
+      "controlled-research-ledger-6c914bd08ee0e36c6d14cd85736fa31a717b19fcca911947870a789f48560a79"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-2f22bb2f5768339a5814612f44a9bd48ca1801b363d8e184d3a6d664c3ed52b8",
+      "perspective-audit-d1b4cc1675cfc4c2eb59ea4144babe2c717f9f30285820f51554bf34ee522c70"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-f0f8d5c478b43c6ca43460778749b5af9a6a576f13bf1b7590bbb88de9f7c88f",
+      "acquisition-confidence-6aa2633f8e9897dc12568bc70bf75acaa97420be600c487c6f6ef56a9ae5f721"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

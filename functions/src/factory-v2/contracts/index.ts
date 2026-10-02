@@ -3,3 +3,5 @@ export * from "./knowledge";
 export * from "./operations";
 export * from "./assembly";
 export * from "./coverage";
+export * from "./search";
+export * from "./authority-first";

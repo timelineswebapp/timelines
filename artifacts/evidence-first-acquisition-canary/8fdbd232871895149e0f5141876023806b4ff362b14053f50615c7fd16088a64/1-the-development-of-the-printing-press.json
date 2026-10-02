@@ -1,0 +1,7 @@
+{
+  "title": "The Development of the Printing Press",
+  "status": "FAILED_CLOSED",
+  "stage": "UNHANDLED",
+  "reason": "[\n  {\n    \"code\": \"custom\",\n    \"path\": [\n      \"queries\"\n    ],\n    \"message\": \"At most three phase/dimension queries are allowed.\"\n  }\n]",
+  "telemetry": null
+}

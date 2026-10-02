@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { provisionalPublisher } from "./orchestrator";
+import { reconnaissanceArtifactId } from "./orchestrator";
+import { namespacePolicyPublisher, provisionalPublisher } from "./legacy-publisher-inference";
 import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildQueryPlan, buildResearchMap, executionArtifactId } from "./contracts/builders";
 import { buildKnowledgeCompletionResult } from "./coverage";
 import { verifyPayloadHash } from "./hashing";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
+
+const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
 
 const scope = scopeFixture();
 const modelRef = (executionId: string) => ({ executionId, model: "gemini-test", location: "global", promptVersion: "factory-v2-a-prompts.8", promptHash: "a".repeat(64), responseHash: "b".repeat(64) });
@@ -24,6 +27,11 @@ test("execution artifact identity is idempotent for an exact observation and cha
   assert.equal(executionArtifactId("test-execution", TEST_CONTEXT, payload), first);
   assert.notEqual(executionArtifactId("test-execution", { ...TEST_CONTEXT, runId: "run-456" }, payload), first);
   assert.notEqual(executionArtifactId("test-execution", TEST_CONTEXT, { ...payload, latencyMs: 8 }), first);
+});
+
+test("reconnaissance execution identity cannot collide across acquisition runs", () => {
+  const observation = { knownEntities: [], admittedEvents: [], strongClaims: [], reusableSnapshots: [], conflicts: [], gaps: [], reuseClassifications: [] };
+  assert.notEqual(reconnaissanceArtifactId(TEST_CONTEXT, observation), reconnaissanceArtifactId({ ...TEST_CONTEXT, runId: "retry-run" }, observation));
 });
 
 test("model-derived semantic versions converge across execution provenance and split on semantic policy", () => {
@@ -54,8 +62,20 @@ test("provisional publisher bootstrap ignores caller topic policy provenance", (
   assert.deepEqual(second, first);
 });
 
+test("controlled namespaces receive policy-owned publisher identity without historical-content inference", () => {
+  const university = namespacePolicyPublisher(TEST_CONTEXT, "https://history.example.edu/archive");
+  const government = namespacePolicyPublisher(TEST_CONTEXT, "https://records.example.gov/item");
+  assert.equal(university?.institutionType, "UNIVERSITY");
+  assert.equal(university?.state, "VERIFIED");
+  assert.equal(government?.institutionType, "GOVERNMENT");
+  assert.equal(government?.primarySecondaryTendency, "PRIMARY");
+  assert.equal(namespacePolicyPublisher(TEST_CONTEXT, "https://example.edu/sports"), undefined);
+  assert.equal(namespacePolicyPublisher(TEST_CONTEXT, "https://example.gov/landing"), undefined);
+  assert.equal(namespacePolicyPublisher(TEST_CONTEXT, "https://uncontrolled.example/history"), undefined);
+});
+
 test("completed knowledge-set identity excludes execution and normalizes set-like membership", () => {
-  const payload = { completionPlanId: "completion-plan", initialCoverageAuditId: "audit-initial", initialCoverageAuditPayloadHash: "a".repeat(64), finalCoverageAuditId: "audit-final", finalCoverageAuditPayloadHash: "b".repeat(64), scopeContractId: "scope-contract", scopePayloadHash: "c".repeat(64), researchMapId: "research-map", researchMapPayloadHash: "d".repeat(64), candidateEventVersionIds: ["event-version-b", "event-version-a"], candidateClaimVersionIds: ["claim-version-b", "claim-version-a"], authorityVerdictIds: ["verdict-b", "verdict-a"], conflictSetIds: [], unresolvedGapIds: [], finalVerdict: "SUFFICIENT" as const };
+  const payload = { authorityAcquisitionRounds: AUTHORITY_LINEAGE, completionPlanId: "completion-plan", initialCoverageAuditId: "audit-initial", initialCoverageAuditPayloadHash: "a".repeat(64), finalCoverageAuditId: "audit-final", finalCoverageAuditPayloadHash: "b".repeat(64), scopeContractId: "scope-contract", scopePayloadHash: "c".repeat(64), researchMapId: "research-map", researchMapPayloadHash: "d".repeat(64), candidateEventVersionIds: ["event-version-b", "event-version-a"], candidateClaimVersionIds: ["claim-version-b", "claim-version-a"], authorityVerdictIds: ["verdict-b", "verdict-a"], conflictSetIds: [], unresolvedGapIds: [], finalVerdict: "SUFFICIENT" as const };
   const first = buildKnowledgeCompletionResult(TEST_CONTEXT, payload);
   assert.equal(buildKnowledgeCompletionResult(TEST_CONTEXT, payload).completionResultId, first.completionResultId);
   assert.equal(buildKnowledgeCompletionResult({ ...TEST_CONTEXT, runId: "other-run" }, payload).completionResultId, first.completionResultId);

@@ -1,0 +1,132 @@
+{
+  "title": "The Berlin Blockade and Airlift",
+  "status": "VALID_CKS",
+  "completedKnowledgeSetId": "completed-knowledge-set-5bdd4d7d20e2e6bde63c81ceda7dad8b776915fca3cc057680c10661b90892c5",
+  "completedKnowledgeSetHash": "f3d96852d90be918920fa37c60a5048fd4d0b3cfa745582e9eda1ee326a8a1f3",
+  "finalCoverageVerdict": "SUFFICIENT",
+  "authorityAcquisitionRounds": [
+    {
+      "topicAuthoritySetId": "topic-authority-set-04e444ba5414fc856222ca22064775ca3e388d9e46dae97debfde0d246a284dc",
+      "authorityResearchPlanId": "authority-research-plan-95fe59c6dd7714f3d3071ef62fc72c78c64f732a524b7adf2d4b1ea96ef55a76",
+      "controlledResearchLedgerId": "controlled-research-ledger-b1d13d6a90581731d79d2b6b1cb81b13d8148afa87da420e5e5dcd7283364a64",
+      "perspectiveAuditId": "perspective-audit-bf1527aac6ead85a5c51eafae5724a7d1c8c36e738db248f3b405e335c3d1132",
+      "confidenceVectorId": "acquisition-confidence-0c7404a02d0c4be1ed9edd32d3dbfbbf4e807c92ec7d169edeb39c07b89a8c0b"
+    },
+    {
+      "topicAuthoritySetId": "topic-authority-set-fd8c7c46a5c7b1ddc12f0263690e54aa8b4c7080cac9d0ad0217650953860728",
+      "authorityResearchPlanId": "authority-research-plan-b6bb57104ee78a83c463c2befa7a436b52b4f04822191b23004fd7f1c1574a65",
+      "controlledResearchLedgerId": "controlled-research-ledger-da83dd22b826266a0564804eca3a3214f0dc5428db8c2b8f8df7bd0d47c624cc",
+      "perspectiveAuditId": "perspective-audit-a10838c08fe033883892875f44a82fe3bad1650cd7c676f6f3331476027286e9",
+      "confidenceVectorId": "acquisition-confidence-ec2fb4a7ef2ad8e43ef2ca46be37bd3db048c82f8eb5c4e8b4b6a64d259c2983"
+    }
+  ],
+  "telemetry": {
+    "rounds": 2,
+    "providerCalls": 17,
+    "authorityRoutingModelCalls": 2,
+    "controlledResearchOperations": 32,
+    "groundingEscalationCalls": 2,
+    "directRetrievalAttempts": 8,
+    "retrievalSuccesses": 8,
+    "retrievalFailures": 0,
+    "sourcesSnapshotted": 8,
+    "claimsExtracted": 29,
+    "claimsSupported": 26,
+    "resolvedEvents": 5,
+    "inputTokens": 175128,
+    "outputTokens": 21423,
+    "monetaryCost": null,
+    "totalLatencyMs": 836397,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-04e444ba5414fc856222ca22064775ca3e388d9e46dae97debfde0d246a284dc",
+      "topic-authority-set-fd8c7c46a5c7b1ddc12f0263690e54aa8b4c7080cac9d0ad0217650953860728"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-95fe59c6dd7714f3d3071ef62fc72c78c64f732a524b7adf2d4b1ea96ef55a76",
+      "authority-research-plan-b6bb57104ee78a83c463c2befa7a436b52b4f04822191b23004fd7f1c1574a65"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-b1d13d6a90581731d79d2b6b1cb81b13d8148afa87da420e5e5dcd7283364a64",
+      "controlled-research-ledger-da83dd22b826266a0564804eca3a3214f0dc5428db8c2b8f8df7bd0d47c624cc"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-bf1527aac6ead85a5c51eafae5724a7d1c8c36e738db248f3b405e335c3d1132",
+      "perspective-audit-a10838c08fe033883892875f44a82fe3bad1650cd7c676f6f3331476027286e9"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-0c7404a02d0c4be1ed9edd32d3dbfbbf4e807c92ec7d169edeb39c07b89a8c0b",
+      "acquisition-confidence-ec2fb4a7ef2ad8e43ef2ca46be37bd3db048c82f8eb5c4e8b4b6a64d259c2983"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

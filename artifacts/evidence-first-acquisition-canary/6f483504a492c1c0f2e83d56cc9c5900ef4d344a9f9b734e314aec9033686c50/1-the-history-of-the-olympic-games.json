@@ -1,0 +1,221 @@
+{
+  "title": "The History of the Olympic Games",
+  "status": "FAILED_CLOSED",
+  "stage": "GAP_COMPLETION",
+  "reason": "V2_A_RUN_FAILED:evidence-first-completion-55c813b9-fc05-4621-a6e6-596e2eb56a3e:ACQUISITION_BUDGET_EXHAUSTED: provider-reported query cap exceeded.",
+  "telemetry": {
+    "acquisitionRounds": 2,
+    "providerCalls": 23,
+    "retries": 0,
+    "repairs": 2,
+    "queries": [
+      "academic journals olympic games commercialization",
+      "academic journals pierre de coubertin olympic games",
+      "ancient olympic games end reasons authoritative",
+      "ancient olympic games events historical accounts",
+      "ancient olympic games historical records institutions",
+      "ancient olympic games primary sources religion",
+      "ancient olympic games religious rituals scholarly sources",
+      "archives olympic games controversies",
+      "chronology ancient olympic games authoritative sources",
+      "chronology modern olympic games authoritative sources",
+      "decline of ancient olympic games scholarly articles",
+      "historical accounts pierre de coubertin role in olympics",
+      "history of ancient olympic games academic",
+      "history of modern olympic games academic",
+      "international olympic committee archives history",
+      "international olympic committee archives pierre de coubertin",
+      "modern olympic games historical archives official",
+      "olympia sanctuary religious significance",
+      "olympic games commercialization controversies academic research",
+      "olympic games historical controversies political influence",
+      "olympic games history primary sources archives",
+      "olympic games political impact scholarly sources",
+      "olympic museum historical documents",
+      "olympic museum pierre de coubertin",
+      "pierre de coubertin founding modern olympic games scholarly sources",
+      "scholarly publications history of olympic games primary sources",
+      "university studies olympic games political impact",
+      "academic sources early olympic games chronology",
+      "ancient olympic games ban edict theodosius i primary sources",
+      "ancient olympic games decline cessation primary sources",
+      "ancient olympic games influence modern revival scholarly",
+      "ancient olympic games origins history chronology university",
+      "archaeological evidence ancient olympics museum",
+      "early modern olympic games institutional history",
+      "early modern olympic games origins academic publications",
+      "enlightenment philosophy sports revival historical documents",
+      "history of ancient olympic games end authoritative sources",
+      "history of ancient olympic games primary sources academic",
+      "history of olympic games 1896-1914 primary sources",
+      "history of olympic games pre-coubertin revival attempts archives",
+      "international olympic committee history 1896-1914",
+      "museums olympic games history 1896-1914",
+      "official history of the modern olympic games",
+      "official records ancient olympic games history",
+      "olympic games ancient history official records cessation",
+      "olympic games development 1896-1914 archives",
+      "olympic games history institutional records early ideas",
+      "olympic games revival enlightenment era historical sources",
+      "olympic museum pierre de coubertin founding modern olympics",
+      "pierre de coubertin olympic games founding history primary sources",
+      "scholarly articles ancient olympic games development",
+      "scholarly articles on pierre de coubertin and modern olympics founding",
+      "university press books on history of modern olympic games",
+      "when did the ancient olympic games end primary sources"
+    ],
+    "sourcesDiscovered": 85,
+    "retrievalAttempts": 11,
+    "retrievalSuccesses": 8,
+    "retrievalFailures": 3,
+    "retrievalRejectionReasons": {
+      "SOURCE_RETRIEVAL_ROBOTS_DENIED": 1,
+      "The operation was aborted": 2
+    },
+    "retrievalFailureDetails": [
+      {
+        "urlHash": "dee67c2858d093e140b8edb7b227b38e220cbbb03da7aeea30d324003ef546bd",
+        "reason": "The operation was aborted",
+        "latencyMs": 11505,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "36c67b6546a65e1b9e173fb718c8983caca9d391a69f9fd50f1e09b1a785d54d",
+        "reason": "SOURCE_RETRIEVAL_ROBOTS_DENIED",
+        "latencyMs": 1750,
+        "acquisitionRound": 1
+      },
+      {
+        "urlHash": "9f7cb42682cbb3160effcff3be592939039f8de39cddb99f645822b8fa633175",
+        "reason": "The operation was aborted",
+        "latencyMs": 11357,
+        "acquisitionRound": 1
+      }
+    ],
+    "sourceRanking": [
+      {
+        "rank": 1,
+        "urlHash": "c4a8505603a5b1f3348ea890f42e3433a88b8aed0820649c1c6537dba9b44d1a",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 2,
+        "urlHash": "dee67c2858d093e140b8edb7b227b38e220cbbb03da7aeea30d324003ef546bd",
+        "domain": "olympics.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 3,
+        "urlHash": "a544c61e5671998fb8b09695ca4155caf07a830354dc5c2c3dedfef66e3ab240",
+        "domain": "nationalarchives.gov.uk",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 4,
+        "urlHash": "9f7cb42682cbb3160effcff3be592939039f8de39cddb99f645822b8fa633175",
+        "domain": "olympics.com",
+        "admittedQuestionCount": 3,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 5,
+        "urlHash": "e1c230bfe059364175f725bfd69299d12eb4f88a8a2e6aeb3535e2e4467043d8",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 3,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 6,
+        "urlHash": "adcb6e68170cc9f60d17c67b31ef4d8da7b0a2bc0aad06321ab032cb73cd690f",
+        "domain": "cambridge.org",
+        "admittedQuestionCount": 3,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 7,
+        "urlHash": "6e533e1c53ef1aa5f6e5ab740b3eb2d1b7c30c729ae5399af74d4fd7ff0f5766",
+        "domain": "olympics.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 8,
+        "urlHash": "eba90903aa2be545c4b20b19854ff73cc1c5d302c43f37504f92222963b42ccd",
+        "domain": "britannica.com",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 9,
+        "urlHash": "36c67b6546a65e1b9e173fb718c8983caca9d391a69f9fd50f1e09b1a785d54d",
+        "domain": "academia.edu",
+        "admittedQuestionCount": 1,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 10,
+        "urlHash": "8b6b75ab4f2d8de983d30f6b150bcc09987b542363e24157da396461aa256bf5",
+        "domain": "bemidjistate.edu",
+        "admittedQuestionCount": 3,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 11,
+        "urlHash": "6f088b65be3e5ee3955eb05383b5be4bed3f004832dde7b940717fc8db1cd7c1",
+        "domain": "usc.edu",
+        "admittedQuestionCount": 3,
+        "acquisitionRound": 1
+      },
+      {
+        "rank": 12,
+        "urlHash": "5c0154f6b1ed884f4d41d0c1edc6a5bcd4d78a880b53e0ef6bbc8ddc67f03792",
+        "domain": "osu.edu",
+        "admittedQuestionCount": 3,
+        "acquisitionRound": 1
+      }
+    ],
+    "evidencePackets": 8,
+    "evidencePacketSegments": 88,
+    "claimsExtracted": 43,
+    "claimsSupported": 21,
+    "claimsRejected": 24,
+    "claimRejectionReasons": {
+      "normalizedAssertion": 2
+    },
+    "authorityDistribution": {
+      "INSUFFICIENT": 22,
+      "SUPPORTED": 21
+    },
+    "conflictsDetected": 5,
+    "conflictsUnresolved": 5,
+    "eventCandidates": 0,
+    "resolvedEventCandidates": 0,
+    "rejectedNonEvents": 0,
+    "eventDispositionDistribution": {},
+    "eventResolutionDiagnostics": {
+      "NO_EVIDENCED_TEMPORAL_START": 1,
+      "NO_RELATED_RESOLVED_ENTITY": 19,
+      "NO_SUPPORTED_CORE_CLAIM": 16
+    },
+    "stageLatencyMs": {
+      "CLAIM_EXTRACTION": 57400,
+      "GROUNDING": 135361,
+      "QUERY_PLAN": 3669,
+      "RESEARCH_MAP": 23289,
+      "SCOPE": 15431
+    },
+    "totalLatencyMs": 432442,
+    "inputTokens": 74051,
+    "outputTokens": 29835,
+    "monetaryCost": null,
+    "costMeasurement": "NOT_MEASURABLE"
+  },
+  "coverage": {
+    "initialAuditId": "knowledge-coverage-audit-4226b7ef92ae5aea38bbdda6f92f602a87e97b851b495d3b7fb016a619a8102a",
+    "finalAuditId": null
+  }
+}
