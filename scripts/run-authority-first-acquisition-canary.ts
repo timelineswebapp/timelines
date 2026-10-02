@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, relative, resolve } from "node:path";
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { ACTIVE_CORPUS_ID } from "../functions/src/config";
@@ -15,6 +16,7 @@ import { readSchedulerState } from "../functions/src/evidence-first/scheduler-st
 
 const PROJECT_ID = "tiimeliines";
 const REGION = "us-central1";
+const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const INTER_SUBJECT_COOLDOWN_MS = 60_000;
 const SUBJECTS = [
   "The 1906 San Francisco Earthquake",
@@ -32,7 +34,7 @@ function loadGenerationRelease(): GenerationRelease {
   const npmCliPath = process.env.npm_execpath;
   if (!npmCliPath) throw new Error("Authority-First canary must be launched through npm so its manifest generator is deterministic.");
   const raw = execFileSync(process.execPath, [npmCliPath, "run", "--silent", "release:manifest"], {
-    cwd: resolve(process.cwd(), "functions"),
+    cwd: resolve(REPOSITORY_ROOT, "functions"),
     encoding: "utf8",
     env: { ...process.env, ALLOW_DIRTY_GENERATION_RELEASE: "true" },
     maxBuffer: 5 * 1024 * 1024
@@ -86,7 +88,7 @@ async function main() {
   if (discoveryState !== "PAUSED") throw new Error(`Autonomous discovery must remain PAUSED; observed ${discoveryState || "UNKNOWN"}.`);
   const deploymentState = [serviceState("priority-topic-generation"), serviceState("autonomous-topic-generation")];
   const runId = new Date().toISOString().replace(/[:.]/gu, "-");
-  const outputDirectory = resolve(process.cwd(), "artifacts", "authority-first-acquisition-canary", runId);
+  const outputDirectory = resolve(REPOSITORY_ROOT, "artifacts", "authority-first-acquisition-canary", runId);
   await mkdir(outputDirectory, { recursive: true });
   const config = shadowConfig(new Date().toISOString());
   const generationRelease = loadGenerationRelease();
@@ -95,8 +97,8 @@ async function main() {
   let resumedFromReport: { path: string; sha256: string } | null = null;
   const resumeInput = process.env.AUTHORITY_FIRST_CANARY_RESUME_REPORT;
   if (resumeInput) {
-    const artifactRoot = resolve(process.cwd(), "artifacts", "authority-first-acquisition-canary");
-    const resumePath = resolve(process.cwd(), resumeInput);
+    const artifactRoot = resolve(REPOSITORY_ROOT, "artifacts", "authority-first-acquisition-canary");
+    const resumePath = resolve(REPOSITORY_ROOT, resumeInput);
     const artifactRelative = relative(artifactRoot, resumePath);
     if (artifactRelative.startsWith("..") || artifactRelative === "" || !artifactRelative.endsWith("report.json")) throw new Error("Resume report must be an existing Authority-First canary report artifact.");
     const bytes = await readFile(resumePath);
