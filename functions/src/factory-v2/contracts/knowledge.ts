@@ -14,6 +14,18 @@ import {
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const stringList = (min: number, max: number, itemMax = 500) => z.array(boundedText(1, itemMax)).min(min).max(max).refine(unique, "Values must be unique.");
 
+/**
+ * A locked phase with an explicit year beyond a closed chronology end can
+ * never be covered by an in-scope event. Keep that contradiction out of the
+ * Scope Contract rather than discovering it only after bounded acquisition.
+ */
+export function phaseExceedsChronologyEnd(phaseLabel: string, chronologyEnd: { year: number; latestYear: number | null } | null): boolean {
+  if (chronologyEnd === null) return false;
+  const endYear = chronologyEnd.latestYear ?? chronologyEnd.year;
+  const years = [...phaseLabel.matchAll(/(?<!\d)(-?\d{4})(?!\d)/gu)].map((match) => Number(match[1]));
+  return years.some((year) => year > endYear);
+}
+
 export const topicClassSchema = z.enum(["CLOSED_EPISODE", "ONGOING_SUBJECT", "BIOGRAPHY", "INSTITUTION", "LONG_DURATION"]);
 export const entityTypeSchema = z.enum(["Person", "Institution", "Place", "Technology", "Publication", "Conflict", "Movement", "Period"]);
 export const claimTypeSchema = z.enum(["OCCURRENCE", "DATE", "IDENTITY", "LOCATION", "QUANTITY", "INSTITUTIONAL_ACTION", "RELATIONSHIP", "ATTRIBUTION", "QUOTATION", "CAUSATION", "INTERPRETATION", "CONSEQUENCE"]);
@@ -70,6 +82,9 @@ export const scopeContractSchema = z.object({
   if (scope.topicClass === "ONGOING_SUBJECT" && scope.ongoingAsOf === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["ongoingAsOf"], message: "Ongoing subjects require ongoingAsOf." });
   if (scope.topicClass !== "ONGOING_SUBJECT" && scope.ongoingAsOf !== null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["ongoingAsOf"], message: "Only ongoing subjects may set ongoingAsOf." });
   if (scope.topicClass === "CLOSED_EPISODE" && scope.chronologyEnd === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["chronologyEnd"], message: "Closed episodes require an end boundary." });
+  for (const [index, phase] of scope.expectedPhases.entries()) {
+    if (phaseExceedsChronologyEnd(phase, scope.chronologyEnd)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["expectedPhases", index], message: "Expected phases may not extend beyond the locked chronology end." });
+  }
 });
 
 export const scopeAmendmentProposalSchema = z.object({

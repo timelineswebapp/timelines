@@ -47,6 +47,15 @@ test("Scope proposal uses bounded semantic repair and keeps execution provenance
   assert.match(requests[1]!.contents, /VALIDATION_ERRORS/);
 });
 
+test("Scope proposal repairs a dated phase that extends past the locked chronology end", async () => {
+  const invalid = { ...scopeProposal, topicClass: "BIOGRAPHY", chronologyEnd: date(1852), expectedPhases: ["Life (1815-1852)", "Legacy (1853-present)"] };
+  const valid = { ...invalid, chronologyEnd: date(2026), contextAfter: null };
+  const result = await proposeScope({ context: TEST_CONTEXT, title: "Historical biography", language: "en", ongoingAsOf: "2026-09-06", reconnaissance: {}, provider: providerFrom([JSON.stringify(invalid), JSON.stringify(valid)]) });
+  assert.equal(result.executions[0]!.validationState, "INVALID");
+  assert.equal(result.executions[1]!.validationState, "REPAIRED");
+  assert.equal(result.scope.chronologyEnd?.year, 2026);
+});
+
 test("software clears provider as-of dates from non-ongoing scope classes without semantic repair", async () => {
   const proposal = { ...scopeProposal, topicClass: "LONG_DURATION", ongoingAsOf: "2026-09-06" };
   const result = await proposeScope({ context: TEST_CONTEXT, title: "History of Apollo", language: "en", ongoingAsOf: "2026-09-06", reconnaissance: {}, provider: providerFrom([JSON.stringify(proposal)]) });

@@ -32,7 +32,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FOUNDER_DECISION_REQUIRED | Final permitted frozen certification run (`2026-10-02T06-27-23-788Z`) produced valid sufficient CKS results for San Francisco and Berlin with exact protected-state parity, then failed closed at Ada final coverage; Printing Press was not executed. No further retry or standards change is authorized. |
+| 2 — four-subject Authority-First CKS | REMEDIATION_IN_PROGRESS | Run `2026-10-02T06-27-23-788Z` produced valid sufficient CKS results for San Francisco and Berlin with exact protected-state parity, then failed closed at Ada final coverage because its scope placed a required 1853–present phase beyond its locked 1852 chronology end. A generic scope-coherence guard is verified locally; rerun affected subjects on one new frozen release. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -46,4 +46,4 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Resume instruction
 
-Checkpoint `1e4651a` contains the Authority-First candidate, preserved evidence, and compatible dependency updates. Phase 2 is now stopped for a founder decision: the final permitted certification run failed closed on Ada coverage after two valid CKS results, and it did not execute Printing Press. Preserve the evidence and do not retry, lower coverage standards, or advance to Phase 3 without explicit direction.
+Checkpoint `1e4651a` contains the Authority-First candidate, preserved evidence, and compatible dependency updates. Generate a new release identity containing the generic scope-coherence guard. Run a fresh frozen Phase 2 certification over all four fixed subjects so all final CKS evidence has one materially equivalent release. Preserve prior failure artifacts; do not lower standards or advance to Phase 3 before a 4/4 result.
