@@ -6,7 +6,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`IN_PROGRESS — PHASE_2_AUTHORITY_FIRST_PHASE_1_CERTIFICATION`
+`FOUNDER_DECISION_REQUIRED — PHASE_2_AUTHORITY_FIRST_PERSPECTIVE_GATE`
 
 ## Phase 0 baseline — 2026-10-02
 
@@ -32,7 +32,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | REMEDIATION_IN_PROGRESS | Run `2026-10-02T07-33-47-189Z` validated the jurisdiction normalization: San Francisco and Berlin produced valid CKS results with exact protected-state parity, while Ada completed initial acquisition and reached bounded gap completion. The constrained completion query made ten attributable registered-domain searches for the remaining Social Context gap but returned no new registered-authority page, correctly failing closed with zero continuation artifacts; the initial round's 10 snapshots/15 supported claims remain distinct. This is source insufficiency, not a perspective or scope defect. Preserve the run and rerun the exact release once; a repeat of this same constrained-source outcome requires a founder decision rather than weaker evidence or topic-specific seeding. |
+| 2 — four-subject Authority-First CKS | FOUNDER_DECISION_REQUIRED | The final permitted fresh repeat, `2026-10-02T08-08-39-919Z`, again produced valid CKS results for San Francisco and Berlin with exact protected-state parity, then Ada failed at initial acquisition with `PERSPECTIVE_DIVERSITY_INADEQUATE:MISSING_REQUIRED_PERSPECTIVE`. This is the third occurrence of the same perspective-gate failure across two general corrections: institutional/locality filtering (`4e41509`) and jurisdiction-over-locality normalization (`4e9e9fe`). The program contract prohibits a third correction, weaker perspective standards, topic-specific seeding, or a new provider without founder direction. Printing Press was not executed after the fail-closed gate. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -46,4 +46,4 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Resume instruction
 
-Checkpoint `4e9e9fe` contains the current Authority-First candidate, preserved evidence, and compatible dependency updates. Run one fresh frozen Phase 2 certification over all four fixed subjects on its exact release so all final CKS evidence has one materially equivalent release. Preserve prior failure artifacts; do not lower standards or advance to Phase 3 before a 4/4 result. A repeat of Ada's constrained-source insufficiency requires a founder decision; do not weaken coverage, seed topic-specific evidence, or introduce a new provider.
+Checkpoint `9104810` contains the current Authority-First candidate and preceding immutable evidence. Do not rerun Phase 2 or advance to Phase 3. Founder direction is required to choose a new authorized strategy for the recurring Ada perspective-gate failure; no current strategy is authorized to lower standards, seed topic-specific evidence, or introduce a provider.
