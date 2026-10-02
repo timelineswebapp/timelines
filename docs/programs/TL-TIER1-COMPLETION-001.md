@@ -6,7 +6,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`FOUNDER_DECISION_REQUIRED — PHASE_2_AUTHORITY_FIRST_PERSPECTIVE_GATE`
+`IN_PROGRESS — PHASE_2_AUTHORITY_FIRST_PHASE_1_CERTIFICATION`
 
 ## Phase 0 baseline — 2026-10-02
 
@@ -32,7 +32,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FOUNDER_DECISION_REQUIRED | The final permitted fresh repeat, `2026-10-02T08-08-39-919Z`, again produced valid CKS results for San Francisco and Berlin with exact protected-state parity, then Ada failed at initial acquisition with `PERSPECTIVE_DIVERSITY_INADEQUATE:MISSING_REQUIRED_PERSPECTIVE`. This is the third occurrence of the same perspective-gate failure across two general corrections: institutional/locality filtering (`4e41509`) and jurisdiction-over-locality normalization (`4e9e9fe`). The program contract prohibits a third correction, weaker perspective standards, topic-specific seeding, or a new provider without founder direction. Printing Press was not executed after the fail-closed gate. |
+| 2 — four-subject Authority-First CKS | REMEDIATION_IN_PROGRESS | Founder approved one general policy correction. Commit `4f0d3a4` introduces explicit typed historical perspective requirements (stakeholder, party, affected/custodial community, independent scholarship, or material jurisdiction) and makes Research Map geography retrieval-only. Authority-First policy is versioned `authority-first-research.2`; full Functions suite (245 pass, 2 intentional skips), strict typecheck, and diff check pass. Run one fresh complete four-subject certification on the new release. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -46,4 +46,4 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Resume instruction
 
-Checkpoint `9104810` contains the current Authority-First candidate and preceding immutable evidence. Do not rerun Phase 2 or advance to Phase 3. Founder direction is required to choose a new authorized strategy for the recurring Ada perspective-gate failure; no current strategy is authorized to lower standards, seed topic-specific evidence, or introduce a provider.
+Checkpoint `4f0d3a4` contains the current Authority-First candidate and the founder-authorized policy correction. Run one fresh complete four-subject Phase 2 certification on its materially equivalent release. Preserve all prior failure evidence; do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards. Do not advance before a single 4/4 valid-CKS run.
