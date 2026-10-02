@@ -29,7 +29,9 @@ function stableConfig(config: Record<string, unknown>): Record<string, unknown> 
 }
 
 function loadGenerationRelease(): GenerationRelease {
-  const raw = execFileSync("npm", ["run", "--silent", "release:manifest"], {
+  const npmCliPath = process.env.npm_execpath;
+  if (!npmCliPath) throw new Error("Authority-First canary must be launched through npm so its manifest generator is deterministic.");
+  const raw = execFileSync(process.execPath, [npmCliPath, "run", "--silent", "release:manifest"], {
     cwd: resolve(process.cwd(), "functions"),
     encoding: "utf8",
     env: { ...process.env, ALLOW_DIRTY_GENERATION_RELEASE: "true" },
