@@ -1,0 +1,120 @@
+{
+  "title": "The Berlin Blockade and Airlift",
+  "status": "VALID_CKS",
+  "completedKnowledgeSetId": "completed-knowledge-set-ac6babf4093dd194c03dfe6a26656a8ca644c82857306c139908633dce3f979a",
+  "completedKnowledgeSetHash": "14da5fbbb6aaa22d751c384920e3e9fe769b3a35a31ee25e4d801e2469c40ab2",
+  "finalCoverageVerdict": "SUFFICIENT",
+  "authorityAcquisitionRounds": [
+    {
+      "topicAuthoritySetId": "topic-authority-set-8b802739e9e70cd502944d67a1b8d3fb2803ef18835d7b35968c53b54e592145",
+      "authorityResearchPlanId": "authority-research-plan-d09e4918f5d2a687b892f72c7096bc41509c5ce4ee12ed9baeb96022fbc10498",
+      "controlledResearchLedgerId": "controlled-research-ledger-f6415ded4aae789b6a81a43f3d66b269fcc0b4b3bc2c984b3d3237b94fd53874",
+      "perspectiveAuditId": "perspective-audit-3d61ce3c3e3ff301485247e7b526f124f6ee80185a0cf76b5d76d1744dcf24bf",
+      "confidenceVectorId": "acquisition-confidence-75155d50933c03e2e46834e478b742181dfc897196aaccb66fce24030d4d679f"
+    }
+  ],
+  "telemetry": {
+    "rounds": 1,
+    "providerCalls": 12,
+    "authorityRoutingModelCalls": 1,
+    "controlledResearchOperations": 17,
+    "groundingEscalationCalls": 1,
+    "directRetrievalAttempts": 5,
+    "retrievalSuccesses": 5,
+    "retrievalFailures": 0,
+    "sourcesSnapshotted": 5,
+    "claimsExtracted": 25,
+    "claimsSupported": 25,
+    "resolvedEvents": 2,
+    "inputTokens": 162399,
+    "outputTokens": 13784,
+    "monetaryCost": null,
+    "totalLatencyMs": 746546,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-8b802739e9e70cd502944d67a1b8d3fb2803ef18835d7b35968c53b54e592145"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-d09e4918f5d2a687b892f72c7096bc41509c5ce4ee12ed9baeb96022fbc10498"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-f6415ded4aae789b6a81a43f3d66b269fcc0b4b3bc2c984b3d3237b94fd53874"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-3d61ce3c3e3ff301485247e7b526f124f6ee80185a0cf76b5d76d1744dcf24bf"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-75155d50933c03e2e46834e478b742181dfc897196aaccb66fce24030d4d679f"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}

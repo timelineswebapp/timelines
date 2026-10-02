@@ -88,6 +88,19 @@ test("physical features do not become human perspective requirements for contest
   assert.deepEqual(requiredPerspectiveTags(map), []);
 });
 
+test("a locality does not create a separate perspective obligation when its jurisdiction is explicit", () => {
+  const scope = scopeFixture();
+  const map = buildResearchMap(TEST_CONTEXT, scope, {
+    version: 1,
+    phases: [{ phaseId: "phase-life", label: "life", temporalRule: "The biographical period.", required: true, rationale: "The period is material." }],
+    dimensions: [{ dimensionId: "dimension-work", label: "work", required: true, rationale: "The work is material." }],
+    entities: [],
+    questions: [{ questionId: "question-locality", text: "How is the work interpreted in its national context?", phaseIds: ["phase-life"], dimensionIds: ["dimension-work"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Independent scholarship"], languages: ["en"], geography: ["United Kingdom", "London", "England"], contested: true, dateCritical: false, priority: "IMPORTANT", state: "UNRESEARCHED" }],
+    terminology: [], knownUncertainty: []
+  });
+  assert.deepEqual(requiredPerspectiveTags(map), ["United Kingdom"]);
+});
+
 test("bounded completion perspective audit is limited to its explicit gap questions", () => {
   const scope = scopeFixture();
   const map = buildResearchMap(TEST_CONTEXT, scope, {

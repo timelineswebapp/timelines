@@ -166,19 +166,26 @@ export function minimumKnowledgeBlockingReasons(input: { continuation: boolean; 
 export function requiredPerspectiveTags(map: ResearchMap, requiredQuestionIds?: readonly string[]): string[] {
   const perspectiveClaimTypes = new Set(["INTERPRETATION", "CAUSATION", "CONSEQUENCE", "ATTRIBUTION"]);
   const required = requiredQuestionIds ? new Set(requiredQuestionIds) : null;
-  const canonicalGeography = (value: string): string | null => {
+  const canonicalGeography = (value: string): { value: string; jurisdiction: boolean } | null => {
     const normalized = value.normalize("NFKC").toLocaleLowerCase("en-US");
     if (/\b(?:fault|tectonic|plate|river|ocean|sea|mountain|range|valley|basin|desert|glacier|volcano|university|college|museum|archive|library)\b/u.test(normalized)) return null;
-    if (/\b(?:usa|u\.s\.|united states|california)\b/u.test(normalized)) return "United States";
-    if (/\b(?:germany|german|berlin)\b/u.test(normalized)) return "Germany";
-    if (/\b(?:united kingdom|britain|british|england|scotland|wales)\b/u.test(normalized)) return "United Kingdom";
-    if (/\b(?:soviet union|ussr|russia|russian)\b/u.test(normalized)) return "Soviet Union/Russia";
-    if (/\b(?:france|french)\b/u.test(normalized)) return "France";
-    return value.normalize("NFKC").trim();
+    if (/\b(?:usa|u\.s\.|united states|california)\b/u.test(normalized)) return { value: "United States", jurisdiction: true };
+    if (/\b(?:germany|german|berlin)\b/u.test(normalized)) return { value: "Germany", jurisdiction: true };
+    if (/\b(?:united kingdom|britain|british|england|scotland|wales)\b/u.test(normalized)) return { value: "United Kingdom", jurisdiction: true };
+    if (/\b(?:soviet union|ussr|russia|russian)\b/u.test(normalized)) return { value: "Soviet Union/Russia", jurisdiction: true };
+    if (/\b(?:france|french)\b/u.test(normalized)) return { value: "France", jurisdiction: true };
+    return { value: value.normalize("NFKC").trim(), jurisdiction: false };
   };
   return [...new Set(map.questions
     .filter((question) => (!required || required.has(question.questionId)) && question.contested && question.claimTypesExpected.some((claimType) => perspectiveClaimTypes.has(claimType)))
-    .flatMap((question) => question.geography.map(canonicalGeography).filter((value): value is string => value !== null)))].sort();
+    .flatMap((question) => {
+      const geography = question.geography.map(canonicalGeography).filter((value): value is { value: string; jurisdiction: boolean } => value !== null);
+      const jurisdictions = geography.filter((value) => value.jurisdiction);
+      // A question with an explicit country or jurisdiction must be audited at that
+      // level. Its city/locality labels provide retrieval context, not a separate
+      // authority-perspective obligation.
+      return (jurisdictions.length > 0 ? jurisdictions : geography).map((value) => value.value);
+    }))].sort();
 }
 
 export function conflictConfidenceStatus(conflicts: readonly { state: string; material: boolean }[]): "PASS" | "QUALIFIED" | "FAIL" {
