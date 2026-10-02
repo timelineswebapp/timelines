@@ -6,7 +6,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`IN_PROGRESS — PHASE_2_AUTHORITY_FIRST_PHASE_1_CERTIFICATION`
+`FOUNDER_REVIEW_REQUIRED — PHASE_2_AUTHORITY_FIRST_ACQUISITION_HARD_STOP`
 
 ## Phase 0 baseline — 2026-10-02
 
@@ -32,7 +32,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | REMEDIATION_IN_PROGRESS | Founder approved one general policy correction. Commit `4f0d3a4` introduces explicit typed historical perspective requirements (stakeholder, party, affected/custodial community, independent scholarship, or material jurisdiction) and makes Research Map geography retrieval-only. Authority-First policy is versioned `authority-first-research.2`; full Functions suite (245 pass, 2 intentional skips), strict typecheck, and diff check pass. Run one fresh complete four-subject certification on the new release. |
+| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | The corrected `authority-first-research.3` release `2d4aabf0021bf912aa094cd50f70fd97181aea46cb0be1c1b415843908f643a8` produced valid CKSs for San Francisco, Berlin, and Ada with exact protected-state parity. Printing Press exhausted its bounded initial and one gap-completion round without durable sources, atomic claims, or supported claims (`EVIDENCE_FIRST_GAP_COMPLETION_FAILED:NO_DURABLE_SOURCE_SNAPSHOTS,NO_ATOMIC_CLAIMS,NO_SUPPORTED_CLAIMS,ACQUISITION_CONFIDENCE_FAIL`). Preserve artifact `artifacts/authority-first-acquisition-canary/2026-10-02T14-15-45-829Z/report.json`; do not weaken authority, source, corroboration, coverage, or fail-closed controls. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |

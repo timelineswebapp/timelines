@@ -1,0 +1,11 @@
+{
+  "title": "The 1906 San Francisco Earthquake",
+  "status": "VALID_CKS",
+  "completedKnowledgeSetId": "completed-knowledge-set-373c0e2fa39bf92722145b8e30ff183cda970165a63491b535ba5ea0b40b4f83",
+  "completedKnowledgeSetHash": "80cfd37529cd1570ad31644f8c802201bdb23ab5cc32f678156cdce08de51043",
+  "finalCoverageVerdict": "SUFFICIENT",
+  "protectedState": {
+    "exactParity": true,
+    "evidenceArtifact": "1.json"
+  }
+}

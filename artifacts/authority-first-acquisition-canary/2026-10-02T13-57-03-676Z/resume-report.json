@@ -1,0 +1,48 @@
+{
+  "program": "TL-AUTHORITY-FIRST-RESEARCH-001",
+  "phase": "ACQUISITION_CANARY_PHASE_1",
+  "olympicGamesAuthorized": false,
+  "olympicGamesExecuted": false,
+  "subjects": [
+    "The 1906 San Francisco Earthquake",
+    "The Berlin Blockade and Airlift",
+    "Ada Lovelace: Life and Work",
+    "The Development of the Printing Press"
+  ],
+  "generationRelease": {
+    "generationReleaseId": "2d4aabf0021bf912aa094cd50f70fd97181aea46cb0be1c1b415843908f643a8",
+    "manifest": {
+      "manifestSchemaVersion": "generation-release-manifest-v1",
+      "sourceRevision": "5f0bddc36563b571b2ffec18a831b620a264ccd7",
+      "sourceTreeSha256": "573e6dcf63167b69856861203411bbb9ded5834bfd9ae150e4cb74bf97aef63a",
+      "dependencyLocks": { "rootSha256": "4321b5dd58e1f4ef29f65a2f261c979ef15b53731ceb6ec2e1c9ae27d7cb5880", "functionsSha256": "9821cd086112f3d8c93a6291f37e8f035e67c9c17b3349fadfd298acf0cc884f" },
+      "configurationBundleHash": "d11f89aa4812079a443aae48dd1fa820d3640f17a8d51a865bc39510498b5543",
+      "generationCapability": "evidence-first-generation-v1",
+      "legacyPipelineVersion": "serverless-pipeline-v5-editorial-excellence",
+      "knowledgeBundle": { "pipelineVersion": "factory-v2-a.30", "policyVersion": "authority-first-research.3", "promptVersion": "factory-v2-a-prompts.11", "schemaVersion": "factory-v2-a.6" },
+      "selectionBundle": { "pipelineVersion": "factory-v2-b.2", "policyVersion": "evidence-backed-selection-v2-b.1", "schemaVersion": "factory-v2-b.3" },
+      "compositionBundle": { "eventLockSchemaVersion": "event-lock-v1", "compositionSchemaVersion": "locked-composition-v1" },
+      "institutionalGateBundle": { "promptVersion": "historical-research-v5-editorial-excellence", "generatedTimelineSchemaVersion": "generated-timeline-v2", "timelineQualityPolicyVersion": "timeline-quality-v3-event-semantics", "sourceAuthorityPolicyVersion": "source-authority-v2.0.1-certified-2026-09-05", "readerPolicyVersion": "reader-editorial-v1", "governancePolicyVersion": "routine-governance-v5-reader-editorial" }
+    }
+  },
+  "localCanaryConfig": {
+    "operatingMode": "SHADOW", "killSwitch": false, "pipelineVersion": "factory-v2-a.30",
+    "artifactPolicyBundle": { "schemaVersion": "factory-v2-a.6", "policyVersion": "authority-first-research.3", "promptVersion": "factory-v2-a-prompts.11" },
+    "budgetBundle": { "maximumGroundingCalls": 7, "maximumProviderQueries": 40, "maximumSourceDocuments": 60, "maximumAtomicClaims": 300, "maximumSemanticRepairs": 2, "maximumTransportAttemptsPerCall": 3, "maximumConcurrency": 3, "maximumWorkerSeconds": 1200 },
+    "autonomousDiscoveryEnabled": false, "publicationEnabled": false, "governanceSubmissionEnabled": false,
+    "updatedAt": "2026-10-02T13:50:47.099Z"
+  },
+  "results": [
+    {
+      "title": "The 1906 San Francisco Earthquake",
+      "status": "VALID_CKS",
+      "completedKnowledgeSetId": "completed-knowledge-set-373c0e2fa39bf92722145b8e30ff183cda970165a63491b535ba5ea0b40b4f83",
+      "completedKnowledgeSetHash": "80cfd37529cd1570ad31644f8c802201bdb23ab5cc32f678156cdce08de51043",
+      "finalCoverageVerdict": "SUFFICIENT",
+      "protectedState": { "exactParity": true, "evidenceArtifact": "1.json" }
+    }
+  ],
+  "result": "1/4",
+  "verdict": "PHASE_1_FAIL_CLOSED",
+  "generatedAt": "2026-10-02T17:03:00.000Z"
+}

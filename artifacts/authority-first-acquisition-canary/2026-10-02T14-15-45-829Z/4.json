@@ -1,0 +1,115 @@
+{
+  "title": "The Development of the Printing Press",
+  "status": "FAILED_CLOSED",
+  "reason": "EVIDENCE_FIRST_GAP_COMPLETION_FAILED:NO_DURABLE_SOURCE_SNAPSHOTS,NO_ATOMIC_CLAIMS,NO_SUPPORTED_CLAIMS,ACQUISITION_CONFIDENCE_FAIL",
+  "stage": "GAP_COMPLETION",
+  "metrics": {
+    "rounds": 2,
+    "providerCalls": 12,
+    "authorityRoutingModelCalls": 4,
+    "controlledResearchOperations": 32,
+    "groundingEscalationCalls": 4,
+    "directRetrievalAttempts": 5,
+    "retrievalSuccesses": 5,
+    "retrievalFailures": 0,
+    "sourcesSnapshotted": 4,
+    "claimsExtracted": 18,
+    "claimsSupported": 7,
+    "resolvedEvents": 1,
+    "inputTokens": 160900,
+    "outputTokens": 13111,
+    "monetaryCost": null,
+    "totalLatencyMs": 828060,
+    "topicAuthoritySetIds": [
+      "topic-authority-set-5e28548518e31de8442b46190d2aa51a6b61f67afee77cd7a5b8cae847ce0558",
+      "topic-authority-set-79d2eaf81433fa7688872546db7dfdf731fdec5b56370fd8037fe1af7d637b1b"
+    ],
+    "authorityResearchPlanIds": [
+      "authority-research-plan-a70c5f5a20de9f3fe3ad29628bf6e60e84cef431066b031fc2789babcc2690ae",
+      "authority-research-plan-417b0c606bc45ef37cdcb37b043ad3300f52ab1de25ce22c5412a8516f19763d"
+    ],
+    "controlledResearchLedgerIds": [
+      "controlled-research-ledger-91999d75f85909c8783cb15602d2027e7f2f7db6f76723bf94038ba8bccd8ac9",
+      "controlled-research-ledger-ee780d1e01c08649199a9e3789648fbfe8dcb61b134071b882466c2a6c4dc752"
+    ],
+    "perspectiveAuditIds": [
+      "perspective-audit-8987705066726e07b5f0f95e0545cee818f14dfafb0530e48f22a6a7bed1c852",
+      "perspective-audit-cd05a9612db81e2d3ae162a5182ec8c1c21c0309d96711c7cda8d990821f1555"
+    ],
+    "confidenceVectorIds": [
+      "acquisition-confidence-53564ab9fee442713dcf305cba2a640af9a101ad12bd3aacb2ebfe4dfefaae3f",
+      "acquisition-confidence-a8717117cafd3843a49e1f975e684a8aca01ebc8d2f53cc1e0cc584fc3155db9"
+    ]
+  },
+  "protectedState": {
+    "before": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "after": {
+      "governancePackages": {
+        "count": 8,
+        "sha256": "b388220889349d275404da89e18bbf516d3a7ded1b8cac706e9c3fed2f45ad9f"
+      },
+      "governanceDecisions": {
+        "count": 4,
+        "sha256": "4828484523c04a93e75cd5f987e26b7b59cb456dd0e3c897205bbf88af992c72"
+      },
+      "governanceQueues": {
+        "count": 4,
+        "sha256": "cb0bc40232628f9c4867966be17b40f9f21a939b51242680a0583472c92539e0"
+      },
+      "libraryAdmissions": {
+        "count": 4,
+        "sha256": "86f91d6fd746bf3444e08f22f4d81d72db04477091f78724399090b6f3a28ddc"
+      },
+      "publishedMemory": {
+        "count": 4,
+        "sha256": "552231791faefdc7cd8aff838671222e3195780f74974d4e699e31f2ed23bd65"
+      },
+      "platformReadModels": {
+        "count": 46,
+        "sha256": "15d1d4a1201b4bb422284aef3965bbd074e14c19d4ea12026fd4e43f90893aaf"
+      },
+      "searchDocuments": {
+        "count": 46,
+        "sha256": "d4919d3fa47be1df2ef92ac6fcddf237f88bda8ca772174005d73a8dac2bb173"
+      },
+      "sitemapDocuments": {
+        "count": 46,
+        "sha256": "7d62a69145c8561279938c45b49a58b8f7695549dfde178a99e8180fe0030aef"
+      }
+    },
+    "exactParity": true
+  }
+}
