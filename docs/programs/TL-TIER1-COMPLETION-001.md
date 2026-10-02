@@ -6,7 +6,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`IN_PROGRESS — PHASE_1_EXIT / CHECKPOINT`
+`IN_PROGRESS — PHASE_2_AUTHORITY_FIRST_PHASE_1_CERTIFICATION`
 
 ## Phase 0 baseline — 2026-10-02
 
@@ -31,8 +31,8 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 | Phase | State | Exit evidence / blocker |
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
-| 1 — stabilize/security/checkpoint | READY_TO_CHECKPOINT | All required local gates passed; status records updated; local checkpoint pending |
-| 2 — four-subject Authority-First CKS | NOT_STARTED | Requires Phase 1 exit |
+| 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
+| 2 — four-subject Authority-First CKS | READY | Requires a fresh exact-release run; historical runs are diagnostic only |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -46,4 +46,4 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Resume instruction
 
-Create the local Phase-1 checkpoint containing the Authority-First candidate, preserved evidence, compatible dependency updates, and this status record. Then begin a new frozen, same-release four-subject Authority-First acquisition-only certification run. Do not resume the interrupted historical process.
+Checkpoint `1e4651a` contains the Authority-First candidate, preserved evidence, and compatible dependency updates. Generate the final exact release manifest, capture protected-state baseline, then start a new frozen same-release four-subject Authority-First acquisition-only certification run. Do not resume the interrupted historical process.
