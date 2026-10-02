@@ -32,7 +32,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | CORRECTION_CYCLE_1_COMPLETE | Fresh run failed closed on an institutional place-label perspective error; protected state remained unchanged; generic correction verified locally; one final certification attempt remains |
+| 2 — four-subject Authority-First CKS | FOUNDER_DECISION_REQUIRED | Final permitted frozen certification run (`2026-10-02T06-27-23-788Z`) produced valid sufficient CKS results for San Francisco and Berlin with exact protected-state parity, then failed closed at Ada final coverage; Printing Press was not executed. No further retry or standards change is authorized. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -46,4 +46,4 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Resume instruction
 
-Checkpoint `1e4651a` contains the Authority-First candidate, preserved evidence, and compatible dependency updates. Generate the final exact release manifest, capture protected-state baseline, then start a new frozen same-release four-subject Authority-First acquisition-only certification run. Do not resume the interrupted historical process.
+Checkpoint `1e4651a` contains the Authority-First candidate, preserved evidence, and compatible dependency updates. Phase 2 is now stopped for a founder decision: the final permitted certification run failed closed on Ada coverage after two valid CKS results, and it did not execute Printing Press. Preserve the evidence and do not retry, lower coverage standards, or advance to Phase 3 without explicit direction.
