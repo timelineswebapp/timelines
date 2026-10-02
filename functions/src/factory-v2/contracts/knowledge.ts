@@ -100,6 +100,12 @@ export const scopeAmendmentProposalSchema = z.object({
   automaticApprovalAllowed: z.literal(false)
 }).strict();
 
+const historicalPerspectiveRequirementSchema = z.object({
+  kind: z.enum(["STAKEHOLDER", "PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "INDEPENDENT_SCHOLARSHIP", "MATERIAL_JURISDICTION"]),
+  label: boundedText(2, 160),
+  rationale: boundedText(10, 600)
+}).strict();
+
 const researchQuestionSchema = z.object({
   questionId: idSchema,
   text: boundedText(10, 700),
@@ -110,6 +116,9 @@ const researchQuestionSchema = z.object({
   expectedAuthorities: stringList(1, 12, 240),
   languages: z.array(languageSchema).min(1).max(8).refine(unique),
   geography: stringList(1, 12, 240),
+  // Geography is retrieval context. Historical perspectives are an explicit,
+  // independently justified contract and must never be inferred from it.
+  historicalPerspectiveRequirements: z.array(historicalPerspectiveRequirementSchema).max(8).refine((items) => unique(items.map((item) => `${item.kind}:${item.label}`))).optional(),
   contested: z.boolean(),
   dateCritical: z.boolean(),
   priority: z.enum(["CRITICAL", "IMPORTANT", "SUPPORTING"]),

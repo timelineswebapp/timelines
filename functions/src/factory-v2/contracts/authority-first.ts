@@ -6,7 +6,7 @@ const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const ids = (maximum: number, minimum = 0) => z.array(idSchema).min(minimum).max(maximum).refine(unique, "IDs must be unique.");
 const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, itemMaximum)).max(maximum).refine(unique, "Values must be unique.");
 
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.1" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.2" as const;
 export const AUTHORITY_REGISTRY_VERSION = "authority-registry.1" as const;
 export const CONTROLLED_RESEARCH_BUDGET_VERSION = "controlled-research-budget.1" as const;
 

@@ -98,7 +98,7 @@ test("a locality does not create a separate perspective obligation when its juri
     questions: [{ questionId: "question-locality", text: "How is the work interpreted in its national context?", phaseIds: ["phase-life"], dimensionIds: ["dimension-work"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Independent scholarship"], languages: ["en"], geography: ["United Kingdom", "London", "England"], contested: true, dateCritical: false, priority: "IMPORTANT", state: "UNRESEARCHED" }],
     terminology: [], knownUncertainty: []
   });
-  assert.deepEqual(requiredPerspectiveTags(map), ["United Kingdom"]);
+  assert.deepEqual(requiredPerspectiveTags(map), []);
 });
 
 test("bounded completion perspective audit is limited to its explicit gap questions", () => {
@@ -110,12 +110,31 @@ test("bounded completion perspective audit is limited to its explicit gap questi
     entities: [],
     questions: [
       { questionId: "question-gap", text: "What dated evidence establishes the publication?", phaseIds: ["phase-life"], dimensionIds: ["dimension-work"], claimTypesExpected: ["OCCURRENCE", "DATE"], likelySourceClasses: ["PRIMARY_INSTITUTIONAL"], expectedAuthorities: ["Archives"], languages: ["en"], geography: ["United Kingdom"], contested: false, dateCritical: true, priority: "CRITICAL", state: "UNRESEARCHED" },
-      { questionId: "question-interpretation", text: "How is the work interpreted across national traditions?", phaseIds: ["phase-life"], dimensionIds: ["dimension-work"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Independent scholarship"], languages: ["en"], geography: ["United Kingdom", "France"], contested: true, dateCritical: false, priority: "IMPORTANT", state: "UNRESEARCHED" }
+      { questionId: "question-interpretation", text: "How is the work interpreted across national traditions?", phaseIds: ["phase-life"], dimensionIds: ["dimension-work"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Independent scholarship"], languages: ["en"], geography: ["United Kingdom", "France"], historicalPerspectiveRequirements: [{ kind: "MATERIAL_JURISDICTION", label: "United Kingdom", rationale: "The dispute directly concerns British policy." }, { kind: "MATERIAL_JURISDICTION", label: "France", rationale: "The dispute directly concerns French policy." }], contested: true, dateCritical: false, priority: "IMPORTANT", state: "UNRESEARCHED" }
     ],
     terminology: [], knownUncertainty: []
   });
   assert.deepEqual(requiredPerspectiveTags(map), ["France", "United Kingdom"]);
   assert.deepEqual(requiredPerspectiveTags(map, ["question-gap"]), []);
+});
+
+test("explicit historical perspectives survive geography-only adversarial inputs", () => {
+  const scope = scopeFixture();
+  const map = buildResearchMap(TEST_CONTEXT, scope, {
+    version: 1,
+    phases: [{ phaseId: "phase-history", label: "history", temporalRule: "The locked historical period.", required: true, rationale: "This historical period is required." }],
+    dimensions: [{ dimensionId: "dimension-perspective", label: "perspective", required: true, rationale: "This perspective dimension is required." }],
+    entities: [],
+    questions: [
+      { questionId: "routine-biography", text: "How is a routine biography interpreted?", phaseIds: ["phase-history"], dimensionIds: ["dimension-perspective"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Biographers"], languages: ["en"], geography: ["London", "Global"], contested: true, dateCritical: false, priority: "IMPORTANT", state: "UNRESEARCHED" },
+      { questionId: "geopolitical", text: "How did the parties contest the blockade?", phaseIds: ["phase-history"], dimensionIds: ["dimension-perspective"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Historians"], languages: ["en"], geography: ["Berlin"], historicalPerspectiveRequirements: [{ kind: "PARTY_PARTICIPANT", label: "Soviet perspective", rationale: "The Soviet Union was a direct party to the contested policy." }, { kind: "MATERIAL_JURISDICTION", label: "Western Allied perspective", rationale: "The Western Allies were direct parties to the contested policy." }], contested: true, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" },
+      { questionId: "colonial", text: "How was decolonization experienced locally?", phaseIds: ["phase-history"], dimensionIds: ["dimension-perspective"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Community historians"], languages: ["en"], geography: ["Global"], historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY", label: "Affected local community", rationale: "The population directly experienced colonial administration and transition." }, { kind: "INDEPENDENT_SCHOLARSHIP", label: "Postcolonial scholarship", rationale: "Independent historiography is required for contested colonial interpretation." }], contested: true, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" },
+      { questionId: "custodial", text: "How should a community-held collection be interpreted?", phaseIds: ["phase-history"], dimensionIds: ["dimension-perspective"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Custodians"], languages: ["en"], geography: ["London"], historicalPerspectiveRequirements: [{ kind: "CUSTODIAL_COMMUNITY", label: "Community custodian", rationale: "The community holds the material and its transmission context." }], contested: true, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" }
+    ], terminology: [], knownUncertainty: []
+  });
+  assert.deepEqual(requiredPerspectiveTags(map), ["Affected local community", "Community custodian", "Postcolonial scholarship", "Soviet perspective", "Western Allied perspective"]);
+  assert.deepEqual(requiredPerspectiveTags(map, ["routine-biography"]), []);
+  assert.deepEqual(requiredPerspectiveTags(map, ["custodial"]), ["Community custodian"]);
 });
 
 test("non-material unresolved conflicts qualify confidence without triggering a material block", () => {
