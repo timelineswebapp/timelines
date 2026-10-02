@@ -523,6 +523,7 @@ export async function generateTopicAuthorityProposals(input: {
     claimTypesExpected: question.claimTypesExpected,
     languages: question.languages,
     geography: question.geography,
+    historicalPerspectiveRequirements: question.historicalPerspectiveRequirements || [],
     contested: question.contested,
     priority: question.priority,
     requiredForThisRound: requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : question.priority === "CRITICAL"
@@ -532,6 +533,7 @@ export async function generateTopicAuthorityProposals(input: {
     requiredQuestionIds ? "Map only every TARGET completion question to at least one evidentiary-core authority. Do not route non-target questions in this bounded continuation round. Orientation-only authorities may guide research but cannot satisfy evidentiary coverage." : "Map every CRITICAL Research Map question to at least one evidentiary-core authority. Orientation-only authorities may guide research but cannot satisfy evidentiary coverage.",
     "Use PRIMARY_RECORD for records produced or held by the responsible institution; CORROBORATION and INTERPRETATION require independent authorities. A SUBJECT_SELF, STATE_PARTY, or PARTICIPANT authority must not be assigned CORROBORATION.",
     "For every contested question, propose at least two independent authority groups suitable for corroboration or interpretation and include meaningful geographic, participant, or community perspective tags.",
+    "For each explicit historicalPerspectiveRequirement, preserve its label exactly in perspectiveTags when your selected authority represents it. INDEPENDENT_SCHOLARSHIP is evaluated deterministically from independence and scholarly roles; do not replace it with arbitrary discipline prose.",
     `Every number in REQUIRED_QUESTION_NUMBERS must appear on at least one authority with a permitted non-ORIENTATION role. REQUIRED_QUESTION_NUMBERS=${JSON.stringify(input.map.questions.flatMap((question, index) => (requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : question.priority === "CRITICAL") ? [index + 1] : []))}`,
     "Do not invent institutions, URLs, facts, registry entries, or authority status. Do not select timeline events and do not write narrative prose.",
     untrusted("LOCKED_SCOPE", { title: input.scope.title, topicClass: input.scope.topicClass, subjectDefinition: input.scope.subjectDefinition, chronologyStart: input.scope.chronologyStart, chronologyEnd: input.scope.chronologyEnd, spatialScope: input.scope.spatialScope, centralEntities: input.scope.centralEntities }),

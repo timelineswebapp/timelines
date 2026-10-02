@@ -164,10 +164,15 @@ export function minimumKnowledgeBlockingReasons(input: { continuation: boolean; 
 }
 
 export function requiredPerspectiveTags(map: ResearchMap, requiredQuestionIds?: readonly string[]): string[] {
+  return requiredPerspectiveRequirements(map, requiredQuestionIds).filter((requirement) => requirement.kind !== "INDEPENDENT_SCHOLARSHIP").map((requirement) => requirement.label);
+}
+
+export function requiredPerspectiveRequirements(map: ResearchMap, requiredQuestionIds?: readonly string[]): NonNullable<ResearchMap["questions"][number]["historicalPerspectiveRequirements"]> {
   const required = requiredQuestionIds ? new Set(requiredQuestionIds) : null;
   return [...new Set(map.questions
     .filter((question) => !required || required.has(question.questionId))
-    .flatMap((question) => (question.historicalPerspectiveRequirements || []).map((requirement) => requirement.label)))].sort();
+    .flatMap((question) => question.historicalPerspectiveRequirements || [])
+    .map((requirement) => JSON.stringify(requirement)))].sort().map((requirement) => JSON.parse(requirement) as NonNullable<ResearchMap["questions"][number]["historicalPerspectiveRequirements"]>[number]);
 }
 
 export function conflictConfidenceStatus(conflicts: readonly { state: string; material: boolean }[]): "PASS" | "QUALIFIED" | "FAIL" {
@@ -413,7 +418,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));
   const authorityResearchPlan = buildAuthorityResearchPlan({ context, set: topicAuthoritySet, researchMap: mapResult.map });
   await persist("v2AuthorityResearchPlans", authorityResearchPlan);
-  let perspectiveAudit = auditPerspective({ context, set: topicAuthoritySet, requiredPerspectiveTags: requiredPerspectiveTags(mapResult.map, requiredAuthorityQuestionIds), sensitive: false });
+  let perspectiveAudit = auditPerspective({ context, set: topicAuthoritySet, requiredPerspectiveTags: requiredPerspectiveTags(mapResult.map, requiredAuthorityQuestionIds), requiredPerspectiveRequirements: requiredPerspectiveRequirements(mapResult.map, requiredAuthorityQuestionIds), sensitive: false });
   await persist("v2PerspectiveAudits", perspectiveAudit);
   if (perspectiveAudit.verdict === "INADEQUATE") throw new Error(`PERSPECTIVE_DIVERSITY_INADEQUATE:${perspectiveAudit.reasonCodes.join(",")}`);
   progress.topicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
@@ -481,7 +486,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
         await persist("v2TopicAuthoritySets", topicAuthoritySet);
         await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, expansionResult.executions.at(-1));
         for (const binding of topicAuthoritySet.bindings) bindingById.set(binding.bindingId, binding);
-        perspectiveAudit = auditPerspective({ context, set: topicAuthoritySet, requiredPerspectiveTags: requiredPerspectiveTags(mapResult.map, requiredAuthorityQuestionIds), sensitive: false });
+        perspectiveAudit = auditPerspective({ context, set: topicAuthoritySet, requiredPerspectiveTags: requiredPerspectiveTags(mapResult.map, requiredAuthorityQuestionIds), requiredPerspectiveRequirements: requiredPerspectiveRequirements(mapResult.map, requiredAuthorityQuestionIds), sensitive: false });
         await persist("v2PerspectiveAudits", perspectiveAudit);
         if (perspectiveAudit.verdict === "INADEQUATE") throw new Error(`PERSPECTIVE_DIVERSITY_INADEQUATE:${perspectiveAudit.reasonCodes.join(",")}`);
         progress.topicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;

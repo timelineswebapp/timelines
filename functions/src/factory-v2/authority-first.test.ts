@@ -156,13 +156,20 @@ test("claim-relative authority accepts NASA mission facts but not independent Sp
   assert.deepEqual(claimAuthorityApplicability({ binding: bbc, claimType: "INTERPRETATION", risk: "INTERPRETIVE" }), { eligible: true, independentlySufficient: true, reason: "CLAIM_RELATIVE_AUTHORITY_APPLIES" });
 });
 
-test("perspective audit detects missing community or geographic requirements", () => {
+test("perspective audit enforces explicit non-scholarly requirements and deterministic independent scholarship", () => {
   const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: validProposals() });
   const insufficient = auditPerspective({ context: TEST_CONTEXT, set, requiredPerspectiveTags: ["International", "Soviet Union"], sensitive: false });
   assert.equal(insufficient.verdict, "INADEQUATE");
   assert.ok(insufficient.reasonCodes.includes("MISSING_REQUIRED_PERSPECTIVE"));
   const sufficient = auditPerspective({ context: TEST_CONTEXT, set, requiredPerspectiveTags: ["International", "United States"], sensitive: false });
   assert.equal(sufficient.verdict, "SUFFICIENT");
+  const independentScholarship = auditPerspective({ context: TEST_CONTEXT, set, requiredPerspectiveTags: [], requiredPerspectiveRequirements: [{ kind: "INDEPENDENT_SCHOLARSHIP", label: "Seismological Researchers", rationale: "Independent scholarly interpretation is required for this contested claim." }], sensitive: false });
+  assert.equal(independentScholarship.verdict, "SUFFICIENT");
+  const subjectSelfOnly = { ...set, bindings: set.bindings.filter((binding) => binding.subjectRelationship !== "INDEPENDENT") };
+  const selfInterested = auditPerspective({ context: TEST_CONTEXT, set: subjectSelfOnly, requiredPerspectiveTags: [], requiredPerspectiveRequirements: [{ kind: "INDEPENDENT_SCHOLARSHIP", label: "Seismological Researchers", rationale: "Independent scholarly interpretation is required for this contested claim." }], sensitive: false });
+  assert.equal(selfInterested.verdict, "INADEQUATE");
+  assert.ok(selfInterested.missingPerspectiveTags.includes("Independent scholarship"));
+  assert.equal(selfInterested.onlySelfInterestedEvidence, true);
 });
 
 test("confidence vector deterministically produces PASS, QUALIFIED, REVIEW_REQUIRED, and FAIL", () => {

@@ -5,7 +5,7 @@ import { auditPerspective, buildAuthorityResearchPlan, buildConfidenceVector, bu
 import { buildCanonicalEntityVersion, buildResearchMap } from "./contracts/builders";
 import type { TopicAuthorityProposal } from "./contracts";
 import { TEST_CONTEXT, scopeFixture } from "./test-fixtures";
-import { confidenceRequiresAdditionalBlock, conflictConfidenceStatus, independentCorroborationStatus, requiredPerspectiveTags, resolutionEntityContext, selectMostPreciseHistoricalDate, temporalPrecisionStatus } from "./orchestrator";
+import { confidenceRequiresAdditionalBlock, conflictConfidenceStatus, independentCorroborationStatus, requiredPerspectiveRequirements, requiredPerspectiveTags, resolutionEntityContext, selectMostPreciseHistoricalDate, temporalPrecisionStatus } from "./orchestrator";
 
 const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
 const byName = (name: string) => publishers.find((publisher) => publisher.canonicalName === name)!;
@@ -132,7 +132,8 @@ test("explicit historical perspectives survive geography-only adversarial inputs
       { questionId: "custodial", text: "How should a community-held collection be interpreted?", phaseIds: ["phase-history"], dimensionIds: ["dimension-perspective"], claimTypesExpected: ["INTERPRETATION"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Custodians"], languages: ["en"], geography: ["London"], historicalPerspectiveRequirements: [{ kind: "CUSTODIAL_COMMUNITY", label: "Community custodian", rationale: "The community holds the material and its transmission context." }], contested: true, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" }
     ], terminology: [], knownUncertainty: []
   });
-  assert.deepEqual(requiredPerspectiveTags(map), ["Affected local community", "Community custodian", "Postcolonial scholarship", "Soviet perspective", "Western Allied perspective"]);
+  assert.deepEqual(requiredPerspectiveTags(map), ["Affected local community", "Community custodian", "Western Allied perspective", "Soviet perspective"]);
+  assert.deepEqual(requiredPerspectiveRequirements(map).map((requirement) => requirement.label), ["Affected local community", "Community custodian", "Postcolonial scholarship", "Western Allied perspective", "Soviet perspective"]);
   assert.deepEqual(requiredPerspectiveTags(map, ["routine-biography"]), []);
   assert.deepEqual(requiredPerspectiveTags(map, ["custodial"]), ["Community custodian"]);
 });

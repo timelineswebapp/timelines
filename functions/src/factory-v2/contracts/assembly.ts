@@ -19,49 +19,49 @@ const legacyV2ASourceBundleSchema = z.object({
 const currentV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.30"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.2"),
+  policyVersion: z.literal("authority-first-research.3"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const a28AuthorityFirstV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.29"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.2"),
+  policyVersion: z.literal("authority-first-research.3"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const a28PriorAuthorityFirstV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.28"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.2"),
+  policyVersion: z.literal("authority-first-research.3"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const priorAuthorityFirstV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.27"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.2"),
+  policyVersion: z.literal("authority-first-research.3"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const formerAuthorityFirstV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.26"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.2"),
+  policyVersion: z.literal("authority-first-research.3"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const oldestAuthorityFirstV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.25"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.2"),
+  policyVersion: z.literal("authority-first-research.3"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const legacyAuthorityFirstV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.24"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.2"),
+  policyVersion: z.literal("authority-first-research.3"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const earlierAuthorityFirstV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.23"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.2"),
+  policyVersion: z.literal("authority-first-research.3"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const previousV2ASourceBundleSchema = z.object({

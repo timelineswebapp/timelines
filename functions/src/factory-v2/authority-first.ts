@@ -272,6 +272,7 @@ export function auditPerspective(input: {
   context: ArtifactContext;
   set: TopicAuthoritySet;
   requiredPerspectiveTags: readonly string[];
+  requiredPerspectiveRequirements?: readonly { kind: "STAKEHOLDER" | "PARTY_PARTICIPANT" | "AFFECTED_COMMUNITY" | "CUSTODIAL_COMMUNITY" | "INDEPENDENT_SCHOLARSHIP" | "MATERIAL_JURISDICTION"; label: string; rationale: string }[];
   sensitive: boolean;
 }): PerspectiveAudit {
   const represented = uniqueSorted(input.set.bindings.flatMap((binding) => [...binding.perspectiveTags, ...binding.geography]));
@@ -284,6 +285,7 @@ export function auditPerspective(input: {
   const independent = evidentiary.filter((binding) => binding.subjectRelationship === "INDEPENDENT");
   const independentGroupCount = new Set(independent.map((binding) => binding.independenceGroupId)).size;
   const hasIndependentScholarship = independent.some((binding) => binding.authorityFamily === "ACADEMIC_SCHOLARLY" || binding.roles.includes("INTERPRETATION") || binding.roles.includes("CORROBORATION"));
+  if ((input.requiredPerspectiveRequirements || []).some((requirement) => requirement.kind === "INDEPENDENT_SCHOLARSHIP") && !hasIndependentScholarship) missing.push("Independent scholarship");
   const onlySelfInterestedEvidence = evidentiary.length > 0 && independent.length === 0;
   const reasons: PerspectiveAudit["reasonCodes"] = [];
   if (missing.length > 0) reasons.push("MISSING_REQUIRED_PERSPECTIVE");
