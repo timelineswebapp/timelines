@@ -69,7 +69,7 @@ test("contested factual uncertainty requires independence without inventing a lo
     phases: [{ phaseId: "phase-event", label: "event", temporalRule: "The bounded event phase.", required: true, rationale: "The event is material." }],
     dimensions: [{ dimensionId: "dimension-measurement", label: "measurement", required: true, rationale: "Measurement is material." }],
     entities: [],
-    questions: [{ questionId: "question-magnitude", text: "What was the independently estimated magnitude?", phaseIds: ["phase-event"], dimensionIds: ["dimension-measurement"], claimTypesExpected: ["QUANTITY"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Independent scientific institutions"], languages: ["en"], geography: ["Northern California"], contested: true, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" }],
+    questions: [{ questionId: "question-magnitude", text: "What was the independently estimated magnitude?", phaseIds: ["phase-event"], dimensionIds: ["dimension-measurement"], claimTypesExpected: ["QUANTITY"], likelySourceClasses: ["SCHOLARLY_SECONDARY"], expectedAuthorities: ["Independent scientific institutions"], languages: ["en"], geography: ["Northern California", "Stanford University"], contested: true, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" }],
     terminology: [], knownUncertainty: []
   });
   assert.deepEqual(requiredPerspectiveTags(map), []);

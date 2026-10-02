@@ -168,7 +168,7 @@ export function requiredPerspectiveTags(map: ResearchMap, requiredQuestionIds?: 
   const required = requiredQuestionIds ? new Set(requiredQuestionIds) : null;
   const canonicalGeography = (value: string): string | null => {
     const normalized = value.normalize("NFKC").toLocaleLowerCase("en-US");
-    if (/\b(?:fault|tectonic|plate|river|ocean|sea|mountain|range|valley|basin|desert|glacier|volcano)\b/u.test(normalized)) return null;
+    if (/\b(?:fault|tectonic|plate|river|ocean|sea|mountain|range|valley|basin|desert|glacier|volcano|university|college|museum|archive|library)\b/u.test(normalized)) return null;
     if (/\b(?:usa|u\.s\.|united states|california)\b/u.test(normalized)) return "United States";
     if (/\b(?:germany|german|berlin)\b/u.test(normalized)) return "Germany";
     if (/\b(?:united kingdom|britain|british|england|scotland|wales)\b/u.test(normalized)) return "United Kingdom";

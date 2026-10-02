@@ -32,7 +32,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | READY | Requires a fresh exact-release run; historical runs are diagnostic only |
+| 2 — four-subject Authority-First CKS | CORRECTION_CYCLE_1_COMPLETE | Fresh run failed closed on an institutional place-label perspective error; protected state remained unchanged; generic correction verified locally; one final certification attempt remains |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
