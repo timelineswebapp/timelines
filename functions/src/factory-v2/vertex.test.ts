@@ -310,3 +310,10 @@ test("Whole-run deadline stops new provider work before a stage starts", async (
   await assert.rejects(proposeScope({ context: TEST_CONTEXT, title: "Apollo 11", language: "en", ongoingAsOf: "2026-09-06", reconnaissance: {}, provider, deadlineAt: Date.now() - 1 }), /WHOLE_RUN_DEADLINE_EXCEEDED/);
   assert.equal(calls, 0);
 });
+
+test("Whole-run deadline fails closed when a provider ignores its abort signal", async () => {
+  const provider: V2ModelProvider = { async generateContent() { return await new Promise<never>(() => undefined); } };
+  const startedAt = Date.now();
+  await assert.rejects(proposeScope({ context: TEST_CONTEXT, title: "Apollo 11", language: "en", ongoingAsOf: "2026-09-06", reconnaissance: {}, provider, deadlineAt: Date.now() + 20 }), /WHOLE_RUN_DEADLINE_EXCEEDED/u);
+  assert.ok(Date.now() - startedAt < 1_000);
+});

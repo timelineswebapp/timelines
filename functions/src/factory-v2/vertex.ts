@@ -323,6 +323,26 @@ function deadlineSignal(stageMs: number, deadlineAt?: number): AbortSignal {
   return AbortSignal.timeout(remaining);
 }
 
+/**
+ * The provider SDK is given an abort signal, but transport implementations are
+ * not trusted to settle their promise when that signal fires.  Race the call
+ * against the same bounded deadline so orchestration itself always fails
+ * closed at the contract boundary.
+ */
+async function boundedProviderCall<T>(call: Promise<T>, stageMs: number, deadlineAt?: number): Promise<T> {
+  const remaining = deadlineAt === undefined ? stageMs : Math.min(stageMs, deadlineAt - Date.now());
+  if (remaining <= 0) throw new Error("WHOLE_RUN_DEADLINE_EXCEEDED");
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("PROVIDER_CALL_DEADLINE_EXCEEDED")), remaining);
+  });
+  try {
+    return await Promise.race([call, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 async function structuredCall<T>(input: { context: ArtifactContext; provider?: V2ModelProvider; stage: "SCOPE" | "RESEARCH_MAP" | "AUTHORITY_ROUTING" | "QUERY_PLAN" | "CLAIM_EXTRACTION"; prompt: string; schema: z.ZodType<T>; jsonSchema: Record<string, unknown>; maximumRepairs: number; inputArtifactIds?: string[]; deadlineAt?: number }): Promise<{ value: T; executions: ReturnType<typeof buildExecution>[] }> {
   const provider = input.provider || defaultProvider();
   const executions: ReturnType<typeof buildExecution>[] = [];
@@ -334,7 +354,7 @@ async function structuredCall<T>(input: { context: ArtifactContext; provider?: V
       const startedAt = Date.now();
       try {
         const stageTimeoutMs = input.stage === "CLAIM_EXTRACTION" ? 60_000 : input.stage === "RESEARCH_MAP" ? 90_000 : 60_000;
-        const response = await provider.generateContent({ model: VERTEX_MODEL, contents: prompt, config: { responseMimeType: "application/json", responseJsonSchema: input.jsonSchema, temperature: 0, maxOutputTokens: input.stage === "RESEARCH_MAP" ? 8_000 : input.stage === "CLAIM_EXTRACTION" ? 4_000 : 8_000, thinkingConfig: { thinkingBudget: 0 }, abortSignal: deadlineSignal(stageTimeoutMs, input.deadlineAt) } });
+        const response = await boundedProviderCall(provider.generateContent({ model: VERTEX_MODEL, contents: prompt, config: { responseMimeType: "application/json", responseJsonSchema: input.jsonSchema, temperature: 0, maxOutputTokens: input.stage === "RESEARCH_MAP" ? 8_000 : input.stage === "CLAIM_EXTRACTION" ? 4_000 : 8_000, thinkingConfig: { thinkingBudget: 0 }, abortSignal: deadlineSignal(stageTimeoutMs, input.deadlineAt) } }), stageTimeoutMs, input.deadlineAt);
         const body = responseText(response);
         try {
           const value = input.schema.parse(JSON.parse(body));
