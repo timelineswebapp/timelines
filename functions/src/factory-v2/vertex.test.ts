@@ -129,13 +129,13 @@ test("Authority routing can select only registered publishers and preserves ques
   await assert.rejects(generateTopicAuthorityProposals({ context: TEST_CONTEXT, scope, map: mapResult.map, publishers, provider: providerFrom([unknownPublisher, unknownPublisher, unknownPublisher]) }), /MODEL_SCHEMA_VALIDATION_EXHAUSTED:AUTHORITY_ROUTING/);
 });
 
-test("initial authority routing requires every explicit historical-perspective question, not retrieval geography", async () => {
+test("initial authority routing requires explicit historical-perspective and contested questions, not retrieval geography", async () => {
   const scope = scopeFixture();
   const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
   const map = {
     ...mapResult.map,
     questions: mapResult.map.questions.map((question, index) => index === 1
-      ? { ...question, historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected local community", rationale: "The community directly experienced the historical consequences." }] }
+      ? { ...question, contested: true, historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected local community", rationale: "The community directly experienced the historical consequences." }] }
       : question)
   };
   const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
@@ -143,13 +143,19 @@ test("initial authority routing requires every explicit historical-perspective q
   const firstQuestionNumber = 1;
   const perspectiveQuestionNumber = 2;
   const incomplete = { authorities: [{ publisherNumber: nasaNumber, researchQuestionNumbers: [firstQuestionNumber], roles: ["PRIMARY_RECORD"], claimTypes: ["OCCURRENCE", "DATE"], subjectRelationship: "SUBJECT_SELF", perspectiveTags: ["United States"], rationale: "NASA is a registered source for the mission chronology." }] };
-  const repaired = { authorities: [{ ...incomplete.authorities[0], researchQuestionNumbers: [firstQuestionNumber, perspectiveQuestionNumber], perspectiveTags: ["United States", "Affected local community"] }] };
+  const bbcNumber = publishers.findIndex((publisher) => publisher.canonicalName === "BBC") + 1;
+  const smithsonianNumber = publishers.findIndex((publisher) => publisher.canonicalName === "Smithsonian National Air and Space Museum") + 1;
+  const repaired = { authorities: [
+    { ...incomplete.authorities[0], researchQuestionNumbers: [firstQuestionNumber, perspectiveQuestionNumber], perspectiveTags: ["United States", "Affected local community"] },
+    { publisherNumber: bbcNumber, researchQuestionNumbers: [perspectiveQuestionNumber], roles: ["CORROBORATION", "INTERPRETATION"], claimTypes: ["INTERPRETATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["Affected local community"], rationale: "BBC is an independent registered authority for interpretation." },
+    { publisherNumber: smithsonianNumber, researchQuestionNumbers: [perspectiveQuestionNumber], roles: ["CORROBORATION", "INTERPRETATION"], claimTypes: ["INTERPRETATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["Affected local community"], rationale: "Smithsonian is an independent registered authority for interpretation." }
+  ] };
   const requests: V2GenerateRequest[] = [];
   const result = await generateTopicAuthorityProposals({ context: TEST_CONTEXT, scope, map, publishers, provider: providerFrom([JSON.stringify(incomplete), JSON.stringify(repaired)], requests) });
   assert.equal(result.executions[0]!.validationState, "INVALID");
   assert.equal(result.executions[1]!.validationState, "REPAIRED");
-  assert.deepEqual(result.proposals[0]!.researchQuestionIds, [map.questions[0]!.questionId, map.questions[1]!.questionId]);
-  assert.match(requests[0]!.contents, /explicit historicalPerspectiveRequirement/u);
+  assert.deepEqual(new Set(result.proposals.flatMap((proposal) => proposal.researchQuestionIds)), new Set([map.questions[0]!.questionId, map.questions[1]!.questionId]));
+  assert.match(requests[0]!.contents, /CRITICAL or contested Research Map question/u);
   assert.match(requests[0]!.contents, /Retrieval geography alone is never/u);
 });
 

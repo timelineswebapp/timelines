@@ -41,6 +41,15 @@ export const DEFAULT_CONTROLLED_RESEARCH_BUDGET = controlledResearchBudgetSchema
   maximumGapRoundSeconds: 480
 });
 
+/**
+ * Initial authority routing must be closed over every question that later
+ * receives a mandatory authority or perspective check. Geography is
+ * deliberately absent: it is retrieval context, not a historical viewpoint.
+ */
+export function isInitialAuthorityRequiredQuestion(question: Pick<ResearchMap["questions"][number], "priority" | "contested" | "historicalPerspectiveRequirements">): boolean {
+  return question.priority === "CRITICAL" || question.contested || (question.historicalPerspectiveRequirements?.length || 0) > 0;
+}
+
 function normalize(value: string): string {
   return value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
 }
@@ -174,7 +183,7 @@ export function buildTopicAuthoritySet(input: {
   const criticalQuestionIds = input.researchMap.questions
     .filter((question) => requiredQuestionIds
       ? requiredQuestionIds.has(question.questionId)
-      : question.priority === "CRITICAL" || (question.historicalPerspectiveRequirements?.length || 0) > 0)
+      : isInitialAuthorityRequiredQuestion(question))
     .map((question) => question.questionId);
   const coreCoverage = new Set(bindings.filter((binding) => binding.roles.some((role) => role !== "ORIENTATION")).flatMap((binding) => binding.researchQuestionIds));
   const missingCritical = criticalQuestionIds.filter((id) => !coreCoverage.has(id));

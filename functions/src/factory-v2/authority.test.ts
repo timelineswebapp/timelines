@@ -42,9 +42,9 @@ test("publisher bootstrap semantic state is independent from caller execution pr
   const retryContext = { ...TEST_CONTEXT, topicId: "different-topic", runId: "v2-a3-web-retry", generation: 7, createdAt: "2026-09-07T12:34:56.000Z", policyVersion: "knowledge-coverage-v2-a3.1" };
   const retried = bootstrapPublisherRegistry(retryContext);
   assert.deepEqual(retried, publishers);
-  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-aa9664d5da4439c93faca966f1e61ff0d3e929386f7fc51421e0316540e472e0");
+  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-eeff60a87a11ed7a5490791f539347906af1e96d2827be7bcece733a6cc40671");
   const productionBootstrap = bootstrapPublisherRegistry({ ...retryContext, corpusId: "timelines-clean-2026-09-v1" })[0]!;
-  assert.equal(productionBootstrap.payloadHash, "82a797d3dfcb78be3d7a0908e17033beb72f0a0616fbf0ba25a3ecffe9133df2");
+  assert.equal(productionBootstrap.payloadHash, "9ff049d40923fe6c0ba559f63a6c002ecb032ce833c64eeefecb8b6f5b7cf254");
 });
 
 function successorInput(publisher: PublisherAuthorityVersion, overrides: Partial<PublisherAuthorityVersionInput> = {}): PublisherAuthorityVersionInput {

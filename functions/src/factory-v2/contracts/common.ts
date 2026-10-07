@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-// a.31 makes explicit historical-perspective requirements authority-routing
-// requirements, while keeping retrieval geography out of that determination.
-export const V2_PIPELINE_VERSION = "factory-v2-a.31";
+// a.32 closes initial authority routing over contested questions and explicit
+// historical perspectives, while keeping retrieval geography out of both.
+export const V2_PIPELINE_VERSION = "factory-v2-a.32";
 export const V2_SCHEMA_VERSION = "factory-v2-a.4";
 export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.6";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "authority-first-research.5";
+export const V2_POLICY_VERSION = "authority-first-research.6";
 export const V2_PROMPT_VERSION = "factory-v2-a-prompts.11";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);

@@ -9,6 +9,7 @@ import {
   buildConfidenceVector,
   buildTopicAuthoritySet,
   claimAuthorityApplicability,
+  isInitialAuthorityRequiredQuestion,
   registeredGroundingExpansionPublishers,
   registryCapability
 } from "./authority-first";
@@ -193,6 +194,15 @@ test("initial authority routing covers supporting questions with explicit histor
     })]
   });
   assert.ok(set.criticalQuestionIds.includes("question-community"));
+});
+
+test("initial authority routing includes contested supporting questions without treating geography as a viewpoint", () => {
+  const supportingQuestion = { ...map.questions[0]!, priority: "IMPORTANT" as const, contested: true, historicalPerspectiveRequirements: undefined };
+  assert.equal(isInitialAuthorityRequiredQuestion(supportingQuestion), true);
+  const londonRetrieval = { ...supportingQuestion, contested: false, geography: ["London"] };
+  const globalRetrieval = { ...supportingQuestion, contested: false, geography: ["Global"] };
+  assert.equal(isInitialAuthorityRequiredQuestion(londonRetrieval), false);
+  assert.equal(isInitialAuthorityRequiredQuestion(globalRetrieval), false);
 });
 
 test("specialist collection selection is deterministic metadata matching, never array order", () => {
