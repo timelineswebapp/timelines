@@ -6,8 +6,10 @@ const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const ids = (maximum: number, minimum = 0) => z.array(idSchema).min(minimum).max(maximum).refine(unique, "IDs must be unique.");
 const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, itemMaximum)).max(maximum).refine(unique, "Values must be unique.");
 
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.3" as const;
-export const AUTHORITY_REGISTRY_VERSION = "authority-registry.1" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.4" as const;
+export const AUTHORITY_REGISTRY_VERSION = "authority-registry.2" as const;
+/** Versioned admission policy for registry-governed specialist collections. */
+export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;
 export const CONTROLLED_RESEARCH_BUDGET_VERSION = "controlled-research-budget.1" as const;
 
 export const authorityFamilySchema = z.enum([
@@ -48,12 +50,34 @@ export const institutionalDiscoveryMechanismSchema = z.enum([
   "GOOGLE_GROUNDING_ESCALATION"
 ]);
 
+export const collectionCapabilityClassSchema = z.enum(["MANUSCRIPTS_RARE_BOOKS", "DIGITIZED_BOOKS", "ARCHIVAL_FINDING_AIDS", "MUSEUM_COLLECTIONS", "COMMUNITY_CUSTODIAL", "SCHOLARLY_CATALOGUE", "SCIENTIFIC_TECHNICAL_ARCHIVES", "PERIODICALS", "MATERIAL_CULTURE"]);
+
+export const specialistCollectionProfileSchema = z.object({
+  profileId: idSchema,
+  publisherVersionId: idSchema,
+  version: z.number().int().positive().max(1000),
+  policyVersion: z.literal(SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION),
+  capabilityClass: collectionCapabilityClassSchema,
+  collectionScope: boundedText(10, 600),
+  endpoint: httpsUrlSchema,
+  discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(4).refine(unique),
+  supportedQueryParameters: strings(12, 80),
+  languages: z.array(languageSchema).min(1).max(20).refine(unique),
+  geography: strings(20, 160),
+  historicalPeriods: strings(20, 160),
+  contentTypes: strings(12, 120),
+  accessLimitations: strings(12, 300),
+  verificationProvenance: boundedText(10, 600),
+  effectiveAt: z.string().datetime()
+}).strict();
+
 export const authorityRegistryCapabilitySchema = z.object({
   authorityFamily: authorityFamilySchema,
   officialEndpoints: z.array(httpsUrlSchema).min(1).max(20).refine(unique),
   historicalPeriods: strings(20, 160),
   defaultSubjectRelationship: subjectRelationshipSchema,
   discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(5).refine(unique),
+  specialistCollectionProfiles: z.array(specialistCollectionProfileSchema).max(12),
   storageConstraints: strings(20, 500),
   registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION)
 }).strict();
@@ -78,6 +102,7 @@ export const topicAuthorityBindingSchema = topicAuthorityProposalSchema.extend({
   geography: strings(20, 160),
   officialEndpoints: z.array(httpsUrlSchema).min(1).max(20).refine(unique),
   discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(5).refine(unique),
+  specialistCollectionProfiles: z.array(specialistCollectionProfileSchema).max(12),
   validationStatus: z.literal("ELIGIBLE")
 }).strict();
 
@@ -120,6 +145,9 @@ export const authorityResearchPlanOperationSchema = z.object({
   layer: z.enum(["ORIENTATION", "EVIDENTIARY_CORE"]),
   mechanism: institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"]),
   endpoint: httpsUrlSchema,
+  specialistCollectionProfileId: idSchema.nullable(),
+  /** Deterministic, bounded attempt sequence within one authority binding. */
+  attemptOrder: z.number().int().nonnegative().max(12),
   purpose: boundedText(10, 1000)
 }).strict();
 
@@ -144,6 +172,8 @@ export const controlledResearchOperationSchema = z.object({
   layer: z.enum(["ORIENTATION", "EVIDENTIARY_CORE", "GAP_CONTEST_ESCALATION"]),
   mechanism: institutionalDiscoveryMechanismSchema,
   endpoint: httpsUrlSchema,
+  specialistCollectionProfileId: idSchema.nullable(),
+  attemptOrder: z.number().int().nonnegative().max(12),
   purpose: boundedText(10, 1000),
   status: z.enum(["PLANNED", "SUCCEEDED", "FAILED", "NOT_AUTHORIZED"]),
   returnedUrls: z.array(httpsUrlSchema).max(60).refine(unique),
@@ -216,6 +246,7 @@ export const escalationDecisionSchema = z.object({
 }).strict();
 
 export type AuthorityFamily = z.infer<typeof authorityFamilySchema>;
+export type SpecialistCollectionProfile = z.infer<typeof specialistCollectionProfileSchema>;
 export type AuthorityRegistryCapability = z.infer<typeof authorityRegistryCapabilitySchema>;
 export type AuthorityResearchRole = z.infer<typeof authorityResearchRoleSchema>;
 export type SubjectRelationship = z.infer<typeof subjectRelationshipSchema>;

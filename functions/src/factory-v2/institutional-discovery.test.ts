@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { executeInstitutionalDiscovery } from "./institutional-discovery";
-import type { TopicAuthorityBinding } from "./contracts";
+import type { SpecialistCollectionProfile, TopicAuthorityBinding } from "./contracts";
+
+const specialistProfile: SpecialistCollectionProfile = {
+  profileId: "specialist-profile-nasa", publisherVersionId: "publisher-version-nasa", version: 1,
+  policyVersion: "specialist-collection-profile.1" as const, capabilityClass: "SCIENTIFIC_TECHNICAL_ARCHIVES" as const,
+  collectionScope: "Official technical archive collection.", endpoint: "https://nasa.gov/collections/technical/",
+  discoveryMechanisms: ["DIRECT_URL"], supportedQueryParameters: [], languages: ["en"], geography: ["United States"], historicalPeriods: ["modern"], contentTypes: ["technical records"], accessLimitations: [], verificationProvenance: "Verified official collection endpoint.", effectiveAt: "2026-10-02T00:00:00.000Z"
+};
 
 const binding: TopicAuthorityBinding = {
   bindingId: "binding-nasa",
@@ -19,7 +26,7 @@ const binding: TopicAuthorityBinding = {
   languages: ["en"],
   geography: ["United States", "International"],
   officialEndpoints: ["https://nasa.gov/"],
-  discoveryMechanisms: ["DIRECT_URL", "OFFICIAL_API", "INSTITUTIONAL_SITE_SEARCH", "SITEMAP", "REGISTERED_DOMAIN_DISCOVERY"],
+  discoveryMechanisms: ["DIRECT_URL", "OFFICIAL_API", "INSTITUTIONAL_SITE_SEARCH", "SITEMAP", "REGISTERED_DOMAIN_DISCOVERY"], specialistCollectionProfiles: [],
   validationStatus: "ELIGIBLE"
 };
 
@@ -36,6 +43,16 @@ test("direct registered URLs are auditable operations without external search", 
   assert.equal(result.status, "SUCCEEDED");
   assert.deepEqual(result.returnedUrls, ["https://www.nasa.gov/history/apollo-11/"]);
   assert.equal(result.providerInternalQueries.length, 0);
+});
+
+test("specialist profiles reject authority, endpoint, and mechanism substitution before transport", async () => {
+  const secured = { ...binding, specialistCollectionProfiles: [specialistProfile] };
+  let calls = 0;
+  const transport = async () => { calls += 1; return new Response(); };
+  await assert.rejects(executeInstitutionalDiscovery({ binding: secured, researchQuestionIds: ["question-chronology"], layer: "EVIDENTIARY_CORE", mechanism: "DIRECT_URL", endpoint: "https://nasa.gov/collections/other/", specialistCollectionProfileId: specialistProfile.profileId, purpose: "Official technical archive records", transport }), /SPECIALIST_COLLECTION_PROFILE_NOT_REGISTERED/);
+  await assert.rejects(executeInstitutionalDiscovery({ binding: secured, researchQuestionIds: ["question-chronology"], layer: "EVIDENTIARY_CORE", mechanism: "SITEMAP", endpoint: specialistProfile.endpoint, specialistCollectionProfileId: specialistProfile.profileId, purpose: "Official technical archive records", transport }), /SPECIALIST_COLLECTION_PROFILE_NOT_REGISTERED/);
+  await assert.rejects(executeInstitutionalDiscovery({ binding, researchQuestionIds: ["question-chronology"], layer: "EVIDENTIARY_CORE", mechanism: "DIRECT_URL", endpoint: specialistProfile.endpoint, specialistCollectionProfileId: specialistProfile.profileId, purpose: "Official technical archive records", transport }), /SPECIALIST_COLLECTION_PROFILE_NOT_REGISTERED/);
+  assert.equal(calls, 0);
 });
 
 test("generic sitemap discovery remains bounded, relevance ordered, and registered-domain only", async () => {

@@ -42,9 +42,9 @@ test("publisher bootstrap semantic state is independent from caller execution pr
   const retryContext = { ...TEST_CONTEXT, topicId: "different-topic", runId: "v2-a3-web-retry", generation: 7, createdAt: "2026-09-07T12:34:56.000Z", policyVersion: "knowledge-coverage-v2-a3.1" };
   const retried = bootstrapPublisherRegistry(retryContext);
   assert.deepEqual(retried, publishers);
-  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-e0d3d4099bb469bf7dd7c32fbb01a6274e7bb68754967dea0ed81cad616429fc");
+  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-d6f82ff9da4143b9ee5993b483540c48aa4ce6de2fda4125bc3b07fd1b001628");
   const productionBootstrap = bootstrapPublisherRegistry({ ...retryContext, corpusId: "timelines-clean-2026-09-v1" })[0]!;
-  assert.equal(productionBootstrap.payloadHash, "f92f4098061c812763cc54d79dd0e42a49826cadf068644e253bf0fa226b6922");
+  assert.equal(productionBootstrap.payloadHash, "472702a488f2e6590ec10a555295322a0caf077bd251712e60088ae7767b9517");
 });
 
 function successorInput(publisher: PublisherAuthorityVersion, overrides: Partial<PublisherAuthorityVersionInput> = {}): PublisherAuthorityVersionInput {
@@ -121,7 +121,7 @@ test("claim verdict identity includes the exact authority-binding evaluation con
     languages: nasa.languages,
     geography: nasa.geographicScope,
     officialEndpoints: ["https://nasa.gov/"],
-    discoveryMechanisms: ["DIRECT_URL"],
+    discoveryMechanisms: ["DIRECT_URL"], specialistCollectionProfiles: [],
     validationStatus: "ELIGIBLE"
   });
   const eligible = evaluateClaimAuthority({ context: TEST_CONTEXT, claim: value, evidenceEdges: [durableEdge], publishersByVersionId: publisherMap, authorityBindingsByPublisherVersionId: new Map([[nasa.publisherVersionId, binding("binding-eligible", ["DATE"])]]) });

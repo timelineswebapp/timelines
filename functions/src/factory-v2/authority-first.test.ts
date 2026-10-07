@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_CONTROLLED_RESEARCH_BUDGET,
   auditPerspective,
+  applicableSpecialistCollectionProfiles,
   authorizeEscalation,
   buildAuthorityResearchPlan,
   buildConfidenceVector,
@@ -13,7 +14,7 @@ import {
 } from "./authority-first";
 import { bootstrapPublisherRegistry } from "./authority";
 import { buildResearchMap } from "./contracts/builders";
-import type { PublisherAuthorityVersion, TopicAuthorityProposal } from "./contracts";
+import type { PublisherAuthorityVersion, SpecialistCollectionProfile, TopicAuthorityProposal } from "./contracts";
 import { TEST_CONTEXT, scopeFixture } from "./test-fixtures";
 
 const scope = scopeFixture();
@@ -61,6 +62,17 @@ function validProposals(): TopicAuthorityProposal[] {
   ];
 }
 
+function collectionProfile(profileId: string, endpoint: string, contentTypes: string[]): SpecialistCollectionProfile {
+  return {
+    profileId, publisherVersionId: publisher("National Aeronautics and Space Administration").publisherVersionId,
+    version: 1, policyVersion: "specialist-collection-profile.1", capabilityClass: "SCIENTIFIC_TECHNICAL_ARCHIVES",
+    collectionScope: "Official records and technical archive collection.", endpoint,
+    discoveryMechanisms: ["DIRECT_URL"], supportedQueryParameters: [], languages: ["en"], geography: ["United States"],
+    historicalPeriods: ["modern"], contentTypes, accessLimitations: [],
+    verificationProvenance: "Verified official collection endpoint.", effectiveAt: "2026-10-02T00:00:00.000Z"
+  };
+}
+
 test("controlled research budget freezes auditable bounds without opaque query semantics", () => {
   assert.deepEqual(DEFAULT_CONTROLLED_RESEARCH_BUDGET, {
     version: "controlled-research-budget.1",
@@ -82,6 +94,16 @@ test("registry capabilities derive official endpoints and institution families f
   assert.ok(nasa.discoveryMechanisms.includes("SITEMAP"));
   const wikipedia = registryCapability(publisher("Wikimedia Foundation"));
   assert.equal(wikipedia.authorityFamily, "EDITED_REFERENCE");
+});
+
+test("specialist registry profiles are immutable official collection capabilities, not topic facts", () => {
+  const profiles = ["British Library", "Library of Congress", "Metropolitan Museum of Art", "Asian Art Museum of San Francisco"]
+    .flatMap((name) => registryCapability(publisher(name)).specialistCollectionProfiles);
+  assert.equal(profiles.length, 4);
+  assert.ok(profiles.every((profile) => profile.policyVersion === "specialist-collection-profile.1" && profile.version === 1));
+  assert.ok(profiles.every((profile) => new URL(profile.endpoint).protocol === "https:" && profile.verificationProvenance.startsWith("Official ")));
+  assert.ok(profiles.every((profile) => !/gutenberg|printing press|ada lovelace|berlin blockade|san francisco earthquake/iu.test(JSON.stringify(profile))));
+  assert.equal(new Set(profiles.map((profile) => profile.profileId)).size, profiles.length);
 });
 
 test("Topic Authority Set rejects unknown authorities and requires evidentiary coverage for every critical question", () => {
@@ -145,6 +167,29 @@ test("validated Topic Authority Set is immutable, registry-bound, diverse, and r
   assert.ok(plan.operations.some((operation) => operation.layer === "ORIENTATION" && operation.mechanism === "DIRECT_URL"));
   assert.ok(plan.operations.some((operation) => operation.layer === "EVIDENTIARY_CORE" && operation.mechanism === "SITEMAP"));
   assert.deepEqual(plan.coveredCriticalQuestionIds, set.criticalQuestionIds);
+});
+
+test("specialist collection selection is deterministic metadata matching, never array order", () => {
+  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: validProposals() });
+  const nasa = set.bindings.find((binding) => binding.publisherId === publisher("National Aeronautics and Space Administration").publisherId)!;
+  const profileA = collectionProfile("specialist-profile-a", "https://nasa.gov/collections/a", ["official records"]);
+  const profileB = collectionProfile("specialist-profile-b", "https://nasa.gov/collections/b", ["official records"]);
+  const binding = { ...nasa, specialistCollectionProfiles: [profileB, profileA] };
+  assert.deepEqual(applicableSpecialistCollectionProfiles({ binding, researchMap: map }).map((profile) => profile.profileId), ["specialist-profile-a", "specialist-profile-b"]);
+  const plan = buildAuthorityResearchPlan({ context: TEST_CONTEXT, researchMap: map, set: { ...set, bindings: set.bindings.map((candidate) => candidate.bindingId === binding.bindingId ? binding : candidate) } });
+  const attempts = plan.operations.filter((operation) => operation.authorityBindingId === binding.bindingId).sort((left, right) => left.attemptOrder - right.attemptOrder);
+  assert.deepEqual(attempts.map((operation) => operation.specialistCollectionProfileId), ["specialist-profile-a", "specialist-profile-b", null]);
+  assert.deepEqual(attempts.map((operation) => operation.attemptOrder), [0, 1, 2]);
+});
+
+test("generic authority discovery remains the only plan when no registered specialist profile applies", () => {
+  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: validProposals() });
+  const nasa = set.bindings.find((binding) => binding.publisherId === publisher("National Aeronautics and Space Administration").publisherId)!;
+  const unrelated = { ...collectionProfile("specialist-profile-unrelated", "https://nasa.gov/collections/unrelated", ["manuscript codices"]), collectionScope: "Papyri and codicology collection." };
+  const plan = buildAuthorityResearchPlan({ context: TEST_CONTEXT, researchMap: map, set: { ...set, bindings: set.bindings.map((binding) => binding.bindingId === nasa.bindingId ? { ...binding, specialistCollectionProfiles: [unrelated] } : binding) } });
+  const attempts = plan.operations.filter((operation) => operation.authorityBindingId === nasa.bindingId);
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0]!.specialistCollectionProfileId, null);
 });
 
 test("claim-relative authority accepts NASA mission facts but not independent Space Race interpretation", () => {

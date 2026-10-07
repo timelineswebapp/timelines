@@ -82,14 +82,18 @@ export async function executeInstitutionalDiscovery(input: {
   layer: "ORIENTATION" | "EVIDENTIARY_CORE";
   mechanism: Exclude<ControlledResearchOperation["mechanism"], "GOOGLE_GROUNDING_ESCALATION">;
   endpoint: string;
+  specialistCollectionProfileId?: string | null;
+  attemptOrder?: number;
   purpose: string;
   transport?: InstitutionalDiscoveryTransport;
   signal?: AbortSignal;
 }): Promise<ControlledResearchOperation> {
   if (!input.binding.discoveryMechanisms.includes(input.mechanism)) throw new Error(`AUTHORITY_DISCOVERY_MECHANISM_NOT_REGISTERED:${input.mechanism}`);
+  const profile = input.specialistCollectionProfileId ? input.binding.specialistCollectionProfiles.find((candidate) => candidate.profileId === input.specialistCollectionProfileId) : null;
+  if (input.specialistCollectionProfileId && (!profile || profile.endpoint !== input.endpoint || !profile.discoveryMechanisms.includes(input.mechanism))) throw new Error("SPECIALIST_COLLECTION_PROFILE_NOT_REGISTERED");
   const endpoint = safeRegisteredUrl(input.endpoint, input.binding);
   if (!endpoint) throw new Error("AUTHORITY_DISCOVERY_ENDPOINT_OUTSIDE_REGISTERED_DOMAIN");
-  const semanticIdentity = { authorityBindingId: input.binding.bindingId, researchQuestionIds: [...new Set(input.researchQuestionIds)].sort(), layer: input.layer, mechanism: input.mechanism, endpoint, purpose: input.purpose.normalize("NFKC").trim() };
+  const semanticIdentity = { authorityBindingId: input.binding.bindingId, researchQuestionIds: [...new Set(input.researchQuestionIds)].sort(), layer: input.layer, mechanism: input.mechanism, endpoint, specialistCollectionProfileId: profile?.profileId || null, attemptOrder: input.attemptOrder || 0, purpose: input.purpose.normalize("NFKC").trim() };
   const operationId = contentAddressedId("controlled-research-operation", semanticIdentity);
   if (input.mechanism === "DIRECT_URL") return controlledResearchOperationSchema.parse({ ...semanticIdentity, operationId, status: "SUCCEEDED", returnedUrls: [endpoint], providerInternalQueries: [], latencyMs: 0, failureReason: null });
   const startedAt = Date.now();

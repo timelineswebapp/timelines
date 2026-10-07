@@ -73,6 +73,15 @@ test("Retrieval follows bounded safe redirects, snapshots HTML, archives large b
   assert.equal(result.snapshot.boundedExtractedText.includes("<script"), false);
 });
 
+test("specialist collection admission identity survives secure retrieval into the immutable snapshot", async () => {
+  const result = await retrieveSource({ ...base, specialistCollectionProfileId: "specialist-profile-lineage" }, {
+    dnsLookup: publicDns,
+    fetch: fetchSequence([response(200, "Registered collection evidence.", { "content-type": "text/plain" })])
+  });
+  assert.equal(result.snapshot.specialistCollectionProfileId, "specialist-profile-lineage");
+  assert.ok(result.evidenceSegments.every((segment) => segment.sourceSnapshotId === result.snapshot.sourceSnapshotId));
+});
+
 test("Retrieval fails closed for redirect-to-private, oversized, encoded, and unsupported responses", async () => {
   await assert.rejects(retrieveSource(base, { dnsLookup: publicDns, fetch: fetchSequence([response(302, "", { location: "https://127.0.0.1/", "content-type": "text/plain" })]) }), /PRIVATE_ADDRESS/);
   await assert.rejects(retrieveSource(base, { dnsLookup: publicDns, fetch: fetchSequence([response(200, "x", { "content-type": "text/plain", "content-length": String(25 * 1024 * 1024 + 1) })]) }), /BODY_TOO_LARGE/);

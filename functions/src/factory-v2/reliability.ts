@@ -68,6 +68,8 @@ export type DiscoveredSourceCandidate = {
   role: "ORIENTATION" | "PHASE_DIMENSION" | "AUTHORITY_TARGETED" | "SOURCE_RETRIEVAL";
   intendedSourceClass: SourceDocument["sourceClass"];
   discoveryOrder: number;
+  /** Registry-governed collection route responsible for this candidate, if any. */
+  specialistCollectionProfileId?: string | null;
   discoveryText?: string;
 };
 

@@ -232,6 +232,8 @@ export const sourceSnapshotSchema = z.object({
   ...executionEnvelopeFields,
   sourceSnapshotId: idSchema,
   sourceId: idSchema,
+  /** Immutable specialist-collection admission identity, when that route produced this snapshot. */
+  specialistCollectionProfileId: idSchema.nullable().optional(),
   retrievalUrl: httpsUrlSchema,
   resolvedUrl: httpsUrlSchema,
   redirectChain: z.array(httpsUrlSchema).max(5),

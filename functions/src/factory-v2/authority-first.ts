@@ -2,6 +2,7 @@ import {
   AUTHORITY_FIRST_POLICY_VERSION,
   AUTHORITY_REGISTRY_VERSION,
   CONTROLLED_RESEARCH_BUDGET_VERSION,
+  SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION,
   acquisitionConfidenceVectorSchema,
   authorityResearchPlanSchema,
   authorityRegistryCapabilitySchema,
@@ -19,6 +20,7 @@ import {
   type PublisherAuthorityVersion,
   type ResearchMap,
   type ScopeContract,
+  type SpecialistCollectionProfile,
   type SubjectRelationship,
   type TopicAuthorityBinding,
   type TopicAuthorityProposal,
@@ -65,6 +67,22 @@ export function defaultSubjectRelationship(publisher: PublisherAuthorityVersion)
     : "INDEPENDENT";
 }
 
+function collectionProfile(input: Omit<SpecialistCollectionProfile, "profileId">): SpecialistCollectionProfile {
+  return { ...input, profileId: contentAddressedId("specialist-collection-profile", input) };
+}
+
+/** Registry-governed capabilities only; profiles contain no historical assertions. */
+export function registeredSpecialistCollectionProfiles(publisher: PublisherAuthorityVersion): SpecialistCollectionProfile[] {
+  const common = { publisherVersionId: publisher.publisherVersionId, version: 1, policyVersion: SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION, supportedQueryParameters: [], effectiveAt: "2026-10-02T00:00:00.000Z" };
+  const byName: Record<string, Omit<SpecialistCollectionProfile, "profileId" | "publisherVersionId" | "version" | "policyVersion" | "supportedQueryParameters" | "effectiveAt">[]> = {
+    "British Library": [{ capabilityClass: "MANUSCRIPTS_RARE_BOOKS", collectionScope: "Official library collection guides and digitised collection discovery.", endpoint: "https://www.bl.uk/collection-guides/", discoveryMechanisms: ["DIRECT_URL", "INSTITUTIONAL_SITE_SEARCH"], languages: ["en", "multilingual"], geography: ["United Kingdom", "International"], historicalPeriods: ["premodern", "modern"], contentTypes: ["manuscripts", "rare books", "incunabula"], accessLimitations: [], verificationProvenance: "Official British Library collection-guide endpoint." }],
+    "Library of Congress": [{ capabilityClass: "DIGITIZED_BOOKS", collectionScope: "Official Library of Congress books and digitised print collections.", endpoint: "https://www.loc.gov/books/", discoveryMechanisms: ["DIRECT_URL", "INSTITUTIONAL_SITE_SEARCH"], languages: ["en", "multilingual"], geography: ["United States", "International"], historicalPeriods: ["premodern", "modern"], contentTypes: ["books", "digitised collections"], accessLimitations: [], verificationProvenance: "Official Library of Congress books collection endpoint." }],
+    "Metropolitan Museum of Art": [{ capabilityClass: "MUSEUM_COLLECTIONS", collectionScope: "Official museum object collection database.", endpoint: "https://www.metmuseum.org/art/collection", discoveryMechanisms: ["DIRECT_URL", "INSTITUTIONAL_SITE_SEARCH"], languages: ["en"], geography: ["International"], historicalPeriods: ["premodern", "modern"], contentTypes: ["museum objects", "material culture"], accessLimitations: [], verificationProvenance: "Official Metropolitan Museum collection endpoint." }],
+    "Asian Art Museum of San Francisco": [{ capabilityClass: "MUSEUM_COLLECTIONS", collectionScope: "Official Asian Art Museum collection database.", endpoint: "https://searchcollection.asianart.org/", discoveryMechanisms: ["DIRECT_URL", "INSTITUTIONAL_SITE_SEARCH"], languages: ["en"], geography: ["Asia"], historicalPeriods: ["premodern", "modern"], contentTypes: ["museum objects", "material culture"], accessLimitations: [], verificationProvenance: "Official Asian Art Museum collection-search endpoint." }]
+  };
+  return (byName[publisher.canonicalName] || []).map((profile) => collectionProfile({ ...common, ...profile }));
+}
+
 export function registryCapability(publisher: PublisherAuthorityVersion): AuthorityRegistryCapability {
   const officialEndpoints = publisher.knownDomains.map((domain) => `https://${domain}/`);
   return authorityRegistryCapabilitySchema.parse({
@@ -73,6 +91,7 @@ export function registryCapability(publisher: PublisherAuthorityVersion): Author
     historicalPeriods: [],
     defaultSubjectRelationship: defaultSubjectRelationship(publisher),
     discoveryMechanisms: ["DIRECT_URL", "SITEMAP", "REGISTERED_DOMAIN_DISCOVERY"],
+    specialistCollectionProfiles: registeredSpecialistCollectionProfiles(publisher),
     storageConstraints: publisher.accessLimitations,
     registryVersion: AUTHORITY_REGISTRY_VERSION
   });
@@ -106,6 +125,7 @@ function validateProposal(input: {
     geography: uniqueSorted(input.publisher.geographicScope),
     officialEndpoints: capability.officialEndpoints,
     discoveryMechanisms: capability.discoveryMechanisms,
+    specialistCollectionProfiles: capability.specialistCollectionProfiles,
     validationStatus: "ELIGIBLE" as const
   };
   return { ...semantic, bindingId: contentAddressedId("topic-authority-binding", semantic) };
@@ -192,10 +212,42 @@ export function registeredGroundingExpansionPublishers(input: {
     .sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId));
 }
 
-function operationEndpoint(binding: TopicAuthorityBinding, mechanism: TopicAuthorityBinding["discoveryMechanisms"][number]): string {
+function operationEndpoint(binding: TopicAuthorityBinding, mechanism: TopicAuthorityBinding["discoveryMechanisms"][number], profile: SpecialistCollectionProfile | null): string {
+  if (profile) return profile.endpoint;
   const root = new URL(binding.officialEndpoints[0]!);
   if (mechanism === "SITEMAP") return new URL("/sitemap.xml", root).toString();
   return root.toString();
+}
+
+function profileTerms(profile: SpecialistCollectionProfile): Set<string> {
+  return new Set([
+    profile.capabilityClass,
+    profile.collectionScope,
+    ...profile.languages,
+    ...profile.geography,
+    ...profile.historicalPeriods,
+    ...profile.contentTypes
+  ].flatMap((value) => normalize(value).match(/[\p{L}\p{N}]{3,}/gu) || []));
+}
+
+/**
+ * Ranks only profiles already admitted to the bound authority. The model can
+ * propose a binding, but cannot grant an endpoint or make array order decide
+ * historical routing.
+ */
+export function applicableSpecialistCollectionProfiles(input: {
+  binding: TopicAuthorityBinding;
+  researchMap: ResearchMap;
+}): SpecialistCollectionProfile[] {
+  const questionText = input.binding.researchQuestionIds
+    .map((id) => input.researchMap.questions.find((question) => question.questionId === id)?.text || "")
+    .join(" ");
+  const queryTerms = new Set(normalize(`${questionText} ${input.binding.rationale}`).match(/[\p{L}\p{N}]{3,}/gu) || []);
+  return input.binding.specialistCollectionProfiles
+    .map((profile) => ({ profile, score: [...profileTerms(profile)].filter((term) => queryTerms.has(term)).length }))
+    .filter((candidate) => candidate.score > 0)
+    .sort((left, right) => right.score - left.score || left.profile.profileId.localeCompare(right.profile.profileId))
+    .map((candidate) => candidate.profile);
 }
 
 export function buildAuthorityResearchPlan(input: { context: ArtifactContext; set: TopicAuthoritySet; researchMap: ResearchMap }): AuthorityResearchPlan {
@@ -204,26 +256,38 @@ export function buildAuthorityResearchPlan(input: { context: ArtifactContext; se
     throw new Error("AUTHORITY_RESEARCH_PLAN_RESEARCH_MAP_MISMATCH");
   }
   const questionTextById = new Map(input.researchMap.questions.map((question) => [question.questionId, question.text]));
-  const coreBindingCount = input.set.bindings.filter((binding) => binding.roles.some((role) => role !== "ORIENTATION")).length;
-  const includeFallbacks = input.set.bindings.length + coreBindingCount <= DEFAULT_CONTROLLED_RESEARCH_BUDGET.maximumControlledDiscoveryOperations;
+  const baseOperationCount = input.set.bindings.length;
+  let remainingSpecialistAttempts = Math.max(0, DEFAULT_CONTROLLED_RESEARCH_BUDGET.maximumControlledDiscoveryOperations - baseOperationCount);
   for (const binding of input.set.bindings) {
     const layer = binding.roles.every((role) => role === "ORIENTATION") ? "ORIENTATION" as const : "EVIDENTIARY_CORE" as const;
-    const preferred = layer === "ORIENTATION"
+    const genericMechanism = layer === "ORIENTATION"
       ? "DIRECT_URL" as const
       : binding.discoveryMechanisms.includes("SITEMAP") ? "SITEMAP" as const : binding.discoveryMechanisms[0]!;
-    const semantic = {
+    const purpose = `Research questions: ${binding.researchQuestionIds.map((questionId) => questionTextById.get(questionId)).filter((text): text is string => Boolean(text)).join(" | ")}. Authority rationale: ${binding.rationale}. ${layer === "ORIENTATION" ? "Orient research" : "Acquire direct institutional evidence"}.`.slice(0, 1000);
+    const profiles = layer === "EVIDENTIARY_CORE"
+      ? applicableSpecialistCollectionProfiles({ binding, researchMap: input.researchMap }).slice(0, Math.min(3, remainingSpecialistAttempts))
+      : [];
+    remainingSpecialistAttempts -= profiles.length;
+    for (const [index, profile] of profiles.entries()) {
+      const mechanism = profile.discoveryMechanisms[0]!;
+      const semantic = {
+        authorityBindingId: binding.bindingId, researchQuestionIds: uniqueSorted(binding.researchQuestionIds), layer,
+        mechanism, endpoint: operationEndpoint(binding, mechanism, profile), specialistCollectionProfileId: profile.profileId,
+        attemptOrder: index, purpose: `Specialist collection attempt ${index + 1}. ${purpose}`.slice(0, 1000)
+      };
+      operations.push({ ...semantic, plannedOperationId: contentAddressedId("planned-authority-operation", semantic) });
+    }
+    const generic = {
       authorityBindingId: binding.bindingId,
       researchQuestionIds: uniqueSorted(binding.researchQuestionIds),
       layer,
-      mechanism: preferred,
-      endpoint: operationEndpoint(binding, preferred),
-      purpose: `Research questions: ${binding.researchQuestionIds.map((questionId) => questionTextById.get(questionId)).filter((text): text is string => Boolean(text)).join(" | ")}. Authority rationale: ${binding.rationale}. ${layer === "ORIENTATION" ? "Orient research" : "Acquire direct institutional evidence"}.`.slice(0, 1000)
+      mechanism: genericMechanism,
+      endpoint: operationEndpoint(binding, genericMechanism, null),
+      specialistCollectionProfileId: null,
+      attemptOrder: profiles.length,
+      purpose: `${profiles.length > 0 ? "Same-authority generic fallback. " : ""}${purpose}`.slice(0, 1000)
     };
-    operations.push({ ...semantic, plannedOperationId: contentAddressedId("planned-authority-operation", semantic) });
-    if (includeFallbacks && layer === "EVIDENTIARY_CORE" && binding.discoveryMechanisms.includes("REGISTERED_DOMAIN_DISCOVERY")) {
-      const fallback = { ...semantic, mechanism: "REGISTERED_DOMAIN_DISCOVERY" as const, endpoint: operationEndpoint(binding, "REGISTERED_DOMAIN_DISCOVERY"), purpose: `Fallback registered-domain discovery. ${semantic.purpose}`.slice(0, 1000) };
-      operations.push({ ...fallback, plannedOperationId: contentAddressedId("planned-authority-operation", fallback) });
-    }
+    operations.push({ ...generic, plannedOperationId: contentAddressedId("planned-authority-operation", generic) });
   }
   if (operations.length > DEFAULT_CONTROLLED_RESEARCH_BUDGET.maximumControlledDiscoveryOperations) throw new Error("CONTROLLED_OPERATION_BUDGET_EXHAUSTED");
   const coveredCriticalQuestionIds = uniqueSorted(input.set.criticalQuestionIds);

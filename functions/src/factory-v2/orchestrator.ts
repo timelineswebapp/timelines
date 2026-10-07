@@ -115,7 +115,7 @@ export function failedGroundingEscalationOperation(input: { escalationDecisionId
   const identity = {
     researchQuestionIds: [input.researchQuestionId], authorityBindingId: null,
     layer: "GAP_CONTEST_ESCALATION" as const, mechanism: "GOOGLE_GROUNDING_ESCALATION" as const,
-    endpoint: "https://google.com/", purpose: input.purpose
+    endpoint: "https://google.com/", specialistCollectionProfileId: null, attemptOrder: 0, purpose: input.purpose
   };
   return {
     ...identity,
@@ -430,11 +430,23 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   assertDeadline();
   const bindingById = new Map(topicAuthoritySet.bindings.map((binding) => [binding.bindingId, binding]));
   const groundingAttributionByUrl = new Map<string, { publisherDomain: string; title: string; discoveryText: string }>();
-  const controlledOperations = (await mapLimit(authorityResearchPlan.operations, authorityResearchPlan.budget.maximumConcurrency, async (planned): Promise<ControlledResearchOperation> => {
-    const binding = bindingById.get(planned.authorityBindingId);
-    if (!binding) throw new Error(`AUTHORITY_RESEARCH_PLAN_BINDING_MISSING:${planned.authorityBindingId}`);
-    return executeInstitutionalDiscovery({ binding, researchQuestionIds: planned.researchQuestionIds, layer: planned.layer, mechanism: planned.mechanism, endpoint: planned.endpoint, purpose: planned.purpose, transport: dependencies.institutionalDiscoveryTransport, signal: AbortSignal.timeout(Math.max(1, deadlineAt - Date.now())) });
-  }));
+  const operationsByBinding = new Map<string, typeof authorityResearchPlan.operations>();
+  for (const planned of authorityResearchPlan.operations) {
+    const grouped = operationsByBinding.get(planned.authorityBindingId) || [];
+    grouped.push(planned);
+    operationsByBinding.set(planned.authorityBindingId, grouped);
+  }
+  const controlledOperations = (await mapLimit([...operationsByBinding.values()], authorityResearchPlan.budget.maximumConcurrency, async (plannedOperations): Promise<ControlledResearchOperation[]> => {
+    const attempts: ControlledResearchOperation[] = [];
+    for (const planned of [...plannedOperations].sort((left, right) => left.attemptOrder - right.attemptOrder || left.plannedOperationId.localeCompare(right.plannedOperationId))) {
+      const binding = bindingById.get(planned.authorityBindingId);
+      if (!binding) throw new Error(`AUTHORITY_RESEARCH_PLAN_BINDING_MISSING:${planned.authorityBindingId}`);
+      const operation = await executeInstitutionalDiscovery({ binding, researchQuestionIds: planned.researchQuestionIds, layer: planned.layer, mechanism: planned.mechanism, endpoint: planned.endpoint, specialistCollectionProfileId: planned.specialistCollectionProfileId, attemptOrder: planned.attemptOrder, purpose: planned.purpose, transport: dependencies.institutionalDiscoveryTransport, signal: AbortSignal.timeout(Math.max(1, deadlineAt - Date.now())) });
+      attempts.push(operation);
+      if (operation.status === "SUCCEEDED" && operation.returnedUrls.length > 0) break;
+    }
+    return attempts;
+  })).flat();
   const questionById = new Map(mapResult.map.questions.map((question) => [question.questionId, question]));
   const initiallyCoveredQuestionIds = new Set(controlledOperations.filter((operation) => operation.status === "SUCCEEDED" && operation.returnedUrls.length > 0).flatMap((operation) => operation.researchQuestionIds.filter((questionId) => {
     const question = questionById.get(questionId);
@@ -518,7 +530,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const operationIdentity = {
       researchQuestionIds: [question.questionId], authorityBindingId: null,
       layer: "GAP_CONTEST_ESCALATION" as const, mechanism: "GOOGLE_GROUNDING_ESCALATION" as const,
-      endpoint: "https://google.com/", purpose: decision.allowedPurpose
+      endpoint: "https://google.com/", specialistCollectionProfileId: null, attemptOrder: 0, purpose: decision.allowedPurpose
     };
     controlledOperations.push({ ...operationIdentity, operationId: contentAddressedId("controlled-research-operation", { escalationDecisionId: decision.escalationDecisionId, ...operationIdentity }), status: authorizedUrls.length > 0 ? "SUCCEEDED" : "FAILED", returnedUrls: authorizedUrls, providerInternalQueries: acquisition.webSearchQueries, latencyMs: acquisition.execution.latencyMs, failureReason: authorizedUrls.length > 0 ? null : "GROUNDING_NO_REGISTERED_AUTHORITY_URL" });
   }
@@ -539,8 +551,9 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const existing = discovered.get(key);
     if (existing) {
       existing.researchQuestionIds = [...new Set([...existing.researchQuestionIds, ...operation.researchQuestionIds])];
+      existing.specialistCollectionProfileId ||= operation.specialistCollectionProfileId;
       existing.discoveryText = [...new Set([existing.discoveryText, groundingAttribution?.discoveryText].filter((value): value is string => Boolean(value)))].join(" ").slice(0, 12_000);
-    } else discovered.set(key, { canonicalUrl: key, originalUrl: returnedUrl, title: groundingAttribution?.title || new URL(key).pathname.split("/").filter(Boolean).at(-1) || publisher?.canonicalName || domain, domain, queryId: operation.operationId, researchQuestionIds: [...operation.researchQuestionIds], role: operation.layer === "ORIENTATION" ? "ORIENTATION" : "AUTHORITY_TARGETED", intendedSourceClass: provisionalSourceClass(publisher), discoveryOrder: discoveryOrder++, discoveryText: groundingAttribution?.discoveryText || groundingAttribution?.title || "" });
+    } else discovered.set(key, { canonicalUrl: key, originalUrl: returnedUrl, title: groundingAttribution?.title || new URL(key).pathname.split("/").filter(Boolean).at(-1) || publisher?.canonicalName || domain, domain, queryId: operation.operationId, researchQuestionIds: [...operation.researchQuestionIds], role: operation.layer === "ORIENTATION" ? "ORIENTATION" : "AUTHORITY_TARGETED", intendedSourceClass: provisionalSourceClass(publisher), discoveryOrder: discoveryOrder++, specialistCollectionProfileId: operation.specialistCollectionProfileId, discoveryText: groundingAttribution?.discoveryText || groundingAttribution?.title || "" });
   }
   const coverageAdmission = rankCoverageSourcesByQuestion({ candidates: [...discovered.values()], map: mapResult.map, publishers, maximumSources: Math.min(40, config.budgetBundle.maximumSourceDocuments) });
   const sourceCandidates = coverageAdmission.retrievalCandidates;
@@ -589,7 +602,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       }
       const initialPublisher = publisherForDomain(candidate.domain, publishers) || publisherForUrl(candidate.canonicalUrl, publishers);
       if (!initialPublisher || !topicAuthoritySet.bindings.some((binding) => binding.publisherVersionId === initialPublisher.publisherVersionId)) throw new Error(`SOURCE_OUTSIDE_TOPIC_AUTHORITY_SET:${candidate.canonicalUrl}`);
-      const result = await retrieveSource({ context, url: candidate.originalUrl, titleHint: candidate.title, publisherId: initialPublisher?.publisherId || null, sourceClass: provisionalSourceClass(initialPublisher), primarySecondaryRole: initialPublisher?.primarySecondaryTendency || "UNKNOWN", languageHint: descriptor.language }, {
+      const result = await retrieveSource({ context, url: candidate.originalUrl, titleHint: candidate.title, publisherId: initialPublisher?.publisherId || null, sourceClass: provisionalSourceClass(initialPublisher), primarySecondaryRole: initialPublisher?.primarySecondaryTendency || "UNKNOWN", languageHint: descriptor.language, specialistCollectionProfileId: candidate.specialistCollectionProfileId || null }, {
         ...dependencies.retrieval,
         signal: AbortSignal.timeout(Math.max(1, deadlineAt - Date.now())),
         cachedSource: async (resolvedUrl) => {

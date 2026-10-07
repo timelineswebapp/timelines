@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { ACTIVE_CORPUS_ID, COMPUTE_REGION, PROJECT_ID, VERTEX_LOCATION, VERTEX_MODEL } from "./config";
 import { buildGenerationReleaseManifest } from "./generation-release";
+import { AUTHORITY_FIRST_POLICY_VERSION, AUTHORITY_REGISTRY_VERSION, SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION } from "./factory-v2/contracts/authority-first";
 
 function sha256File(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -39,7 +40,9 @@ function main() {
       activeCorpusId: ACTIVE_CORPUS_ID,
       mode: process.env.EVIDENCE_FIRST_MODE || "SHADOW",
       acquisitionStrategy: "AUTHORITY_FIRST",
-      authorityRegistryVersion: "authority-registry.1",
+      authorityFirstPolicyVersion: AUTHORITY_FIRST_POLICY_VERSION,
+      authorityRegistryVersion: AUTHORITY_REGISTRY_VERSION,
+      specialistCollectionProfilePolicyVersion: SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION,
       controlledResearchBudgetVersion: "controlled-research-budget.1",
       groundingMode: "BOUNDED_ESCALATION_ONLY"
     }
