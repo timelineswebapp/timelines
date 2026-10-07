@@ -17,6 +17,12 @@ const legacyV2ASourceBundleSchema = z.object({
   promptVersion: z.literal("factory-v2-a-prompts.8")
 }).strict();
 const currentV2ASourceBundleSchema = z.object({
+  pipelineVersion: z.literal("factory-v2-a.31"),
+  schemaVersion: z.literal("factory-v2-a.6"),
+  policyVersion: z.literal("authority-first-research.5"),
+  promptVersion: z.literal("factory-v2-a-prompts.11")
+}).strict();
+const priorCurrentV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal("factory-v2-a.30"),
   schemaVersion: z.literal("factory-v2-a.6"),
   policyVersion: z.literal("authority-first-research.4"),
@@ -93,7 +99,7 @@ export const v2BEnvelopeFields = {
   runId: idSchema.nullable(),
   generation: z.number().int().positive(),
   sourceKnowledgeRunId: idSchema.nullable(),
-  sourceKnowledgeBundle: z.union([legacyV2ASourceBundleSchema, olderV2ASourceBundleSchema, previousV2ASourceBundleSchema, legacyAuthorityFirstV2ASourceBundleSchema, oldestAuthorityFirstV2ASourceBundleSchema, earlierAuthorityFirstV2ASourceBundleSchema, formerAuthorityFirstV2ASourceBundleSchema, priorAuthorityFirstV2ASourceBundleSchema, a28PriorAuthorityFirstV2ASourceBundleSchema, a28AuthorityFirstV2ASourceBundleSchema, currentV2ASourceBundleSchema]),
+  sourceKnowledgeBundle: z.union([legacyV2ASourceBundleSchema, olderV2ASourceBundleSchema, previousV2ASourceBundleSchema, legacyAuthorityFirstV2ASourceBundleSchema, oldestAuthorityFirstV2ASourceBundleSchema, earlierAuthorityFirstV2ASourceBundleSchema, formerAuthorityFirstV2ASourceBundleSchema, priorAuthorityFirstV2ASourceBundleSchema, a28PriorAuthorityFirstV2ASourceBundleSchema, a28AuthorityFirstV2ASourceBundleSchema, priorCurrentV2ASourceBundleSchema, currentV2ASourceBundleSchema]),
   executionMode: z.literal("SHADOW"),
   publicationEligible: z.literal(false),
   governanceSubmissionAllowed: z.literal(false),

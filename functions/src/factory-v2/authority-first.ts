@@ -167,7 +167,15 @@ export function buildTopicAuthoritySet(input: {
     bindings.push(validateProposal({ proposal, publisher, questionIds }));
   }
   if (bindings.length === 0) throw new Error("NO_APPLICABLE_AUTHORITY");
-  const criticalQuestionIds = input.researchMap.questions.filter((question) => requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : question.priority === "CRITICAL").map((question) => question.questionId);
+  // Initial routing must cover every question whose explicit historical
+  // perspective requirement will be audited later.  Retrieval geography never
+  // enters this calculation: only locked, historically justified requirements
+  // do.  Continuations remain bounded to their explicit gap targets.
+  const criticalQuestionIds = input.researchMap.questions
+    .filter((question) => requiredQuestionIds
+      ? requiredQuestionIds.has(question.questionId)
+      : question.priority === "CRITICAL" || (question.historicalPerspectiveRequirements?.length || 0) > 0)
+    .map((question) => question.questionId);
   const coreCoverage = new Set(bindings.filter((binding) => binding.roles.some((role) => role !== "ORIENTATION")).flatMap((binding) => binding.researchQuestionIds));
   const missingCritical = criticalQuestionIds.filter((id) => !coreCoverage.has(id));
   if (missingCritical.length > 0) throw new Error(`MISSING_CRITICAL_AUTHORITY_COVERAGE:${missingCritical.join(",")}`);

@@ -146,7 +146,9 @@ const topicAuthorityProposalEnvelopeBaseSchema = z.object({
 
 function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly PublisherAuthorityVersion[], requiredQuestionIds?: ReadonlySet<string>) {
   return topicAuthorityProposalEnvelopeBaseSchema.superRefine((value, context) => {
-    const criticalNumbers = map.questions.flatMap((question, index) => (requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : question.priority === "CRITICAL") ? [index + 1] : []);
+    const criticalNumbers = map.questions.flatMap((question, index) => (requiredQuestionIds
+      ? requiredQuestionIds.has(question.questionId)
+      : question.priority === "CRITICAL" || (question.historicalPerspectiveRequirements?.length || 0) > 0) ? [index + 1] : []);
     const effectiveRoles = (proposal: typeof value.authorities[number]) => {
       const publisher = publishers[proposal.publisherNumber - 1];
       if (!publisher) return [];
@@ -526,15 +528,17 @@ export async function generateTopicAuthorityProposals(input: {
     historicalPerspectiveRequirements: question.historicalPerspectiveRequirements || [],
     contested: question.contested,
     priority: question.priority,
-    requiredForThisRound: requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : question.priority === "CRITICAL"
+    requiredForThisRound: requiredQuestionIds
+      ? requiredQuestionIds.has(question.questionId)
+      : question.priority === "CRITICAL" || (question.historicalPerspectiveRequirements?.length || 0) > 0
   }));
   const prompt = [
     "You are the Authority-First topic-routing stage. Return only JSON. Select only authorities from the supplied registered list by publisherNumber.",
-    requiredQuestionIds ? "Map only every TARGET completion question to at least one evidentiary-core authority. Do not route non-target questions in this bounded continuation round. Orientation-only authorities may guide research but cannot satisfy evidentiary coverage." : "Map every CRITICAL Research Map question to at least one evidentiary-core authority. Orientation-only authorities may guide research but cannot satisfy evidentiary coverage.",
+    requiredQuestionIds ? "Map only every TARGET completion question to at least one evidentiary-core authority. Do not route non-target questions in this bounded continuation round. Orientation-only authorities may guide research but cannot satisfy evidentiary coverage." : "Map every CRITICAL Research Map question and every question with an explicit historicalPerspectiveRequirement to at least one evidentiary-core authority. Retrieval geography alone is never an authority-routing or historical-perspective requirement. Orientation-only authorities may guide research but cannot satisfy evidentiary coverage.",
     "Use PRIMARY_RECORD for records produced or held by the responsible institution; CORROBORATION and INTERPRETATION require independent authorities. A SUBJECT_SELF, STATE_PARTY, or PARTICIPANT authority must not be assigned CORROBORATION.",
     "For every contested question, propose at least two independent authority groups suitable for corroboration or interpretation and include meaningful geographic, participant, or community perspective tags.",
     "For each explicit historicalPerspectiveRequirement, preserve its label exactly in perspectiveTags when your selected authority represents it. INDEPENDENT_SCHOLARSHIP is evaluated deterministically from independence and scholarly roles; do not replace it with arbitrary discipline prose.",
-    `Every number in REQUIRED_QUESTION_NUMBERS must appear on at least one authority with a permitted non-ORIENTATION role. REQUIRED_QUESTION_NUMBERS=${JSON.stringify(input.map.questions.flatMap((question, index) => (requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : question.priority === "CRITICAL") ? [index + 1] : []))}`,
+    `Every number in REQUIRED_QUESTION_NUMBERS must appear on at least one authority with a permitted non-ORIENTATION role. REQUIRED_QUESTION_NUMBERS=${JSON.stringify(input.map.questions.flatMap((question, index) => (requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : question.priority === "CRITICAL" || (question.historicalPerspectiveRequirements?.length || 0) > 0) ? [index + 1] : []))}`,
     "Do not invent institutions, URLs, facts, registry entries, or authority status. Do not select timeline events and do not write narrative prose.",
     untrusted("LOCKED_SCOPE", { title: input.scope.title, topicClass: input.scope.topicClass, subjectDefinition: input.scope.subjectDefinition, chronologyStart: input.scope.chronologyStart, chronologyEnd: input.scope.chronologyEnd, spatialScope: input.scope.spatialScope, centralEntities: input.scope.centralEntities }),
     untrusted("LOCKED_RESEARCH_QUESTIONS", questions),

@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-// a.30 records an unattributable Grounding response as a failed bounded
-// escalation so other authorized evidence paths can complete or fail closed.
-export const V2_PIPELINE_VERSION = "factory-v2-a.30";
+// a.31 makes explicit historical-perspective requirements authority-routing
+// requirements, while keeping retrieval geography out of that determination.
+export const V2_PIPELINE_VERSION = "factory-v2-a.31";
 export const V2_SCHEMA_VERSION = "factory-v2-a.4";
 export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.6";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "authority-first-research.4";
+export const V2_POLICY_VERSION = "authority-first-research.5";
 export const V2_PROMPT_VERSION = "factory-v2-a-prompts.11";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);

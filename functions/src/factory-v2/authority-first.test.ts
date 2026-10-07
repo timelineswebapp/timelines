@@ -169,6 +169,32 @@ test("validated Topic Authority Set is immutable, registry-bound, diverse, and r
   assert.deepEqual(plan.coveredCriticalQuestionIds, set.criticalQuestionIds);
 });
 
+test("initial authority routing covers supporting questions with explicit historical perspective requirements", () => {
+  const perspectiveBearingSupportingQuestion = {
+    ...map.questions[0]!,
+    questionId: "question-community",
+    text: "How did the affected community experience the mission program?",
+    priority: "IMPORTANT" as const,
+    historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected local community", rationale: "The community directly experienced the program and its consequences." }]
+  };
+  const mapWithRequiredPerspective = { ...map, questions: [...map.questions, perspectiveBearingSupportingQuestion] };
+  assert.throws(
+    () => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: mapWithRequiredPerspective, publishers, proposals: validProposals() }),
+    /MISSING_CRITICAL_AUTHORITY_COVERAGE:question-community/
+  );
+  const set = buildTopicAuthoritySet({
+    context: TEST_CONTEXT,
+    scope,
+    researchMap: mapWithRequiredPerspective,
+    publishers,
+    proposals: [...validProposals(), proposal("National Aeronautics and Space Administration", {
+      researchQuestionIds: ["question-community"],
+      perspectiveTags: ["Affected local community"]
+    })]
+  });
+  assert.ok(set.criticalQuestionIds.includes("question-community"));
+});
+
 test("specialist collection selection is deterministic metadata matching, never array order", () => {
   const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: validProposals() });
   const nasa = set.bindings.find((binding) => binding.publisherId === publisher("National Aeronautics and Space Administration").publisherId)!;
