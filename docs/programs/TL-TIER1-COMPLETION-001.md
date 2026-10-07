@@ -6,9 +6,9 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_IN_PROGRESS — AUTHORITY_FIRST_SPECIALIST_COLLECTION_SUCCESSOR_VERIFIED`
+`FOUNDER_REVIEW_REQUIRED — PHASE_2_PRODUCTION_IDENTITY_PRECONDITION`
 
-The prior founder review approved a general, registry-governed specialist-collection capability. The resulting successor implementation is checkpointed at `19832282f0b509fce1646d88e281ad14bc346d54`; it is verified locally and sealed for Phase-2 execution, but is **not** Phase-2 certified. The prior `.3` result remains regression evidence only.
+The prior founder review approved a general, registry-governed specialist-collection capability. The resulting successor implementation is checkpointed at `19832282f0b509fce1646d88e281ad14bc346d54`; it is verified locally and sealed for Phase-2 execution, but is **not** Phase-2 certified. A fresh canary was authorized and preflighted from that exact clean checkout, but did not begin subject acquisition: the active GCP account (`booktown10@gmail.com`) lacks `run.services.get` on TiMELiNES `priority-topic-generation`. The prior `.3` result remains regression evidence only.
 
 ## Phase 0 baseline — 2026-10-02
 
@@ -34,7 +34,7 @@ The prior founder review approved a general, registry-governed specialist-collec
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | IN_PROGRESS | The corrected `.3` release `2d4aabf0021bf912aa094cd50f70fd97181aea46cb0be1c1b415843908f643a8` remains 3/4 regression evidence: valid CKSs for San Francisco, Berlin, and Ada; Printing Press failed closed. The general `.4` specialist-collection successor is checkpoint `1983228`, policy `authority-first-research.4`, Registry `authority-registry.2`, profile policy `specialist-collection-profile.1`, and clean-tree release `c65d52ae5ea84b70e29eed78a12c54c848e4b05461ddeff5b6f00c3c291b2821`. It passed root/Functions tests, typechecks, lint, builds, Firestore emulator, production dependency audit threshold, and release-manifest verification. No provider certification has run on `.4`. |
+| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | The corrected `.3` release `2d4aabf0021bf912aa094cd50f70fd97181aea46cb0be1c1b415843908f643a8` remains 3/4 regression evidence: valid CKSs for San Francisco, Berlin, and Ada; Printing Press failed closed. The general `.4` specialist-collection successor is checkpoint `1983228`, policy `authority-first-research.4`, Registry `authority-registry.2`, profile policy `specialist-collection-profile.1`, and clean-tree release `c65d52ae5ea84b70e29eed78a12c54c848e4b05461ddeff5b6f00c3c291b2821`. It passed root/Functions tests, typechecks, lint, builds, Firestore emulator, production dependency audit threshold, and release-manifest verification. Its fresh Phase-2 canary did not start subjects because the active GCP identity lacks `run.services.get`; no provider call, CKS, protected-state mutation, public mutation, or institutional mutation occurred. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -48,4 +48,4 @@ The prior founder review approved a general, registry-governed specialist-collec
 
 ## Resume instruction
 
-Use the sealed `.4` successor only for one fresh complete four-subject Phase-2 certification: San Francisco Earthquake, Berlin Blockade and Airlift, Ada Lovelace: Life and Work, and Development of the Printing Press. Preserve all prior failure evidence; do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards. Do not advance before one same-release 4/4 valid-CKS run.
+After a TiMELiNES-authorized GCP identity can read the required Cloud Run service state, use the sealed `.4` successor only for one fresh complete four-subject Phase-2 certification: San Francisco Earthquake, Berlin Blockade and Airlift, Ada Lovelace: Life and Work, and Development of the Printing Press. Preserve all prior failure evidence; do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards. Do not advance before one same-release 4/4 valid-CKS run.
