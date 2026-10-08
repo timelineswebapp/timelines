@@ -42,9 +42,9 @@ test("publisher bootstrap semantic state is independent from caller execution pr
   const retryContext = { ...TEST_CONTEXT, topicId: "different-topic", runId: "v2-a3-web-retry", generation: 7, createdAt: "2026-09-07T12:34:56.000Z", policyVersion: "knowledge-coverage-v2-a3.1" };
   const retried = bootstrapPublisherRegistry(retryContext);
   assert.deepEqual(retried, publishers);
-  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-dc31130007b2aad4b2b6e801009a5d98fbf5ff303ceda0394d2afe98eae74590");
+  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-8553fd0d6c90c171bc1e5c7e403d6cbac76e4c7f865bb29ef2ed9169431cd7cd");
   const productionBootstrap = bootstrapPublisherRegistry({ ...retryContext, corpusId: "timelines-clean-2026-09-v1" })[0]!;
-  assert.equal(productionBootstrap.payloadHash, "3590074a7652ba2d1c0e3cadb2602bb018a33d884de6727c6fe3d34eaee7da78");
+  assert.equal(productionBootstrap.payloadHash, "67d80c315926d15b26619b40c0103b502df41ee9f0fde58c452bfbc079af2d9e");
 });
 
 function successorInput(publisher: PublisherAuthorityVersion, overrides: Partial<PublisherAuthorityVersionInput> = {}): PublisherAuthorityVersionInput {
@@ -177,6 +177,36 @@ test("Material conflicting authoritative claims are preserved and block PASS", (
   assert.equal(conflicts[0]!.state, "UNRESOLVED");
   assert.equal(conflicts[0]!.blocksPass, true);
   assert.equal(evaluateClaimAuthority({ context: TEST_CONTEXT, claim: left, evidenceEdges: [edges[0]!], publishersByVersionId: publisherMap, conflictSet: conflicts[0] }).verdict, "REVIEW_REQUIRED");
+});
+
+test("Compatible interpretations from one evidence segment are not fabricated into a conflict", () => {
+  const left = claim("INTERPRETIVE", "INTERPRETATION");
+  const right = buildAtomicClaimVersion(TEST_CONTEXT, {
+    ...left,
+    claimId: "2dd67ccb-3a0e-55ce-b771-d036c1b03d88",
+    object: { kind: "TEXT", id: null, value: "A differently worded but compatible historical interpretation" },
+    normalizedAssertion: "The mission's technical programmes developed separately.",
+    extractedFromSegmentIds: ["shared-segment"]
+  });
+  const edges = [edge(left, byName("BBC"), "shared", { independenceGroupId: "publisher-bbc" }), edge(right, byName("BBC"), "shared", { independenceGroupId: "publisher-bbc" })]
+    .map((item) => ({ ...item, evidenceSegmentId: "shared-segment" }));
+  assert.deepEqual(detectClaimConflicts({ context: TEST_CONTEXT, claims: [left, right], evidenceEdges: edges }), []);
+});
+
+test("Explicit contradictory evidence remains a conflict even when it shares a segment", () => {
+  const left = claim("MATERIAL", "INTERPRETATION");
+  const right = buildAtomicClaimVersion(TEST_CONTEXT, {
+    ...left,
+    claimId: "d478f2d6-346e-5a9f-99aa-eaef46e84d9b",
+    object: { kind: "TEXT", id: null, value: "The opposite historical interpretation" },
+    normalizedAssertion: "The mission had no later policy influence.",
+    extractedFromSegmentIds: ["shared-segment"]
+  });
+  const supporting = edge(left, byName("BBC"), "shared");
+  const contradicting = edge(right, byName("Reuters"), "shared", { relationship: "CONTRADICTS" });
+  const conflicts = detectClaimConflicts({ context: TEST_CONTEXT, claims: [left, right], evidenceEdges: [{ ...supporting, evidenceSegmentId: "shared-segment" }, { ...contradicting, evidenceSegmentId: "shared-segment" }] });
+  assert.equal(conflicts.length, 1);
+  assert.equal(conflicts[0]!.blocksPass, true);
 });
 
 test("Sensitive claims always route to human review even with independent evidence", () => {

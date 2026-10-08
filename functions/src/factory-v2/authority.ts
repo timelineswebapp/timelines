@@ -143,6 +143,30 @@ export function independenceGroup(input: {
   return { independenceGroupId: contentAddressedId("independence", key), dependenceBasis };
 }
 
+/**
+ * A differing claim object is not, on its own, a historical contradiction.
+ * Narrative and interpretive claims commonly preserve complementary wording
+ * from the same evidence passage.  Treat only values with deterministic
+ * exclusivity semantics as an implicit contradiction; every other conflict
+ * must be represented explicitly by a CONTRADICTS evidence edge.
+ */
+function hasDeterministicObjectConflict(claims: AtomicClaimVersion[]): boolean {
+  const typedClaims = claims.filter((claim) => claim.object.kind === "DATE" || claim.object.kind === "NUMBER");
+  if (typedClaims.length < 2) return false;
+  return new Set(typedClaims.map((claim) => payloadHash({ kind: claim.object.kind, value: claim.object.value }))).size > 1;
+}
+
+function claimsHaveIndependentSupportingSegments(claims: AtomicClaimVersion[], edgeByClaim: ReadonlyMap<string, ClaimEvidenceEdge[]>): boolean {
+  for (let leftIndex = 0; leftIndex < claims.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < claims.length; rightIndex += 1) {
+      const leftSegments = new Set((edgeByClaim.get(claims[leftIndex]!.claimVersionId) || []).filter((edge) => edge.relationship === "SUPPORTS").map((edge) => edge.evidenceSegmentId));
+      const rightSegments = new Set((edgeByClaim.get(claims[rightIndex]!.claimVersionId) || []).filter((edge) => edge.relationship === "SUPPORTS").map((edge) => edge.evidenceSegmentId));
+      if (leftSegments.size > 0 && rightSegments.size > 0 && ![...leftSegments].some((segmentId) => rightSegments.has(segmentId))) return true;
+    }
+  }
+  return false;
+}
+
 export function detectClaimConflicts(input: { context: ArtifactContext; claims: AtomicClaimVersion[]; evidenceEdges: ClaimEvidenceEdge[] }): ClaimConflictSet[] {
   const authorityContext = { ...input.context, policyVersion: V2_POLICY_VERSION };
   const groups = new Map<string, AtomicClaimVersion[]>();
@@ -155,9 +179,9 @@ export function detectClaimConflicts(input: { context: ArtifactContext; claims: 
   const edgeByClaim = new Map<string, ClaimEvidenceEdge[]>();
   for (const edge of input.evidenceEdges) edgeByClaim.set(edge.claimVersionId, [...(edgeByClaim.get(edge.claimVersionId) || []), edge]);
   return [...groups.entries()].flatMap(([conflictKey, claims]) => {
-    const valueKeys = new Set(claims.map((claim) => payloadHash(claim.object)));
     const hasContradictionEdge = claims.some((claim) => (edgeByClaim.get(claim.claimVersionId) || []).some((edge) => edge.relationship === "CONTRADICTS"));
-    if (valueKeys.size < 2 && !hasContradictionEdge) return [];
+    const deterministicConflict = hasDeterministicObjectConflict(claims) && claimsHaveIndependentSupportingSegments(claims, edgeByClaim);
+    if (!hasContradictionEdge && !deterministicConflict) return [];
     const claimVersionIds = claims.map((claim) => claim.claimVersionId).sort();
     const evidenceEdgeIds = claims.flatMap((claim) => edgeByClaim.get(claim.claimVersionId) || []).map((edge) => edge.claimEvidenceId).sort();
     if (evidenceEdgeIds.length < 2) return [];
