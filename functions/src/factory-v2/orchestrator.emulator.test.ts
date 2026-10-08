@@ -19,13 +19,18 @@ const scope = {
   researchBudget: { maximumGroundingCalls: 7, maximumProviderQueries: 40, maximumSourceDocuments: 60, maximumAtomicClaims: 300, maximumSemanticRepairs: 2, maximumTransportAttemptsPerCall: 3, maximumConcurrency: 3, maximumWorkerSeconds: 1200 }
 };
 
-const map = { questions: [{ text: "When and how did Apollo 11 launch?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: true, priority: "CRITICAL" }] };
+const map = { questions: [{ text: "When and how did Apollo 11 launch?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], historicalPerspectiveRequirements: [{ kind: "STAKEHOLDER", label: "NASA mission operations", rationale: "Mission operations made material operational decisions." }], contested: false, dateCritical: true, priority: "CRITICAL" }] };
 
 test("Full V2-A shadow orchestration creates verified candidate knowledge without publication paths", { skip: !enabled }, async () => {
   const provider: V2ModelProvider = {
     async generateContent(request) {
       if (request.contents.includes("narrow V2 scope-proposal")) return { text: JSON.stringify(scope), usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 100, totalTokenCount: 200 } };
       if (request.contents.includes("V2 Research Map stage")) return { text: JSON.stringify(map), usageMetadata: { totalTokenCount: 200 } };
+      if (request.contents.includes("Authority-First routing selector")) {
+        const routingObligationId = request.contents.match(/routing-obligation-[a-f0-9]{64}/u)?.[0];
+        assert.ok(routingObligationId);
+        return { text: JSON.stringify({ selections: [{ routingObligationId, publisherNumber: 1, role: "PRIMARY_RECORD", rationale: "NASA is the verified primary records holder for the mission-operations obligation." }] }), usageMetadata: { totalTokenCount: 100 } };
+      }
       if (request.contents.includes("Authority-First topic-routing stage")) return { text: JSON.stringify({ authorities: [
         { publisherNumber: 1, researchQuestionNumbers: [1, 2], roles: ["PRIMARY_RECORD"], claimTypes: ["OCCURRENCE", "DATE", "IDENTITY", "LOCATION"], subjectRelationship: "SUBJECT_SELF", perspectiveTags: ["United States"], rationale: "NASA is the registered primary authority for Apollo 11 mission chronology." },
         { publisherNumber: 8, researchQuestionNumbers: [1, 2], roles: ["CORROBORATION"], claimTypes: ["OCCURRENCE", "DATE", "IDENTITY", "LOCATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["United States", "International"], rationale: "The Smithsonian independently corroborates Apollo 11 aviation and spaceflight chronology." }

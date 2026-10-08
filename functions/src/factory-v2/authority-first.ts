@@ -31,6 +31,17 @@ import {
 import { parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId, payloadHash } from "./hashing";
 
+export type RoutingEligibleCandidate = {
+  routingObligationId: string;
+  researchQuestionId: string;
+  publisherVersionId: string;
+  eligibleRoles: Array<"PRIMARY_RECORD" | "INTERPRETATION" | "PERSPECTIVE_TESTIMONY">;
+  subjectRelationship: SubjectRelationship;
+  authorityFamily: AuthorityFamily;
+  independenceGroupId: string;
+  specialistCollectionProfileIds: string[];
+};
+
 export const DEFAULT_CONTROLLED_RESEARCH_BUDGET = controlledResearchBudgetSchema.parse({
   version: CONTROLLED_RESEARCH_BUDGET_VERSION,
   maximumControlledDiscoveryOperations: 25,
@@ -106,6 +117,95 @@ export function defaultSubjectRelationship(publisher: PublisherAuthorityVersion)
     : "INDEPENDENT";
 }
 
+/**
+ * This relationship is derived from locked policy and registry metadata, not
+ * a model label. A government records holder may represent a named party,
+ * while its general registry default remains subject-associated.
+ */
+export function subjectRelationshipForRouting(publisher: PublisherAuthorityVersion, obligations: readonly Pick<RoutingObligationSet["obligations"][number], "requirementKind" | "label">[]): SubjectRelationship {
+  const normalizedGeography = new Set(publisher.geographicScope.map(normalize));
+  const representsNamedStateParty = publisher.institutionType === "GOVERNMENT"
+    && obligations.some((obligation) => obligation.requirementKind === "PARTY_PARTICIPANT" && normalizedGeography.has(normalize(obligation.label)));
+  return representsNamedStateParty ? "STATE_PARTY" : defaultSubjectRelationship(publisher);
+}
+
+/**
+ * The registry is the sole source of eligibility. This deliberately does not
+ * infer historical facts from an actor name or broad institutional prestige.
+ */
+export function buildEligibleRoutingCandidates(input: { routingObligationSet: RoutingObligationSet; publishers: readonly PublisherAuthorityVersion[] }): RoutingEligibleCandidate[] {
+  const candidates = input.routingObligationSet.obligations.flatMap((obligation) => input.publishers.flatMap((publisher) => {
+    if (publisher.state !== "VERIFIED") return [];
+    const capability = registryCapability(publisher);
+    if (capability.authorityFamily === "EDITED_REFERENCE") return [];
+    const subjectRelationship = subjectRelationshipForRouting(publisher, [obligation]);
+    if (!obligation.permittedSubjectRelationships.includes(subjectRelationship)) return [];
+    // A material jurisdiction is an explicit historical requirement.  Do not
+    // silently use an unrelated authority when registry geography disproves it.
+    if (obligation.materialGeography.length > 0
+      && !obligation.materialGeography.some((place) => publisher.geographicScope.some((scope) => normalize(scope) === normalize(place)))) return [];
+    const eligibleRoles = obligation.requiredRoles.filter((role): role is RoutingEligibleCandidate["eligibleRoles"][number] => role !== "ORIENTATION");
+    if (eligibleRoles.length === 0) return [];
+    return [{
+      routingObligationId: obligation.routingObligationId,
+      researchQuestionId: obligation.researchQuestionId,
+      publisherVersionId: publisher.publisherVersionId,
+      eligibleRoles,
+      subjectRelationship,
+      authorityFamily: capability.authorityFamily,
+      independenceGroupId: publisher.independenceGroupId,
+      specialistCollectionProfileIds: capability.specialistCollectionProfiles.map((profile) => profile.profileId).sort()
+    }];
+  }));
+  for (const obligation of input.routingObligationSet.obligations) {
+    if (!candidates.some((candidate) => candidate.routingObligationId === obligation.routingObligationId)) throw new Error(`ROUTING_OBLIGATION_ZERO_ELIGIBLE_CANDIDATES:${obligation.routingObligationId}`);
+  }
+  return candidates.sort((left, right) => `${left.routingObligationId}:${left.publisherVersionId}`.localeCompare(`${right.routingObligationId}:${right.publisherVersionId}`));
+}
+
+/** Bounded batching is deterministic. A batch is never permitted to merge
+ * incompatible candidate pools, and each obligation retains its own route. */
+export function batchRoutingObligations(input: { routingObligationSet: RoutingObligationSet; candidates: readonly RoutingEligibleCandidate[]; maximumBatchSize?: number }): RoutingObligationSet["obligations"][] {
+  const maximumBatchSize = input.maximumBatchSize ?? 8;
+  const byKey = new Map<string, RoutingObligationSet["obligations"]>();
+  for (const obligation of input.routingObligationSet.obligations) {
+    const eligible = input.candidates.filter((candidate) => candidate.routingObligationId === obligation.routingObligationId)
+      .map((candidate) => `${candidate.publisherVersionId}:${candidate.eligibleRoles.join(",")}:${candidate.subjectRelationship}`).sort();
+    const key = `${obligation.researchQuestionId}\n${obligation.permittedSubjectRelationships.join(",")}\n${eligible.join("|")}`;
+    byKey.set(key, [...(byKey.get(key) || []), obligation]);
+  }
+  return [...byKey.entries()].sort(([left], [right]) => left.localeCompare(right)).flatMap(([, obligations]) => {
+    const batches: RoutingObligationSet["obligations"][] = [];
+    for (let index = 0; index < obligations.length; index += maximumBatchSize) batches.push(obligations.slice(index, index + maximumBatchSize));
+    return batches;
+  });
+}
+
+/** Validated route locks are monotonic. This is deliberately independent of
+ * provider output parsing so no stochastic omission can be mistaken for a
+ * complete plan. */
+export function lockRoutingProposals(input: { locked: readonly TopicAuthorityProposal[]; proposals: readonly TopicAuthorityProposal[]; candidates: readonly RoutingEligibleCandidate[] }): TopicAuthorityProposal[] {
+  const candidateByRoute = new Map(input.candidates.map((candidate) => [`${candidate.routingObligationId}\n${candidate.publisherVersionId}`, candidate]));
+  const lockedIds = new Set(input.locked.flatMap((proposal) => proposal.routingObligationIds));
+  const accepted: TopicAuthorityProposal[] = [...input.locked];
+  for (const proposal of input.proposals) {
+    if (proposal.routingObligationIds.length !== 1 || proposal.researchQuestionIds.length !== 1) throw new Error(`ROUTING_LOCK_PROPOSAL_SHAPE_INVALID:${proposal.publisherVersionId}`);
+    const obligationId = proposal.routingObligationIds[0]!;
+    if (lockedIds.has(obligationId)) continue;
+    const candidate = candidateByRoute.get(`${obligationId}\n${proposal.publisherVersionId}`);
+    if (!candidate) throw new Error(`ROUTING_LOCK_CANDIDATE_INVALID:${obligationId}`);
+    if (candidate.researchQuestionId !== proposal.researchQuestionIds[0] || !proposal.roles.some((role) => candidate.eligibleRoles.includes(role as RoutingEligibleCandidate["eligibleRoles"][number]))) throw new Error(`ROUTING_LOCK_ROLE_OR_QUESTION_INVALID:${obligationId}`);
+    accepted.push(proposal);
+    lockedIds.add(obligationId);
+  }
+  return accepted;
+}
+
+export function unresolvedRoutingObligationIds(input: { routingObligationSet: RoutingObligationSet; locked: readonly TopicAuthorityProposal[] }): string[] {
+  const locked = new Set(input.locked.flatMap((proposal) => proposal.routingObligationIds));
+  return input.routingObligationSet.obligations.filter((obligation) => !locked.has(obligation.routingObligationId)).map((obligation) => obligation.routingObligationId);
+}
+
 function collectionProfile(input: Omit<SpecialistCollectionProfile, "profileId">): SpecialistCollectionProfile {
   return { ...input, profileId: contentAddressedId("specialist-collection-profile", input) };
 }
@@ -140,12 +240,16 @@ function validateProposal(input: {
   proposal: TopicAuthorityProposal;
   publisher: PublisherAuthorityVersion;
   questionIds: ReadonlySet<string>;
+  obligationsById: ReadonlyMap<string, RoutingObligationSet["obligations"][number]>;
 }): TopicAuthorityBinding {
   const proposal = input.proposal;
   if (input.publisher.state !== "VERIFIED") throw new Error(`AUTHORITY_NOT_VERIFIED:${proposal.publisherVersionId}`);
   if (proposal.researchQuestionIds.some((id) => !input.questionIds.has(id))) throw new Error(`AUTHORITY_BINDING_UNKNOWN_QUESTION:${proposal.publisherVersionId}`);
   const capability = registryCapability(input.publisher);
-  const subjectRelationship = capability.defaultSubjectRelationship;
+  const subjectRelationship = subjectRelationshipForRouting(input.publisher, proposal.routingObligationIds.flatMap((id) => {
+    const obligation = input.obligationsById.get(id);
+    return obligation ? [obligation] : [];
+  }));
   if (capability.authorityFamily === "EDITED_REFERENCE" && proposal.roles.some((role) => role !== "ORIENTATION")) throw new Error(`ORIENTATION_AUTHORITY_ROLE_VIOLATION:${proposal.publisherVersionId}`);
   if (["SUBJECT_SELF", "STATE_PARTY"].includes(subjectRelationship) && proposal.roles.includes("CORROBORATION")) throw new Error(`SELF_INTERESTED_CORROBORATION_FORBIDDEN:${proposal.publisherVersionId}`);
   const semantic = {
@@ -194,6 +298,7 @@ export function buildTopicAuthoritySet(input: {
   const context = { ...input.context, policyVersion: AUTHORITY_FIRST_POLICY_VERSION };
   const routingObligationSet = input.routingObligationSet || buildRoutingObligationSet({ context, scope: input.scope, researchMap: input.researchMap });
   const registry = new Map(input.publishers.map((publisher) => [publisher.publisherVersionId, publisher]));
+  const obligationsById = new Map(routingObligationSet.obligations.map((obligation) => [obligation.routingObligationId, obligation]));
   const questionIds = new Set(input.researchMap.questions.map((question) => question.questionId));
   const requiredQuestionIds = input.requiredQuestionIds ? new Set(input.requiredQuestionIds) : undefined;
   if (requiredQuestionIds && (requiredQuestionIds.size === 0 || [...requiredQuestionIds].some((id) => !questionIds.has(id)))) throw new Error("AUTHORITY_ROUTING_TARGET_SET_INVALID");
@@ -207,7 +312,7 @@ export function buildTopicAuthoritySet(input: {
     }
     if (requiredQuestionIds && proposal.researchQuestionIds.some((id) => !requiredQuestionIds.has(id))) throw new Error(`AUTHORITY_BINDING_OUTSIDE_COMPLETION_TARGET:${proposal.publisherVersionId}`);
     if (proposal.routingObligationIds.some((id) => !routingObligationSet.obligations.some((obligation) => obligation.routingObligationId === id))) throw new Error(`AUTHORITY_BINDING_UNKNOWN_ROUTING_OBLIGATION:${proposal.publisherVersionId}`);
-    bindings.push(validateProposal({ proposal, publisher, questionIds }));
+    bindings.push(validateProposal({ proposal, publisher, questionIds, obligationsById }));
   }
   if (bindings.length === 0) throw new Error("NO_APPLICABLE_AUTHORITY");
   const bindingById = new Map(bindings.map((binding) => [binding.bindingId, binding]));

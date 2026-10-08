@@ -11,6 +11,8 @@ import {
   researchMapSchema,
   scopeContractSchema,
   sourceSnapshotSchema,
+  routingObligationSetSchema,
+  topicAuthoritySetSchema,
   type AtomicClaimVersion,
   type CanonicalEventVersion,
   type ClaimAuthorityVerdict,
@@ -18,6 +20,8 @@ import {
   type ResearchMap,
   type ScopeContract,
   type SourceSnapshot,
+  type RoutingObligationSet,
+  type TopicAuthoritySet,
 } from "../../functions/src/factory-v2/contracts";
 import {
   executionArtifactId,
@@ -116,7 +120,7 @@ async function main() {
     throw new Error(
       "A3 requires the certified non-public V2-A shadow configuration.",
     );
-  const [scopes, maps, claims, verdicts, conflicts, events, snapshots] =
+  const [scopes, maps, claims, verdicts, conflicts, events, snapshots, authoritySets, routingObligationSets] =
     (await Promise.all([
       loadRun(
         "v2ScopeContracts",
@@ -160,6 +164,18 @@ async function main() {
         (value) => sourceSnapshotSchema.parse(value),
         200,
       ),
+      loadRun(
+        "v2TopicAuthoritySets",
+        [SOURCE_RUN_ID],
+        (value) => topicAuthoritySetSchema.parse(value),
+        4,
+      ),
+      loadRun(
+        "v2RoutingObligationSets",
+        [SOURCE_RUN_ID],
+        (value) => routingObligationSetSchema.parse(value),
+        4,
+      ),
     ] as const)) as [
       ScopeContract[],
       ResearchMap[],
@@ -168,6 +184,8 @@ async function main() {
       ClaimConflictSet[],
       CanonicalEventVersion[],
       SourceSnapshot[],
+      TopicAuthoritySet[],
+      RoutingObligationSet[],
     ];
   if (
     scopes.length !== 1 ||
@@ -177,6 +195,9 @@ async function main() {
     throw new Error("Certified Web knowledge input is missing or ambiguous.");
   const scope = scopes[0]!;
   const parentMap = maps[0]!;
+  const priorTopicAuthoritySet = authoritySets.find((item) => item.researchMapId === parentMap.researchMapId);
+  const priorRoutingObligationSet = routingObligationSets.find((item) => item.researchMapId === parentMap.researchMapId);
+  if (!priorTopicAuthoritySet || !priorRoutingObligationSet) throw new Error("Certified Web continuation authority lineage is missing or ambiguous.");
   const initialKnowledgeReuseMs = Date.now() - initialReuseStartedAt;
   const runId = `v2-a3-web-${randomUUID()}`;
   const context: ArtifactContext = {
@@ -309,6 +330,8 @@ async function main() {
         scope,
         researchMap: completionMap,
         gapIdsByQuestionId,
+        priorTopicAuthoritySet,
+        priorRoutingObligationSet,
       },
     },
   );

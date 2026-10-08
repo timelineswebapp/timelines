@@ -7,12 +7,16 @@ import {
   authorizeEscalation,
   buildAuthorityResearchPlan,
   buildConfidenceVector,
+  buildEligibleRoutingCandidates,
   buildRoutingObligationSet,
   buildTopicAuthoritySet,
+  batchRoutingObligations,
+  lockRoutingProposals,
   claimAuthorityApplicability,
   isInitialAuthorityRequiredQuestion,
   registeredGroundingExpansionPublishers,
-  registryCapability
+  registryCapability,
+  unresolvedRoutingObligationIds
 } from "./authority-first";
 import { bootstrapPublisherRegistry } from "./authority";
 import { buildResearchMap } from "./contracts/builders";
@@ -229,6 +233,72 @@ test("immutable routing obligations preserve historical requirements without con
   assert.deepEqual(obligations.obligations.map((item) => item.label).sort(), ["Displaced residents", "Municipal responders"]);
   assert.ok(obligations.obligations.every((item) => !["London", "Global", "Independent scholarship"].includes(item.label)));
   assert.ok(obligations.obligations.every((item) => item.routingObligationId && item.semanticIdentity && item.rationale));
+});
+
+test("routing candidate construction is registry-bound, deterministic, and batches only compatible obligations", () => {
+  const routingQuestion = {
+    ...map.questions[0]!, questionId: "question-compatible-routes", geography: ["London", "Global"], historicalPerspectiveRequirements: [
+      { kind: "STAKEHOLDER" as const, label: "Mission operations", rationale: "Operations staff made material operational decisions." },
+      { kind: "STAKEHOLDER" as const, label: "Mission engineering", rationale: "Engineering staff made material technical decisions." }
+    ]
+  };
+  const obligationMap = { ...map, questions: [routingQuestion] };
+  const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: obligationMap });
+  const first = buildEligibleRoutingCandidates({ routingObligationSet: obligations, publishers });
+  const second = buildEligibleRoutingCandidates({ routingObligationSet: obligations, publishers: [...publishers].reverse() });
+  assert.deepEqual(first, second);
+  assert.ok(first.every((candidate) => candidate.eligibleRoles.includes("PRIMARY_RECORD")));
+  assert.ok(first.every((candidate) => candidate.authorityFamily !== "EDITED_REFERENCE"));
+  assert.equal(batchRoutingObligations({ routingObligationSet: obligations, candidates: first }).length, 1);
+  assert.throws(
+    () => buildEligibleRoutingCandidates({ routingObligationSet: obligations, publishers: publishers.map((item) => ({ ...item, state: "RETIRED" as const })) }),
+    /ROUTING_OBLIGATION_ZERO_ELIGIBLE_CANDIDATES/
+  );
+});
+
+test("routing batching stays bounded for 3, 10, 25, and 50 compatible obligations", () => {
+  const routingQuestion = {
+    ...map.questions[0]!, questionId: "question-routing-scale", historicalPerspectiveRequirements: [
+      { kind: "STAKEHOLDER" as const, label: "Mission operations", rationale: "Operations staff made material decisions." }
+    ]
+  };
+  const obligationMap = { ...map, questions: [routingQuestion] };
+  const locked = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: obligationMap });
+  const candidate = buildEligibleRoutingCandidates({ routingObligationSet: locked, publishers })[0]!;
+  for (const count of [3, 10, 25, 50]) {
+    const obligations = Array.from({ length: count }, (_, index) => ({ ...locked.obligations[0]!, routingObligationId: `routing-obligation-scale-${index}`, semanticIdentity: `STAKEHOLDER:scale-${index}`, label: `Operations group ${index}` }));
+    const candidates = obligations.map((obligation) => ({ ...candidate, routingObligationId: obligation.routingObligationId }));
+    const startedAt = Date.now();
+    const batches = batchRoutingObligations({ routingObligationSet: { ...locked, obligations }, candidates });
+    assert.ok(Date.now() - startedAt < 1_000, `batching ${count} obligations must remain bounded`);
+    assert.equal(batches.flat().length, count);
+    assert.ok(batches.every((batch) => batch.length <= 8));
+    assert.equal(batches.length, Math.ceil(count / 8));
+  }
+});
+
+test("route locks preserve partial success and expose only missing obligations to repair", () => {
+  const routingQuestion = {
+    ...map.questions[0]!, questionId: "question-route-locks", historicalPerspectiveRequirements: [
+      { kind: "STAKEHOLDER" as const, label: "Operations", rationale: "Operations personnel made material decisions." },
+      { kind: "STAKEHOLDER" as const, label: "Engineering", rationale: "Engineering personnel made material decisions." }
+    ]
+  };
+  const obligationMap = { ...map, questions: [routingQuestion] };
+  const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: obligationMap });
+  const candidates = buildEligibleRoutingCandidates({ routingObligationSet: obligations, publishers });
+  const makeProposal = (obligationId: string): TopicAuthorityProposal => {
+    const candidate = candidates.find((item) => item.routingObligationId === obligationId)!;
+    return { publisherVersionId: candidate.publisherVersionId, researchQuestionIds: [candidate.researchQuestionId], roles: [candidate.eligibleRoles[0]!], claimTypes: ["OCCURRENCE"], subjectRelationship: candidate.subjectRelationship, perspectiveTags: ["locked"], routingObligationIds: [obligationId], rationale: "A deterministically eligible route is locked." };
+  };
+  const first = makeProposal(obligations.obligations[0]!.routingObligationId);
+  const locked = lockRoutingProposals({ locked: [], proposals: [first], candidates });
+  assert.deepEqual(unresolvedRoutingObligationIds({ routingObligationSet: obligations, locked }), [obligations.obligations[1]!.routingObligationId]);
+  const completed = lockRoutingProposals({ locked, proposals: [first, makeProposal(obligations.obligations[1]!.routingObligationId)], candidates });
+  assert.equal(completed.length, 2);
+  assert.equal(completed.find((proposal) => proposal.routingObligationIds[0] === first.routingObligationIds[0])?.rationale, first.rationale);
+  assert.deepEqual(unresolvedRoutingObligationIds({ routingObligationSet: obligations, locked: completed }), []);
+  assert.throws(() => lockRoutingProposals({ locked: [], proposals: [{ ...first, roles: ["CORROBORATION"] }], candidates }), /ROUTING_LOCK_ROLE_OR_QUESTION_INVALID/);
 });
 
 test("routing fails closed before acquisition when a locked obligation has no eligible registered route", () => {

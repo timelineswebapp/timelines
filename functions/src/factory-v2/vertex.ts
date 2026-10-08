@@ -5,7 +5,7 @@ import { V2_PROMPT_VERSION, V2_SCHEMA_VERSION, authorityResearchRoleSchema, clai
 import { atomicityFindings, buildAtomicClaimVersion, buildQueryPlan, buildResearchMap, buildScopeContract, executionArtifactId, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { authorizeSearchQueries, normalizeSearchQuery, type QueryAuthorizationDecision, type SearchQueryCandidate } from "./query-authorization";
-import { authorityFamilyForPublisher, defaultSubjectRelationship, isInitialAuthorityRequiredQuestion } from "./authority-first";
+import { authorityFamilyForPublisher, defaultSubjectRelationship, isInitialAuthorityRequiredQuestion, type RoutingEligibleCandidate } from "./authority-first";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 
 type ProviderResponse = {
@@ -214,6 +214,97 @@ const topicAuthorityProposalJsonSchema = {
     }
   }
 } as const;
+
+type RoutingSelectionInput = {
+  routingObligationId: string;
+  researchQuestionId: string;
+  requirementKind: string;
+  label: string;
+  rationale: string;
+};
+
+const routingSelectionEnvelopeSchema = z.object({
+  selections: z.array(z.object({
+    routingObligationId: idSchema,
+    publisherNumber: z.number().int().positive().max(200),
+    role: z.enum(["PRIMARY_RECORD", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"]),
+    rationale: boundedText(10, 1000)
+  }).strict()).min(1).max(16).refine((items) => unique(items.map((item) => item.routingObligationId)), "Each obligation may be selected at most once per batch.")
+}).strict();
+
+const routingSelectionJsonSchema = {
+  type: "object", additionalProperties: false, required: ["selections"], properties: {
+    selections: { type: "array", items: { type: "object", additionalProperties: false, required: ["routingObligationId", "publisherNumber", "role", "rationale"], properties: {
+      routingObligationId: { type: "string" }, publisherNumber: { type: "integer" }, role: { type: "string", enum: ["PRIMARY_RECORD", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"] }, rationale: { type: "string" }
+    } } }
+  }
+} as const;
+
+/**
+ * Selects routes only from a deterministic per-obligation candidate matrix.
+ * Deliberately permits a partial batch response: valid entries are locked by
+ * the orchestrator and only unresolved obligation IDs are sent again.
+ */
+export async function selectRoutingObligationBatch(input: {
+  context: ArtifactContext;
+  scope: ScopeContract;
+  map: ResearchMap;
+  publishers: readonly PublisherAuthorityVersion[];
+  obligations: readonly RoutingSelectionInput[];
+  candidates: readonly RoutingEligibleCandidate[];
+  provider?: V2ModelProvider;
+  deadlineAt?: number;
+  supervisor?: AuthorityFirstExecutionSupervisor;
+}): Promise<{ proposals: TopicAuthorityProposal[]; resolvedObligationIds: string[]; executions: ReturnType<typeof buildExecution>[] }> {
+  const obligationsById = new Map(input.obligations.map((obligation) => [obligation.routingObligationId, obligation]));
+  const publisherNumberById = new Map(input.publishers.map((publisher, index) => [publisher.publisherVersionId, index + 1]));
+  const candidatesByObligation = new Map<string, Array<RoutingEligibleCandidate & { publisherNumber: number }>>();
+  for (const candidate of input.candidates) {
+    if (!obligationsById.has(candidate.routingObligationId)) continue;
+    const publisherNumber = publisherNumberById.get(candidate.publisherVersionId);
+    if (!publisherNumber) throw new Error(`ROUTING_CANDIDATE_UNKNOWN_PUBLISHER:${candidate.publisherVersionId}`);
+    const entries = candidatesByObligation.get(candidate.routingObligationId) || [];
+    entries.push({ ...candidate, publisherNumber });
+    candidatesByObligation.set(candidate.routingObligationId, entries);
+  }
+  for (const obligation of input.obligations) if (!(candidatesByObligation.get(obligation.routingObligationId)?.length)) throw new Error(`ROUTING_OBLIGATION_ZERO_ELIGIBLE_CANDIDATES:${obligation.routingObligationId}`);
+  const schema = routingSelectionEnvelopeSchema.superRefine((value, context) => {
+    for (const [index, selection] of value.selections.entries()) {
+      const candidates = candidatesByObligation.get(selection.routingObligationId);
+      if (!candidates) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["selections", index, "routingObligationId"], message: "Selection is not an unresolved locked obligation in this batch." });
+        continue;
+      }
+      const candidate = candidates.find((item) => item.publisherNumber === selection.publisherNumber);
+      if (!candidate) context.addIssue({ code: z.ZodIssueCode.custom, path: ["selections", index, "publisherNumber"], message: "Publisher is not deterministically eligible for this obligation." });
+      else if (!candidate.eligibleRoles.includes(selection.role)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["selections", index, "role"], message: "Role is not deterministically eligible for this obligation and authority." });
+    }
+  });
+  const questionsById = new Map(input.map.questions.map((question) => [question.questionId, question]));
+  const prompt = [
+    "You are an Authority-First routing selector. Return only JSON. Deterministic software has already locked mandatory obligations and eligible registered candidates.",
+    "Select the historically strongest available candidate for each obligation you can justify. Never invent a candidate, role, capability, relationship, or obligation. A partial response is permitted; it locks only the explicit valid selections and unresolved obligations will be retried separately.",
+    "Do not perform broad authority planning, evidence acquisition, event selection, or historical prose. Your rationale explains semantic fitness only; it does not alter the locked policy.",
+    untrusted("LOCKED_ROUTING_BATCH", input.obligations.map((obligation) => ({ ...obligation, question: questionsById.get(obligation.researchQuestionId)?.text, candidates: (candidatesByObligation.get(obligation.routingObligationId) || []).map((candidate) => ({ publisherNumber: candidate.publisherNumber, canonicalName: input.publishers[candidate.publisherNumber - 1]!.canonicalName, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, independenceGroupId: candidate.independenceGroupId, specialistCollectionProfileIds: candidate.specialistCollectionProfileIds })) })))
+  ].join("\n\n");
+  const result = await structuredCall({ context: input.context, provider: input.provider, stage: "AUTHORITY_ROUTING", prompt, schema, jsonSchema: routingSelectionJsonSchema, maximumRepairs: 1, inputArtifactIds: [input.scope.scopeContractId, input.map.researchMapId, ...input.obligations.map((obligation) => obligation.routingObligationId)], deadlineAt: input.deadlineAt, supervisor: input.supervisor });
+  const proposals = result.value.selections.map((selection) => {
+    const obligation = obligationsById.get(selection.routingObligationId)!;
+    const publisher = input.publishers[selection.publisherNumber - 1]!;
+    const question = questionsById.get(obligation.researchQuestionId)!;
+    return {
+      publisherVersionId: publisher.publisherVersionId,
+      researchQuestionIds: [obligation.researchQuestionId],
+      roles: [selection.role],
+      claimTypes: question.claimTypesExpected,
+      subjectRelationship: defaultSubjectRelationship(publisher),
+      perspectiveTags: [obligation.label],
+      routingObligationIds: [selection.routingObligationId],
+      rationale: selection.rationale
+    } satisfies TopicAuthorityProposal;
+  });
+  return { proposals, resolvedObligationIds: proposals.map((proposal) => proposal.routingObligationIds[0]!), executions: result.executions };
+}
 
 function queryPlanProposalSchema(questionCount: number) {
   return queryPlanSemanticBaseSchema.superRefine((plan, context) => {

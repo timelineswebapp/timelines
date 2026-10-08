@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractAtomicClaims, generateQueryPlan, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2GenerateRequest, type V2ModelProvider } from "./vertex";
+import { extractAtomicClaims, generateQueryPlan, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, selectRoutingObligationBatch, StructuredStageError, type V2GenerateRequest, type V2ModelProvider } from "./vertex";
 import { buildEvidenceSegment } from "./contracts/builders";
 import { bootstrapPublisherRegistry } from "./authority";
+import { buildEligibleRoutingCandidates, buildRoutingObligationSet } from "./authority-first";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
 
 function providerFrom(values: unknown[], requests: V2GenerateRequest[] = []): V2ModelProvider {
@@ -127,6 +128,31 @@ test("Authority routing can select only registered publishers and preserves ques
   assert.equal(result.proposals[0]!.researchQuestionIds[0], mapResult.map.questions[0]!.questionId);
   const unknownPublisher = JSON.stringify({ authorities: [{ ...proposal.authorities[0], publisherNumber: publishers.length + 1 }] });
   await assert.rejects(generateTopicAuthorityProposals({ context: TEST_CONTEXT, scope, map: mapResult.map, publishers, provider: providerFrom([unknownPublisher, unknownPublisher, unknownPublisher]) }), /MODEL_SCHEMA_VALIDATION_EXHAUSTED:AUTHORITY_ROUTING/);
+});
+
+test("obligation routing accepts and preserves a partial valid batch without regenerating locked routes", async () => {
+  const scope = scopeFixture();
+  const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
+  const question = { ...mapResult.map.questions[0]!, historicalPerspectiveRequirements: [
+    { kind: "STAKEHOLDER" as const, label: "Mission operations", rationale: "Operations personnel made material mission decisions." },
+    { kind: "STAKEHOLDER" as const, label: "Mission engineering", rationale: "Engineering personnel made material technical decisions." }
+  ] };
+  const map = { ...mapResult.map, questions: [question] };
+  const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
+  const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: map });
+  const candidates = buildEligibleRoutingCandidates({ routingObligationSet: obligations, publishers });
+  const first = obligations.obligations[0]!;
+  const candidate = candidates.find((item) => item.routingObligationId === first.routingObligationId)!;
+  const publisherNumber = publishers.findIndex((publisher) => publisher.publisherVersionId === candidate.publisherVersionId) + 1;
+  const requests: V2GenerateRequest[] = [];
+  const result = await selectRoutingObligationBatch({
+    context: TEST_CONTEXT, scope, map, publishers, obligations: obligations.obligations, candidates,
+    provider: providerFrom([JSON.stringify({ selections: [{ routingObligationId: first.routingObligationId, publisherNumber, role: candidate.eligibleRoles[0], rationale: "The registered authority is an eligible records holder for this locked obligation." }] })], requests)
+  });
+  assert.deepEqual(result.resolvedObligationIds, [first.routingObligationId]);
+  assert.equal(result.executions.length, 1);
+  assert.match(requests[0]!.contents, /partial response is permitted/u);
+  assert.match(requests[0]!.contents, new RegExp(first.routingObligationId, "u"));
 });
 
 test("initial authority routing requires explicit historical-perspective and contested questions, not retrieval geography", async () => {

@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`FOUNDER_REVIEW_REQUIRED — PHASE_2_ROUTING_OBLIGATION_RECURRENCE`
+`PHASE_2_IMPLEMENTATION_VERIFIED — SUCCESSOR_RELEASE_NOT_YET_CERTIFIED`
+
+On 2026-10-08, the founder authorized the general obligation-complete-by-construction routing correction. The candidate implements deterministic eligible-candidate construction, per-obligation AI selection constrained to that matrix, immutable monotonic route locks, missing-only bounded repair, and deterministic completeness proof before acquisition. Supplemental authority planning cannot add, remove, or mutate mandatory routing mappings. It preserves independent-scholarship structural checks and the post-acquisition evidence/perspective audit.
+
+The candidate is versioned `factory-v2-a.39` / `authority-first-research.13` / `factory-v2-a-prompts.12`; Authority Registry remains `.2` and Specialist Collection Profile policy remains `.1`. Its same-evidence compatible-paraphrase conflict correction from `12e1845` remains unchanged and covered. Verification before release sealing passed: root tests, Functions tests, Authority-First routing tests, strict root/Functions typechecks, root lint, Functions build, Next production build, all institutional certification suites, and Firestore emulator tests. The release manifest correctly remains fail-closed until the local candidate checkpoint is sealed. No provider-backed certification, production, institutional, public, or discovery mutation has occurred in this correction cycle.
+
+Next action: create a local source checkpoint, seal one materially new release identity, then execute the fresh four-subject Phase-2 certification only under that release.
+
+## Preserved prior hard-stop history
 
 Fresh Phase-2 release `412cebe5e34886de51875091d56624f9815c02c15b7ffda4de11cc5e5e9c3c1d` (source `69a8fb39d575e88c010255a1e4f8c72f20d371b7`, `factory-v2-a.38` / `authority-first-research.12`) stopped fail-closed on its first subject before source acquisition. The Authority Routing model exhausted its bounded schema-repair budget without proving two locked routes and the required independent coverage for two contested questions. This follows two bounded general routing corrections: state-party classification and continuation-route inheritance. Protected-state parity was exact; no discovery, institutional, or public mutation occurred. Under the master-goal hard-stop rule for recurrence of the same substantive defect class after two general correction cycles, founder review is required before further routing remediation or certification execution. Sealed evidence: `artifacts/authority-first-acquisition-canary/2026-10-08T04-57-41-620Z/`.
 

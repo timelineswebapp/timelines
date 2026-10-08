@@ -9,9 +9,9 @@ import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { performBoundedReconnaissance } from "./reconnaissance";
 import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate } from "./resolution";
 import { V2FirestoreRepository } from "./repositories/firestore";
-import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2ModelProvider } from "./vertex";
+import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, selectRoutingObligationBatch, StructuredStageError, type V2ModelProvider } from "./vertex";
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
-import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildRoutingObligationSet, buildTopicAuthoritySet, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
+import { auditPerspective, authorizeEscalation, batchRoutingObligations, buildAuthorityResearchPlan, buildConfidenceVector, buildEligibleRoutingCandidates, buildRoutingObligationSet, buildTopicAuthoritySet, lockRoutingProposals, registeredGroundingExpansionPublishers, sealControlledResearchLedger, unresolvedRoutingObligationIds } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 
@@ -301,6 +301,33 @@ function inheritContinuationAuthorityProposals(input: { continuation: NonNullabl
   });
 }
 
+/** Route locks merge monotonically. A later batch can only add an explicit
+ * obligation mapping; it cannot replace or erase an already locked route. */
+function mergeAuthorityProposals(proposals: readonly TopicAuthorityProposal[]): TopicAuthorityProposal[] {
+  const merged = new Map<string, TopicAuthorityProposal>();
+  for (const proposal of proposals) {
+    const existing = merged.get(proposal.publisherVersionId);
+    if (!existing) {
+      merged.set(proposal.publisherVersionId, { ...proposal, researchQuestionIds: [...proposal.researchQuestionIds].sort(), roles: [...proposal.roles].sort(), claimTypes: [...proposal.claimTypes].sort(), perspectiveTags: [...proposal.perspectiveTags].sort(), routingObligationIds: [...proposal.routingObligationIds].sort() });
+      continue;
+    }
+    // Supplemental planning is not permitted to mutate a locked routing
+    // binding. Keeping the original binding also prevents a broad later role
+    // (for example CORROBORATION) from invalidating a self/state route.
+    if (existing.routingObligationIds.length > 0 && proposal.routingObligationIds.length === 0) continue;
+    merged.set(proposal.publisherVersionId, {
+      ...existing,
+      researchQuestionIds: [...new Set([...existing.researchQuestionIds, ...proposal.researchQuestionIds])].sort(),
+      roles: [...new Set([...existing.roles, ...proposal.roles])].sort(),
+      claimTypes: [...new Set([...existing.claimTypes, ...proposal.claimTypes])].sort(),
+      perspectiveTags: [...new Set([...existing.perspectiveTags, ...proposal.perspectiveTags])].sort(),
+      routingObligationIds: [...new Set([...existing.routingObligationIds, ...proposal.routingObligationIds])].sort(),
+      rationale: existing.rationale
+    });
+  }
+  return [...merged.values()].sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId));
+}
+
 function modelTokens(executions: Array<{ usage: { inputTokens: number | null; outputTokens: number | null }; transportAttempts: number; repairAttempt: number }>): { input: number | null; output: number | null; retries: number; repairs: number } {
   const inputs = executions.map((execution) => execution.usage.inputTokens);
   const outputs = executions.map((execution) => execution.usage.outputTokens);
@@ -458,11 +485,45 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const routingObligationSet = buildRoutingObligationSet({ context, scope: scopeResult.scope, researchMap: mapResult.map, requiredQuestionIds: requiredAuthorityQuestionIds });
   await persist("v2RoutingObligationSets", routingObligationSet);
   const inheritedContinuationProposals = continuation && requiredAuthorityQuestionIds ? inheritContinuationAuthorityProposals({ continuation, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds }) : [];
-  const inheritedObligationIds = new Set(inheritedContinuationProposals.flatMap((proposal) => proposal.routingObligationIds));
-  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: routingObligationSet.obligations.filter((obligation) => !inheritedObligationIds.has(obligation.routingObligationId)), provider: dependencies.provider, deadlineAt, supervisor });
+  const eligibleRoutingCandidates = buildEligibleRoutingCandidates({ routingObligationSet, publishers });
+  const lockedRoutingProposals = [...inheritedContinuationProposals];
+  const lockedObligationIds = new Set(lockedRoutingProposals.flatMap((proposal) => proposal.routingObligationIds));
+  // Completeness is deterministic: only unresolved locked IDs are ever sent
+  // to the selector, and accepted selections are monotonic route locks.
+  for (let repairRound = 0; repairRound <= 2; repairRound += 1) {
+    const unresolved = routingObligationSet.obligations.filter((obligation) => !lockedObligationIds.has(obligation.routingObligationId));
+    if (unresolved.length === 0) break;
+    const unresolvedSet = new Set(unresolved.map((obligation) => obligation.routingObligationId));
+    const batches = batchRoutingObligations({
+      routingObligationSet: { ...routingObligationSet, obligations: unresolved },
+      candidates: eligibleRoutingCandidates.filter((candidate) => unresolvedSet.has(candidate.routingObligationId))
+    });
+    let newlyLocked = 0;
+    for (const batch of batches) {
+      const result = await selectRoutingObligationBatch({
+        context, scope: scopeResult.scope, map: mapResult.map, publishers,
+        obligations: batch,
+        candidates: eligibleRoutingCandidates.filter((candidate) => batch.some((obligation) => obligation.routingObligationId === candidate.routingObligationId)),
+        provider: dependencies.provider, deadlineAt, supervisor
+      });
+      modelExecutions.push(...result.executions.map((execution) => modelExecutionSchema.parse(execution)));
+      for (const execution of result.executions) await persist("v2ModelExecutions", execution);
+      const before = lockedRoutingProposals.length;
+      const accepted = lockRoutingProposals({ locked: lockedRoutingProposals, proposals: result.proposals, candidates: eligibleRoutingCandidates });
+      lockedRoutingProposals.splice(0, lockedRoutingProposals.length, ...accepted);
+      for (const proposal of accepted.slice(before)) lockedObligationIds.add(proposal.routingObligationIds[0]!);
+      newlyLocked += accepted.length - before;
+    }
+    if (newlyLocked === 0) break;
+  }
+  const unresolvedObligationIds = unresolvedRoutingObligationIds({ routingObligationSet, locked: lockedRoutingProposals });
+  if (unresolvedObligationIds.length > 0) throw new Error(`ROUTING_OBLIGATION_REPAIR_EXHAUSTED:${unresolvedObligationIds.join(",")}`);
+  // Supplemental planning is not allowed to carry a mandatory route. The
+  // locked proposals above already prove the obligation set before acquisition.
+  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: [], provider: dependencies.provider, deadlineAt, supervisor });
   modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
-  const allAuthorityProposals = [...inheritedContinuationProposals, ...authorityProposalResult.proposals];
+  const allAuthorityProposals = mergeAuthorityProposals([...lockedRoutingProposals, ...authorityProposalResult.proposals]);
   let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds });
   await persist("v2TopicAuthoritySets", topicAuthoritySet);
   await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));
