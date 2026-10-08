@@ -6,13 +6,17 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_IMPLEMENTATION_VERIFIED — SUCCESSOR_RELEASE_NOT_YET_CERTIFIED`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — ROUTING_COMPLETENESS_RECURRENCE`
 
 On 2026-10-08, the founder authorized the general obligation-complete-by-construction routing correction. The candidate implements deterministic eligible-candidate construction, per-obligation AI selection constrained to that matrix, immutable monotonic route locks, missing-only bounded repair, and deterministic completeness proof before acquisition. Supplemental authority planning cannot add, remove, or mutate mandatory routing mappings. It preserves independent-scholarship structural checks and the post-acquisition evidence/perspective audit.
 
 The first `.13` successor release produced one valid San Francisco CKS, then Berlin exposed a narrow empty-partial-batch handling defect before acquisition; its protected-state parity was exact. The pending corrected successor is therefore versioned `factory-v2-a.40` / `authority-first-research.14` / `factory-v2-a-prompts.13`; Authority Registry remains `.2` and Specialist Collection Profile policy remains `.1`. Its same-evidence compatible-paraphrase conflict correction from `12e1845` remains unchanged and covered. Verification before release sealing passed: root tests, Functions tests, Authority-First routing tests, strict root/Functions typechecks, root lint, Functions build, Next production build, all institutional certification suites, and Firestore emulator tests. The release manifest correctly remains fail-closed until the local candidate checkpoint is sealed. No production, institutional, public, or discovery mutation has occurred in this correction cycle.
 
-Next action: create a local source checkpoint, seal one materially new release identity, then execute the fresh four-subject Phase-2 certification only under that release.
+The `.15` successor release `44f012fa96846c9665cd1c05ce91c614fcc019b58ef719fe2b97447a39eccbeb` (source `0cd4c173eed1eca664e07f72b0dbb4151643eb4d`, `factory-v2-a.41` / `authority-first-research.15` / `factory-v2-a-prompts.13`) added the general same-authority fallback correction: a specialist collection landing endpoint cannot suppress its sealed generic registered-domain fallback merely by returning the landing URL. Full repository verification passed before the release was sealed.
+
+Its fresh four-subject certification stopped fail-closed on San Francisco before acquisition with `ROUTING_OBLIGATION_REPAIR_EXHAUSTED` after the bounded missing-only repair loop. This recurs in the same routing-completeness class after the founder-authorized obligation-complete correction and its bounded integration allowance. Protected-state parity was exact; no public, institutional, or discovery mutation occurred. Sealed report: `artifacts/authority-first-acquisition-canary/2026-10-08T18-38-57-334Z/report.json`.
+
+Next action: founder review. Do not perform further routing-completeness remediation or begin another certification run without a new founder decision.
 
 ## Preserved prior hard-stop history
 
@@ -44,7 +48,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | `.4`–`.7` remain non-combinable diagnostic evidence. `.8` release `daf009…b4f3a` passed all local verification and produced valid CKSs for San Francisco (`completed-knowledge-set-38383a8d3e2c4c891c27dea6ddbc6d295d08673987e9d5eaded7a8a1565e2f0d`) and Berlin (`completed-knowledge-set-4f7457af564dd2be3b69cd71782db5026ca87283e1f2bdbdeabbffd70962c8b2`), each with exact protected-state parity. Ada did not produce a sealed result before exceeding its deadline; its process was terminated after grace. Artifacts: `artifacts/authority-first-acquisition-canary/2026-10-08T03-01-33-017Z/1.json` and `2.json`. No 4/4 certification exists. |
+| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | `.4`–`.7` remain non-combinable diagnostic evidence. `.8` release `daf009…b4f3a` passed all local verification and produced valid CKSs for San Francisco (`completed-knowledge-set-38383a8d3e2c4c891c27dea6ddbc6d295d08673987e9d5eaded7a8a1565e2f0d`) and Berlin (`completed-knowledge-set-4f7457af564dd2be3b69cd71782db5026ca87283e1f2bdbdeabbffd70962c8b2`), each with exact protected-state parity. The later `.15` release `44f012…ccbeb` stopped at San Francisco before acquisition with recurring `ROUTING_OBLIGATION_REPAIR_EXHAUSTED`; exact protected-state parity held. Artifacts: `artifacts/authority-first-acquisition-canary/2026-10-08T18-38-57-334Z/`. No 4/4 certification exists. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -58,4 +62,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Founder review is required before any remediation or continuation because the live Ada run repeated the timeout-containment defect class after its prior bounded correction. Preserve the two valid `.8` prefix artifacts and exact protected-state snapshot. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or rerun a subject without an explicit founder decision.
+Founder review is required before any remediation or continuation because the fresh `.15` run repeated the routing-completeness defect class after the founder-authorized obligation-complete correction and its bounded integration allowance. Preserve all sealed `.13`, `.14`, and `.15` artifacts, including the valid `.14` San Francisco and Berlin CKS prefix and the `.15` exact protected-state snapshot. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or rerun a subject without an explicit founder decision.
