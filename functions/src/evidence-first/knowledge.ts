@@ -5,6 +5,7 @@ import {
   claimAuthorityVerdictSchema,
   claimConflictSetSchema,
   researchMapSchema,
+  routingObligationSetSchema,
   scopeContractSchema,
   sourceDocumentSchema,
   sourceSnapshotSchema,
@@ -16,9 +17,12 @@ import {
   type CompletedKnowledgeSet,
   type EvidenceSegment,
   type ResearchMap,
+  type RoutingObligationSet,
   type ScopeContract,
   type SourceDocument,
-  type SourceSnapshot
+  type SourceSnapshot,
+  type TopicAuthoritySet,
+  topicAuthoritySetSchema
 } from "../factory-v2/contracts";
 import { type ArtifactContext } from "../factory-v2/contracts/builders";
 import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, KNOWLEDGE_COVERAGE_POLICY_VERSION, mergeKnowledgeEventVersions, planGapDirectedCompletion, sealNoCompletionRequired } from "../factory-v2/coverage";
@@ -161,11 +165,18 @@ export async function buildCompletedKnowledge(input: {
     }
     let completionResult: Awaited<ReturnType<typeof runV2AShadowFixture>>;
     try {
+      const [priorAuthorityValue, priorObligationValue] = await Promise.all([
+        repository.getById("v2TopicAuthoritySets", initialResult.topicAuthoritySetId),
+        repository.getById("v2RoutingObligationSets", initialResult.routingObligationSetId)
+      ]);
+      if (!priorAuthorityValue || !priorObligationValue) throw new Error("EVIDENCE_FIRST_CONTINUATION_AUTHORITY_LINEAGE_MISSING");
+      const priorTopicAuthoritySet: TopicAuthoritySet = topicAuthoritySetSchema.parse(stripRepositoryDocumentId(priorAuthorityValue));
+      const priorRoutingObligationSet: RoutingObligationSet = routingObligationSetSchema.parse(stripRepositoryDocumentId(priorObligationValue));
       const gapIdsByQuestionId = new Map<string, readonly string[]>();
       for (const task of completionPlan.tasks) for (const questionId of task.questionIds) {
         gapIdsByQuestionId.set(questionId, [...new Set([...(gapIdsByQuestionId.get(questionId) || []), ...task.gapIds])].sort());
       }
-      completionResult = await runV2AShadowFixture(input.descriptor, { ...input.config, budgetBundle: budget }, { ...dependencies, continuation: { context: completionContext, originalKnowledgeRunId: initialResult.context.runId, scope: initial.scope, researchMap: completionMap, gapIdsByQuestionId } });
+      completionResult = await runV2AShadowFixture(input.descriptor, { ...input.config, budgetBundle: budget }, { ...dependencies, continuation: { context: completionContext, originalKnowledgeRunId: initialResult.context.runId, scope: initial.scope, researchMap: completionMap, gapIdsByQuestionId, priorTopicAuthoritySet, priorRoutingObligationSet } });
     } catch (error) {
       if (error instanceof V2ARunError) throw new KnowledgeConstructionError(error.message, "GAP_COMPLETION", acquisitionResults, { initialAuditId: initialAudit.coverageAuditId, finalAuditId: null }, [...metrics, error.metrics]);
       throw error;

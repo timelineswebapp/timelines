@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, deadlineTerminalRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthoritySet } from "./contracts";
+import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, deadlineTerminalRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type RoutingObligationSet, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthorityProposal, type TopicAuthoritySet } from "./contracts";
 import { assertV2AShadowEnabled, authorityFirstRunDeadlineAt, type FactoryV2Config } from "./config";
 import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
 import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, executionArtifactId, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
@@ -257,6 +257,8 @@ export type OrchestratorDependencies = {
     scope: ScopeContract;
     researchMap: ResearchMap;
     gapIdsByQuestionId?: ReadonlyMap<string, readonly string[]>;
+    priorTopicAuthoritySet: TopicAuthoritySet;
+    priorRoutingObligationSet: RoutingObligationSet;
   };
 };
 
@@ -281,6 +283,22 @@ async function mapLimit<T, R>(items: readonly T[], concurrency: number, task: (i
   });
   await Promise.all(workers);
   return results;
+}
+
+function inheritContinuationAuthorityProposals(input: { continuation: NonNullable<OrchestratorDependencies["continuation"]>; routingObligationSet: RoutingObligationSet; requiredQuestionIds: readonly string[] }): TopicAuthorityProposal[] {
+  const targets = new Set(input.requiredQuestionIds);
+  const priorById = new Map(input.continuation.priorRoutingObligationSet.obligations.map((item) => [item.routingObligationId, item]));
+  const successorByIdentity = new Map(input.routingObligationSet.obligations.map((item) => [`${item.researchQuestionId}\n${item.semanticIdentity}`, item.routingObligationId]));
+  return input.continuation.priorTopicAuthoritySet.bindings.flatMap((binding) => {
+    const researchQuestionIds = binding.researchQuestionIds.filter((id) => targets.has(id));
+    if (researchQuestionIds.length === 0) return [];
+    const routingObligationIds = binding.routingObligationIds.flatMap((priorId) => {
+      const prior = priorById.get(priorId);
+      const successor = prior && targets.has(prior.researchQuestionId) ? successorByIdentity.get(`${prior.researchQuestionId}\n${prior.semanticIdentity}`) : undefined;
+      return successor ? [successor] : [];
+    });
+    return [{ publisherVersionId: binding.publisherVersionId, researchQuestionIds, roles: binding.roles, claimTypes: binding.claimTypes, subjectRelationship: binding.subjectRelationship, perspectiveTags: binding.perspectiveTags, routingObligationIds, rationale: binding.rationale }];
+  });
 }
 
 function modelTokens(executions: Array<{ usage: { inputTokens: number | null; outputTokens: number | null }; transportAttempts: number; repairAttempt: number }>): { input: number | null; output: number | null; retries: number; repairs: number } {
@@ -439,10 +457,12 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const requiredAuthorityQuestionIds = continuation?.gapIdsByQuestionId ? [...continuation.gapIdsByQuestionId.keys()] : undefined;
   const routingObligationSet = buildRoutingObligationSet({ context, scope: scopeResult.scope, researchMap: mapResult.map, requiredQuestionIds: requiredAuthorityQuestionIds });
   await persist("v2RoutingObligationSets", routingObligationSet);
-  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: routingObligationSet.obligations, provider: dependencies.provider, deadlineAt, supervisor });
+  const inheritedContinuationProposals = continuation && requiredAuthorityQuestionIds ? inheritContinuationAuthorityProposals({ continuation, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds }) : [];
+  const inheritedObligationIds = new Set(inheritedContinuationProposals.flatMap((proposal) => proposal.routingObligationIds));
+  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: routingObligationSet.obligations.filter((obligation) => !inheritedObligationIds.has(obligation.routingObligationId)), provider: dependencies.provider, deadlineAt, supervisor });
   modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
-  const allAuthorityProposals = [...authorityProposalResult.proposals];
+  const allAuthorityProposals = [...inheritedContinuationProposals, ...authorityProposalResult.proposals];
   let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds });
   await persist("v2TopicAuthoritySets", topicAuthoritySet);
   await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));

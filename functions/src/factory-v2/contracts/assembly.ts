@@ -17,9 +17,9 @@ const legacyV2ASourceBundleSchema = z.object({
   promptVersion: z.literal("factory-v2-a-prompts.8")
 }).strict();
 const currentV2ASourceBundleSchema = z.object({
-  pipelineVersion: z.literal("factory-v2-a.37"),
+  pipelineVersion: z.literal("factory-v2-a.38"),
   schemaVersion: z.literal("factory-v2-a.6"),
-  policyVersion: z.literal("authority-first-research.11"),
+  policyVersion: z.literal("authority-first-research.12"),
   promptVersion: z.literal("factory-v2-a-prompts.11")
 }).strict();
 const priorCurrentV2ASourceBundleSchema4 = z.object({
