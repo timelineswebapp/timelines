@@ -155,6 +155,20 @@ test("obligation routing accepts and preserves a partial valid batch without reg
   assert.match(requests[0]!.contents, new RegExp(first.routingObligationId, "u"));
 });
 
+test("an empty routing batch remains an explicit unresolved result for bounded missing-only repair", async () => {
+  const scope = scopeFixture();
+  const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
+  const question = { ...mapResult.map.questions[0]!, historicalPerspectiveRequirements: [{ kind: "STAKEHOLDER" as const, label: "Mission operations", rationale: "Operations personnel made material mission decisions." }] };
+  const map = { ...mapResult.map, questions: [question] };
+  const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
+  const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: map });
+  const candidates = buildEligibleRoutingCandidates({ routingObligationSet: obligations, publishers });
+  const result = await selectRoutingObligationBatch({ context: TEST_CONTEXT, scope, map, publishers, obligations: obligations.obligations, candidates, provider: providerFrom([JSON.stringify({ selections: [] })]) });
+  assert.deepEqual(result.proposals, []);
+  assert.deepEqual(result.resolvedObligationIds, []);
+  assert.equal(result.executions[0]!.validationState, "VALID");
+});
+
 test("initial authority routing requires explicit historical-perspective and contested questions, not retrieval geography", async () => {
   const scope = scopeFixture();
   const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });

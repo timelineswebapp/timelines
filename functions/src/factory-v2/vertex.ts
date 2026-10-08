@@ -229,7 +229,7 @@ const routingSelectionEnvelopeSchema = z.object({
     publisherNumber: z.number().int().positive().max(200),
     role: z.enum(["PRIMARY_RECORD", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"]),
     rationale: boundedText(10, 1000)
-  }).strict()).min(1).max(16).refine((items) => unique(items.map((item) => item.routingObligationId)), "Each obligation may be selected at most once per batch.")
+  }).strict()).max(16).refine((items) => unique(items.map((item) => item.routingObligationId)), "Each obligation may be selected at most once per batch.")
 }).strict();
 
 const routingSelectionJsonSchema = {
@@ -283,7 +283,7 @@ export async function selectRoutingObligationBatch(input: {
   const questionsById = new Map(input.map.questions.map((question) => [question.questionId, question]));
   const prompt = [
     "You are an Authority-First routing selector. Return only JSON. Deterministic software has already locked mandatory obligations and eligible registered candidates.",
-    "Select the historically strongest available candidate for each obligation you can justify. Never invent a candidate, role, capability, relationship, or obligation. A partial response is permitted; it locks only the explicit valid selections and unresolved obligations will be retried separately.",
+    "Select the historically strongest available candidate for every obligation you can justify. Never invent a candidate, role, capability, relationship, or obligation. A partial response is permitted; it locks only the explicit valid selections and unresolved obligations will be retried separately. If no selection is justified, return an empty selections array; deterministic software will retain prior locks and retry only the unresolved obligations within its bounded budget.",
     "Do not perform broad authority planning, evidence acquisition, event selection, or historical prose. Your rationale explains semantic fitness only; it does not alter the locked policy.",
     untrusted("LOCKED_ROUTING_BATCH", input.obligations.map((obligation) => ({ ...obligation, question: questionsById.get(obligation.researchQuestionId)?.text, candidates: (candidatesByObligation.get(obligation.routingObligationId) || []).map((candidate) => ({ publisherNumber: candidate.publisherNumber, canonicalName: input.publishers[candidate.publisherNumber - 1]!.canonicalName, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, independenceGroupId: candidate.independenceGroupId, specialistCollectionProfileIds: candidate.specialistCollectionProfileIds })) })))
   ].join("\n\n");
