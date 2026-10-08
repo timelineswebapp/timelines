@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildRegisteredAuthorityGroundingQuery, failedGroundingEscalationOperation, prioritizeContinuationQuestionIds } from "./orchestrator";
+import { buildRegisteredAuthorityGroundingQuery, failedGroundingEscalationOperation, prioritizeContinuationQuestionIds, shouldContinueSameAuthorityDiscovery } from "./orchestrator";
 
 test("bounded continuation escalation follows sealed completion-plan order", () => {
   const ordered = prioritizeContinuationQuestionIds(["chronology", "casualties", "relief", "rebuilding"], ["relief", "casualties", "rebuilding", "chronology"]);
   assert.deepEqual(ordered.slice(0, 2), ["relief", "casualties"]);
+});
+
+test("a specialist collection landing endpoint never suppresses its sealed same-authority fallback", () => {
+  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "SUCCEEDED", returnedUrls: ["https://example.org/collections/"], specialistCollectionProfileId: "specialist-profile-1" }), true);
+  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "SUCCEEDED", returnedUrls: ["https://example.org/topic"], specialistCollectionProfileId: null }), false);
+  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "FAILED", returnedUrls: [], specialistCollectionProfileId: null }), true);
 });
 
 test("grounding escalation is constrained to the sealed registered-authority domains", () => {

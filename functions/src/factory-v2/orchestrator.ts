@@ -100,6 +100,15 @@ export function prioritizeContinuationQuestionIds(questionIds: readonly string[]
   return [...questionIds].sort((left, right) => (priority.get(left) ?? Number.MAX_SAFE_INTEGER) - (priority.get(right) ?? Number.MAX_SAFE_INTEGER));
 }
 
+/**
+ * A specialist collection landing endpoint is only an entry point, not proof
+ * that it yielded an admissible question-relevant source. Its sealed
+ * same-authority fallback must therefore still run.
+ */
+export function shouldContinueSameAuthorityDiscovery(operation: Pick<ControlledResearchOperation, "status" | "returnedUrls" | "specialistCollectionProfileId">): boolean {
+  return operation.status !== "SUCCEEDED" || operation.returnedUrls.length === 0 || operation.specialistCollectionProfileId !== null;
+}
+
 /** Builds an escalation query from the sealed authority set without broadening source eligibility. */
 export function buildRegisteredAuthorityGroundingQuery(input: { title: string; question: string; verifiedDomains: readonly string[] }): string {
   const domains = [...new Set(input.verifiedDomains.map((domain) => domain.toLocaleLowerCase("en-US").trim()).filter(Boolean))].sort().slice(0, 12);
@@ -554,7 +563,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       if (!binding) throw new Error(`AUTHORITY_RESEARCH_PLAN_BINDING_MISSING:${planned.authorityBindingId}`);
       const operation = await bounded(`institutional-discovery:${planned.plannedOperationId}`, 90_000, () => executeInstitutionalDiscovery({ binding, researchQuestionIds: planned.researchQuestionIds, layer: planned.layer, mechanism: planned.mechanism, endpoint: planned.endpoint, specialistCollectionProfileId: planned.specialistCollectionProfileId, attemptOrder: planned.attemptOrder, purpose: planned.purpose, transport: dependencies.institutionalDiscoveryTransport, signal: AbortSignal.any([supervisor.signal, AbortSignal.timeout(Math.max(1, deadlineAt - Date.now()))]) }));
       attempts.push(operation);
-      if (operation.status === "SUCCEEDED" && operation.returnedUrls.length > 0) break;
+      if (!shouldContinueSameAuthorityDiscovery(operation)) break;
     }
     return attempts;
   })).flat();
