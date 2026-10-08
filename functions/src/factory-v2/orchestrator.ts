@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthoritySet } from "./contracts";
+import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, deadlineTerminalRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthoritySet } from "./contracts";
 import { assertV2AShadowEnabled, authorityFirstRunDeadlineAt, type FactoryV2Config } from "./config";
 import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
 import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, executionArtifactId, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
@@ -13,6 +13,7 @@ import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposa
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
 import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildRoutingObligationSet, buildTopicAuthoritySet, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
+import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
 
@@ -245,6 +246,9 @@ export type OrchestratorDependencies = {
   provider?: V2ModelProvider;
   retrieval?: RetrievalDependencies;
   institutionalDiscoveryTransport?: InstitutionalDiscoveryTransport;
+  /** Injection point for deterministic deadline tests. Production creates one owner per run. */
+  supervisor?: AuthorityFirstExecutionSupervisor;
+  onRunStarted?: (context: ArtifactContext) => void;
   /** A3 continuation mode reuses the locked scope and a versioned Research Map,
    * then executes the same certified acquisition/claim/authority/resolution path. */
   continuation?: {
@@ -312,7 +316,12 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   // Authority-First acquisition owns the complete knowledge-construction run.
   // Its versioned Controlled Research Operation budget is authoritative; do
   // not silently clamp it to the superseded V2-A ten-minute shadow target.
-  const deadlineAt = authorityFirstRunDeadlineAt(startedAt, config.budgetBundle.maximumWorkerSeconds);
+  const configuredDeadlineAt = authorityFirstRunDeadlineAt(startedAt, config.budgetBundle.maximumWorkerSeconds);
+  const supervisor = dependencies.supervisor || new AuthorityFirstExecutionSupervisor(startedAt, configuredDeadlineAt);
+  // Tests may inject only a shorter deadline.  Production has exactly one
+  // owner: the supervisor constructed from the immutable budget bundle.
+  if (supervisor.deadlineAt > configuredDeadlineAt) throw new Error("AUTHORITY_FIRST_SUPERVISOR_EXTENDS_CONFIGURED_DEADLINE");
+  const deadlineAt = supervisor.deadlineAt;
   const assertDeadline = () => {
     if (Date.now() >= deadlineAt) throw new Error("WHOLE_RUN_DEADLINE_EXCEEDED");
   };
@@ -321,6 +330,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const context: ArtifactContext = continuation
     ? continuation.context
     : { corpusId: repository.activeCorpusId(), topicId: expectedTopicId, runId: randomUUID(), generation: 1, createdAt: new Date().toISOString() };
+  dependencies.onRunStarted?.(context);
   const topicId = context.topicId;
   if (continuation) {
     if (continuation.scope.topicId !== expectedTopicId || continuation.scope.title !== descriptor.title) throw new Error("A3 continuation Scope Contract does not match the requested topic.");
@@ -332,6 +342,23 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const blockingReasons: string[] = [];
   let firestoreWrites = 0;
   let cloudStorageWrites = 0;
+  let lastCompletedOperation: string | null = "RUN_INITIALIZED";
+  const durableSnapshotIds: string[] = [];
+  const durableClaimVersionIds: string[] = [];
+  const durableEventVersionIds: string[] = [];
+  const bounded = async <T>(name: string, maximumMs: number, work: () => Promise<T>): Promise<T> => {
+    const value = await supervisor.runChild({ name, maximumMs: Math.min(maximumMs, Math.max(1, deadlineAt - Date.now())), run: () => work() });
+    lastCompletedOperation = name;
+    return value;
+  };
+  const terminalWrite = async <T>(work: () => Promise<T>): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([work(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("DEADLINE_TERMINAL_SEAL_TIMEOUT")), 2_000); })]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  };
   const progress = {
     sourceDocumentsDiscovered: 0, directRetrievalAttempts: 0, retrievalSuccesses: 0, retrievalFailures: 0,
     retrievalsSuppressedByHostCircuit: 0, retrievalRejectionReasons: {} as Record<string, number>, sourceDocumentsSnapshotted: 0,
@@ -347,7 +374,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   let currentStage: Parameters<typeof operationProjection>[0]["stage"] = "A1_SCHEMAS";
   const persist = async (collection: Parameters<V2FirestoreRepository["createImmutable"]>[0], artifact: Record<string, unknown>) => {
     try {
-      const result = await repository.createImmutable(collection, artifact);
+      const result = await bounded(`firestore:create:${collection}`, 30_000, () => repository.createImmutable(collection, artifact));
       if (result === "CREATED") firestoreWrites += 1;
     } catch (error) {
       throw new Error(`${collection}/${String(artifact.artifactId || "missing-id")}: ${error instanceof Error ? error.message : String(error)}`);
@@ -373,21 +400,21 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     await persist("v2AuditRecords", audit);
   };
   try {
-    await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING" }));
+    await bounded("firestore:set-operation:A1", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING" })));
     firestoreWrites += 1;
 
   const publishers = bootstrapPublisherRegistry(context);
   for (const publisher of publishers) {
     await persist("v2PublisherAuthorityVersions", publisher);
-    const current = await repository.getById("v2PublisherAuthorityRecords", publisher.publisherId);
+    const current = await bounded("firestore:get-publisher-head", 30_000, () => repository.getById("v2PublisherAuthorityRecords", publisher.publisherId));
     const head = publisherAuthorityRecordSchema.parse({ publisherId: publisher.publisherId, corpusId: context.corpusId, canonicalNameKey: normalizedIdentityText(publisher.canonicalName), currentVersionId: publisher.publisherVersionId, currentVersion: publisher.version, state: publisher.state, updatedAt: context.createdAt });
-    const result = await repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: publisher.publisherId, expectedCurrentVersionId: typeof current?.currentVersionId === "string" ? current.currentVersionId : null, nextVersionId: publisher.publisherVersionId, data: head });
+    const result = await bounded("firestore:advance-publisher-head", 30_000, () => repository.advanceHead({ collection: "v2PublisherAuthorityRecords", headId: publisher.publisherId, expectedCurrentVersionId: typeof current?.currentVersionId === "string" ? current.currentVersionId : null, nextVersionId: publisher.publisherVersionId, data: head }));
     if (result !== "IDEMPOTENT") firestoreWrites += 1;
   }
 
   const scopeResult = continuation
     ? { scope: continuation.scope, executions: [] }
-    : await proposeScope({ context, title: descriptor.title, language: descriptor.language, ongoingAsOf: descriptor.ongoingAsOf, reconnaissance: { classification: "NO_LEGACY_CONTENT_REUSE", existingKnowledgeWillBeInspectedAfterScopeLock: true }, provider: dependencies.provider, deadlineAt });
+    : await proposeScope({ context, title: descriptor.title, language: descriptor.language, ongoingAsOf: descriptor.ongoingAsOf, reconnaissance: { classification: "NO_LEGACY_CONTENT_REUSE", existingKnowledgeWillBeInspectedAfterScopeLock: true }, provider: dependencies.provider, deadlineAt, supervisor });
   modelExecutions.push(...scopeResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of scopeResult.executions) await persist("v2ModelExecutions", execution);
   if (!continuation) {
@@ -395,7 +422,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     await persistSemanticDerivation("v2ScopeContracts", scopeResult.scope, scopeResult.executions.at(-1));
   }
 
-  const reconnaissance = await performBoundedReconnaissance({ repository, topicId, scopeContractId: scopeResult.scope.scopeContractId, entityNameKeys: scopeResult.scope.centralEntities.map((entity) => normalizedIdentityText(entity.name)), limitPerKind: 25 });
+  const reconnaissance = await performBoundedReconnaissance({ repository, topicId, scopeContractId: scopeResult.scope.scopeContractId, entityNameKeys: scopeResult.scope.centralEntities.map((entity) => normalizedIdentityText(entity.name)), limitPerKind: 25, supervisor });
   const reconnaissanceId = reconnaissanceArtifactId(context, reconnaissance);
   const reconnaissanceArtifact = parseSealedArtifact(reconnaissanceRecordSchema, { ...immutableEnvelope(context, reconnaissanceId), reconnaissanceId, scopeContractId: scopeResult.scope.scopeContractId, knownEntityIds: reconnaissance.knownEntities.map((item) => String(item.entityId || item.id)), admittedEventVersionIds: reconnaissance.admittedEvents.map((item) => String(item.eventVersionId || item.id)), strongClaimVersionIds: reconnaissance.strongClaims.map((item) => String(item.claimVersionId || item.id)), reusableSnapshotIds: reconnaissance.reusableSnapshots.map((item) => String(item.sourceSnapshotId || item.id)), conflictSetIds: reconnaissance.conflicts.map((item) => String(item.conflictSetId || item.id)), gaps: reconnaissance.gaps, legacyInputsExcluded: true });
   await persist("v2ReconnaissanceRecords", reconnaissanceArtifact);
@@ -403,7 +430,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   assertDeadline();
   const mapResult = continuation
     ? { map: continuation.researchMap, executions: [] }
-    : await generateResearchMap({ context, scope: scopeResult.scope, reconnaissance, provider: dependencies.provider, deadlineAt });
+    : await generateResearchMap({ context, scope: scopeResult.scope, reconnaissance, provider: dependencies.provider, deadlineAt, supervisor });
   modelExecutions.push(...mapResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of mapResult.executions) await persist("v2ModelExecutions", execution);
   await persist("v2ResearchMaps", mapResult.map);
@@ -412,7 +439,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const requiredAuthorityQuestionIds = continuation?.gapIdsByQuestionId ? [...continuation.gapIdsByQuestionId.keys()] : undefined;
   const routingObligationSet = buildRoutingObligationSet({ context, scope: scopeResult.scope, researchMap: mapResult.map, requiredQuestionIds: requiredAuthorityQuestionIds });
   await persist("v2RoutingObligationSets", routingObligationSet);
-  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: routingObligationSet.obligations, provider: dependencies.provider, deadlineAt });
+  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: routingObligationSet.obligations, provider: dependencies.provider, deadlineAt, supervisor });
   modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
   const allAuthorityProposals = [...authorityProposalResult.proposals];
@@ -429,7 +456,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   progress.perspectiveAuditId = perspectiveAudit.perspectiveAuditId;
 
   currentStage = "A2_SCOPE_ACQUISITION";
-  await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING" }));
+  await bounded("firestore:set-operation:A2", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING" })));
   assertDeadline();
   const bindingById = new Map(topicAuthoritySet.bindings.map((binding) => [binding.bindingId, binding]));
   const groundingAttributionByUrl = new Map<string, { publisherDomain: string; title: string; discoveryText: string }>();
@@ -444,7 +471,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     for (const planned of [...plannedOperations].sort((left, right) => left.attemptOrder - right.attemptOrder || left.plannedOperationId.localeCompare(right.plannedOperationId))) {
       const binding = bindingById.get(planned.authorityBindingId);
       if (!binding) throw new Error(`AUTHORITY_RESEARCH_PLAN_BINDING_MISSING:${planned.authorityBindingId}`);
-      const operation = await executeInstitutionalDiscovery({ binding, researchQuestionIds: planned.researchQuestionIds, layer: planned.layer, mechanism: planned.mechanism, endpoint: planned.endpoint, specialistCollectionProfileId: planned.specialistCollectionProfileId, attemptOrder: planned.attemptOrder, purpose: planned.purpose, transport: dependencies.institutionalDiscoveryTransport, signal: AbortSignal.timeout(Math.max(1, deadlineAt - Date.now())) });
+      const operation = await bounded(`institutional-discovery:${planned.plannedOperationId}`, 90_000, () => executeInstitutionalDiscovery({ binding, researchQuestionIds: planned.researchQuestionIds, layer: planned.layer, mechanism: planned.mechanism, endpoint: planned.endpoint, specialistCollectionProfileId: planned.specialistCollectionProfileId, attemptOrder: planned.attemptOrder, purpose: planned.purpose, transport: dependencies.institutionalDiscoveryTransport, signal: AbortSignal.any([supervisor.signal, AbortSignal.timeout(Math.max(1, deadlineAt - Date.now()))]) }));
       attempts.push(operation);
       if (operation.status === "SUCCEEDED" && operation.returnedUrls.length > 0) break;
     }
@@ -479,7 +506,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const queryId = contentAddressedId("authority-escalation-query", { escalationDecisionId: decision.escalationDecisionId, questionId: question.questionId });
     let acquisition: Awaited<ReturnType<typeof runGroundedAcquisition>>;
     try {
-      acquisition = await runGroundedAcquisition({ context, provider: dependencies.provider, deadlineAt, query: {
+      acquisition = await runGroundedAcquisition({ context, provider: dependencies.provider, deadlineAt, supervisor, query: {
         queryId, researchQuestionIds: [question.questionId], role: "AUTHORITY_TARGETED", intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: [scopeResult.scope.title], language: descriptor.language,
         geography: question.geography.length > 0 ? question.geography.slice(0, 8) : ["International"], providerQuery: buildRegisteredAuthorityGroundingQuery({ title: scopeResult.scope.title, question: question.text, verifiedDomains: registeredDomains }), providerReportedQueries: [], budgetUnits: 1, resultArtifactIds: []
       } });
@@ -493,7 +520,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     if (expansionPublishers.length > 0) {
       try {
         const continuationObligations = routingObligationSet.obligations.filter((obligation) => obligation.researchQuestionId === question.questionId);
-        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], routingObligations: continuationObligations, maximumRepairs: 0, provider: dependencies.provider, deadlineAt });
+        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], routingObligations: continuationObligations, maximumRepairs: 0, provider: dependencies.provider, deadlineAt, supervisor });
         modelExecutions.push(...expansionResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
         for (const execution of expansionResult.executions) await persist("v2ModelExecutions", execution);
         const parentTopicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
@@ -598,7 +625,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     progress.directRetrievalAttempts += 1;
     try {
       assertDeadline();
-      const existing = await repository.getReusableSource(candidate.canonicalUrl);
+      const existing = await bounded(`firestore:reusable-source:${sha256(candidate.canonicalUrl).slice(0, 12)}`, 30_000, () => repository.getReusableSource(candidate.canonicalUrl));
       const freshness = scopeResult.scope.topicClass === "ONGOING_SUBJECT" ? "ONGOING" : "IMMUTABLE_HISTORICAL";
       if (existing && canReuseSnapshot(existing.snapshot as SourceSnapshot, freshness, scopeResult.scope.ongoingAsOf)) {
         progress.retrievalSuccesses += 1;
@@ -606,15 +633,15 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       }
       const initialPublisher = publisherForDomain(candidate.domain, publishers) || publisherForUrl(candidate.canonicalUrl, publishers);
       if (!initialPublisher || !topicAuthoritySet.bindings.some((binding) => binding.publisherVersionId === initialPublisher.publisherVersionId)) throw new Error(`SOURCE_OUTSIDE_TOPIC_AUTHORITY_SET:${candidate.canonicalUrl}`);
-      const result = await retrieveSource({ context, url: candidate.originalUrl, titleHint: candidate.title, publisherId: initialPublisher?.publisherId || null, sourceClass: provisionalSourceClass(initialPublisher), primarySecondaryRole: initialPublisher?.primarySecondaryTendency || "UNKNOWN", languageHint: descriptor.language, specialistCollectionProfileId: candidate.specialistCollectionProfileId || null }, {
+      const result = await bounded(`source-retrieval:${sha256(candidate.canonicalUrl).slice(0, 12)}`, 90_000, () => retrieveSource({ context, url: candidate.originalUrl, titleHint: candidate.title, publisherId: initialPublisher?.publisherId || null, sourceClass: provisionalSourceClass(initialPublisher), primarySecondaryRole: initialPublisher?.primarySecondaryTendency || "UNKNOWN", languageHint: descriptor.language, specialistCollectionProfileId: candidate.specialistCollectionProfileId || null }, {
         ...dependencies.retrieval,
-        signal: AbortSignal.timeout(Math.max(1, deadlineAt - Date.now())),
+        signal: AbortSignal.any([supervisor.signal, AbortSignal.timeout(Math.max(1, deadlineAt - Date.now()))]),
         cachedSource: async (resolvedUrl) => {
-          const cached = await repository.getReusableSource(resolvedUrl);
+          const cached = await bounded(`firestore:cached-source:${sha256(resolvedUrl).slice(0, 12)}`, 30_000, () => repository.getReusableSource(resolvedUrl));
           if (!cached) return null;
           return { source: cached.source as SourceDocument, snapshot: cached.snapshot as SourceSnapshot, evidenceSegments: cached.evidenceSegments as EvidenceSegment[], reusable: canReuseSnapshot(cached.snapshot as SourceSnapshot, freshness, scopeResult.scope.ongoingAsOf) };
         }
-      });
+      }));
       cloudStorageWrites += result.archiveWrites;
       progress.retrievalSuccesses += 1;
       return { ...result, admittedQuestionIds: candidate.admittedQuestionIds, admissionScores: candidate.admissionScores };
@@ -663,23 +690,24 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const { id: _repositoryId, ...sourcePayload } = result.source as SourceDocument & { id?: string };
     const source = sourceDocumentSchema.parse({ ...sourcePayload, publisherId: publisher.publisherId, sourceClass: provisionalSourceClass(publisher), primarySecondaryRole: publisher.primarySecondaryTendency, authorityDomains: publisher.authorityDomains });
     if (result.cacheDisposition === "CACHE_NOT_APPLICABLE" || result.cacheDisposition === "REFETCHED") {
-      const sourceWrite = await repository.upsertSourceDocument(source);
+      const sourceWrite = await bounded(`firestore:upsert-source:${source.sourceId}`, 30_000, () => repository.upsertSourceDocument(source));
       if (sourceWrite !== "IDEMPOTENT") firestoreWrites += 1;
       await persist("v2SourceSnapshots", result.snapshot);
       if (result.evidenceSegments.length > 0) {
-        const segmentWrites = await repository.createImmutableBatch("v2EvidenceSegments", result.evidenceSegments);
+        const segmentWrites = await bounded(`firestore:create-segments:${result.snapshot.sourceSnapshotId}`, 30_000, () => repository.createImmutableBatch("v2EvidenceSegments", result.evidenceSegments));
         firestoreWrites += segmentWrites.created;
       }
     }
     publisherBySource.set(source.sourceId, publisher);
     result.source = source;
+    durableSnapshotIds.push(result.snapshot.sourceSnapshotId);
     const auditRecordId = contentAddressedId("audit", { runId: context.runId, action: "SOURCE_CACHE_DECISION", sourceId: source.sourceId, snapshotId: result.snapshot.sourceSnapshotId, status: result.cacheDisposition });
     const cacheAudit = parseSealedArtifact(auditRecordSchema, { ...immutableEnvelope(context, auditRecordId), auditRecordId, action: "SOURCE_CACHE_DECISION", actorType: "POLICY", actorId: "factory-v2-a-cache-policy.4", artifactRefs: [{ collection: "v2SourceSnapshots", id: result.snapshot.sourceSnapshotId, payloadHash: result.snapshot.payloadHash }], details: { cacheStatus: result.cacheDisposition, sourceId: source.sourceId, snapshotId: result.snapshot.sourceSnapshotId } });
     await persist("v2AuditRecords", cacheAudit);
   }
 
   currentStage = "A3_CLAIMS";
-  await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { sources: retrieved.length }, finalVerdict: "PENDING" }));
+  await bounded("firestore:set-operation:A3", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { sources: retrieved.length }, finalVerdict: "PENDING" })));
   const priorityRank = { CRITICAL: 0, IMPORTANT: 1, SUPPORTING: 2 } as const;
   const requiresIndependentExtraction = (question: ResearchMap["questions"][number]) => question.contested || question.claimTypesExpected.some((claimType) => ["INTERPRETATION", "CAUSATION", "CONSEQUENCE", "ATTRIBUTION"].includes(claimType));
   const questionsForExtraction = mapResult.map.questions.filter((question) => question.priority !== "SUPPORTING" && (!continuation?.gapIdsByQuestionId || continuation.gapIdsByQuestionId.has(question.questionId)))
@@ -738,7 +766,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const extractedAttempts = await mapLimit(claimInputs, config.budgetBundle.maximumConcurrency, async ({ result, question, packet }) => {
     try {
       assertDeadline();
-      return await extractAtomicClaims({ context, scope: scopeResult.scope, sourceSnapshotId: result.snapshot.sourceSnapshotId, segments: packet.segments, question, provider: dependencies.provider, deadlineAt });
+      return await extractAtomicClaims({ context, scope: scopeResult.scope, sourceSnapshotId: result.snapshot.sourceSnapshotId, segments: packet.segments, question, provider: dependencies.provider, deadlineAt, supervisor });
     } catch (error) {
       claimExtractionFailures += 1;
       const message = (error instanceof Error ? error.message : String(error)).slice(0, 1900);
@@ -777,7 +805,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const semanticClassByClaim = new Map(extractedGroups.flatMap((group) => [...group.semanticClasses.entries()]));
   for (let index = 0; index < claims.length; index += 1) {
     const extracted = claims[index]!;
-    const existingHead = await repository.getById("v2AtomicClaims", extracted.claimId);
+    const existingHead = await bounded(`firestore:get-claim-head:${extracted.claimId}`, 30_000, () => repository.getById("v2AtomicClaims", extracted.claimId));
     const priorVersionId = typeof existingHead?.currentVersionId === "string" ? existingHead.currentVersionId : null;
     const claim = priorVersionId && priorVersionId !== extracted.claimVersionId ? buildAtomicClaimVersion(context, {
       claimId: extracted.claimId, scopeContractId: extracted.scopeContractId, subject: extracted.subject, predicate: extracted.predicate, object: extracted.object,
@@ -795,8 +823,9 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     await persist("v2AtomicClaimVersions", claim);
     await persistSemanticDerivation("v2AtomicClaimVersions", claim, claimExecution.get(claim.claimId));
     const currentVersion = typeof existingHead?.currentVersion === "number" ? existingHead.currentVersion : 0;
-    const headState = await repository.advanceHead({ collection: "v2AtomicClaims", headId: claim.claimId, expectedCurrentVersionId: priorVersionId, nextVersionId: claim.claimVersionId, data: { claimId: claim.claimId, subjectKey: normalizedIdentityText(claim.subject.label), predicate: claim.predicate, currentVersion: currentVersion + 1, state: "CANDIDATE", updatedAt: context.createdAt } });
+    const headState = await bounded(`firestore:advance-claim-head:${claim.claimId}`, 30_000, () => repository.advanceHead({ collection: "v2AtomicClaims", headId: claim.claimId, expectedCurrentVersionId: priorVersionId, nextVersionId: claim.claimVersionId, data: { claimId: claim.claimId, subjectKey: normalizedIdentityText(claim.subject.label), predicate: claim.predicate, currentVersion: currentVersion + 1, state: "CANDIDATE", updatedAt: context.createdAt } }));
     if (headState === "CREATED") firestoreWrites += 1;
+    durableClaimVersionIds.push(claim.claimVersionId);
   }
   const snapshotsById = new Map(retrieved.map((item) => [item.snapshot.sourceSnapshotId, item]));
   const segmentsById = new Map(retrieved.flatMap((item) => item.evidenceSegments).map((segment) => [segment.evidenceSegmentId, segment]));
@@ -816,13 +845,13 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
         if (evidenceEdgeIds.has(edge.claimEvidenceId)) continue;
         evidenceEdgeIds.add(edge.claimEvidenceId);
         evidenceEdges.push(edge);
-        const edgeState = await repository.createEdgeWithReferences({ collection: "v2ClaimEvidence", edge, references: [{ collection: "v2AtomicClaimVersions", id: claim.claimVersionId }, { collection: "v2EvidenceSegments", id: segmentId }] });
+        const edgeState = await bounded(`firestore:create-claim-edge:${edge.claimEvidenceId}`, 30_000, () => repository.createEdgeWithReferences({ collection: "v2ClaimEvidence", edge, references: [{ collection: "v2AtomicClaimVersions", id: claim.claimVersionId }, { collection: "v2EvidenceSegments", id: segmentId }] }));
         if (edgeState === "CREATED") firestoreWrites += 1;
       }
     }
   }
   currentStage = "A4_AUTHORITY_CONFLICTS";
-  await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { claims: claims.length, evidenceEdges: evidenceEdges.length }, finalVerdict: "PENDING" }));
+  await bounded("firestore:set-operation:A4", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { claims: claims.length, evidenceEdges: evidenceEdges.length }, finalVerdict: "PENDING" })));
   const conflictSets = detectClaimConflicts({ context, claims, evidenceEdges });
   for (const conflict of conflictSets) await persist("v2ClaimConflictSets", conflict);
   const publishersByVersion = new Map(publisherVersions.map((publisher) => [publisher.publisherVersionId, publisher]));
@@ -841,7 +870,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   progress.conflictsUnresolved = conflictSets.filter((conflict) => conflict.state === "UNRESOLVED").length;
 
   currentStage = "A5_RESOLUTION_REUSE";
-  await repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { claims: claims.length, conflicts: conflictSets.length }, finalVerdict: "PENDING" }));
+  await bounded("firestore:set-operation:A5", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { claims: claims.length, conflicts: conflictSets.length }, finalVerdict: "PENDING" })));
   const passingClaimIds = new Set(verdicts.filter((verdict) => verdict.verdict === "SUPPORTED" || verdict.verdict === "QUALIFIED").map((verdict) => verdict.claimVersionId));
   const identityEvidence = [...new Set(claims.filter((claim) => passingClaimIds.has(claim.claimVersionId)).flatMap((claim) => claim.extractedFromSegmentIds).filter((id) => segmentsById.has(id)))];
   const entities: CanonicalEntityVersion[] = [];
@@ -854,8 +883,8 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     });
     if (entityEvidence.length === 0) continue;
     const candidate = buildCanonicalEntityVersion(context, { version: 1, entityType: entityRef.type, canonicalName: entityRef.name, language: entityRef.language, externalIdentifiers: entityRef.entityId ? [{ scheme: "scope", value: entityRef.entityId }] : [], activeTemporal: null, geographyKeys: scopeResult.scope.spatialScope.included, state: "FACTORY_CANDIDATE", resolutionState: "PROPOSED", identityEvidenceSegmentIds: entityEvidence.slice(0, 20), supersedesEntityVersionId: null });
-    const existingHeads = (await repository.boundedQuery("v2CanonicalEntities", [{ field: "canonicalNameKey", op: "==", value: normalizedIdentityText(candidate.canonicalName) }], 20)).filter((head) => head.entityType === candidate.entityType);
-    const existing = (await Promise.all(existingHeads.map((head) => repository.getById("v2CanonicalEntityVersions", String(head.currentVersionId))))).filter((item): item is CanonicalEntityVersion => item !== null) as CanonicalEntityVersion[];
+    const existingHeads = (await bounded(`firestore:find-entity:${entityNameKey}`, 30_000, () => repository.boundedQuery("v2CanonicalEntities", [{ field: "canonicalNameKey", op: "==", value: normalizedIdentityText(candidate.canonicalName) }], 20))).filter((head) => head.entityType === candidate.entityType);
+    const existing = (await Promise.all(existingHeads.map((head) => bounded(`firestore:get-entity-version:${String(head.currentVersionId)}`, 30_000, () => repository.getById("v2CanonicalEntityVersions", String(head.currentVersionId)))))).filter((item): item is CanonicalEntityVersion => item !== null) as CanonicalEntityVersion[];
     const resolution = resolveEntityCandidate({ candidate, existing, aliases: [] });
     const priorEntity = resolution.state === "REUSED" ? existing.find((item) => item.entityVersionId === resolution.entityVersionId) : undefined;
     const buildResolvedEntity = (version: number, supersedesEntityVersionId: string | null) => buildCanonicalEntityVersion(context, {
@@ -880,7 +909,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     await persist("v2CanonicalEntityVersions", resolved);
     if (!priorEntity || resolved.entityVersionId !== priorEntity.entityVersionId) {
       const head = canonicalEntityRecordSchema.parse({ entityId: resolved.entityId, corpusId: context.corpusId, entityType: resolved.entityType, canonicalNameKey: normalizedIdentityText(resolved.canonicalName), currentVersionId: resolved.entityVersionId, currentVersion: resolved.version, state: resolved.state, updatedAt: context.createdAt });
-      const state = await repository.advanceHead({ collection: "v2CanonicalEntities", headId: resolved.entityId, expectedCurrentVersionId: priorEntity?.entityVersionId || null, nextVersionId: resolved.entityVersionId, data: head });
+      const state = await bounded(`firestore:advance-entity-head:${resolved.entityId}`, 30_000, () => repository.advanceHead({ collection: "v2CanonicalEntities", headId: resolved.entityId, expectedCurrentVersionId: priorEntity?.entityVersionId || null, nextVersionId: resolved.entityVersionId, data: head }));
       if (state === "CREATED") firestoreWrites += 1;
     }
     const aliasPayload = { entityId: resolved.entityId, entityVersionId: resolved.entityVersionId, entityType: resolved.entityType, alias: resolved.canonicalName, aliasKey: normalizedIdentityText(resolved.canonicalName), language: resolved.language, script: null, aliasType: "CANONICAL" as const };
@@ -893,7 +922,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const reusableEntities = (await Promise.all(reconnaissance.knownEntities.slice(0, 25).map(async (head) => {
     const currentVersionId = typeof head.currentVersionId === "string" ? head.currentVersionId : null;
     if (!currentVersionId) return null;
-    const value = await repository.getById("v2CanonicalEntityVersions", currentVersionId);
+    const value = await bounded(`firestore:get-reusable-entity:${currentVersionId}`, 30_000, () => repository.getById("v2CanonicalEntityVersions", currentVersionId));
     if (!value) return null;
     const { id: _repositoryDocumentId, ...artifact } = value;
     const parsed = canonicalEntityVersionSchema.safeParse(artifact);
@@ -933,8 +962,8 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     if (event.semanticClass === "EVENT" && !eventWithinLockedScope(scopeResult.scope, event)) {
       event = buildCanonicalEventVersion(context, { version: 1, scopeContractId: event.scopeContractId, canonicalTitle: event.canonicalTitle, semanticClass: "CONTEXT", eventSubtype: null, temporal: event.temporal, actionKey: event.actionKey, primaryEntityKeys: event.primaryEntityKeys, locationKeys: event.locationKeys, coreClaimVersionIds: event.coreClaimVersionIds, supportingClaimVersionIds: event.supportingClaimVersionIds, authorityState: event.authorityState, canonicalizationState: "INELIGIBLE", parentEventId: null, supersedesEventVersionId: null });
     }
-    const existingHeads = await repository.boundedQuery("v2CanonicalEvents", [{ field: "eventIdentityKey", op: "==", value: event.eventIdentityKey }], 50);
-    const existing = (await Promise.all(existingHeads.map((head) => repository.getById("v2CanonicalEventVersions", String(head.currentVersionId))))).filter((item): item is CanonicalEventVersion => item !== null) as CanonicalEventVersion[];
+    const existingHeads = await bounded(`firestore:find-event:${event.eventIdentityKey.slice(0, 32)}`, 30_000, () => repository.boundedQuery("v2CanonicalEvents", [{ field: "eventIdentityKey", op: "==", value: event.eventIdentityKey }], 50));
+    const existing = (await Promise.all(existingHeads.map((head) => bounded(`firestore:get-event-version:${String(head.currentVersionId)}`, 30_000, () => repository.getById("v2CanonicalEventVersions", String(head.currentVersionId)))))).filter((item): item is CanonicalEventVersion => item !== null) as CanonicalEventVersion[];
     const resolution = resolveEventCandidate(event, existing);
     const priorEvent = resolution.state === "REUSED" ? existing.find((item) => item.eventVersionId === resolution.eventVersionId) : undefined;
     const buildResolvedEvent = (version: number, supersedesEventVersionId: string | null) => buildCanonicalEventVersion(context, {
@@ -963,8 +992,9 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     events.push(resolved);
     await persist("v2CanonicalEventVersions", resolved);
     if (resolved.semanticClass === "EVENT" && resolved.canonicalEventId && (!priorEvent || resolved.eventVersionId !== priorEvent.eventVersionId)) {
-      const head = canonicalEventRecordSchema.parse({ canonicalEventId: resolved.canonicalEventId, corpusId: context.corpusId, eventIdentityKey: resolved.eventIdentityKey, currentVersionId: resolved.eventVersionId, currentVersion: resolved.version, state: resolved.authorityState, updatedAt: context.createdAt });
-      const state = await repository.advanceHead({ collection: "v2CanonicalEvents", headId: resolved.canonicalEventId, expectedCurrentVersionId: priorEvent?.eventVersionId || null, nextVersionId: resolved.eventVersionId, data: head });
+      const canonicalEventId = resolved.canonicalEventId;
+      const head = canonicalEventRecordSchema.parse({ canonicalEventId, corpusId: context.corpusId, eventIdentityKey: resolved.eventIdentityKey, currentVersionId: resolved.eventVersionId, currentVersion: resolved.version, state: resolved.authorityState, updatedAt: context.createdAt });
+      const state = await bounded(`firestore:advance-event-head:${canonicalEventId}`, 30_000, () => repository.advanceHead({ collection: "v2CanonicalEvents", headId: canonicalEventId, expectedCurrentVersionId: priorEvent?.eventVersionId || null, nextVersionId: resolved.eventVersionId, data: head }));
       if (state === "CREATED") firestoreWrites += 1;
     }
     for (const claimId of [...resolved.coreClaimVersionIds, ...resolved.supportingClaimVersionIds]) {
@@ -972,7 +1002,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       const semanticContext = { ...context, policyVersion: V2_POLICY_VERSION };
       const edgeId = semanticArtifactId("event-claim", semanticContext, edgePayload);
       const edge = parseSealedArtifact(eventClaimEdgeSchema, { ...semanticEnvelope(semanticContext, edgeId, resolved.eventVersionId), eventClaimId: edgeId, ...edgePayload });
-      await repository.createEdgeWithReferences({ collection: "v2EventClaims", edge, references: [{ collection: "v2CanonicalEventVersions", id: resolved.eventVersionId }, { collection: "v2AtomicClaimVersions", id: claimId }] });
+      await bounded(`firestore:create-event-claim:${edge.eventClaimId}`, 30_000, () => repository.createEdgeWithReferences({ collection: "v2EventClaims", edge, references: [{ collection: "v2CanonicalEventVersions", id: resolved.eventVersionId }, { collection: "v2AtomicClaimVersions", id: claimId }] }));
       firestoreWrites += 1;
     }
     for (const entity of relatedEntities) {
@@ -980,9 +1010,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       const semanticContext = { ...context, policyVersion: V2_POLICY_VERSION };
       const edgeId = semanticArtifactId("event-entity", semanticContext, edgePayload);
       const edge = parseSealedArtifact(eventEntityEdgeSchema, { ...semanticEnvelope(semanticContext, edgeId, resolved.eventVersionId), eventEntityId: edgeId, ...edgePayload });
-      await repository.createEdgeWithReferences({ collection: "v2EventEntities", edge, references: [{ collection: "v2CanonicalEventVersions", id: resolved.eventVersionId }, { collection: "v2CanonicalEntityVersions", id: entity.entityVersionId }] });
+      await bounded(`firestore:create-event-entity:${edge.eventEntityId}`, 30_000, () => repository.createEdgeWithReferences({ collection: "v2EventEntities", edge, references: [{ collection: "v2CanonicalEventVersions", id: resolved.eventVersionId }, { collection: "v2CanonicalEntityVersions", id: entity.entityVersionId }] }));
       firestoreWrites += 1;
     }
+    durableEventVersionIds.push(resolved.eventVersionId);
   }
 
   const unresolvedMaterialConflicts = conflictSets.filter((conflict) => conflict.blocksPass).length;
@@ -1069,7 +1100,8 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     finalV2AVerdict: blockingReasons.length === 0 ? "PASS" : "FAIL"
   };
   currentStage = metrics.finalV2AVerdict === "PASS" ? "COMPLETE" : "A5_RESOLUTION_REUSE";
-  await repository.setOperation(context.runId, operationProjection({ context, state: metrics.finalV2AVerdict === "PASS" ? "COMPLETED" : "FAILED", stage: currentStage, startedAt, blockingReason: blockingReasons.join(", ") || null, counts: { sources: metrics.sourceDocumentsSnapshotted, claims: metrics.claimsExtracted, supportedClaims: metrics.claimsSupported, conflicts: metrics.conflictsDetected, entities: metrics.entityCandidates, events: metrics.eventCandidates }, finalVerdict: metrics.finalV2AVerdict }));
+  await bounded("firestore:set-operation:terminal", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: metrics.finalV2AVerdict === "PASS" ? "COMPLETED" : "FAILED", stage: currentStage, startedAt, blockingReason: blockingReasons.join(", ") || null, counts: { sources: metrics.sourceDocumentsSnapshotted, claims: metrics.claimsExtracted, supportedClaims: metrics.claimsSupported, conflicts: metrics.conflictsDetected, entities: metrics.entityCandidates, events: metrics.eventCandidates }, finalVerdict: metrics.finalV2AVerdict })));
+  supervisor.close();
   return {
     context,
     scopeContractId: scopeResult.scope.scopeContractId,
@@ -1098,7 +1130,8 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       }
     }
     const message = (error instanceof Error ? error.message : String(error)).slice(0, 1900);
-    const failureClass = message.includes("WHOLE_RUN_DEADLINE_EXCEEDED") ? "WHOLE_RUN_DEADLINE_EXCEEDED"
+    const deadlineExceeded = error instanceof WholeRunDeadlineExceededError || message.includes("WHOLE_RUN_DEADLINE_EXCEEDED") || supervisor.status === "CANCELLING";
+    const failureClass = deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED"
       : message.includes("ACQUISITION_BUDGET_EXHAUSTED") ? "ACQUISITION_BUDGET_EXHAUSTED"
       : /SOURCE_RETRIEVAL|PRIVATE_ADDRESS|ROBOTS/iu.test(message) ? "SECURITY_RETRIEVAL_REJECTED"
       : /VERTEX|PROVIDER|MODEL|GOOGLE|EXPLICIT_SEARCH/iu.test(message) ? "PROVIDER_FAILURE"
@@ -1119,9 +1152,44 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       failureRecordId,
       ...failurePayload,
     });
-    try { await persist("v2FailureRecords", failure); } catch { /* Preserve the originating failure. */ }
+    if (deadlineExceeded) {
+      await supervisor.awaitShutdownGrace();
+      try { await terminalWrite(() => repository.createImmutable("v2FailureRecords", failure)); } catch { /* A process-isolated caller owns the final hard stop if persistence is unavailable. */ }
+      const snapshot = supervisor.terminalSnapshot();
+      const terminalPayload = {
+        failureRecordId,
+        terminalStage: currentStage,
+        deadlineAt: new Date(deadlineAt).toISOString(),
+        elapsedMs: Math.max(0, Date.now() - startedAt),
+        lastCompletedOperation,
+        activeOperation: snapshot.activeOperation,
+        completedOperations: snapshot.completedOperations,
+        timedOutOperations: snapshot.timedOutOperations,
+        lateCompletionsIgnored: snapshot.lateCompletionsIgnored,
+        shutdownGraceMs: snapshot.shutdownGraceMs,
+        shutdownGraceOutcome: snapshot.shutdownGraceOutcome,
+        controlledOperationCount: progress.controlledResearchOperations,
+        directRetrievalAttempts: progress.directRetrievalAttempts,
+        retrievalSuccesses: progress.retrievalSuccesses,
+        retrievalFailures: progress.retrievalFailures,
+        sourceSnapshotIds: [...new Set(durableSnapshotIds)].slice(0, 60),
+        claimVersionIds: [...new Set(durableClaimVersionIds)].slice(0, 300),
+        eventVersionIds: [...new Set(durableEventVersionIds)].slice(0, 300),
+        coverageState: "INCOMPLETE_DEADLINE_TERMINATED",
+        perspectiveAuditId: progress.perspectiveAuditId,
+        confidenceVectorId: progress.confidenceVectorId,
+        protectedStateParity: "PENDING_EXTERNAL_VERIFICATION" as const
+      };
+      const deadlineTerminalRecordId = executionArtifactId("deadline-terminal", context, terminalPayload);
+      const terminal = deadlineTerminalRecordSchema.parse({ ...immutableEnvelope(context, deadlineTerminalRecordId), deadlineTerminalRecordId, ...terminalPayload });
+      try { await terminalWrite(() => repository.createImmutable("v2DeadlineTerminalRecords", terminal)); } catch { /* Failure record remains the canonical fail-closed minimum. */ }
+    } else {
+      try { await persist("v2FailureRecords", failure); } catch { /* Preserve the originating failure. */ }
+    }
     try {
-      await repository.setOperation(context.runId, operationProjection({ context, state: "FAILED", stage: currentStage, startedAt, blockingReason: message.slice(0, 1000), counts: {}, finalVerdict: "FAIL" }));
+      const write = () => repository.setOperation(context.runId, operationProjection({ context, state: "FAILED", stage: currentStage, startedAt, blockingReason: deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED" : message.slice(0, 1000), counts: {}, finalVerdict: "FAIL" }));
+      if (deadlineExceeded) await terminalWrite(write);
+      else await bounded("firestore:set-operation:failed", 30_000, write);
     } catch { /* Preserve the originating failure. */ }
     const tokenMetrics = modelTokens(modelExecutions);
     const partialMetrics: V2ACertificationMetrics = {
@@ -1144,6 +1212,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       providerQueries: progress.providerQueries, inputTokens: tokenMetrics.input, outputTokens: tokenMetrics.output, monetaryCost: null, monetaryCostMeasurement: "NOT_MEASURABLE",
       firestoreWrites, cloudStorageWrites, finalV2AVerdict: "FAIL"
     };
-    throw new V2ARunError(`V2_A_RUN_FAILED:${context.runId}:${message}`, partialMetrics, { cause: error });
+    supervisor.close();
+    throw new V2ARunError(`V2_A_RUN_FAILED:${context.runId}:${deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED" : message}`, partialMetrics, { cause: error });
   }
 }

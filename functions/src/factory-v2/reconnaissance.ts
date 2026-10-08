@@ -1,5 +1,6 @@
 import type { V2FirestoreRepository } from "./repositories/firestore";
 import { contentAddressedId } from "./hashing";
+import type { AuthorityFirstExecutionSupervisor } from "./execution-supervisor";
 
 export type ReconnaissanceResult = {
   reconnaissanceId: string;
@@ -20,18 +21,22 @@ export async function performBoundedReconnaissance(input: {
   scopeContractId: string;
   entityNameKeys: string[];
   limitPerKind?: number;
+  supervisor?: AuthorityFirstExecutionSupervisor;
 }): Promise<ReconnaissanceResult> {
   const limit = Math.max(1, Math.min(50, Math.trunc(input.limitPerKind || 25)));
-  const entityQueries = input.entityNameKeys.slice(0, 10).map((name) => input.repository.boundedQuery("v2CanonicalEntities", [
+  const bounded = <T>(name: string, operation: () => Promise<T>) => input.supervisor
+    ? input.supervisor.runChild({ name, maximumMs: Math.max(1, input.supervisor.remainingMs()), run: () => operation() })
+    : operation();
+  const entityQueries = input.entityNameKeys.slice(0, 10).map((name, index) => bounded(`reconnaissance:entity:${index}`, () => input.repository.boundedQuery("v2CanonicalEntities", [
     { field: "canonicalNameKey", op: "==", value: name },
     { field: "state", op: "in", value: ["FACTORY_CANDIDATE", "ADMITTED"] }
-  ], limit));
+  ], limit)));
   const [entityGroups, admittedEvents, strongClaims, reusableSnapshots, conflicts] = await Promise.all([
     Promise.all(entityQueries),
-    input.repository.boundedQuery("v2CanonicalEventVersions", [{ field: "topicId", op: "==", value: input.topicId }, { field: "authorityState", op: "in", value: ["FACTORY_CANDIDATE", "ADMITTED"] }], limit),
-    input.repository.boundedQuery("v2AtomicClaimVersions", [{ field: "topicId", op: "==", value: input.topicId }, { field: "validationState", op: "in", value: ["SUPPORTED", "QUALIFIED"] }], limit),
-    input.repository.boundedQuery("v2SourceSnapshots", [{ field: "topicId", op: "==", value: input.topicId }, { field: "retrievalDisposition", op: "in", value: ["NEWLY_RETRIEVED", "CACHE_REUSED", "REVALIDATED"] }], limit),
-    input.repository.boundedQuery("v2ClaimConflictSets", [{ field: "topicId", op: "==", value: input.topicId }, { field: "state", op: "in", value: ["UNRESOLVED", "HISTORICALLY_CONTESTED"] }], limit)
+    bounded("reconnaissance:events", () => input.repository.boundedQuery("v2CanonicalEventVersions", [{ field: "topicId", op: "==", value: input.topicId }, { field: "authorityState", op: "in", value: ["FACTORY_CANDIDATE", "ADMITTED"] }], limit)),
+    bounded("reconnaissance:claims", () => input.repository.boundedQuery("v2AtomicClaimVersions", [{ field: "topicId", op: "==", value: input.topicId }, { field: "validationState", op: "in", value: ["SUPPORTED", "QUALIFIED"] }], limit)),
+    bounded("reconnaissance:snapshots", () => input.repository.boundedQuery("v2SourceSnapshots", [{ field: "topicId", op: "==", value: input.topicId }, { field: "retrievalDisposition", op: "in", value: ["NEWLY_RETRIEVED", "CACHE_REUSED", "REVALIDATED"] }], limit)),
+    bounded("reconnaissance:conflicts", () => input.repository.boundedQuery("v2ClaimConflictSets", [{ field: "topicId", op: "==", value: input.topicId }, { field: "state", op: "in", value: ["UNRESOLVED", "HISTORICALLY_CONTESTED"] }], limit))
   ]);
   const knownEntities = entityGroups.flat().slice(0, limit);
   const reuseClassifications = [

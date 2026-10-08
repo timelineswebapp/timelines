@@ -83,6 +83,39 @@ export const topicOperationSchema = z.object({
   updatedAt: z.string().datetime()
 }).strict();
 
+/** Immutable execution-side terminal evidence. It never asserts historical
+ * completion; it records exactly what had become durable when the supervisor
+ * exhausted the run budget. */
+export const deadlineTerminalRecordSchema = z.object({
+  ...executionEnvelopeFields,
+  deadlineTerminalRecordId: idSchema,
+  failureRecordId: idSchema,
+  terminalStage: boundedText(2, 120),
+  deadlineAt: z.string().datetime(),
+  elapsedMs: z.number().int().nonnegative().max(1_230_000),
+  lastCompletedOperation: boundedText(1, 160).nullable(),
+  activeOperation: boundedText(1, 160).nullable(),
+  completedOperations: z.array(boundedText(1, 160)).max(500),
+  timedOutOperations: z.array(boundedText(1, 160)).max(100),
+  lateCompletionsIgnored: z.array(boundedText(1, 160)).max(100),
+  shutdownGraceMs: z.number().int().min(0).max(30_000),
+  shutdownGraceOutcome: z.enum(["NOT_REQUIRED", "SETTLED", "EXPIRED"]),
+  controlledOperationCount: z.number().int().nonnegative().max(25),
+  directRetrievalAttempts: z.number().int().nonnegative().max(40),
+  retrievalSuccesses: z.number().int().nonnegative().max(40),
+  retrievalFailures: z.number().int().nonnegative().max(40),
+  sourceSnapshotIds: z.array(idSchema).max(60),
+  claimVersionIds: z.array(idSchema).max(300),
+  eventVersionIds: z.array(idSchema).max(300),
+  coverageState: boundedText(2, 120),
+  perspectiveAuditId: idSchema.nullable(),
+  confidenceVectorId: idSchema.nullable(),
+  // The worker cannot truthfully verify protected collections while it is
+  // still terminating.  Its process supervisor records this explicit pending
+  // state; the parent canary captures and seals the exact before/after proof.
+  protectedStateParity: z.enum(["PENDING_EXTERNAL_VERIFICATION", "VERIFIED_EXACT"])
+}).strict();
+
 export const auditRecordSchema = z.object({
   ...executionEnvelopeFields,
   auditRecordId: idSchema,

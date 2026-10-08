@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -9,15 +9,22 @@ import { ACTIVE_CORPUS_ID } from "../functions/src/config";
 import { shadowConfig } from "../functions/src/factory-v2/config";
 import { assertGenerationReleaseParity, type GenerationRelease } from "../functions/src/generation-release";
 import type { V2ACertificationMetrics } from "../functions/src/factory-v2/orchestrator";
-import { V2FirestoreRepository } from "../functions/src/factory-v2/repositories/firestore";
-import { buildCompletedKnowledge, KnowledgeConstructionError } from "../functions/src/evidence-first/knowledge";
 import { captureProtectedState, protectedStateUnchanged } from "../functions/src/evidence-first/protected-state";
 import { readSchedulerState } from "../functions/src/evidence-first/scheduler-state";
+import type { ShadowFixtureDescriptor } from "../functions/src/factory-v2/orchestrator";
 
 const PROJECT_ID = "tiimeliines";
 const REGION = "us-central1";
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const INTER_SUBJECT_COOLDOWN_MS = 60_000;
+const SUBJECT_WORKER_GRACE_MS = 5_000;
+const SUBJECT_WORKER_KILL_GRACE_MS = 2_000;
+// A Completed Knowledge Set can contain the initial acquisition plus one
+// sealed gap-directed continuation.  Each acquisition retains its own fixed
+// 1,200-second supervisor; this outer process ceiling is not a larger
+// acquisition budget and merely prevents a stranded worker after both legal
+// runs have either completed or sealed their terminal records.
+const MAX_ACQUISITION_RUNS_PER_SUBJECT = 2;
 const SUBJECTS = [
   "The 1906 San Francisco Earthquake",
   "The Berlin Blockade and Airlift",
@@ -75,6 +82,52 @@ function summarize(metrics: V2ACertificationMetrics[]) {
   };
 }
 
+type SubjectWorkerResult =
+  | { status: "SUCCESS"; completedKnowledgeSet: { completedKnowledgeSetId: string; payloadHash: string; finalVerdict: string; authorityAcquisitionRounds: number }; acquisitionMetrics: V2ACertificationMetrics[] }
+  | { status: "FAILED"; reason: string; stage: string; metrics: V2ACertificationMetrics[] | null };
+
+/**
+ * The worker is the only process allowed to own SDK/network work for a
+ * subject.  Its supervisor emits the durable timeout records; this parent
+ * independently bounds the process so a non-cooperative native handle cannot
+ * survive the whole-run deadline or the terminal persistence grace.
+ */
+async function runIsolatedSubject(input: { outputDirectory: string; ordinal: number; descriptor: ShadowFixtureDescriptor; config: ReturnType<typeof shadowConfig> }): Promise<SubjectWorkerResult> {
+  const workerDirectory = resolve(input.outputDirectory, "workers");
+  await mkdir(workerDirectory, { recursive: true });
+  const inputPath = resolve(workerDirectory, `${input.ordinal}.input.json`);
+  const resultPath = resolve(workerDirectory, `${input.ordinal}.result.json`);
+  await writeFile(inputPath, `${JSON.stringify({ descriptor: input.descriptor, config: input.config, outputPath: resultPath })}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+  const workerEntry = resolve(REPOSITORY_ROOT, "scripts", "run-authority-first-subject-worker.ts");
+  const tsxEntry = resolve(REPOSITORY_ROOT, "functions", "node_modules", "tsx", "dist", "cli.mjs");
+  const child = spawn(process.execPath, [tsxEntry, workerEntry, inputPath], { cwd: REPOSITORY_ROOT, env: process.env, stdio: ["ignore", "ignore", "pipe"] });
+  let stderr = "";
+  child.stderr.on("data", (chunk: Buffer) => { stderr = `${stderr}${chunk.toString("utf8")}`.slice(-16_384); });
+  let forcedTermination = false;
+  let killTimer: ReturnType<typeof setTimeout> | undefined;
+  const wholeRunMs = input.config.budgetBundle.maximumWorkerSeconds * 1_000 * MAX_ACQUISITION_RUNS_PER_SUBJECT;
+  const deadlineTimer = setTimeout(() => {
+    forcedTermination = true;
+    child.kill("SIGTERM");
+    killTimer = setTimeout(() => child.kill("SIGKILL"), SUBJECT_WORKER_KILL_GRACE_MS);
+  }, wholeRunMs + SUBJECT_WORKER_GRACE_MS);
+  const outcome = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolveExit, rejectExit) => {
+    child.once("error", rejectExit);
+    child.once("exit", (code, signal) => resolveExit({ code, signal }));
+  }).finally(() => {
+    clearTimeout(deadlineTimer);
+    if (killTimer) clearTimeout(killTimer);
+  });
+  try {
+    return JSON.parse(await readFile(resultPath, "utf8")) as SubjectWorkerResult;
+  } catch {
+    const diagnostic = stderr.trim().slice(-2_000);
+    throw new Error(forcedTermination
+      ? `AUTHORITY_FIRST_SUBJECT_WORKER_FORCED_TERMINATION:${outcome.signal || outcome.code || "UNKNOWN"}:${diagnostic}`
+      : `AUTHORITY_FIRST_SUBJECT_WORKER_NO_RESULT:${outcome.signal || outcome.code || "UNKNOWN"}:${diagnostic}`);
+  }
+}
+
 async function main() {
   if (process.env.EVIDENCE_FIRST_MODE !== "SHADOW") throw new Error("Authority-First canaries require EVIDENCE_FIRST_MODE=SHADOW.");
   if ((process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || PROJECT_ID) !== PROJECT_ID) throw new Error("Refusing canaries outside the TiMELiNES project.");
@@ -92,7 +145,6 @@ async function main() {
   await mkdir(outputDirectory, { recursive: true });
   const config = shadowConfig(new Date().toISOString());
   const generationRelease = loadGenerationRelease();
-  const repository = new V2FirestoreRepository({ firestore, corpusId: ACTIVE_CORPUS_ID });
   const results: Array<Record<string, unknown>> = [];
   let resumedFromReport: { path: string; sha256: string } | null = null;
   const resumeInput = process.env.AUTHORITY_FIRST_CANARY_RESUME_REPORT;
@@ -122,16 +174,18 @@ async function main() {
     if (halted) { results.push({ title, status: "NOT_EXECUTED_AFTER_FAILURE" }); continue; }
     const before = await captureProtectedState(firestore, ACTIVE_CORPUS_ID);
     try {
-      const knowledge = await buildCompletedKnowledge({ descriptor: { title, language: "en", ongoingAsOf: "2026-09-22" }, config, repository });
+      const workerResult = await runIsolatedSubject({ outputDirectory, ordinal: results.length + 1, descriptor: { title, language: "en", ongoingAsOf: "2026-09-22" }, config });
+      if (workerResult.status !== "SUCCESS") throw Object.assign(new Error(workerResult.reason), { stage: workerResult.stage, acquisitionMetrics: workerResult.metrics || [] });
       const after = await captureProtectedState(firestore, ACTIVE_CORPUS_ID);
       const parity = protectedStateUnchanged(before, after);
-      const outcome = { title, status: parity ? "VALID_CKS" : "PROTECTED_STATE_CHANGED", completedKnowledgeSetId: knowledge.completedKnowledgeSet.completedKnowledgeSetId, completedKnowledgeSetHash: knowledge.completedKnowledgeSet.payloadHash, finalCoverageVerdict: knowledge.completedKnowledgeSet.finalVerdict, authorityAcquisitionRounds: knowledge.completedKnowledgeSet.authorityAcquisitionRounds, telemetry: summarize(knowledge.acquisitionMetrics), protectedState: { before, after, exactParity: parity } };
+      const outcome = { title, status: parity ? "VALID_CKS" : "PROTECTED_STATE_CHANGED", completedKnowledgeSetId: workerResult.completedKnowledgeSet.completedKnowledgeSetId, completedKnowledgeSetHash: workerResult.completedKnowledgeSet.payloadHash, finalCoverageVerdict: workerResult.completedKnowledgeSet.finalVerdict, authorityAcquisitionRounds: workerResult.completedKnowledgeSet.authorityAcquisitionRounds, telemetry: summarize(workerResult.acquisitionMetrics), protectedState: { before, after, exactParity: parity } };
       results.push(outcome);
       halted = !parity;
     } catch (error) {
       const after = await captureProtectedState(firestore, ACTIVE_CORPUS_ID);
       const parity = protectedStateUnchanged(before, after);
-      const details = error instanceof KnowledgeConstructionError ? { stage: error.stage, metrics: summarize(error.acquisitionMetrics) } : { stage: "UNHANDLED", metrics: null };
+      const typed = error as Error & { stage?: string; acquisitionMetrics?: V2ACertificationMetrics[] };
+      const details = typed.stage ? { stage: typed.stage, metrics: summarize(typed.acquisitionMetrics || []) } : { stage: "UNHANDLED", metrics: null };
       results.push({ title, status: "FAILED_CLOSED", reason: error instanceof Error ? error.message : String(error), ...details, protectedState: { before, after, exactParity: parity } });
       halted = true;
     }

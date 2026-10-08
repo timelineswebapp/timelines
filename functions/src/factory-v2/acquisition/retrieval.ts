@@ -224,7 +224,7 @@ export async function retrieveSource(input: {
   if (!ALLOWED_MEDIA_TYPES.has(type)) throw new Error(`SOURCE_RETRIEVAL_UNSUPPORTED_CONTENT_TYPE:${type || "missing"}`);
   const contentEncoding = (response.headers.get("content-encoding") || "identity").toLocaleLowerCase("en-US");
   if (contentEncoding !== "identity") throw new Error("SOURCE_RETRIEVAL_UNEXPECTED_CONTENT_ENCODING");
-  const raw = await readBoundedBody(response, MAX_BODY_BYTES);
+  const raw = await readBoundedBody(response, MAX_BODY_BYTES, dependencies.signal);
   if (type === "application/pdf" && !(raw[0] === 0x25 && raw[1] === 0x50 && raw[2] === 0x44 && raw[3] === 0x46 && raw[4] === 0x2d)) throw new Error("SOURCE_RETRIEVAL_PDF_SIGNATURE_MISMATCH");
   const decoded = type === "application/pdf" ? null : new TextDecoder("utf-8", { fatal: false }).decode(raw);
   const html = type === "text/html" || type === "application/xhtml+xml" ? extractHtmlText(decoded || "") : null;
