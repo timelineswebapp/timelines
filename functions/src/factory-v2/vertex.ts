@@ -584,7 +584,13 @@ export async function generateTopicAuthorityProposals(input: {
     if (!publisher) throw new StructuredStageError(`AUTHORITY_ROUTING_UNKNOWN_PUBLISHER_NUMBER:${proposal.publisherNumber}`, result.executions);
     const questionIds = proposal.researchQuestionNumbers.map((number) => input.map.questions[number - 1]?.questionId);
     if (questionIds.some((id) => !id)) throw new StructuredStageError(`AUTHORITY_ROUTING_UNKNOWN_QUESTION_NUMBER:${proposal.researchQuestionNumbers.join(",")}`, result.executions);
-    const relationship = defaultSubjectRelationship(publisher);
+    // Government archives representing a named party are STATE_PARTY, not
+    // SUBJECT_SELF.  This is derived only from a locked PARTY_PARTICIPANT
+    // obligation and the registry's geographic scope; model-supplied labels
+    // cannot relabel the authority relationship.
+    const linkedObligations = (input.routingObligations || []).filter((obligation) => (proposal.routingObligationIds || []).includes(obligation.routingObligationId));
+    const representsNamedStateParty = publisher.institutionType === "GOVERNMENT" && linkedObligations.some((obligation) => obligation.requirementKind === "PARTY_PARTICIPANT" && publisher.geographicScope.some((place) => place.normalize("NFKC").trim().toLocaleLowerCase("en-US") === obligation.label.normalize("NFKC").trim().toLocaleLowerCase("en-US")));
+    const relationship = representsNamedStateParty ? "STATE_PARTY" as const : defaultSubjectRelationship(publisher);
     const roles = authorityFamilyForPublisher(publisher) === "EDITED_REFERENCE"
       ? proposal.roles.filter((role) => role === "ORIENTATION")
       : proposal.roles.filter((role) => role !== "CORROBORATION" || !["SUBJECT_SELF", "STATE_PARTY"].includes(relationship));
