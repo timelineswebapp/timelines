@@ -42,9 +42,9 @@ test("publisher bootstrap semantic state is independent from caller execution pr
   const retryContext = { ...TEST_CONTEXT, topicId: "different-topic", runId: "v2-a3-web-retry", generation: 7, createdAt: "2026-09-07T12:34:56.000Z", policyVersion: "knowledge-coverage-v2-a3.1" };
   const retried = bootstrapPublisherRegistry(retryContext);
   assert.deepEqual(retried, publishers);
-  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-6548335c1d610eb1b154e01a5723b6bd39d1d1620c0a8f50b677d0cd93596cb7");
+  assert.equal(byName("National Aeronautics and Space Administration").publisherVersionId, "publisher-version-dccc3639addd53b0135fecb53982a9a0698ca357f0f1bcea32a01904c94a5fbd");
   const productionBootstrap = bootstrapPublisherRegistry({ ...retryContext, corpusId: "timelines-clean-2026-09-v1" })[0]!;
-  assert.equal(productionBootstrap.payloadHash, "884b1a36294273728512c25bee729188d4e02d6dfc79b01a85778eed1071fc43");
+  assert.equal(productionBootstrap.payloadHash, "f734a4ab4685e4687eaa98ede6e144d5d6d7c8ed36d32ad6469406edcac5139a");
 });
 
 function successorInput(publisher: PublisherAuthorityVersion, overrides: Partial<PublisherAuthorityVersionInput> = {}): PublisherAuthorityVersionInput {
@@ -113,6 +113,7 @@ test("claim verdict identity includes the exact authority-binding evaluation con
     claimTypes,
     subjectRelationship: "SUBJECT_SELF",
     perspectiveTags: [],
+    routingObligationIds: [],
     rationale: "Registry-bound test authority.",
     publisherId: nasa.publisherId,
     authorityFamily: "PUBLIC_SCIENTIFIC_INSTITUTION",

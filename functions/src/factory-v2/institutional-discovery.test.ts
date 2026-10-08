@@ -19,6 +19,7 @@ const binding: TopicAuthorityBinding = {
   claimTypes: ["OCCURRENCE", "DATE"],
   subjectRelationship: "SUBJECT_SELF",
   perspectiveTags: ["United States"],
+  routingObligationIds: [],
   rationale: "NASA is applicable to NASA mission chronology.",
   authorityFamily: "PUBLIC_SCIENTIFIC_INSTITUTION",
   independenceGroupId: "publisher-nasa",

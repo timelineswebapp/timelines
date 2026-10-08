@@ -49,6 +49,7 @@ export const V2_CORPUS_COLLECTIONS = [
   "v2PublisherAuthorityRecords",
   "v2PublisherAuthorityVersions",
   "v2TopicAuthoritySets",
+  "v2RoutingObligationSets",
   "v2AuthorityResearchPlans",
   "v2ControlledResearchLedgers",
   "v2PerspectiveAudits",

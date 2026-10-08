@@ -31,6 +31,7 @@ function proposal(name: string, questionId: string, contested: boolean, perspect
     claimTypes: contested ? ["INTERPRETATION", "CONSEQUENCE"] : ["OCCURRENCE", "DATE"],
     subjectRelationship: "INDEPENDENT",
     perspectiveTags: [...perspectiveTags],
+    routingObligationIds: [],
     rationale: `${publisher.canonicalName} is registered and mapped to this bounded fixture requirement.`
   };
 }

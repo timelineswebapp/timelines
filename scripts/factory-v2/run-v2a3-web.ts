@@ -397,6 +397,7 @@ async function main() {
   const resultArtifact = buildKnowledgeCompletionResult(context, {
     authorityAcquisitionRounds: [{
       topicAuthoritySetId: acquisition.topicAuthoritySetId,
+      routingObligationSetId: acquisition.routingObligationSetId,
       authorityResearchPlanId: acquisition.authorityResearchPlanId,
       controlledResearchLedgerId: acquisition.controlledResearchLedgerId,
       perspectiveAuditId: acquisition.perspectiveAuditId,

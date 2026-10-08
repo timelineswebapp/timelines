@@ -13,7 +13,7 @@ import { parseCompletedKnowledgeSetB1CliArguments, reconstructCompletedKnowledge
 import { attachPayloadHash } from "./hashing";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
 
-const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
+const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", routingObligationSetId: "routing-obligation-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
 import type { V2CorpusCollectionName } from "../corpus";
 
 class MemoryReader implements CompletedKnowledgeSetReader {

@@ -11,7 +11,7 @@ import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate }
 import { V2FirestoreRepository } from "./repositories/firestore";
 import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2ModelProvider } from "./vertex";
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
-import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
+import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildRoutingObligationSet, buildTopicAuthoritySet, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
@@ -130,6 +130,7 @@ export type V2AShadowResult = {
   researchMapId: string;
   queryPlanId: string | null;
   topicAuthoritySetId: string;
+  routingObligationSetId: string;
   authorityResearchPlanId: string;
   controlledResearchLedgerId: string;
   perspectiveAuditId: string;
@@ -409,11 +410,13 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   await persistSemanticDerivation("v2ResearchMaps", mapResult.map, mapResult.executions.at(-1));
   assertDeadline();
   const requiredAuthorityQuestionIds = continuation?.gapIdsByQuestionId ? [...continuation.gapIdsByQuestionId.keys()] : undefined;
-  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, provider: dependencies.provider, deadlineAt });
+  const routingObligationSet = buildRoutingObligationSet({ context, scope: scopeResult.scope, researchMap: mapResult.map, requiredQuestionIds: requiredAuthorityQuestionIds });
+  await persist("v2RoutingObligationSets", routingObligationSet);
+  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: routingObligationSet.obligations, provider: dependencies.provider, deadlineAt });
   modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
   const allAuthorityProposals = [...authorityProposalResult.proposals];
-  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, requiredQuestionIds: requiredAuthorityQuestionIds });
+  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds });
   await persist("v2TopicAuthoritySets", topicAuthoritySet);
   await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));
   const authorityResearchPlan = buildAuthorityResearchPlan({ context, set: topicAuthoritySet, researchMap: mapResult.map });
@@ -489,12 +492,13 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const expansionPublishers = registeredGroundingExpansionPublishers({ set: topicAuthoritySet, publishers, researchQuestionId: question.questionId, references: acquisition.chunks });
     if (expansionPublishers.length > 0) {
       try {
-        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], maximumRepairs: 0, provider: dependencies.provider, deadlineAt });
+        const continuationObligations = routingObligationSet.obligations.filter((obligation) => obligation.researchQuestionId === question.questionId);
+        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], routingObligations: continuationObligations, maximumRepairs: 0, provider: dependencies.provider, deadlineAt });
         modelExecutions.push(...expansionResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
         for (const execution of expansionResult.executions) await persist("v2ModelExecutions", execution);
         const parentTopicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
         allAuthorityProposals.push(...expansionResult.proposals);
-        topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId });
+        topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId });
         await persist("v2TopicAuthoritySets", topicAuthoritySet);
         await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, expansionResult.executions.at(-1));
         for (const binding of topicAuthoritySet.bindings) bindingById.set(binding.bindingId, binding);
@@ -1072,6 +1076,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     researchMapId: mapResult.map.researchMapId,
     queryPlanId: null,
     topicAuthoritySetId: topicAuthoritySet.topicAuthoritySetId,
+    routingObligationSetId: routingObligationSet.routingObligationSetId,
     authorityResearchPlanId: authorityResearchPlan.authorityResearchPlanId,
     controlledResearchLedgerId: controlledResearchLedger.controlledResearchLedgerId,
     perspectiveAuditId: perspectiveAudit.perspectiveAuditId,

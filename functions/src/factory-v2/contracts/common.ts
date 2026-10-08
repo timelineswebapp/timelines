@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-// a.33 hard-bounds provider promises even when a transport ignores abort.
-export const V2_PIPELINE_VERSION = "factory-v2-a.33";
+// a.34 seals immutable routing obligations before provider acquisition.
+export const V2_PIPELINE_VERSION = "factory-v2-a.34";
 export const V2_SCHEMA_VERSION = "factory-v2-a.4";
 export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.6";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "authority-first-research.7";
+export const V2_POLICY_VERSION = "authority-first-research.8";
 export const V2_PROMPT_VERSION = "factory-v2-a-prompts.11";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);

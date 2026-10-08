@@ -6,7 +6,7 @@ const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const ids = (maximum: number, minimum = 0) => z.array(idSchema).min(minimum).max(maximum).refine(unique, "IDs must be unique.");
 const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, itemMaximum)).max(maximum).refine(unique, "Values must be unique.");
 
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.7" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.8" as const;
 export const AUTHORITY_REGISTRY_VERSION = "authority-registry.2" as const;
 /** Versioned admission policy for registry-governed specialist collections. */
 export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;
@@ -89,7 +89,34 @@ export const topicAuthorityProposalSchema = z.object({
   claimTypes: z.array(claimTypeSchema).min(1).max(12).refine(unique),
   subjectRelationship: subjectRelationshipSchema,
   perspectiveTags: strings(20, 160),
+  // Omission remains parse-compatible for historical model fixtures, but the
+  // transformed artifact always has an explicit immutable mapping array.
+  routingObligationIds: ids(120).optional().transform((value) => value || []),
   rationale: boundedText(10, 1000)
+}).strict();
+
+export const routingObligationKindSchema = z.enum(["STAKEHOLDER", "PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "MATERIAL_JURISDICTION"]);
+export const routingObligationSchema = z.object({
+  routingObligationId: idSchema,
+  researchQuestionId: idSchema,
+  requirementKind: routingObligationKindSchema,
+  semanticIdentity: boundedText(2, 320),
+  label: boundedText(2, 160),
+  rationale: boundedText(10, 600),
+  requiredRoles: z.array(authorityResearchRoleSchema).min(1).max(5).refine(unique),
+  permittedSubjectRelationships: z.array(subjectRelationshipSchema).min(1).max(5).refine(unique),
+  materialGeography: strings(20, 160)
+}).strict();
+
+export const routingObligationSetSchema = z.object({
+  ...immutableEnvelopeFields,
+  routingObligationSetId: idSchema,
+  scopeContractId: idSchema,
+  scopePayloadHash: hashSchema,
+  researchMapId: idSchema,
+  researchMapPayloadHash: hashSchema,
+  obligations: z.array(routingObligationSchema).max(120).refine((items) => unique(items.map((item) => item.routingObligationId))),
+  validationStatus: z.literal("LOCKED")
 }).strict();
 
 export const topicAuthorityBindingSchema = topicAuthorityProposalSchema.extend({
@@ -115,7 +142,9 @@ export const topicAuthoritySetSchema = z.object({
   researchMapPayloadHash: hashSchema,
   registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION),
   registryHash: hashSchema,
+  routingObligationSetId: idSchema,
   bindings: z.array(topicAuthorityBindingSchema).min(1).max(24),
+  obligationRoutes: z.array(z.object({ routingObligationId: idSchema, bindingId: idSchema }).strict()).max(240).refine((items) => unique(items.map((item) => `${item.routingObligationId}:${item.bindingId}`))),
   rejectedPublisherVersionIds: ids(60),
   criticalQuestionIds: ids(120),
   contestedQuestionIds: ids(120),
@@ -142,6 +171,7 @@ export const authorityResearchPlanOperationSchema = z.object({
   plannedOperationId: idSchema,
   authorityBindingId: idSchema,
   researchQuestionIds: ids(120, 1),
+  routingObligationIds: ids(120),
   layer: z.enum(["ORIENTATION", "EVIDENTIARY_CORE"]),
   mechanism: institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"]),
   endpoint: httpsUrlSchema,
@@ -155,14 +185,18 @@ export const authorityResearchPlanSchema = z.object({
   ...immutableEnvelopeFields,
   authorityResearchPlanId: idSchema,
   topicAuthoritySetId: idSchema,
+  routingObligationSetId: idSchema,
   budget: controlledResearchBudgetSchema,
   operations: z.array(authorityResearchPlanOperationSchema).min(1).max(25),
   coveredCriticalQuestionIds: ids(120),
+  coveredRoutingObligationIds: ids(120),
   state: z.literal("AUTHORIZED")
 }).strict().superRefine((plan, context) => {
   if (plan.artifactId !== plan.authorityResearchPlanId) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorityResearchPlanId"], message: "Authority Research Plan identity must match the artifact identity." });
   const covered = new Set(plan.operations.filter((operation) => operation.layer === "EVIDENTIARY_CORE").flatMap((operation) => operation.researchQuestionIds));
   for (const questionId of plan.coveredCriticalQuestionIds) if (!covered.has(questionId)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: `Critical question ${questionId} lacks an evidentiary-core operation.` });
+  const coveredObligations = new Set(plan.operations.filter((operation) => operation.layer === "EVIDENTIARY_CORE").flatMap((operation) => operation.routingObligationIds));
+  for (const obligationId of plan.coveredRoutingObligationIds) if (!coveredObligations.has(obligationId)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["operations"], message: `Routing obligation ${obligationId} lacks an evidentiary-core operation.` });
 });
 
 export const controlledResearchOperationSchema = z.object({
@@ -250,11 +284,13 @@ export type SpecialistCollectionProfile = z.infer<typeof specialistCollectionPro
 export type AuthorityRegistryCapability = z.infer<typeof authorityRegistryCapabilitySchema>;
 export type AuthorityResearchRole = z.infer<typeof authorityResearchRoleSchema>;
 export type SubjectRelationship = z.infer<typeof subjectRelationshipSchema>;
-export type TopicAuthorityProposal = z.infer<typeof topicAuthorityProposalSchema>;
-export type TopicAuthorityBinding = z.infer<typeof topicAuthorityBindingSchema>;
-export type TopicAuthoritySet = z.infer<typeof topicAuthoritySetSchema>;
+export type TopicAuthorityProposal = Omit<z.infer<typeof topicAuthorityProposalSchema>, "routingObligationIds"> & { routingObligationIds: string[] };
+export type TopicAuthorityBinding = Omit<z.infer<typeof topicAuthorityBindingSchema>, "routingObligationIds"> & { routingObligationIds: string[] };
+export type TopicAuthoritySet = Omit<z.infer<typeof topicAuthoritySetSchema>, "bindings"> & { bindings: TopicAuthorityBinding[] };
+export type RoutingObligation = z.infer<typeof routingObligationSchema>;
+export type RoutingObligationSet = z.infer<typeof routingObligationSetSchema>;
 export type ControlledResearchBudget = z.infer<typeof controlledResearchBudgetSchema>;
-export type AuthorityResearchPlan = z.infer<typeof authorityResearchPlanSchema>;
+export type AuthorityResearchPlan = Omit<z.infer<typeof authorityResearchPlanSchema>, "operations"> & { operations: Array<Omit<z.infer<typeof authorityResearchPlanOperationSchema>, "routingObligationIds"> & { routingObligationIds: string[] }> };
 export type ControlledResearchOperation = z.infer<typeof controlledResearchOperationSchema>;
 export type PerspectiveAudit = z.infer<typeof perspectiveAuditSchema>;
 export type AcquisitionConfidenceVector = z.infer<typeof acquisitionConfidenceVectorSchema>;

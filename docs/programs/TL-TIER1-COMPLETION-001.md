@@ -6,9 +6,9 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`FOUNDER_REVIEW_REQUIRED — PHASE_2_PERSPECTIVE_COVERAGE_REMEDIATION_LIMIT`
+`PHASE_2_ROUTING_OBLIGATION_IMPLEMENTATION — VERIFICATION_IN_PROGRESS`
 
-Production read access is now verified for `timelineswebapp@gmail.com` on project `tiimeliines`. After two bounded general perspective-coverage corrections, the fresh `.7` Phase-2 run failed closed on San Francisco at the perspective audit. This is the same substantive defect class that the `.5` and `.6` corrections addressed; the master-goal hard founder-stop condition therefore applies. No historical standard was weakened and no topic-specific exception was introduced.
+The founder authorized the general immutable Routing Obligation correction as a new responsibility-boundary remediation. It locks mandatory historical requirements before model routing, proves an eligible registered route before acquisition, preserves the post-acquisition perspective audit, and does not derive obligations from retrieval geography. The candidate is `factory-v2-a.34` / `authority-first-research.8`; it supersedes `.7` for future certification and is not yet sealed or provider-certified.
 
 ## Phase 0 baseline — 2026-10-02
 
@@ -34,7 +34,7 @@ Production read access is now verified for `timelineswebapp@gmail.com` on projec
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | `.4` (`c65d52…b2821`) failed closed at perspective routing. `.5` (`1fdda3…a5467`) failed closed on contested-question routing. `.6` (`2a31a6…ffd159`) produced valid San Francisco and Berlin CKSs before an SDK abort-ignore defect interrupted Ada; that defect was fixed and tested in `.7`. Fresh `.7` (`b5a4497271e4ec97ab656fb931e0695c05aa4c006610cd212ed231f1469749fb`, source `54c7f06`) failed closed on San Francisco because its model-generated, otherwise schema-valid routing omitted explicitly required stakeholder/community perspective tags. Protected-state parity was exact for every completed/failed subject. This recurs after two general perspective-coverage corrections; no same-release 4/4 certification exists. |
+| 2 — four-subject Authority-First CKS | IMPLEMENTATION_VERIFICATION | `.4`–`.7` remain non-combinable diagnostic evidence. Founder-approved `.8` introduces immutable Routing Obligation Sets, pre-acquisition registered-binding validation, plan/CKS lineage, and fail-closed route accounting. Focused, Functions, and root suites are green; release sealing and the remaining prescribed gates precede one fresh same-release four-subject certification. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -48,4 +48,4 @@ Production read access is now verified for `timelineswebapp@gmail.com` on projec
 
 ## Resume instruction
 
-Founder decision required before further perspective-policy remediation or Phase-2 reruns. Preserve all sealed evidence; do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards. Do not advance before one same-release 4/4 valid-CKS run.
+Complete release sealing and all prescribed verification gates for the immutable Routing Obligation candidate. Then run exactly one fresh non-public four-subject Phase-2 certification under the one sealed materially equivalent release. Preserve all historical evidence and protected-state parity; do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, or perform public publication.

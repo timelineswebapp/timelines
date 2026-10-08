@@ -188,6 +188,7 @@ export async function buildCompletedKnowledge(input: {
   await repository.createImmutable("v2KnowledgeCoverageAudits", finalAudit);
   const authorityAcquisitionRounds = acquisitionResults.map((result) => ({
     topicAuthoritySetId: result.topicAuthoritySetId,
+    routingObligationSetId: result.routingObligationSetId,
     authorityResearchPlanId: result.authorityResearchPlanId,
     controlledResearchLedgerId: result.controlledResearchLedgerId,
     perspectiveAuditId: result.perspectiveAuditId,

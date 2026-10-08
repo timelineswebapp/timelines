@@ -140,11 +140,12 @@ const topicAuthorityProposalEnvelopeBaseSchema = z.object({
     claimTypes: z.array(claimTypeSchema).min(1).max(12).refine(unique),
     subjectRelationship: subjectRelationshipSchema,
     perspectiveTags: z.array(boundedText(1, 160)).max(20).refine(unique),
+    routingObligationIds: z.array(idSchema).max(120).optional().transform((value) => value || []),
     rationale: boundedText(10, 1000)
   }).strict()).min(1).max(24)
 }).strict();
 
-function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly PublisherAuthorityVersion[], requiredQuestionIds?: ReadonlySet<string>) {
+function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly PublisherAuthorityVersion[], requiredQuestionIds?: ReadonlySet<string>, routingObligations: readonly { routingObligationId: string; researchQuestionId: string }[] = []) {
   return topicAuthorityProposalEnvelopeBaseSchema.superRefine((value, context) => {
     const criticalNumbers = map.questions.flatMap((question, index) => (requiredQuestionIds
       ? requiredQuestionIds.has(question.questionId)
@@ -166,6 +167,11 @@ function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly Pub
     for (const questionNumber of criticalNumbers) {
       const covered = value.authorities.some((proposal) => proposal.researchQuestionNumbers.includes(questionNumber) && effectiveRoles(proposal).some((role) => role !== "ORIENTATION"));
       if (!covered) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Critical question ${questionNumber} requires at least one evidentiary-core authority.` });
+    }
+    for (const obligation of routingObligations) {
+      const questionNumber = map.questions.findIndex((question) => question.questionId === obligation.researchQuestionId) + 1;
+      const covered = value.authorities.some((proposal) => proposal.routingObligationIds.includes(obligation.routingObligationId) && proposal.researchQuestionNumbers.includes(questionNumber) && effectiveRoles(proposal).some((role) => role !== "ORIENTATION"));
+      if (!covered) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Routing obligation ${obligation.routingObligationId} lacks an eligible authority route.` });
     }
     for (const [questionIndex, question] of map.questions.entries()) {
       if (!question.contested || (requiredQuestionIds && !requiredQuestionIds.has(question.questionId))) continue;
@@ -200,6 +206,7 @@ const topicAuthorityProposalJsonSchema = {
           claimTypes: { type: "array", items: { type: "string", enum: ["OCCURRENCE", "DATE", "IDENTITY", "LOCATION", "QUANTITY", "INSTITUTIONAL_ACTION", "RELATIONSHIP", "ATTRIBUTION", "QUOTATION", "CAUSATION", "INTERPRETATION", "CONSEQUENCE"] } },
           subjectRelationship: { type: "string", enum: ["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"] },
           perspectiveTags: { type: "array", items: { type: "string" } },
+          routingObligationIds: { type: "array", items: { type: "string" } },
           rationale: { type: "string" }
         }
       }
@@ -515,6 +522,7 @@ export async function generateTopicAuthorityProposals(input: {
   map: ResearchMap;
   publishers: readonly PublisherAuthorityVersion[];
   requiredQuestionIds?: readonly string[];
+  routingObligations?: readonly { routingObligationId: string; researchQuestionId: string; requirementKind: string; label: string; rationale: string }[];
   maximumRepairs?: 0 | 1 | 2;
   provider?: V2ModelProvider;
   deadlineAt?: number;
@@ -559,12 +567,14 @@ export async function generateTopicAuthorityProposals(input: {
     "For every contested question, propose at least two independent authority groups suitable for corroboration or interpretation and include meaningful geographic, participant, or community perspective tags.",
     "For each explicit historicalPerspectiveRequirement, preserve its label exactly in perspectiveTags when your selected authority represents it. INDEPENDENT_SCHOLARSHIP is evaluated deterministically from independence and scholarly roles; do not replace it with arbitrary discipline prose.",
     `Every number in REQUIRED_QUESTION_NUMBERS must appear on at least one authority with a permitted non-ORIENTATION role. REQUIRED_QUESTION_NUMBERS=${JSON.stringify(input.map.questions.flatMap((question, index) => (requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : isInitialAuthorityRequiredQuestion(question)) ? [index + 1] : []))}`,
+    "Every ROUTING_OBLIGATION must be included in routingObligationIds on an authority assigned to its exact Research Map question. These are mandatory policy obligations, not optional model judgments.",
+    untrusted("LOCKED_ROUTING_OBLIGATIONS", input.routingObligations || []),
     "Do not invent institutions, URLs, facts, registry entries, or authority status. Do not select timeline events and do not write narrative prose.",
     untrusted("LOCKED_SCOPE", { title: input.scope.title, topicClass: input.scope.topicClass, subjectDefinition: input.scope.subjectDefinition, chronologyStart: input.scope.chronologyStart, chronologyEnd: input.scope.chronologyEnd, spatialScope: input.scope.spatialScope, centralEntities: input.scope.centralEntities }),
     untrusted("LOCKED_RESEARCH_QUESTIONS", questions),
     untrusted("VERSIONED_AUTHORITY_REGISTRY", registry)
   ].join("\n\n");
-  const result = await structuredCall({ context: input.context, provider: input.provider, stage: "AUTHORITY_ROUTING", prompt, schema: topicAuthorityProposalSchema(input.map, input.publishers, requiredQuestionIds), jsonSchema: topicAuthorityProposalJsonSchema, maximumRepairs: input.maximumRepairs ?? 2, inputArtifactIds: [input.scope.scopeContractId, input.map.researchMapId], deadlineAt: input.deadlineAt });
+  const result = await structuredCall({ context: input.context, provider: input.provider, stage: "AUTHORITY_ROUTING", prompt, schema: topicAuthorityProposalSchema(input.map, input.publishers, requiredQuestionIds, input.routingObligations), jsonSchema: topicAuthorityProposalJsonSchema, maximumRepairs: input.maximumRepairs ?? 2, inputArtifactIds: [input.scope.scopeContractId, input.map.researchMapId], deadlineAt: input.deadlineAt });
   const normalized = result.value.authorities.flatMap((proposal): TopicAuthorityProposal[] => {
     const publisher = input.publishers[proposal.publisherNumber - 1];
     if (!publisher) throw new StructuredStageError(`AUTHORITY_ROUTING_UNKNOWN_PUBLISHER_NUMBER:${proposal.publisherNumber}`, result.executions);
@@ -582,6 +592,7 @@ export async function generateTopicAuthorityProposals(input: {
       claimTypes: proposal.claimTypes,
       subjectRelationship: relationship,
       perspectiveTags: proposal.perspectiveTags,
+      routingObligationIds: proposal.routingObligationIds || [],
       rationale: proposal.rationale
     }];
   });
@@ -595,6 +606,7 @@ export async function generateTopicAuthorityProposals(input: {
       roles: [...new Set([...existing.roles, ...proposal.roles])].sort(),
       claimTypes: [...new Set([...existing.claimTypes, ...proposal.claimTypes])].sort(),
       perspectiveTags: [...new Set([...existing.perspectiveTags, ...proposal.perspectiveTags])].sort(),
+      routingObligationIds: [...new Set([...existing.routingObligationIds, ...proposal.routingObligationIds])].sort(),
       rationale: [existing.rationale, proposal.rationale].sort()[0]!
     });
   }

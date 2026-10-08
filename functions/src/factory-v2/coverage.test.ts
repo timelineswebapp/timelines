@@ -6,7 +6,7 @@ import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompl
 import { contentAddressedId, deterministicUuid } from "./hashing";
 import { date, scopeFixture, TEST_CONTEXT } from "./test-fixtures";
 
-const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
+const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", routingObligationSetId: "routing-obligation-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
 
 const scope = scopeFixture({
   title: "A Technology History",

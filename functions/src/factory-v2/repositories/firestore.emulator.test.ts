@@ -11,7 +11,7 @@ import { normalizedIdentityText } from "../contracts/builders";
 import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, KNOWLEDGE_COVERAGE_POLICY_VERSION, planGapDirectedCompletion } from "../coverage";
 import { reconstructCompletedKnowledgeSetForB1 } from "../completed-knowledge-set";
 
-const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
+const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", routingObligationSetId: "routing-obligation-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
 
 const enabled = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 

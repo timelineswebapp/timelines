@@ -143,6 +143,7 @@ export const completedKnowledgeSetSchema = z.object({
   researchMapPayloadHash: hashSchema,
   authorityAcquisitionRounds: z.array(z.object({
     topicAuthoritySetId: idSchema,
+    routingObligationSetId: idSchema,
     authorityResearchPlanId: idSchema,
     controlledResearchLedgerId: idSchema,
     perspectiveAuditId: idSchema,
