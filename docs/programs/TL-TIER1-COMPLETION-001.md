@@ -6,9 +6,9 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_ROUTING_OBLIGATION_IMPLEMENTATION — VERIFICATION_IN_PROGRESS`
+`FOUNDER_REVIEW_REQUIRED — PHASE_2_TIMEOUT_CONTAINMENT_RECURRENCE`
 
-The founder authorized the general immutable Routing Obligation correction as a new responsibility-boundary remediation. It locks mandatory historical requirements before model routing, proves an eligible registered route before acquisition, preserves the post-acquisition perspective audit, and does not derive obligations from retrieval geography. The candidate is `factory-v2-a.34` / `authority-first-research.8`; it supersedes `.7` for future certification and is not yet sealed or provider-certified.
+The founder authorized the general immutable Routing Obligation correction as a new responsibility-boundary remediation. It locks mandatory historical requirements before model routing, proves an eligible registered route before acquisition, preserves the post-acquisition perspective audit, and does not derive obligations from retrieval geography. Candidate `factory-v2-a.34` / `authority-first-research.8` was sealed at source `0cc75767f154802ee9e3c3a5964b25b7cb91e285`, release `daf009fea97470f1a2f9463b6562e7af9ce71bb433d03dd2608a91ca063b4f3a`. Its fresh Phase-2 run produced valid San Francisco and Berlin CKS prefixes, then Ada exceeded the configured whole-run deadline without terminating. The process was stopped to prevent unbounded provider work. This recurs in the previously remediated timeout-containment class, so the hard founder-review boundary applies.
 
 ## Phase 0 baseline — 2026-10-02
 
@@ -34,7 +34,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | IMPLEMENTATION_VERIFICATION | `.4`–`.7` remain non-combinable diagnostic evidence. Founder-approved `.8` introduces immutable Routing Obligation Sets, pre-acquisition registered-binding validation, plan/CKS lineage, and fail-closed route accounting. Focused, Functions, and root suites are green; release sealing and the remaining prescribed gates precede one fresh same-release four-subject certification. |
+| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | `.4`–`.7` remain non-combinable diagnostic evidence. `.8` release `daf009…b4f3a` passed all local verification and produced valid CKSs for San Francisco (`completed-knowledge-set-38383a8d3e2c4c891c27dea6ddbc6d295d08673987e9d5eaded7a8a1565e2f0d`) and Berlin (`completed-knowledge-set-4f7457af564dd2be3b69cd71782db5026ca87283e1f2bdbdeabbffd70962c8b2`), each with exact protected-state parity. Ada did not produce a sealed result before exceeding its deadline; its process was terminated after grace. Artifacts: `artifacts/authority-first-acquisition-canary/2026-10-08T03-01-33-017Z/1.json` and `2.json`. No 4/4 certification exists. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -48,4 +48,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Complete release sealing and all prescribed verification gates for the immutable Routing Obligation candidate. Then run exactly one fresh non-public four-subject Phase-2 certification under the one sealed materially equivalent release. Preserve all historical evidence and protected-state parity; do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, or perform public publication.
+Founder review is required before any remediation or continuation because the live Ada run repeated the timeout-containment defect class after its prior bounded correction. Preserve the two valid `.8` prefix artifacts and exact protected-state snapshot. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or rerun a subject without an explicit founder decision.
