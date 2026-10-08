@@ -6,7 +6,9 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`FOUNDER_REVIEW_REQUIRED — PHASE_2_TIMEOUT_CONTAINMENT_RECURRENCE`
+`FOUNDER_REVIEW_REQUIRED — PHASE_2_ROUTING_OBLIGATION_RECURRENCE`
+
+Fresh Phase-2 release `412cebe5e34886de51875091d56624f9815c02c15b7ffda4de11cc5e5e9c3c1d` (source `69a8fb39d575e88c010255a1e4f8c72f20d371b7`, `factory-v2-a.38` / `authority-first-research.12`) stopped fail-closed on its first subject before source acquisition. The Authority Routing model exhausted its bounded schema-repair budget without proving two locked routes and the required independent coverage for two contested questions. This follows two bounded general routing corrections: state-party classification and continuation-route inheritance. Protected-state parity was exact; no discovery, institutional, or public mutation occurred. Under the master-goal hard-stop rule for recurrence of the same substantive defect class after two general correction cycles, founder review is required before further routing remediation or certification execution. Sealed evidence: `artifacts/authority-first-acquisition-canary/2026-10-08T04-57-41-620Z/`.
 
 The founder authorized the general immutable Routing Obligation correction as a new responsibility-boundary remediation. It locks mandatory historical requirements before model routing, proves an eligible registered route before acquisition, preserves the post-acquisition perspective audit, and does not derive obligations from retrieval geography. Candidate `factory-v2-a.34` / `authority-first-research.8` was sealed at source `0cc75767f154802ee9e3c3a5964b25b7cb91e285`, release `daf009fea97470f1a2f9463b6562e7af9ce71bb433d03dd2608a91ca063b4f3a`. Its fresh Phase-2 run produced valid San Francisco and Berlin CKS prefixes, then Ada exceeded the configured whole-run deadline without terminating. The process was stopped to prevent unbounded provider work. This recurs in the previously remediated timeout-containment class, so the hard founder-review boundary applies.
 
