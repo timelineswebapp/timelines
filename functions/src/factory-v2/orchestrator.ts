@@ -11,7 +11,7 @@ import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate }
 import { V2FirestoreRepository } from "./repositories/firestore";
 import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2ModelProvider } from "./vertex";
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
-import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
+import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 
@@ -1169,12 +1169,16 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       : /SOURCE_RETRIEVAL|PRIVATE_ADDRESS|ROBOTS/iu.test(message) ? "SECURITY_RETRIEVAL_REJECTED"
       : /VERTEX|PROVIDER|MODEL|GOOGLE|EXPLICIT_SEARCH/iu.test(message) ? "PROVIDER_FAILURE"
       : "FAILED_UNCLASSIFIED";
+    const protectedRepresentationDiagnostics = error instanceof ProtectedRepresentationAvailabilityError
+      ? { ...error.diagnostic, releaseIdentity: /^[a-f0-9]{64}$/u.test(process.env.TIMELINES_GENERATION_RELEASE_ID || "") ? process.env.TIMELINES_GENERATION_RELEASE_ID! : null }
+      : null;
     const failurePayload = {
       stage: currentStage,
       failureClass,
       severity: failureClass === "FAILED_UNCLASSIFIED" ? "CRITICAL" as const : "HIGH" as const,
       retryable: failureClass === "PROVIDER_FAILURE",
       message,
+      protectedRepresentationDiagnostics,
       blockingArtifactIds: [],
       attemptsConsumed: modelExecutions.length,
       budgetConsumed: { firestoreWrites, cloudStorageWrites }

@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — MATERIAL_JURISDICTION_AUTHORITY_CAPACITY`
+`PHASE_2_SUCCESSOR_RELEASE_PREPARATION — MATERIAL_JURISDICTION_CAPACITY_AUTHORIZED`
+
+## 2026-10-09 — Founder-authorized historical-jurisdiction capacity correction
+
+The founder authorized one bounded, Registry-governed correction for the `MATERIAL_JURISDICTION` availability failure. The candidate separates present-day retrieval geography from historically bounded records-holder capacity; it does not alias jurisdictions, treat `International` as a jurisdiction, or substitute a foreign/general authority. `authority-registry.3` admits one immutable State Archive of the Russian Federation (GARF) capacity for `Soviet Union`, limited to 1945–1951 Soviet Military Administration in Germany records and the documented domains of Soviet occupation administration/policy in occupied Germany. The capacity is independently constrained by collection scope, record type, research role, relationship, provenance, verification URLs, and access limitations. See `docs/certification/TL-HISTORICAL-JURISDICTION-CAPACITY.md`.
+
+The Authority-First candidate is versioned `factory-v2-a.43` / `authority-first-research.18` / `factory-v2-a-prompts.16`, with schema `factory-v2-a.6`. It adds deterministic capacity selection to Topic Authority Bindings, rejects absent, out-of-period, wrong-domain, wrong-role, wrong-relationship, successor-state, and generic-International substitutes, and persists a structured protected-representation terminal diagnostic containing the requirement, attempted capacities, rejection reasons, registry/policy/release identities, and phase context. It preserves claim-relative authority, independent-source, corroboration, conflict, coverage, sensitivity, and all fail-closed gates.
+
+Local verification passed before clean-release sealing: root tests (249), Functions tests (277 passed, 2 intentional skips), root and Functions strict typechecks, root lint, Functions build, Next production build, zero-high/critical security gate, all six institutional certification suites, `git diff --check`, and all six Firestore emulator tests. No provider-backed run, autonomous discovery, public/institutional mutation, or Firestore collection-group index creation occurred in this correction cycle. The next action is to seal a clean successor release, recheck production-read/protected-state preflight, then execute one fresh four-subject Phase-2 certification on that release.
 
 ## 2026-10-09 — `.17` certification authority-capacity boundary
 
@@ -74,7 +82,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | `.4`–`.7` remain non-combinable diagnostic evidence. `.8` release `daf009…b4f3a` passed all local verification and produced valid CKSs for San Francisco (`completed-knowledge-set-38383a8d3e2c4c891c27dea6ddbc6d295d08673987e9d5eaded7a8a1565e2f0d`) and Berlin (`completed-knowledge-set-4f7457af564dd2be3b69cd71782db5026ca87283e1f2bdbdeabbffd70962c8b2`), each with exact protected-state parity. The later `.15` release `44f012…ccbeb` stopped at San Francisco before acquisition with recurring `ROUTING_OBLIGATION_REPAIR_EXHAUSTED`; exact protected-state parity held. Artifacts: `artifacts/authority-first-acquisition-canary/2026-10-08T18-38-57-334Z/`. No 4/4 certification exists. |
+| 2 — four-subject Authority-First CKS | IN_PROGRESS | The founder authorized the bounded Registry-governed material-jurisdiction capacity correction. Local implementation and verification are complete; clean successor-release sealing and one fresh four-subject certification remain. Historical `.4`–`.17` evidence remains non-combinable diagnostic evidence. No 4/4 certification exists. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -88,4 +96,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Founder review is required before any remediation or continuation because the fresh `.15` run repeated the routing-completeness defect class after the founder-authorized obligation-complete correction and its bounded integration allowance. Preserve all sealed `.13`, `.14`, and `.15` artifacts, including the valid `.14` San Francisco and Berlin CKS prefix and the `.15` exact protected-state snapshot. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or rerun a subject without an explicit founder decision.
+The founder has authorized the current bounded material-jurisdiction correction. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or combine evidence across materially different releases.

@@ -106,6 +106,27 @@ const historicalPerspectiveRequirementSchema = z.object({
   rationale: boundedText(10, 600)
 }).strict();
 
+/**
+ * A governed statement that an institution holds bounded evidence originating
+ * from a historical jurisdiction.  This is intentionally distinct from an
+ * institution's present-day geographic scope: records may outlive states,
+ * move across borders, or be held by a successor or independent repository.
+ */
+export const historicalJurisdictionCapacitySchema = z.object({
+  capacityId: idSchema,
+  historicalJurisdiction: boundedText(2, 160),
+  period: z.object({ startYear: z.number().int().min(-10_000).max(10_000), endYear: z.number().int().min(-10_000).max(10_000) }).strict()
+    .refine((period) => period.startYear <= period.endYear, "Historical-jurisdiction capacity period is invalid."),
+  authorityDomains: stringList(1, 12, 160),
+  collectionScope: boundedText(10, 600),
+  recordTypes: stringList(1, 12, 160),
+  permittedResearchRoles: z.array(z.enum(["PRIMARY_RECORD", "CORROBORATION", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"])).min(1).max(4).refine(unique),
+  permittedSubjectRelationships: z.array(z.enum(["INDEPENDENT", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"])).min(1).max(4).refine(unique),
+  provenance: boundedText(20, 1_000),
+  verificationSources: z.array(httpsUrlSchema).min(1).max(8).refine(unique),
+  accessLimitations: stringList(0, 12, 300)
+}).strict();
+
 const researchQuestionSchema = z.object({
   questionId: idSchema,
   text: boundedText(10, 700),
@@ -187,6 +208,7 @@ export const publisherAuthorityVersionSchema = z.object({
   institutionType: z.enum(["ARCHIVE", "GOVERNMENT", "MUSEUM", "UNIVERSITY", "SCHOLARLY_PUBLISHER", "STANDARDS_BODY", "NEWSROOM", "EDITED_REFERENCE", "SPECIALIST", "OTHER"]),
   authorityDomains: stringList(1, 20, 160),
   geographicScope: stringList(1, 20, 160),
+  historicalJurisdictionCapacities: z.array(historicalJurisdictionCapacitySchema).max(24).refine((items) => unique(items.map((item) => item.capacityId))).default([]),
   languages: z.array(languageSchema).min(1).max(20).refine(unique),
   primarySecondaryTendency: z.enum(["PRIMARY", "SECONDARY", "MIXED"]),
   knownDomains: z.array(boundedText(3, 253).regex(/^[a-z0-9.-]+$/u)).min(1).max(30).refine(unique),
@@ -444,6 +466,23 @@ export const v2FailureRecordSchema = z.object({
   severity: z.enum(["INFO", "WARNING", "HIGH", "CRITICAL"]),
   retryable: z.boolean(),
   message: boundedText(3, 2000),
+  /** Structured, reconstructable evidence for an availability fail-closed result. */
+  protectedRepresentationDiagnostics: z.object({
+    requirementId: idSchema,
+    requirementKind: z.enum(["STAKEHOLDER", "PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "INDEPENDENT_SCHOLARSHIP", "MATERIAL_JURISDICTION"]),
+    canonicalLabel: boundedText(2, 160),
+    researchMapId: idSchema,
+    researchQuestionId: idSchema,
+    phaseIds: z.array(idSchema).min(1).max(8).refine(unique),
+    dimensionIds: z.array(idSchema).min(1).max(8).refine(unique),
+    requiredRoles: z.array(z.enum(["PRIMARY_RECORD", "CORROBORATION", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"])).min(1).max(4).refine(unique),
+    permittedSubjectRelationships: z.array(z.enum(["INDEPENDENT", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"])).min(1).max(4).refine(unique),
+    historicalJurisdiction: boundedText(2, 160).nullable(),
+    eligibleCandidates: z.array(z.object({ publisherVersionId: idSchema, capacityIds: z.array(idSchema).max(24).refine(unique), rejectionReason: boundedText(2, 500) }).strict()).max(60),
+    registryVersion: boundedText(2, 120),
+    policyVersion: boundedText(2, 120),
+    releaseIdentity: hashSchema.nullable()
+  }).strict().nullable().default(null),
   blockingArtifactIds: z.array(idSchema).max(50).refine(unique),
   attemptsConsumed: z.number().int().nonnegative().max(100),
   budgetConsumed: z.record(z.number().nonnegative()).refine((value) => Object.keys(value).length <= 20)
@@ -453,6 +492,7 @@ export type ScopeContract = z.infer<typeof scopeContractSchema>;
 export type ResearchMap = z.infer<typeof researchMapSchema>;
 export type QueryPlan = z.infer<typeof queryPlanSchema>;
 export type PublisherAuthorityVersion = z.infer<typeof publisherAuthorityVersionSchema>;
+export type HistoricalJurisdictionCapacity = z.infer<typeof historicalJurisdictionCapacitySchema>;
 export type SourceDocument = z.infer<typeof sourceDocumentSchema>;
 export type SourceSnapshot = z.infer<typeof sourceSnapshotSchema>;
 export type EvidenceSegment = z.infer<typeof evidenceSegmentSchema>;

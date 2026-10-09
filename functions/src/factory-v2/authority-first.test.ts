@@ -14,6 +14,8 @@ import {
   lockRoutingProposals,
   claimAuthorityApplicability,
   isInitialAuthorityRequiredQuestion,
+  historicalJurisdictionCapacityCovers,
+  ProtectedRepresentationAvailabilityError,
   registeredGroundingExpansionPublishers,
   registryCapability,
   unresolvedRoutingObligationIds
@@ -21,7 +23,7 @@ import {
 import { bootstrapPublisherRegistry } from "./authority";
 import { buildResearchMap } from "./contracts/builders";
 import type { PublisherAuthorityVersion, SpecialistCollectionProfile, TopicAuthorityProposal } from "./contracts";
-import { TEST_CONTEXT, scopeFixture } from "./test-fixtures";
+import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
 
 const scope = scopeFixture();
 const map = buildResearchMap(TEST_CONTEXT, scope, {
@@ -111,6 +113,45 @@ test("specialist registry profiles are immutable official collection capabilitie
   assert.ok(profiles.every((profile) => new URL(profile.endpoint).protocol === "https:" && profile.verificationProvenance.startsWith("Official ")));
   assert.ok(profiles.every((profile) => !/gutenberg|printing press|ada lovelace|berlin blockade|san francisco earthquake/iu.test(JSON.stringify(profile))));
   assert.equal(new Set(profiles.map((profile) => profile.profileId)).size, profiles.length);
+});
+
+test("historical-jurisdiction records-holder capacity is explicit, bounded, and never inferred from present geography", () => {
+  const garf = publisher("State Archive of the Russian Federation");
+  const capacity = garf.historicalJurisdictionCapacities[0]!;
+  assert.equal(garf.geographicScope.includes("Soviet Union"), false, "present Russian geography is not Soviet jurisdiction capacity");
+  assert.equal(capacity.historicalJurisdiction, "Soviet Union");
+  assert.ok(historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: "Soviet Union", period: { startYear: 1948, endYear: 1949 }, authorityDomains: ["Soviet occupation administration in Germany"], roles: ["PRIMARY_RECORD"], subjectRelationship: "INDEPENDENT" }));
+  assert.equal(historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: "Russian Federation", period: { startYear: 1948, endYear: 1949 }, roles: ["PRIMARY_RECORD"], subjectRelationship: "INDEPENDENT" }), false, "a modern successor is not an automatic predecessor alias");
+  assert.equal(historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: "Soviet Union", period: { startYear: 1962, endYear: 1962 }, roles: ["PRIMARY_RECORD"], subjectRelationship: "INDEPENDENT" }), false, "period bounds are mandatory");
+  assert.equal(historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: "Soviet Union", period: { startYear: 1948, endYear: 1949 }, authorityDomains: ["unrelated spaceflight records"], roles: ["PRIMARY_RECORD"], subjectRelationship: "INDEPENDENT" }), false, "collection/domain bounds are mandatory");
+  assert.equal(publisher("Library of Congress").historicalJurisdictionCapacities.length, 0, "international collection geography is not a named historical jurisdiction capacity");
+  assert.equal(publisher("John F. Kennedy Presidential Library and Museum").historicalJurisdictionCapacities.length, 0, "an unrelated Cuban Missile Crisis scope cannot satisfy Berlin");
+});
+
+test("a governed records holder satisfies Berlin Soviet jurisdiction only through its selected bounded capacity and emits diagnostics otherwise", () => {
+  const berlinScope = scopeFixture({
+    title: "The Berlin Blockade and Airlift", subjectDefinition: "The Soviet blockade and Western airlift affecting Berlin from 1948 to 1949.",
+    chronologyStart: date(1948, "DAY", 6, 24), chronologyEnd: date(1949, "DAY", 5, 12), contextBefore: date(1945), contextAfter: date(1950),
+    spatialScope: { included: ["Berlin", "Soviet Occupation Zone"], excluded: [], boundaryRule: "Include directly material Soviet occupation administration." }
+  });
+  const berlinMap = buildResearchMap({ ...TEST_CONTEXT, topicId: "berlin-capacity-test" }, berlinScope, {
+    version: 1, phases: [{ phaseId: "phase-blockade", label: "blockade", temporalRule: "Blockade and airlift period.", required: true, rationale: "The episode requires its central phase." }],
+    dimensions: [{ dimensionId: "dimension-policy", label: "policy", required: true, rationale: "Political policy evidence is required." }], entities: [],
+    questions: [{ questionId: "question-soviet-policy", text: "What Soviet occupation policy shaped the Berlin Blockade?", phaseIds: ["phase-blockade"], dimensionIds: ["dimension-policy"], claimTypesExpected: ["INSTITUTIONAL_ACTION"], likelySourceClasses: ["PRIMARY_INSTITUTIONAL"], expectedAuthorities: ["Soviet administrative records"], languages: ["ru", "en"], geography: ["Berlin"], historicalPerspectiveRequirements: [{ kind: "MATERIAL_JURISDICTION", label: "Soviet Union", rationale: "Soviet administrative records are materially required for this policy question." }], contested: false, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" }], terminology: [], knownUncertainty: []
+  });
+  const garf = publisher("State Archive of the Russian Federation");
+  const capacityId = garf.historicalJurisdictionCapacities[0]!.capacityId;
+  const base: TopicAuthorityProposal = { publisherVersionId: garf.publisherVersionId, researchQuestionIds: ["question-soviet-policy"], roles: ["PRIMARY_RECORD"], claimTypes: ["INSTITUTIONAL_ACTION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["Soviet administrative records"], routingObligationIds: [], rationale: "The registered SVAG collection is a bounded holder of Soviet occupation-administration records." };
+  const set = buildTopicAuthoritySet({ context: { ...TEST_CONTEXT, topicId: "berlin-capacity-test" }, scope: berlinScope, researchMap: berlinMap, publishers, proposals: [{ ...base, historicalJurisdictionCapacityIds: [capacityId] }] });
+  assert.deepEqual(set.bindings[0]!.historicalJurisdictionCapacityIds, [capacityId]);
+  assert.throws(() => buildTopicAuthoritySet({ context: { ...TEST_CONTEXT, topicId: "berlin-capacity-test" }, scope: berlinScope, researchMap: berlinMap, publishers, proposals: [{ ...base, historicalJurisdictionCapacityIds: [] }] }), (error: unknown) => {
+    assert.ok(error instanceof ProtectedRepresentationAvailabilityError);
+    assert.equal(error.diagnostic.canonicalLabel, "Soviet Union");
+    assert.equal(error.diagnostic.researchMapId, berlinMap.researchMapId);
+    assert.equal(error.diagnostic.eligibleCandidates[0]!.rejectionReason, "NO_SELECTED_HISTORICAL_JURISDICTION_CAPACITY");
+    assert.ok(error.diagnostic.requirementId.startsWith("perspective-requirement-"));
+    return true;
+  });
 });
 
 test("Topic Authority Set rejects unknown authorities and requires evidentiary coverage for every critical question", () => {

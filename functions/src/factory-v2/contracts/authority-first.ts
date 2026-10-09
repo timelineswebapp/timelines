@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { boundedText, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields, languageSchema } from "./common";
-import { claimTypeSchema } from "./knowledge";
+import { claimTypeSchema, historicalJurisdictionCapacitySchema, type HistoricalJurisdictionCapacity } from "./knowledge";
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const ids = (maximum: number, minimum = 0) => z.array(idSchema).min(minimum).max(maximum).refine(unique, "IDs must be unique.");
@@ -10,8 +10,8 @@ const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, i
  * Evidence-derived completion successor.  Historical routing artifacts remain
  * parseable for provenance, but are not part of this policy's execution path.
  */
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.17" as const;
-export const AUTHORITY_REGISTRY_VERSION = "authority-registry.2" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.18" as const;
+export const AUTHORITY_REGISTRY_VERSION = "authority-registry.3" as const;
 /** Versioned admission policy for registry-governed specialist collections. */
 export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;
 export const CONTROLLED_RESEARCH_BUDGET_VERSION = "controlled-research-budget.1" as const;
@@ -82,6 +82,7 @@ export const authorityRegistryCapabilitySchema = z.object({
   defaultSubjectRelationship: subjectRelationshipSchema,
   discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(5).refine(unique),
   specialistCollectionProfiles: z.array(specialistCollectionProfileSchema).max(12),
+  historicalJurisdictionCapacities: z.array(historicalJurisdictionCapacitySchema).max(24).default([]),
   storageConstraints: strings(20, 500),
   registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION)
 }).strict();
@@ -93,6 +94,7 @@ export const topicAuthorityProposalSchema = z.object({
   claimTypes: z.array(claimTypeSchema).min(1).max(12).refine(unique),
   subjectRelationship: subjectRelationshipSchema,
   perspectiveTags: strings(20, 160),
+  historicalJurisdictionCapacityIds: ids(24).optional().transform((value) => value || []),
   /** Legacy routing lineage only.  The .16 canonical path never derives
    * historical sufficiency from a planned route. */
   routingObligationIds: ids(120).optional().transform((value) => value || []),
@@ -134,6 +136,7 @@ export const topicAuthorityBindingSchema = topicAuthorityProposalSchema.extend({
   officialEndpoints: z.array(httpsUrlSchema).min(1).max(20).refine(unique),
   discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(5).refine(unique),
   specialistCollectionProfiles: z.array(specialistCollectionProfileSchema).max(12),
+  historicalJurisdictionCapacities: z.array(historicalJurisdictionCapacitySchema).max(24).default([]),
   validationStatus: z.literal("ELIGIBLE")
 }).strict();
 
@@ -292,8 +295,8 @@ export type SpecialistCollectionProfile = z.infer<typeof specialistCollectionPro
 export type AuthorityRegistryCapability = z.infer<typeof authorityRegistryCapabilitySchema>;
 export type AuthorityResearchRole = z.infer<typeof authorityResearchRoleSchema>;
 export type SubjectRelationship = z.infer<typeof subjectRelationshipSchema>;
-export type TopicAuthorityProposal = Omit<z.infer<typeof topicAuthorityProposalSchema>, "routingObligationIds"> & { routingObligationIds: string[] };
-export type TopicAuthorityBinding = Omit<z.infer<typeof topicAuthorityBindingSchema>, "routingObligationIds"> & { routingObligationIds: string[] };
+export type TopicAuthorityProposal = Omit<z.infer<typeof topicAuthorityProposalSchema>, "routingObligationIds" | "historicalJurisdictionCapacityIds"> & { routingObligationIds: string[]; historicalJurisdictionCapacityIds?: string[] };
+export type TopicAuthorityBinding = Omit<z.infer<typeof topicAuthorityBindingSchema>, "routingObligationIds" | "historicalJurisdictionCapacityIds" | "historicalJurisdictionCapacities"> & { routingObligationIds: string[]; historicalJurisdictionCapacityIds?: string[]; historicalJurisdictionCapacities?: HistoricalJurisdictionCapacity[] };
 export type TopicAuthoritySet = Omit<z.infer<typeof topicAuthoritySetSchema>, "bindings"> & { bindings: TopicAuthorityBinding[] };
 export type RoutingObligation = z.infer<typeof routingObligationSchema>;
 export type RoutingObligationSet = z.infer<typeof routingObligationSetSchema>;

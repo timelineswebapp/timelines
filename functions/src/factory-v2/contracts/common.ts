@@ -1,14 +1,15 @@
 import { z } from "zod";
 
-// a.42 replaces predictive route proof with evidence-derived Gap Obligations.
+// a.43 adds governed historical-jurisdiction records-holder capacity without
+// conflating that capacity with an institution's present-day geography.
 // The registry still governs every routine acquisition, but only admitted
 // evidence can establish historical sufficiency.
-export const V2_PIPELINE_VERSION = "factory-v2-a.42";
-export const V2_SCHEMA_VERSION = "factory-v2-a.5";
+export const V2_PIPELINE_VERSION = "factory-v2-a.43";
+export const V2_SCHEMA_VERSION = "factory-v2-a.6";
 export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.7";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "authority-first-research.17";
-export const V2_PROMPT_VERSION = "factory-v2-a-prompts.15";
+export const V2_POLICY_VERSION = "authority-first-research.18";
+export const V2_PROMPT_VERSION = "factory-v2-a-prompts.16";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);
 export const idSchema = z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u);
@@ -48,7 +49,7 @@ export const modelExecutionRefSchema = z.object({
 
 export const immutableEnvelopeFields = {
   artifactId: idSchema,
-  schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, "factory-v2-a.4", V2_SCHEMA_VERSION]),
+  schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, "factory-v2-a.4", "factory-v2-a.5", V2_SCHEMA_VERSION]),
   policyVersion: boundedText(2, 120),
   promptVersion: boundedText(2, 120).nullable(),
   modelExecutionRef: modelExecutionRefSchema.nullable(),

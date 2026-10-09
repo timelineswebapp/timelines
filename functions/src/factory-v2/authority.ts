@@ -191,7 +191,9 @@ export function detectClaimConflicts(input: { context: ArtifactContext; claims: 
   });
 }
 
-type BootstrapPublisher = Omit<PublisherAuthorityVersion, keyof ReturnType<typeof immutableEnvelope> | "artifactId" | "payloadHash" | "publisherId" | "publisherVersionId" | "version" | "classificationEvidenceSegmentIds" | "admittedBy">;
+type BootstrapPublisher = Omit<PublisherAuthorityVersion, keyof ReturnType<typeof immutableEnvelope> | "artifactId" | "payloadHash" | "publisherId" | "publisherVersionId" | "version" | "classificationEvidenceSegmentIds" | "admittedBy" | "historicalJurisdictionCapacities"> & {
+  historicalJurisdictionCapacities?: PublisherAuthorityVersion["historicalJurisdictionCapacities"];
+};
 
 export type PublisherAuthorityVersionInput = BootstrapPublisher & {
   publisherId?: string;
@@ -218,6 +220,7 @@ export function buildPublisherAuthorityVersion(context: ArtifactContext, input: 
     institutionType: input.institutionType,
     authorityDomains: normalizedSet(input.authorityDomains),
     geographicScope: normalizedSet(input.geographicScope),
+    historicalJurisdictionCapacities: [...(input.historicalJurisdictionCapacities || [])].sort((left, right) => left.capacityId.localeCompare(right.capacityId)),
     languages: normalizedSet(input.languages),
     primarySecondaryTendency: input.primarySecondaryTendency,
     knownDomains: normalizedSet(input.knownDomains, (value) => value.normalize("NFKC").trim().toLocaleLowerCase("en-US").replace(/^www\./u, "")),
@@ -230,7 +233,7 @@ export function buildPublisherAuthorityVersion(context: ArtifactContext, input: 
   };
   const registryContext: ArtifactContext = { corpusId: context.corpusId, topicId: "publisher-registry", runId: "publisher-authority-versions", generation: input.version, createdAt: input.effectiveAt, policyVersion };
   const publisherVersionId = semanticArtifactId("publisher-version", registryContext, { publisherId, version: input.version, semantic, effectiveAt: input.effectiveAt });
-  return parseSealedArtifact(publisherAuthorityVersionSchema, { ...semanticEnvelope(registryContext, publisherVersionId), ...semantic, publisherId, publisherVersionId, version: input.version, effectiveAt: input.effectiveAt });
+  return parseSealedArtifact(publisherAuthorityVersionSchema, { ...semanticEnvelope(registryContext, publisherVersionId), ...semantic, publisherId, publisherVersionId, version: input.version, effectiveAt: input.effectiveAt }) as PublisherAuthorityVersion;
 }
 
 const BOOTSTRAP_PUBLISHERS: BootstrapPublisher[] = [
@@ -265,7 +268,8 @@ const BOOTSTRAP_PUBLISHERS: BootstrapPublisher[] = [
   { canonicalName: "Oxford University Press", aliases: ["OUP"], parentPublisherId: null, institutionType: "SCHOLARLY_PUBLISHER", authorityDomains: ["Peer-reviewed academic and scholarly reference publishing"], geographicScope: ["International"], languages: ["en", "multilingual"], primarySecondaryTendency: "SECONDARY", knownDomains: ["oup.com", "academic.oup.com"], externalIdentifiers: [], independenceGroupId: "publisher-oxford-university-press", accessLimitations: ["Some publications may be access limited"], state: "VERIFIED" },
   { canonicalName: "Cambridge University Press & Assessment", aliases: ["Cambridge University Press", "CUP"], parentPublisherId: null, institutionType: "SCHOLARLY_PUBLISHER", authorityDomains: ["Peer-reviewed academic monographs, journals, textbooks, and scholarly reference publishing"], geographicScope: ["International"], languages: ["en", "multilingual"], primarySecondaryTendency: "SECONDARY", knownDomains: ["cambridge.org"], externalIdentifiers: [], independenceGroupId: "publisher-cambridge-university-press", accessLimitations: ["Some publications may be access limited"], state: "VERIFIED" },
   { canonicalName: "Institute of Electrical and Electronics Engineers", aliases: ["IEEE"], parentPublisherId: null, institutionType: "SCHOLARLY_PUBLISHER", authorityDomains: ["Peer-reviewed engineering, computing, and technology scholarship and standards"], geographicScope: ["International"], languages: ["en"], primarySecondaryTendency: "SECONDARY", knownDomains: ["ieee.org", "ieeexplore.ieee.org"], externalIdentifiers: [], independenceGroupId: "publisher-ieee", accessLimitations: ["Some publications may be access limited"], state: "VERIFIED" },
-  { canonicalName: "Wikimedia Foundation", aliases: ["Wikipedia"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["Orientation and reference discovery only"], geographicScope: ["International"], languages: ["multilingual"], primarySecondaryTendency: "SECONDARY", knownDomains: ["wikipedia.org"], externalIdentifiers: [], independenceGroupId: "publisher-wikimedia", accessLimitations: ["ORIENTATION_ONLY"], state: "VERIFIED" }
+  { canonicalName: "Wikimedia Foundation", aliases: ["Wikipedia"], parentPublisherId: null, institutionType: "OTHER", authorityDomains: ["Orientation and reference discovery only"], geographicScope: ["International"], languages: ["multilingual"], primarySecondaryTendency: "SECONDARY", knownDomains: ["wikipedia.org"], externalIdentifiers: [], independenceGroupId: "publisher-wikimedia", accessLimitations: ["ORIENTATION_ONLY"], state: "VERIFIED" },
+  { canonicalName: "State Archive of the Russian Federation", aliases: ["GARF", "Gosudarstvenny arkhiv Rossiyskoy Federatsii"], parentPublisherId: null, institutionType: "ARCHIVE", authorityDomains: ["Soviet central-government records", "Soviet Military Administration in Germany records"], geographicScope: ["Russian Federation"], historicalJurisdictionCapacities: [{ capacityId: "historical-jurisdiction-capacity-garf-soviet-union-svag-1945-1951", historicalJurisdiction: "Soviet Union", period: { startYear: 1945, endYear: 1951 }, authorityDomains: ["Soviet occupation administration in Germany", "Soviet policy in occupied Germany"], collectionScope: "Electronic archive and archival fonds of the Soviet Military Administration in Germany (SVAG), including the Soviet occupation zone and Berlin administration; bounded to the documented 1945–1951 administration records.", recordTypes: ["archival fonds", "administrative records", "official documentary publications"], permittedResearchRoles: ["PRIMARY_RECORD", "CORROBORATION"], permittedSubjectRelationships: ["INDEPENDENT"], provenance: "GARF is the official federal archive and legal successor to the Central State Archive of the October Revolution and USSR/Russian central state-authority archives. Its official SVAG archive describes records of the Soviet Military Administration in Germany, including the Soviet sector of Berlin and the Soviet occupation zone.", verificationSources: ["https://statearchive.ru/", "https://statearchive.ru/371", "https://statearchive.ru/384", "https://statearchive.ru/397"], accessLimitations: ["Russian-language archival descriptions and reading-room or request access may apply."] }], languages: ["ru"], primarySecondaryTendency: "PRIMARY", knownDomains: ["statearchive.ru"], externalIdentifiers: [], independenceGroupId: "publisher-state-archive-russian-federation", accessLimitations: ["Russian-language archival descriptions and reading-room or request access may apply."], state: "VERIFIED" }
 ];
 
 export function bootstrapPublisherRegistry(context: ArtifactContext): PublisherAuthorityVersion[] {

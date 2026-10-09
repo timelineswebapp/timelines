@@ -104,7 +104,7 @@ type SubjectWorkerResult =
  * independently bounds the process so a non-cooperative native handle cannot
  * survive the whole-run deadline or the terminal persistence grace.
  */
-async function runIsolatedSubject(input: { outputDirectory: string; ordinal: number; descriptor: ShadowFixtureDescriptor; config: ReturnType<typeof shadowConfig> }): Promise<SubjectWorkerResult> {
+async function runIsolatedSubject(input: { outputDirectory: string; ordinal: number; descriptor: ShadowFixtureDescriptor; config: ReturnType<typeof shadowConfig>; releaseIdentity: string }): Promise<SubjectWorkerResult> {
   const workerDirectory = resolve(input.outputDirectory, "workers");
   await mkdir(workerDirectory, { recursive: true });
   const inputPath = resolve(workerDirectory, `${input.ordinal}.input.json`);
@@ -112,7 +112,7 @@ async function runIsolatedSubject(input: { outputDirectory: string; ordinal: num
   await writeFile(inputPath, `${JSON.stringify({ descriptor: input.descriptor, config: input.config, outputPath: resultPath })}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
   const workerEntry = resolve(REPOSITORY_ROOT, "scripts", "run-authority-first-subject-worker.ts");
   const tsxEntry = resolve(REPOSITORY_ROOT, "functions", "node_modules", "tsx", "dist", "cli.mjs");
-  const child = spawn(process.execPath, [tsxEntry, workerEntry, inputPath], { cwd: REPOSITORY_ROOT, env: process.env, stdio: ["ignore", "ignore", "pipe"] });
+  const child = spawn(process.execPath, [tsxEntry, workerEntry, inputPath], { cwd: REPOSITORY_ROOT, env: { ...process.env, TIMELINES_GENERATION_RELEASE_ID: input.releaseIdentity }, stdio: ["ignore", "ignore", "pipe"] });
   let stderr = "";
   child.stderr.on("data", (chunk: Buffer) => { stderr = `${stderr}${chunk.toString("utf8")}`.slice(-16_384); });
   let forcedTermination = false;
@@ -187,7 +187,7 @@ async function main() {
     if (halted) { results.push({ title, status: "NOT_EXECUTED_AFTER_FAILURE" }); continue; }
     const before = await captureProtectedState(firestore, ACTIVE_CORPUS_ID);
     try {
-      const workerResult = await runIsolatedSubject({ outputDirectory, ordinal: results.length + 1, descriptor: { title, language: "en", ongoingAsOf: "2026-09-22" }, config });
+      const workerResult = await runIsolatedSubject({ outputDirectory, ordinal: results.length + 1, descriptor: { title, language: "en", ongoingAsOf: "2026-09-22" }, config, releaseIdentity: generationRelease.generationReleaseId });
       if (workerResult.status !== "SUCCESS") throw Object.assign(new Error(workerResult.reason), { stage: workerResult.stage, acquisitionMetrics: workerResult.metrics || [] });
       const after = await captureProtectedState(firestore, ACTIVE_CORPUS_ID);
       const parity = protectedStateUnchanged(before, after);

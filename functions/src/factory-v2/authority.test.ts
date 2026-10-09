@@ -28,7 +28,7 @@ function edge(value: AtomicClaimVersion, publisher: PublisherAuthorityVersion | 
 }
 
 test("Publisher Registry remains bounded, versioned, alias-aware, and policy-admitted", () => {
-  assert.ok(publishers.length <= 32);
+  assert.ok(publishers.length <= 33);
   assert.equal(byName("National Aeronautics and Space Administration").aliases.includes("NASA"), true);
   assert.equal(publishers.every((publisher) => publisher.state === "VERIFIED" && publisher.admittedBy === "POLICY"), true);
   assert.equal(new Set(publishers.map((publisher) => publisher.payloadHash)).size, publishers.length);
@@ -36,6 +36,7 @@ test("Publisher Registry remains bounded, versioned, alias-aware, and policy-adm
     assert.ok(byName(authority).authorityDomains.length > 0, `missing general authority policy for ${authority}`);
   }
   assert.deepEqual(byName("Cambridge University Press & Assessment").knownDomains, ["cambridge.org"]);
+  assert.equal(byName("State Archive of the Russian Federation").historicalJurisdictionCapacities[0]?.historicalJurisdiction, "Soviet Union");
 });
 
 test("publisher bootstrap semantic state is independent from caller execution provenance", () => {

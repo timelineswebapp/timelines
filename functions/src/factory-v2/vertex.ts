@@ -140,7 +140,8 @@ const topicAuthorityProposalEnvelopeBaseSchema = z.object({
     roles: z.array(authorityResearchRoleSchema).min(1).max(5).refine(unique),
     claimTypes: z.array(claimTypeSchema).min(1).max(12).refine(unique),
     subjectRelationship: subjectRelationshipSchema,
-    perspectiveTags: z.array(boundedText(1, 160)).max(20).refine(unique),
+  perspectiveTags: z.array(boundedText(1, 160)).max(20).refine(unique),
+    historicalJurisdictionCapacityIds: z.array(idSchema).max(24).optional().transform((value) => value || []),
     routingObligationIds: z.array(idSchema).max(120).optional().transform((value) => value || []),
     rationale: boundedText(10, 1000)
   }).strict()).min(1).max(24)
@@ -164,6 +165,17 @@ function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly Pub
       if (proposal.researchQuestionNumbers.some((number) => !map.questions[number - 1])) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities", proposalIndex, "researchQuestionNumbers"], message: "Authority references a question outside the locked Research Map." });
       if (requiredQuestionIds && proposal.researchQuestionNumbers.some((number) => !requiredQuestionIds.has(map.questions[number - 1]?.questionId || ""))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities", proposalIndex, "researchQuestionNumbers"], message: "Continuation authority routing may reference only bounded completion questions." });
       if (!publisher) continue;
+    }
+    for (const [questionIndex, question] of map.questions.entries()) {
+      if (requiredQuestionIds && !requiredQuestionIds.has(question.questionId)) continue;
+      for (const requirement of question.historicalPerspectiveRequirements || []) {
+        if (requirement.kind !== "MATERIAL_JURISDICTION") continue;
+        const hasCapacity = value.authorities.some((proposal) => {
+          const publisher = publishers[proposal.publisherNumber - 1];
+          return proposal.researchQuestionNumbers.includes(questionIndex + 1) && publisher !== undefined && proposal.historicalJurisdictionCapacityIds.some((capacityId) => publisher.historicalJurisdictionCapacities.some((capacity) => capacity.capacityId === capacityId && capacity.historicalJurisdiction.normalize("NFKC").trim().toLocaleLowerCase("en-US") === requirement.label.normalize("NFKC").trim().toLocaleLowerCase("en-US") && capacity.permittedResearchRoles.some((role) => effectiveRoles(proposal).includes(role))));
+        });
+        if (!hasCapacity) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Material jurisdiction requirement for question ${questionIndex + 1} requires a selected registered historical-jurisdiction capacity.` });
+      }
     }
     for (const questionNumber of criticalNumbers) {
       const covered = value.authorities.some((proposal) => proposal.researchQuestionNumbers.includes(questionNumber) && effectiveRoles(proposal).some((role) => role !== "ORIENTATION"));
@@ -220,6 +232,7 @@ const topicAuthorityProposalJsonSchema = {
           claimTypes: { type: "array", items: { type: "string", enum: ["OCCURRENCE", "DATE", "IDENTITY", "LOCATION", "QUANTITY", "INSTITUTIONAL_ACTION", "RELATIONSHIP", "ATTRIBUTION", "QUOTATION", "CAUSATION", "INTERPRETATION", "CONSEQUENCE"] } },
           subjectRelationship: { type: "string", enum: ["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"] },
           perspectiveTags: { type: "array", items: { type: "string" } },
+          historicalJurisdictionCapacityIds: { type: "array", items: { type: "string" } },
           routingObligationIds: { type: "array", items: { type: "string" } },
           rationale: { type: "string" }
         }
@@ -312,6 +325,7 @@ export async function selectRoutingObligationBatch(input: {
       claimTypes: question.claimTypesExpected,
       subjectRelationship: defaultSubjectRelationship(publisher),
       perspectiveTags: [obligation.label],
+      historicalJurisdictionCapacityIds: [],
       routingObligationIds: [selection.routingObligationId],
       rationale: selection.rationale
     } satisfies TopicAuthorityProposal;
@@ -648,6 +662,7 @@ export async function generateTopicAuthorityProposals(input: {
     institutionType: publisher.institutionType,
     authorityDomains: publisher.authorityDomains,
     geography: publisher.geographicScope,
+    historicalJurisdictionCapacities: publisher.historicalJurisdictionCapacities,
     languages: publisher.languages,
     primarySecondaryTendency: publisher.primarySecondaryTendency,
     requiredSubjectRelationship: defaultSubjectRelationship(publisher),
@@ -678,6 +693,7 @@ export async function generateTopicAuthorityProposals(input: {
     "Use PRIMARY_RECORD for records produced or held by the responsible institution; CORROBORATION and INTERPRETATION require independent authorities. A SUBJECT_SELF, STATE_PARTY, or PARTICIPANT authority must not be assigned CORROBORATION.",
     "For every contested question, propose at least two independent authority groups suitable for corroboration or interpretation and include meaningful geographic, participant, or community perspective tags.",
     "For every question whose historicalPerspectiveRequirements include INDEPENDENT_SCHOLARSHIP, include at least one registered independent ACADEMIC_SCHOLARLY authority with CORROBORATION or INTERPRETATION capacity. This proves bounded acquisition capacity only; final perspective sufficiency remains evidence-audited.",
+    "For every MATERIAL_JURISDICTION requirement, select an exact matching historicalJurisdictionCapacityId from that authority's supplied registry capacity. Geographic scope, International, and a present-day successor state do not satisfy this requirement. Select a capacity only for the question and bounded records/period/domain it actually covers.",
     "Perspective tags describe the bounded authority's declared relationship or context. They are not proof that a mandatory historical perspective has been satisfied.",
     `Every number in REQUIRED_QUESTION_NUMBERS must appear on at least one authority with a permitted non-ORIENTATION role. REQUIRED_QUESTION_NUMBERS=${JSON.stringify(input.map.questions.flatMap((question, index) => (requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : isInitialAuthorityRequiredQuestion(question)) ? [index + 1] : []))}`,
     ...(legacyRoutingCompatibility ? [
@@ -713,6 +729,7 @@ export async function generateTopicAuthorityProposals(input: {
       claimTypes: proposal.claimTypes,
       subjectRelationship: relationship,
       perspectiveTags: proposal.perspectiveTags,
+      historicalJurisdictionCapacityIds: proposal.historicalJurisdictionCapacityIds,
       routingObligationIds: proposal.routingObligationIds || [],
       rationale: proposal.rationale
     }];
@@ -727,6 +744,7 @@ export async function generateTopicAuthorityProposals(input: {
       roles: [...new Set([...existing.roles, ...proposal.roles])].sort(),
       claimTypes: [...new Set([...existing.claimTypes, ...proposal.claimTypes])].sort(),
       perspectiveTags: [...new Set([...existing.perspectiveTags, ...proposal.perspectiveTags])].sort(),
+      historicalJurisdictionCapacityIds: [...new Set([...(existing.historicalJurisdictionCapacityIds || []), ...(proposal.historicalJurisdictionCapacityIds || [])])].sort(),
       routingObligationIds: [...new Set([...existing.routingObligationIds, ...proposal.routingObligationIds])].sort(),
       rationale: [existing.rationale, proposal.rationale].sort()[0]!
     });
