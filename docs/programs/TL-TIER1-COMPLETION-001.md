@@ -6,7 +6,13 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_SUCCESSOR_VERIFICATION — BOUNDED_AUTHORITY_SOURCE_ADMISSION_CORRECTION`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — RECURRING_MODEL_DEPENDENT_PROTECTED_AUTHORITY_ROUTING`
+
+## 2026-10-09 — `.25` Phase-2 hard-stop evidence
+
+The sealed `.25` release `916e28f4bd882becbfa71ee86cbb15d69ff413c95fa6d252e0d4902d25b145f3` (source `8466491a53750ca4f9e519ee6b0282de4bb5b903`, `factory-v2-a.50` / `authority-first-research.25`) began a fresh four-subject certification. San Francisco stopped fail-closed before retrieval in `AUTHORITY_ROUTING`: `MODEL_SCHEMA_VALIDATION_EXHAUSTED` because the model omitted registered capacity for a protected `INDEPENDENT_SCHOLARSHIP` requirement (question 3) and a protected `PARTY_PARTICIPANT` requirement (question 12). Berlin, Ada, and Printing Press were correctly not executed. The sealed report is `artifacts/authority-first-acquisition-canary/2026-10-09T10-58-15-712Z/report.json`; exact protected-state parity holds.
+
+The `.25` source-admission correction was not reached and does not alter this result. This failure recurs in the previously corrected model-dependent protected-authority-routing class: protected authority capacity remains contingent on a model producing eligible registry selections, despite the Authority-First responsibility-boundary correction and deterministic material-jurisdiction completion. Under the master-goal hard-stop rule, further remedial expansion from material-jurisdiction-only deterministic completion to other protected authority kinds requires founder review. No further certification run or routing remediation is authorized until that decision; no authority boundary, Registry content, evidence standard, autonomous discovery, publication, or protected state was changed.
 
 ## 2026-10-09 — `.25` bounded authority-source admission correction
 
@@ -130,7 +136,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | Clean `.18` release `fb53e1…6398` began a fresh four-subject run but San Francisco stopped before retrieval on a separate `STAKEHOLDER` availability gap, with exact protected-state parity. The `.18` material-jurisdiction authorization does not cover a stakeholder-capacity/policy expansion. No 4/4 certification exists. |
+| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | Sealed `.25` release `916e28f4…b145f3` stopped San Francisco before retrieval on recurring model-dependent protected-authority routing (`INDEPENDENT_SCHOLARSHIP` and `PARTY_PARTICIPANT` capacity omitted by the model), with exact protected-state parity. No 4/4 certification exists. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -144,4 +150,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Founder review is required for the separate `.18` San Francisco stakeholder-capacity availability gap. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or combine evidence across materially different releases.
+Founder review is required for the `.25` recurring model-dependent protected-authority-routing failure. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or combine evidence across materially different releases.
