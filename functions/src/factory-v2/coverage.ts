@@ -26,7 +26,7 @@ import {
 import { parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId } from "./hashing";
 
-export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.10" as const;
+export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.11" as const;
 
 export const DEFAULT_COMPLETION_BUDGET = {
   maximumRounds: 1 as const,
@@ -184,7 +184,12 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
       const questionBindings = evidentiaryBindings.filter((binding) => binding.researchQuestionIds.includes(question.questionId));
       for (const requirement of requirements) {
         const target = normalizedPerspective(requirement.label);
-        const represented = requirement.kind === "INDEPENDENT_SCHOLARSHIP"
+        const represented = requirement.kind === "STAKEHOLDER"
+          // A stakeholder is an actor perspective, not a publisher identity.
+          // Actual evidence from a governed records holder is still subject to
+          // ordinary claim-level authority and self-interest admission.
+          ? questionBindings.some((binding) => binding.roles.some((role) => role !== "ORIENTATION"))
+          : requirement.kind === "INDEPENDENT_SCHOLARSHIP"
           ? questionBindings.some((binding) => binding.subjectRelationship === "INDEPENDENT" && (binding.authorityFamily === "ACADEMIC_SCHOLARLY" || binding.roles.includes("INTERPRETATION") || binding.roles.includes("CORROBORATION")))
           : questionBindings.some((binding) => [...binding.perspectiveTags, ...binding.geography].some((tag) => {
             const observed = normalizedPerspective(tag);

@@ -96,7 +96,7 @@ export function buildRoutingObligationSet(input: { context: ArtifactContext; sco
   const requiredQuestionIds = input.requiredQuestionIds ? new Set(input.requiredQuestionIds) : undefined;
   if (requiredQuestionIds && (requiredQuestionIds.size === 0 || [...requiredQuestionIds].some((id) => !input.researchMap.questions.some((question) => question.questionId === id)))) throw new Error("ROUTING_OBLIGATION_TARGET_SET_INVALID");
   const obligations = input.researchMap.questions.filter((question) => !requiredQuestionIds || requiredQuestionIds.has(question.questionId)).flatMap((question) => (question.historicalPerspectiveRequirements || []).flatMap((requirement) => {
-    if (requirement.kind === "INDEPENDENT_SCHOLARSHIP") return [];
+    if (!requiresProtectedPreAcquisitionAvailability(requirement.kind) || requirement.kind === "INDEPENDENT_SCHOLARSHIP") return [];
     const permittedSubjectRelationships = requirement.kind === "AFFECTED_COMMUNITY" || requirement.kind === "CUSTODIAL_COMMUNITY"
       ? ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"] as const
       : requirement.kind === "PARTY_PARTICIPANT"
@@ -121,6 +121,11 @@ export function buildRoutingObligationSet(input: { context: ArtifactContext; sco
 
 function normalize(value: string): string {
   return value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
+}
+
+/** Generic stakeholders are evidence-level actor requirements, not publishers. */
+export function requiresProtectedPreAcquisitionAvailability(kind: NonNullable<ResearchMap["questions"][number]["historicalPerspectiveRequirements"]>[number]["kind"]): boolean {
+  return kind !== "STAKEHOLDER";
 }
 
 function uniqueSorted<T extends string>(values: readonly T[]): T[] {
@@ -373,6 +378,7 @@ function assertProtectedRepresentationAvailability(scope: ScopeContract, map: Re
   for (const question of map.questions.filter((item) => !requiredQuestionIds || requiredQuestionIds.has(item.questionId))) {
     const relevant = bindings.filter((binding) => binding.researchQuestionIds.includes(question.questionId) && binding.roles.some((role) => role !== "ORIENTATION"));
     for (const requirement of question.historicalPerspectiveRequirements || []) {
+      if (!requiresProtectedPreAcquisitionAvailability(requirement.kind)) continue;
       const available = requirement.kind === "AFFECTED_COMMUNITY" || requirement.kind === "CUSTODIAL_COMMUNITY"
         ? relevant.some((binding) => ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"].includes(binding.subjectRelationship))
         : requirement.kind === "PARTY_PARTICIPANT"

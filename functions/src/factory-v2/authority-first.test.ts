@@ -18,6 +18,7 @@ import {
   ProtectedRepresentationAvailabilityError,
   registeredGroundingExpansionPublishers,
   registryCapability,
+  requiresProtectedPreAcquisitionAvailability,
   unresolvedRoutingObligationIds
 } from "./authority-first";
 import { bootstrapPublisherRegistry } from "./authority";
@@ -215,6 +216,24 @@ test("protected representation fails preflight when the bounded authority univer
   );
 });
 
+test("generic stakeholder labels remain immutable evidence requirements without creating a publisher-identity preflight gate", () => {
+  const stakeholderMap = {
+    ...map,
+    questions: map.questions.map((question) => question.questionId === "question-chronology" ? {
+      ...question,
+      historicalPerspectiveRequirements: [{ kind: "STAKEHOLDER" as const, label: "City planners and relief organizations", rationale: "These historical actors made material recovery decisions." }]
+    } : question)
+  };
+  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: stakeholderMap, publishers, proposals: validProposals() });
+  assert.ok(stakeholderMap.questions[0]!.historicalPerspectiveRequirements?.some((requirement) => requirement.kind === "STAKEHOLDER"));
+  assert.equal(set.validationStatus, "VALIDATED");
+  assert.deepEqual(buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: stakeholderMap }).obligations, []);
+  assert.equal(requiresProtectedPreAcquisitionAvailability("STAKEHOLDER"), false);
+  for (const kind of ["PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "MATERIAL_JURISDICTION", "INDEPENDENT_SCHOLARSHIP"] as const) {
+    assert.equal(requiresProtectedPreAcquisitionAvailability(kind), true, `${kind} must retain pre-acquisition protection`);
+  }
+});
+
 test("validated Topic Authority Set is immutable, registry-bound, diverse, and routine without manual selection", () => {
   const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: validProposals() });
   const retrySet = buildTopicAuthoritySet({ context: { ...TEST_CONTEXT, runId: "retry-run", createdAt: "2027-01-01T00:00:00.000Z" }, scope, researchMap: map, publishers, proposals: validProposals() });
@@ -280,16 +299,16 @@ test("immutable routing obligations preserve historical requirements without con
   const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: obligationMap });
   const retry = buildRoutingObligationSet({ context: { ...TEST_CONTEXT, runId: "routing-retry" }, scope, researchMap: obligationMap });
   assert.deepEqual(retry, obligations);
-  assert.deepEqual(obligations.obligations.map((item) => item.label).sort(), ["Displaced residents", "Municipal responders"]);
-  assert.ok(obligations.obligations.every((item) => !["London", "Global", "Independent scholarship"].includes(item.label)));
+  assert.deepEqual(obligations.obligations.map((item) => item.label).sort(), ["Displaced residents"]);
+  assert.ok(obligations.obligations.every((item) => !["London", "Global", "Independent scholarship", "Municipal responders"].includes(item.label)));
   assert.ok(obligations.obligations.every((item) => item.routingObligationId && item.semanticIdentity && item.rationale));
 });
 
 test("routing candidate construction is registry-bound, deterministic, and batches only compatible obligations", () => {
   const routingQuestion = {
     ...map.questions[0]!, questionId: "question-compatible-routes", geography: ["London", "Global"], historicalPerspectiveRequirements: [
-      { kind: "STAKEHOLDER" as const, label: "Mission operations", rationale: "Operations staff made material operational decisions." },
-      { kind: "STAKEHOLDER" as const, label: "Mission engineering", rationale: "Engineering staff made material technical decisions." }
+      { kind: "AFFECTED_COMMUNITY" as const, label: "Mission operations community", rationale: "Operations staff experienced the material operational decisions." },
+      { kind: "AFFECTED_COMMUNITY" as const, label: "Mission engineering community", rationale: "Engineering staff experienced the material technical decisions." }
     ]
   };
   const obligationMap = { ...map, questions: [routingQuestion] };
@@ -309,14 +328,14 @@ test("routing candidate construction is registry-bound, deterministic, and batch
 test("routing batching stays bounded for 3, 10, 25, and 50 compatible obligations", () => {
   const routingQuestion = {
     ...map.questions[0]!, questionId: "question-routing-scale", historicalPerspectiveRequirements: [
-      { kind: "STAKEHOLDER" as const, label: "Mission operations", rationale: "Operations staff made material decisions." }
+      { kind: "AFFECTED_COMMUNITY" as const, label: "Mission operations community", rationale: "Operations staff experienced material decisions." }
     ]
   };
   const obligationMap = { ...map, questions: [routingQuestion] };
   const locked = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: obligationMap });
   const candidate = buildEligibleRoutingCandidates({ routingObligationSet: locked, publishers })[0]!;
   for (const count of [3, 10, 25, 50]) {
-    const obligations = Array.from({ length: count }, (_, index) => ({ ...locked.obligations[0]!, routingObligationId: `routing-obligation-scale-${index}`, semanticIdentity: `STAKEHOLDER:scale-${index}`, label: `Operations group ${index}` }));
+    const obligations = Array.from({ length: count }, (_, index) => ({ ...locked.obligations[0]!, routingObligationId: `routing-obligation-scale-${index}`, semanticIdentity: `AFFECTED_COMMUNITY:scale-${index}`, label: `Operations group ${index}` }));
     const candidates = obligations.map((obligation) => ({ ...candidate, routingObligationId: obligation.routingObligationId }));
     const startedAt = Date.now();
     const batches = batchRoutingObligations({ routingObligationSet: { ...locked, obligations }, candidates });
@@ -330,8 +349,8 @@ test("routing batching stays bounded for 3, 10, 25, and 50 compatible obligation
 test("route locks preserve partial success and expose only missing obligations to repair", () => {
   const routingQuestion = {
     ...map.questions[0]!, questionId: "question-route-locks", historicalPerspectiveRequirements: [
-      { kind: "STAKEHOLDER" as const, label: "Operations", rationale: "Operations personnel made material decisions." },
-      { kind: "STAKEHOLDER" as const, label: "Engineering", rationale: "Engineering personnel made material decisions." }
+      { kind: "AFFECTED_COMMUNITY" as const, label: "Operations community", rationale: "Operations personnel experienced material decisions." },
+      { kind: "AFFECTED_COMMUNITY" as const, label: "Engineering community", rationale: "Engineering personnel experienced material decisions." }
     ]
   };
   const obligationMap = { ...map, questions: [routingQuestion] };

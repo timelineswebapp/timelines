@@ -138,6 +138,29 @@ test("missing acquired affected-community evidence creates a lineage-bearing Gap
   assert.ok(plan.tasks.flatMap((task) => task.gapObligationIds || []).every((id) => obligations.some((item) => item.gapObligationId === id)));
 });
 
+test("generic stakeholder evidence is audited after acquisition and gaps retain immutable completion lineage", () => {
+  const stakeholderMap = buildResearchMap(TEST_CONTEXT, scope, {
+    version: 1, phases, dimensions, entities: [],
+    questions: map.questions.map((item) => item.questionId === "q-current-society" ? {
+      ...item,
+      historicalPerspectiveRequirements: [{ kind: "STAKEHOLDER" as const, label: "Local planners and relief organizations", rationale: "These actors made the material recovery decisions." }]
+    } : item),
+    terminology: [], knownUncertainty: []
+  });
+  const claims = [claim("claim-stakeholder-foundation", "q-foundation-tech", 1989), claim("claim-stakeholder-expansion", "q-expansion-tech", 2010), claim("claim-stakeholder-current", "q-current-society", 2024)];
+  const missing = auditKnowledgeCoverage({ context: TEST_CONTEXT, stage: "INITIAL", scope, researchMap: stakeholderMap, sourceKnowledgeRunIds: ["source-run"], claims, authorityVerdicts: claims.map((item) => verdict(item)), conflicts: [], events: claims.map((item) => event(item, item.temporal!.start.year)), authoritySet: evidenceAuthoritySet("q-current-society", []), sourceDocuments: [] });
+  const gap = missing.gaps.find((item) => item.code === "MISSING_HISTORICAL_PERSPECTIVE");
+  assert.ok(gap);
+  const obligations = buildGapObligations({ context: TEST_CONTEXT, scope, researchMap: stakeholderMap, audit: missing, authoritySet: evidenceAuthoritySet("q-current-society", []), sourceSnapshots: [] });
+  const obligation = obligations.find((item) => item.coverageGapIds.includes(gap!.gapId));
+  assert.ok(obligation);
+  assert.deepEqual(obligation!.historicalRequirements.map((item) => item.label), ["Local planners and relief organizations"]);
+  const acquired = acquiredEvidence();
+  const satisfied = auditKnowledgeCoverage({ context: TEST_CONTEXT, stage: "FINAL", scope, researchMap: stakeholderMap, sourceKnowledgeRunIds: ["source-run"], claims, authorityVerdicts: claims.map((item) => verdict(item)), conflicts: [], events: claims.map((item) => event(item, item.temporal!.start.year)), authoritySet: evidenceAuthoritySet("q-current-society", []), ...acquired });
+  assert.equal(satisfied.gaps.some((item) => item.code === "MISSING_HISTORICAL_PERSPECTIVE"), false);
+  assert.equal(satisfied.verdict, "SUFFICIENT");
+});
+
 test("acquired matching community evidence satisfies the historical perspective without a completion obligation", () => {
   const perspectiveMap = buildResearchMap(TEST_CONTEXT, scope, {
     version: 1,

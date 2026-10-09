@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — UNAUTHORIZED_STAKEHOLDER_CAPACITY_GAP`
+`PHASE_2_SUCCESSOR_VERIFICATION — FOUNDER_AUTHORIZED_GENERIC_STAKEHOLDER_POLICY_CORRECTION`
+
+## 2026-10-09 — `.19` founder-authorized generic stakeholder correction
+
+The founder authorized a general correction separating historical actors from publisher identity. `STAKEHOLDER` remains immutable in each Research Map and mandatory in the final evidence audit, but it is no longer a universal pre-acquisition Registry-availability gate. Governed research may begin through the bounded Topic Authority Set; an acquired-source failure to satisfy a material stakeholder requirement creates an evidence-derived, lineage-bearing Gap Obligation, and an unresolved final gap remains fail-closed. The correction does not expand the Registry or encode San Francisco-specific facts.
+
+Specific safeguards remain pre-acquisition: `PARTY_PARTICIPANT`, `AFFECTED_COMMUNITY`, `CUSTODIAL_COMMUNITY`, `MATERIAL_JURISDICTION`, and contested/sensitive independent-family availability. `INDEPENDENT_SCHOLARSHIP` remains a structural independent academic-authority requirement; normal claim-relative authority, self-interest, corroboration, conflict, security, budget, and protected-state controls are unchanged.
+
+The candidate is versioned `factory-v2-a.44` / `authority-first-research.19` / `knowledge-coverage-v2-a3.11`, with Registry `.3`, specialist profile policy `.1`, prompt `.16`, and CKS schema `.7`. Focused and full Functions regressions, root regression, strict typechecks, lint, Functions build, Next production build, the approved security gate, and diff check are being recorded before clean-release sealing. No provider-backed certification, autonomous discovery, institutional/public mutation, or Registry expansion has occurred in this correction cycle.
 
 ## 2026-10-09 — `.18` fresh Phase-2 certification boundary
 

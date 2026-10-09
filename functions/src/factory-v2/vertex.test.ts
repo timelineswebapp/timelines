@@ -134,8 +134,8 @@ test("obligation routing accepts and preserves a partial valid batch without reg
   const scope = scopeFixture();
   const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
   const question = { ...mapResult.map.questions[0]!, historicalPerspectiveRequirements: [
-    { kind: "STAKEHOLDER" as const, label: "Mission operations", rationale: "Operations personnel made material mission decisions." },
-    { kind: "STAKEHOLDER" as const, label: "Mission engineering", rationale: "Engineering personnel made material technical decisions." }
+    { kind: "AFFECTED_COMMUNITY" as const, label: "Mission operations community", rationale: "Operations personnel experienced material mission consequences." },
+    { kind: "AFFECTED_COMMUNITY" as const, label: "Mission engineering community", rationale: "Engineering personnel experienced material technical consequences." }
   ] };
   const map = { ...mapResult.map, questions: [question] };
   const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
@@ -158,7 +158,7 @@ test("obligation routing accepts and preserves a partial valid batch without reg
 test("an empty routing batch remains an explicit unresolved result for bounded missing-only repair", async () => {
   const scope = scopeFixture();
   const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
-  const question = { ...mapResult.map.questions[0]!, historicalPerspectiveRequirements: [{ kind: "STAKEHOLDER" as const, label: "Mission operations", rationale: "Operations personnel made material mission decisions." }] };
+  const question = { ...mapResult.map.questions[0]!, historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Mission operations community", rationale: "Operations personnel experienced material mission consequences." }] };
   const map = { ...mapResult.map, questions: [question] };
   const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
   const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: map });

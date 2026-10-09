@@ -1,14 +1,13 @@
 import { z } from "zod";
 
-// a.43 adds governed historical-jurisdiction records-holder capacity without
-// conflating that capacity with an institution's present-day geography.
-// The registry still governs every routine acquisition, but only admitted
-// evidence can establish historical sufficiency.
-export const V2_PIPELINE_VERSION = "factory-v2-a.43";
+// a.44 makes generic stakeholder requirements evidence-level rather than
+// predictive authority-availability gates. The registry still governs every
+// routine acquisition, while admitted evidence establishes sufficiency.
+export const V2_PIPELINE_VERSION = "factory-v2-a.44";
 export const V2_SCHEMA_VERSION = "factory-v2-a.6";
 export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.7";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "authority-first-research.18";
+export const V2_POLICY_VERSION = "authority-first-research.19";
 export const V2_PROMPT_VERSION = "factory-v2-a-prompts.16";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);
