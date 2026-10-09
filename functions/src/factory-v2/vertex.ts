@@ -166,17 +166,10 @@ function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly Pub
       if (requiredQuestionIds && proposal.researchQuestionNumbers.some((number) => !requiredQuestionIds.has(map.questions[number - 1]?.questionId || ""))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities", proposalIndex, "researchQuestionNumbers"], message: "Continuation authority routing may reference only bounded completion questions." });
       if (!publisher) continue;
     }
-    for (const [questionIndex, question] of map.questions.entries()) {
-      if (requiredQuestionIds && !requiredQuestionIds.has(question.questionId)) continue;
-      for (const requirement of question.historicalPerspectiveRequirements || []) {
-        if (requirement.kind !== "MATERIAL_JURISDICTION") continue;
-        const hasCapacity = value.authorities.some((proposal) => {
-          const publisher = publishers[proposal.publisherNumber - 1];
-          return proposal.researchQuestionNumbers.includes(questionIndex + 1) && publisher !== undefined && proposal.historicalJurisdictionCapacityIds.some((capacityId) => publisher.historicalJurisdictionCapacities.some((capacity) => capacity.capacityId === capacityId && capacity.historicalJurisdiction.normalize("NFKC").trim().toLocaleLowerCase("en-US") === requirement.label.normalize("NFKC").trim().toLocaleLowerCase("en-US") && capacity.permittedResearchRoles.some((role) => effectiveRoles(proposal).includes(role))));
-        });
-        if (!hasCapacity) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Material jurisdiction requirement for question ${questionIndex + 1} requires a selected registered historical-jurisdiction capacity.` });
-      }
-    }
+    // Historical-jurisdiction capacity is selected deterministically from the
+    // locked requirement and immutable registry after model parsing. Requiring
+    // a model to reproduce an opaque capacity ID makes protected availability
+    // stochastic; downstream Topic Authority Set validation remains strict.
     for (const questionNumber of criticalNumbers) {
       const covered = value.authorities.some((proposal) => proposal.researchQuestionNumbers.includes(questionNumber) && effectiveRoles(proposal).some((role) => role !== "ORIENTATION"));
       if (!covered) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Critical question ${questionNumber} requires at least one evidentiary-core authority.` });

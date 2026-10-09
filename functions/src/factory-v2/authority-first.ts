@@ -355,6 +355,83 @@ export function historicalJurisdictionCapacityCovers(input: {
     && (!input.authorityDomains || input.authorityDomains.every((domain) => input.capacity.authorityDomains.some((covered) => normalize(covered) === normalize(domain))));
 }
 
+/**
+ * Completes only locked material-jurisdiction acquisition capacity from the
+ * immutable registry. A language model may propose additional authorities,
+ * but a valid registered capacity cannot be omitted merely because its
+ * opaque identifier was not repeated in model output.
+ */
+export function completeMaterialJurisdictionProposals(input: {
+  scope: ScopeContract;
+  researchMap: ResearchMap;
+  publishers: readonly PublisherAuthorityVersion[];
+  proposals: readonly TopicAuthorityProposal[];
+  requiredQuestionIds?: readonly string[];
+}): TopicAuthorityProposal[] {
+  const requiredQuestionIds = input.requiredQuestionIds ? new Set(input.requiredQuestionIds) : undefined;
+  const publishersById = new Map(input.publishers.map((publisher) => [publisher.publisherVersionId, publisher]));
+  const completed = input.proposals.map((proposal) => ({
+    ...proposal,
+    researchQuestionIds: uniqueSorted(proposal.researchQuestionIds),
+    roles: uniqueSorted(proposal.roles),
+    claimTypes: uniqueSorted(proposal.claimTypes),
+    perspectiveTags: uniqueSorted(proposal.perspectiveTags),
+    historicalJurisdictionCapacityIds: uniqueSorted(proposal.historicalJurisdictionCapacityIds || []),
+    routingObligationIds: []
+  }));
+  const endYear = input.scope.chronologyEnd?.latestYear ?? input.scope.chronologyEnd?.year ?? input.scope.chronologyStart.latestYear ?? input.scope.chronologyStart.year;
+  const period = { startYear: input.scope.chronologyStart.earliestYear ?? input.scope.chronologyStart.year, endYear };
+
+  for (const question of input.researchMap.questions) {
+    if (requiredQuestionIds && !requiredQuestionIds.has(question.questionId)) continue;
+    for (const requirement of question.historicalPerspectiveRequirements || []) {
+      if (requirement.kind !== "MATERIAL_JURISDICTION") continue;
+      const alreadyCovered = completed.some((proposal) => {
+        if (!proposal.researchQuestionIds.includes(question.questionId)) return false;
+        const publisher = publishersById.get(proposal.publisherVersionId);
+        if (!publisher) return false;
+        return (proposal.historicalJurisdictionCapacityIds || []).some((capacityId) => {
+          const capacity = publisher.historicalJurisdictionCapacities.find((item) => item.capacityId === capacityId);
+          return capacity !== undefined && historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: requirement.label, period, roles: proposal.roles, subjectRelationship: proposal.subjectRelationship });
+        });
+      });
+      if (alreadyCovered) continue;
+
+      const candidate = input.publishers
+        .filter((publisher) => publisher.state === "VERIFIED")
+        .flatMap((publisher) => publisher.historicalJurisdictionCapacities.flatMap((capacity) => {
+          const relationship = defaultSubjectRelationship(publisher);
+          const role = (["PRIMARY_RECORD", "CORROBORATION", "INTERPRETATION"] as const).find((item) => historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: requirement.label, period, roles: [item], subjectRelationship: relationship }));
+          return role ? [{ publisher, capacity, relationship, role }] : [];
+        }))
+        .sort((left, right) => `${left.publisher.publisherVersionId}:${left.capacity.capacityId}`.localeCompare(`${right.publisher.publisherVersionId}:${right.capacity.capacityId}`))[0];
+      if (!candidate) continue;
+
+      const existing = completed.find((proposal) => proposal.publisherVersionId === candidate.publisher.publisherVersionId);
+      if (existing) {
+        existing.researchQuestionIds = uniqueSorted([...existing.researchQuestionIds, question.questionId]);
+        existing.roles = uniqueSorted([...existing.roles, candidate.role]);
+        existing.claimTypes = uniqueSorted([...existing.claimTypes, ...question.claimTypesExpected]);
+        existing.perspectiveTags = uniqueSorted([...existing.perspectiveTags, requirement.label]);
+        existing.historicalJurisdictionCapacityIds = uniqueSorted([...(existing.historicalJurisdictionCapacityIds || []), candidate.capacity.capacityId]);
+        continue;
+      }
+      completed.push({
+        publisherVersionId: candidate.publisher.publisherVersionId,
+        researchQuestionIds: [question.questionId],
+        roles: [candidate.role],
+        claimTypes: uniqueSorted(question.claimTypesExpected),
+        subjectRelationship: candidate.relationship,
+        perspectiveTags: [requirement.label],
+        historicalJurisdictionCapacityIds: [candidate.capacity.capacityId],
+        routingObligationIds: [],
+        rationale: "Deterministically selected from the registered bounded historical-jurisdiction capacity required by the locked Research Map."
+      });
+    }
+  }
+  return completed.sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId));
+}
+
 function materialJurisdictionCapacityMatches(capacity: HistoricalJurisdictionCapacity, requirementLabel: string, binding: TopicAuthorityBinding, scope: ScopeContract): boolean {
   const endYear = scope.chronologyEnd?.latestYear ?? scope.chronologyEnd?.year ?? scope.chronologyStart.latestYear ?? scope.chronologyStart.year;
   return historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: requirementLabel, period: { startYear: scope.chronologyStart.earliestYear ?? scope.chronologyStart.year, endYear }, roles: binding.roles, subjectRelationship: binding.subjectRelationship });

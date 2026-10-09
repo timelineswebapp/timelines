@@ -10,6 +10,7 @@ import {
   buildEligibleRoutingCandidates,
   buildRoutingObligationSet,
   buildTopicAuthoritySet,
+  completeMaterialJurisdictionProposals,
   batchRoutingObligations,
   lockRoutingProposals,
   claimAuthorityApplicability,
@@ -153,6 +154,33 @@ test("a governed records holder satisfies Berlin Soviet jurisdiction only throug
     assert.ok(error.diagnostic.requirementId.startsWith("perspective-requirement-"));
     return true;
   });
+});
+
+test("locked material jurisdiction capacity is deterministically completed from the immutable registry", () => {
+  const berlinScope = scopeFixture({
+    title: "The Berlin Blockade and Airlift", subjectDefinition: "The Soviet blockade and Western airlift affecting Berlin from 1948 to 1949.",
+    chronologyStart: date(1948, "DAY", 6, 24), chronologyEnd: date(1949, "DAY", 5, 12), contextBefore: date(1945), contextAfter: date(1950),
+    spatialScope: { included: ["Berlin", "Soviet Occupation Zone"], excluded: [], boundaryRule: "Include directly material Soviet occupation administration." }
+  });
+  const berlinMap = buildResearchMap({ ...TEST_CONTEXT, topicId: "berlin-capacity-completion-test" }, berlinScope, {
+    version: 1, phases: [{ phaseId: "phase-blockade", label: "blockade", temporalRule: "Blockade and airlift period.", required: true, rationale: "The episode requires its central phase." }],
+    dimensions: [{ dimensionId: "dimension-policy", label: "policy", required: true, rationale: "Political policy evidence is required." }], entities: [],
+    questions: [{ questionId: "question-soviet-policy", text: "What Soviet occupation policy shaped the Berlin Blockade?", phaseIds: ["phase-blockade"], dimensionIds: ["dimension-policy"], claimTypesExpected: ["INSTITUTIONAL_ACTION"], likelySourceClasses: ["PRIMARY_INSTITUTIONAL"], expectedAuthorities: ["Soviet administrative records"], languages: ["ru", "en"], geography: ["Berlin"], historicalPerspectiveRequirements: [{ kind: "MATERIAL_JURISDICTION", label: "Soviet Union", rationale: "Soviet administrative records are materially required for this policy question." }], contested: false, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" }], terminology: [], knownUncertainty: []
+  });
+  const completed = completeMaterialJurisdictionProposals({ scope: berlinScope, researchMap: berlinMap, publishers, proposals: [] });
+  const garf = publisher("State Archive of the Russian Federation");
+  assert.deepEqual(completed, [{
+    publisherVersionId: garf.publisherVersionId,
+    researchQuestionIds: ["question-soviet-policy"],
+    roles: ["PRIMARY_RECORD"],
+    claimTypes: ["INSTITUTIONAL_ACTION"],
+    subjectRelationship: "INDEPENDENT",
+    perspectiveTags: ["Soviet Union"],
+    historicalJurisdictionCapacityIds: [garf.historicalJurisdictionCapacities[0]!.capacityId],
+    routingObligationIds: [],
+    rationale: "Deterministically selected from the registered bounded historical-jurisdiction capacity required by the locked Research Map."
+  }]);
+  assert.doesNotThrow(() => buildTopicAuthoritySet({ context: { ...TEST_CONTEXT, topicId: "berlin-capacity-completion-test" }, scope: berlinScope, researchMap: berlinMap, publishers, proposals: completed }));
 });
 
 test("Topic Authority Set rejects unknown authorities and requires evidentiary coverage for every critical question", () => {

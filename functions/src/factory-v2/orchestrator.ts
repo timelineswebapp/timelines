@@ -11,7 +11,7 @@ import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate }
 import { V2FirestoreRepository } from "./repositories/firestore";
 import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2ModelProvider } from "./vertex";
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
-import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
+import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, completeMaterialJurisdictionProposals, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 
@@ -302,7 +302,7 @@ function mergeAuthorityProposals(proposals: readonly TopicAuthorityProposal[]): 
   for (const proposal of proposals) {
     const existing = merged.get(proposal.publisherVersionId);
     if (!existing) {
-      merged.set(proposal.publisherVersionId, { ...proposal, researchQuestionIds: [...proposal.researchQuestionIds].sort(), roles: [...proposal.roles].sort(), claimTypes: [...proposal.claimTypes].sort(), perspectiveTags: [...proposal.perspectiveTags].sort(), routingObligationIds: [] });
+      merged.set(proposal.publisherVersionId, { ...proposal, researchQuestionIds: [...proposal.researchQuestionIds].sort(), roles: [...proposal.roles].sort(), claimTypes: [...proposal.claimTypes].sort(), perspectiveTags: [...proposal.perspectiveTags].sort(), historicalJurisdictionCapacityIds: [...(proposal.historicalJurisdictionCapacityIds || [])].sort(), routingObligationIds: [] });
       continue;
     }
     merged.set(proposal.publisherVersionId, {
@@ -311,6 +311,7 @@ function mergeAuthorityProposals(proposals: readonly TopicAuthorityProposal[]): 
       roles: [...new Set([...existing.roles, ...proposal.roles])].sort(),
       claimTypes: [...new Set([...existing.claimTypes, ...proposal.claimTypes])].sort(),
       perspectiveTags: [...new Set([...existing.perspectiveTags, ...proposal.perspectiveTags])].sort(),
+      historicalJurisdictionCapacityIds: [...new Set([...(existing.historicalJurisdictionCapacityIds || []), ...(proposal.historicalJurisdictionCapacityIds || [])])].sort(),
       routingObligationIds: [],
       rationale: existing.rationale
     });
@@ -478,7 +479,13 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: [], provider: dependencies.provider, deadlineAt, supervisor });
   modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
-  const allAuthorityProposals = mergeAuthorityProposals(authorityProposalResult.proposals);
+  const allAuthorityProposals = mergeAuthorityProposals(completeMaterialJurisdictionProposals({
+    scope: scopeResult.scope,
+    researchMap: mapResult.map,
+    publishers,
+    proposals: authorityProposalResult.proposals,
+    requiredQuestionIds: requiredAuthorityQuestionIds
+  }));
   let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId: continuation?.priorTopicAuthoritySet.topicAuthoritySetId });
   await persist("v2TopicAuthoritySets", topicAuthoritySet);
   await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));

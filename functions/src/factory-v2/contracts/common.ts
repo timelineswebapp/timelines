@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-// a.46 preserves the required sealed terminal artifact when a supervised
-// Authority-First run exhausts its deadline.
-export const V2_PIPELINE_VERSION = "factory-v2-a.46";
+// a.47 deterministically completes locked historical-jurisdiction capacity
+// from the immutable Registry before strict Authority-First admission.
+export const V2_PIPELINE_VERSION = "factory-v2-a.47";
 export const V2_SCHEMA_VERSION = "factory-v2-a.6";
 export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.7";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "authority-first-research.21";
+export const V2_POLICY_VERSION = "authority-first-research.22";
 export const V2_PROMPT_VERSION = "factory-v2-a-prompts.16";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);

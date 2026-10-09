@@ -8,6 +8,12 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 `PHASE_2_SUCCESSOR_VERIFICATION — FOUNDER_AUTHORIZED_GENERIC_STAKEHOLDER_POLICY_CORRECTION`
 
+## 2026-10-09 — `.22` deterministic historical-jurisdiction capacity completion
+
+The fresh `.21` Phase-2 run sealed a valid San Francisco CKS, then Berlin stopped fail-closed during Authority Routing. Its sealed report is `artifacts/authority-first-acquisition-canary/2026-10-09T09-32-31-891Z/report.json`; protected-state parity was exact, and Ada and Printing Press were not executed. The failure did not show that the founder-approved bounded GARF `Soviet Union` capacity was absent: the immutable Registry still contains it. Instead, Authority Routing required the model to reproduce the capacity's opaque identifier, allowing model-schema repair to exhaust before the deterministic Topic Authority Set could validate the registered capacity.
+
+The bounded `.22` successor makes completion of each locked `MATERIAL_JURISDICTION` requirement deterministic from an exact, period-bounded, role- and relationship-eligible Registry capacity. It neither derives a jurisdiction from retrieval geography nor aliases a present-day state, and it leaves final evidence, independence, corroboration, coverage, and protected-availability checks strict. Topic Authority Set merging now also preserves selected capacity IDs. Regression coverage proves that a bounded Soviet-administration capacity is selected only through the Registry and successfully passes the unchanged strict admission checks. The candidate is versioned `factory-v2-a.47` / `authority-first-research.22`; full verification, a new manifest, and a fresh four-subject Phase-2 certification are required. `.21` evidence will not be combined with this successor.
+
 ## 2026-10-09 — `.19` founder-authorized generic stakeholder correction
 
 The founder authorized a general correction separating historical actors from publisher identity. `STAKEHOLDER` remains immutable in each Research Map and mandatory in the final evidence audit, but it is no longer a universal pre-acquisition Registry-availability gate. Governed research may begin through the bounded Topic Authority Set; an acquired-source failure to satisfy a material stakeholder requirement creates an evidence-derived, lineage-bearing Gap Obligation, and an unresolved final gap remains fail-closed. The correction does not expand the Registry or encode San Francisco-specific facts.
