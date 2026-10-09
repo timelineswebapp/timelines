@@ -196,13 +196,14 @@ export function rankCoverageSourcesByQuestion(input: {
   maximumSources: number;
   maximumPerQuestion?: number;
   /**
-   * A bounded continuation may receive a Registry-bound source URL whose
-   * title/snippet has no lexical overlap with the locked gap question.  The
-   * source is not evidence merely because it was bound: this flag permits one
-   * verified, authority-targeted retrieval attempt for that exact question so
-   * extraction and the ordinary evidence audit can decide its value.
+   * A controlled authority operation may return a URL whose title/snippet has
+   * no lexical overlap with its exact bound question. The source is not
+   * evidence merely because it was bound: this flag permits one verified,
+   * authority-targeted retrieval attempt for that question so extraction and
+   * the ordinary evidence audit decide its value. It applies equally to an
+   * initial acquisition and a bounded continuation.
    */
-  allowBoundAuthorityCompletionFallback?: boolean;
+  allowBoundAuthorityFallback?: boolean;
 }): { retrievalCandidates: Array<DiscoveredSourceCandidate & { admittedQuestionIds: string[]; admissionScores: Record<string, number> }>; decisions: CoverageAdmissionDecision[] } {
   const ceiling = Math.min(60, Math.max(1, input.maximumSources));
   const maximumPerQuestion = Math.min(4, Math.max(1, input.maximumPerQuestion ?? 4));
@@ -229,7 +230,7 @@ export function rankCoverageSourcesByQuestion(input: {
       decisions.push({ ...candidate, rank: index + 1, disposition: prohibited ? "EXCLUDED_PROHIBITED" : relevant ? "RETRIEVAL_CANDIDATE" : "EXCLUDED_IRRELEVANT", exclusionReason: prohibited ? "SOURCE_AUTHORITY_ORIENTATION_ONLY" : relevant ? null : "SOURCE_DISCOVERY_NOT_RELEVANT_TO_QUESTION" });
     });
   }
-  if (input.allowBoundAuthorityCompletionFallback) {
+  if (input.allowBoundAuthorityFallback) {
     for (const question of input.map.questions.filter((item) => item.priority !== "SUPPORTING")) {
       if (decisions.some((decision) => decision.questionId === question.questionId && decision.disposition === "RETRIEVAL_CANDIDATE")) continue;
       const fallback = decisions

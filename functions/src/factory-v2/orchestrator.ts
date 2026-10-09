@@ -631,7 +631,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     map: mapResult.map,
     publishers,
     maximumSources: Math.min(40, config.budgetBundle.maximumSourceDocuments),
-    allowBoundAuthorityCompletionFallback: Boolean(continuation)
+    // Controlled operations are already Registry-bound to their exact
+    // questions. Metadata relevance is a ranking signal, not an additional
+    // authority gate; retain one bounded retrieval path when it is empty.
+    allowBoundAuthorityFallback: true
   });
   const sourceCandidates = coverageAdmission.retrievalCandidates;
   progress.sourceDocumentsDiscovered = discovered.size;

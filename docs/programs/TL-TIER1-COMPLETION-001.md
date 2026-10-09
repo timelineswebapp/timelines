@@ -6,7 +6,13 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_SUCCESSOR_VERIFICATION — BOUNDED_CONTINUATION_SOURCE_ADMISSION_CORRECTION`
+`PHASE_2_SUCCESSOR_VERIFICATION — BOUNDED_AUTHORITY_SOURCE_ADMISSION_CORRECTION`
+
+## 2026-10-09 — `.25` bounded authority-source admission correction
+
+The sealed `.24` release `154820d8a84b4ba642a3f5d4a918da725c8fd37071afa4cc74d4e8580de2f6c0` (source `e5b2dfb208d34ba83aff878d5c0de45137c0ac6d`) executed one fresh four-subject certification. San Francisco, Berlin, and Ada produced valid CKS results. Printing Press then stopped fail-closed during initial acquisition: eleven governed authority operations and two bounded grounding escalations produced no admissible retrieval candidate, so no source snapshot, atomic claim, or resolved event was created. The terminal reason is `EVIDENCE_FIRST_INITIAL_ACQUISITION_FAILED:NO_DURABLE_SOURCE_SNAPSHOTS,NO_ATOMIC_CLAIMS,NO_SUPPORTED_CLAIMS,NO_RESOLVED_EVENT_CANDIDATES,ACQUISITION_CONFIDENCE_FAIL`. The sealed report is `artifacts/authority-first-acquisition-canary/2026-10-09T10-22-42-991Z/report.json`; exact protected-state parity holds for all four executed subjects. No evidence from `.24` will be combined with a successor.
+
+This is an initial-acquisition instance of the general metadata-only authority-source admission defect. The bounded `.25` successor permits one HTTPS retrieval candidate per question only when the URL was returned by a controlled operation already bound to that exact question, its Registry publisher is verified and eligible for evidence, its role is `AUTHORITY_TARGETED`, and ordinary relevance admission found no candidate. The correction applies equally to initial and continuation acquisition; it does not make a URL evidence, broaden authority, admit provisional or orientation-only sources, weaken source/claim authority, independence, corroboration, coverage, conflict, perspective, security, or final fail-closed audit. The candidate is versioned `factory-v2-a.50` / `authority-first-research.25`; it requires full repository verification, release sealing, and one new complete four-subject Phase-2 certification.
 
 ## 2026-10-09 — `.24` bounded continuation source-admission correction
 
