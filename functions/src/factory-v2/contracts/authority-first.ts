@@ -10,7 +10,7 @@ const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, i
  * Evidence-derived completion successor.  Historical routing artifacts remain
  * parseable for provenance, but are not part of this policy's execution path.
  */
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.25" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.26" as const;
 export const AUTHORITY_REGISTRY_VERSION = "authority-registry.3" as const;
 /** Versioned admission policy for registry-governed specialist collections. */
 export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;
@@ -140,6 +140,32 @@ export const topicAuthorityBindingSchema = topicAuthorityProposalSchema.extend({
   validationStatus: z.literal("ELIGIBLE")
 }).strict();
 
+/**
+ * Immutable pre-acquisition provenance for a protected historical
+ * requirement. This records capacity selection only; it never asserts that
+ * qualifying evidence was acquired.
+ */
+export const protectedAvailabilityDecisionSchema = z.object({
+  requirementId: idSchema,
+  requirementKind: z.enum(["INDEPENDENT_SCHOLARSHIP", "PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "MATERIAL_JURISDICTION"]),
+  requirementLabel: boundedText(1, 160),
+  researchQuestionId: idSchema,
+  eligibleCandidates: z.array(z.object({
+    publisherVersionId: idSchema,
+    eligibleRoles: z.array(authorityResearchRoleSchema.exclude(["ORIENTATION"])).min(1).max(4).refine(unique),
+    subjectRelationship: subjectRelationshipSchema,
+    authorityFamily: authorityFamilySchema,
+    historicalJurisdictionCapacityIds: ids(24),
+    rejectionReason: boundedText(2, 240).nullable()
+  }).strict()).max(60),
+  modelProposedPublisherVersionIds: ids(60),
+  selectedPublisherVersionId: idSchema.nullable(),
+  selectedHistoricalJurisdictionCapacityIds: ids(24),
+  selectionMethod: z.enum(["MODEL_PRESERVED", "DETERMINISTIC_UNIQUE", "BOUNDED_AI_SELECTION", "NO_ELIGIBLE_CAPACITY", "UNRESOLVED_AMBIGUITY"]),
+  registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION),
+  policyVersion: z.literal(AUTHORITY_FIRST_POLICY_VERSION)
+}).strict();
+
 export const topicAuthoritySetSchema = z.object({
   ...immutableEnvelopeFields,
   topicAuthoritySetId: idSchema,
@@ -152,6 +178,7 @@ export const topicAuthoritySetSchema = z.object({
   /** Null for evidence-derived .16+ authority sets. */
   routingObligationSetId: idSchema.nullable(),
   bindings: z.array(topicAuthorityBindingSchema).min(1).max(24),
+  protectedAvailabilityDecisions: z.array(protectedAvailabilityDecisionSchema).max(120).default([]),
   /** Historical route records only; canonical .16+ sets seal an empty list. */
   obligationRoutes: z.array(z.object({ routingObligationId: idSchema, bindingId: idSchema }).strict()).max(240).refine((items) => unique(items.map((item) => `${item.routingObligationId}:${item.bindingId}`))),
   rejectedPublisherVersionIds: ids(60),

@@ -6,7 +6,17 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — RECURRING_MODEL_DEPENDENT_PROTECTED_AUTHORITY_ROUTING`
+`PHASE_2_SUCCESSOR_VERIFICATION — AUTHORITY_FIRST_.26`
+
+## 2026-10-09 — founder-authorized `.26` deterministic protected-authority completion
+
+The founder authorized one general Registry-governed correction for the `.25` `PROTECTED_AUTHORITY_POLICY_DEFECT`. The `.26` successor (`factory-v2-a.51` / `authority-first-research.26`, Authority-First artifact schema `factory-v2-a.7`, CKS schema unchanged at `factory-v2-a.7`) preserves generic `STAKEHOLDER` as an evidence-level requirement and retains protected pre-acquisition safeguards for `INDEPENDENT_SCHOLARSHIP`, `PARTY_PARTICIPANT`, `AFFECTED_COMMUNITY`, `CUSTODIAL_COMMUNITY`, and `MATERIAL_JURISDICTION`.
+
+For each locked protected requirement, canonical code now evaluates verified Registry capacity with the existing role, relationship, independence, historical-jurisdiction, period, language, access, and authority-family constraints. A valid model selection is preserved; exactly one eligible candidate is completed deterministically; multiple candidates are passed only to a bounded, eligible-only semantic selector; zero capacity and unresolved selection remain fail-closed. The sealed Topic Authority Set now carries immutable per-requirement availability decisions, candidate/rejection lineage, model-proposal observation, selected capacity, selection method, Registry version, and policy version. Completion proves capacity only, never acquired evidence or final perspective sufficiency.
+
+No Registry institution or historical content was added. No generic stakeholder preflight, universal predictive route system, autonomous discovery, publication, institutional mutation, or public mutation was introduced. The same-evidence compatible-paraphrase conflict correction remains unchanged.
+
+Local verification passed: root tests (249), Functions tests (287 passed, 2 intentional skips), focused Authority-First protected-capacity and routing regressions, root and Functions strict typechecks, root lint, Functions build, Next production build, tier1-security-gate.1, `git diff --check`, six Firestore emulator tests under process-local JDK 21.0.12.1, and all six institutional certification test suites. A clean successor release and one fresh four-subject Phase-2 run remain required; `.24` and `.25` evidence will not be combined.
 
 ## 2026-10-09 — `.25` Phase-2 hard-stop evidence
 

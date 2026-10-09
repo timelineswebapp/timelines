@@ -9,9 +9,9 @@ import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { performBoundedReconnaissance } from "./reconnaissance";
 import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate } from "./resolution";
 import { V2FirestoreRepository } from "./repositories/firestore";
-import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2ModelProvider } from "./vertex";
+import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, selectRoutingObligationBatch, StructuredStageError, type V2ModelProvider } from "./vertex";
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
-import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, completeMaterialJurisdictionProposals, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
+import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, completeProtectedAvailabilityProposals, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 
@@ -479,14 +479,39 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: [], provider: dependencies.provider, deadlineAt, supervisor });
   modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
-  const allAuthorityProposals = mergeAuthorityProposals(completeMaterialJurisdictionProposals({
+  const protectedAvailability = completeProtectedAvailabilityProposals({
     scope: scopeResult.scope,
     researchMap: mapResult.map,
     publishers,
     proposals: authorityProposalResult.proposals,
     requiredQuestionIds: requiredAuthorityQuestionIds
-  }));
-  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId: continuation?.priorTopicAuthoritySet.topicAuthoritySetId });
+  });
+  // This is not universal predictive routing. It ranks only protected
+  // requirements that remain ambiguous after Registry-only completion.
+  const protectedSelection = protectedAvailability.unresolved.length === 0 ? null : await selectRoutingObligationBatch({
+    context,
+    scope: scopeResult.scope,
+    map: mapResult.map,
+    publishers,
+    obligations: protectedAvailability.unresolved.map((items) => items[0]!).map((candidate) => ({ routingObligationId: candidate.requirementId, researchQuestionId: candidate.researchQuestionId, requirementKind: candidate.requirementKind, label: candidate.requirementLabel, rationale: "Locked protected availability requires selection from the already eligible Registry candidate set." })),
+    candidates: protectedAvailability.unresolved.flat().map((candidate) => ({ routingObligationId: candidate.requirementId, researchQuestionId: candidate.researchQuestionId, publisherVersionId: candidate.publisherVersionId, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, independenceGroupId: publishers.find((publisher) => publisher.publisherVersionId === candidate.publisherVersionId)!.independenceGroupId, specialistCollectionProfileIds: [] })),
+    provider: dependencies.provider,
+    deadlineAt,
+    supervisor
+  });
+  if (protectedSelection) {
+    modelExecutions.push(...protectedSelection.executions.map((execution) => modelExecutionSchema.parse(execution)));
+    for (const execution of protectedSelection.executions) await persist("v2ModelExecutions", execution);
+    for (const decision of protectedAvailability.decisions) {
+      const selected = protectedSelection.proposals.find((proposal) => proposal.routingObligationIds.includes(decision.requirementId));
+      if (!selected) continue;
+      decision.selectedPublisherVersionId = selected.publisherVersionId;
+      decision.selectedHistoricalJurisdictionCapacityIds = selected.historicalJurisdictionCapacityIds || [];
+      decision.selectionMethod = "BOUNDED_AI_SELECTION";
+    }
+  }
+  const allAuthorityProposals = mergeAuthorityProposals([...protectedAvailability.proposals, ...(protectedSelection?.proposals || [])]);
+  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, protectedAvailabilityDecisions: protectedAvailability.decisions, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId: continuation?.priorTopicAuthoritySet.topicAuthoritySetId });
   await persist("v2TopicAuthoritySets", topicAuthoritySet);
   await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));
   const authorityResearchPlan = buildAuthorityResearchPlan({ context, set: topicAuthoritySet, researchMap: mapResult.map });

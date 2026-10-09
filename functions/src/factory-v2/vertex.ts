@@ -166,29 +166,9 @@ function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly Pub
       if (requiredQuestionIds && proposal.researchQuestionNumbers.some((number) => !requiredQuestionIds.has(map.questions[number - 1]?.questionId || ""))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities", proposalIndex, "researchQuestionNumbers"], message: "Continuation authority routing may reference only bounded completion questions." });
       if (!publisher) continue;
     }
-    // Historical-jurisdiction capacity is selected deterministically from the
-    // locked requirement and immutable registry after model parsing. Requiring
-    // a model to reproduce an opaque capacity ID makes protected availability
-    // stochastic; downstream Topic Authority Set validation remains strict.
-    for (const [questionIndex, question] of map.questions.entries()) {
-      if (requiredQuestionIds && !requiredQuestionIds.has(question.questionId)) continue;
-      for (const requirement of question.historicalPerspectiveRequirements || []) {
-        if (requirement.kind === "MATERIAL_JURISDICTION" || !requiresProtectedPreAcquisitionAvailability(requirement.kind)) continue;
-        const permittedRelationships = requirement.kind === "AFFECTED_COMMUNITY" || requirement.kind === "CUSTODIAL_COMMUNITY"
-          ? ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"]
-          : requirement.kind === "PARTY_PARTICIPANT"
-            ? ["STATE_PARTY", "PARTICIPANT", "INDEPENDENT"]
-            : ["INDEPENDENT"];
-        const covered = value.authorities.some((proposal) => {
-          const publisher = publishers[proposal.publisherNumber - 1];
-          return proposal.researchQuestionNumbers.includes(questionIndex + 1)
-            && publisher !== undefined
-            && effectiveRoles(proposal).some((role) => role !== "ORIENTATION")
-            && permittedRelationships.includes(defaultSubjectRelationship(publisher));
-        });
-        if (!covered) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Protected ${requirement.kind} requirement for question ${questionIndex + 1} requires an eligible registered authority.` });
-      }
-    }
+    // Protected availability is completed from the immutable Registry after
+    // model parsing. A model omission is not permitted to erase eligible
+    // governed capacity; the downstream Topic Authority Set remains strict.
     for (const questionNumber of criticalNumbers) {
       const covered = value.authorities.some((proposal) => proposal.researchQuestionNumbers.includes(questionNumber) && effectiveRoles(proposal).some((role) => role !== "ORIENTATION"));
       if (!covered) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Critical question ${questionNumber} requires at least one evidentiary-core authority.` });
@@ -329,13 +309,14 @@ export async function selectRoutingObligationBatch(input: {
   const proposals = result.value.selections.map((selection) => {
     const obligation = obligationsById.get(selection.routingObligationId)!;
     const publisher = input.publishers[selection.publisherNumber - 1]!;
+    const candidate = candidatesByObligation.get(selection.routingObligationId)!.find((item) => item.publisherNumber === selection.publisherNumber)!;
     const question = questionsById.get(obligation.researchQuestionId)!;
     return {
       publisherVersionId: publisher.publisherVersionId,
       researchQuestionIds: [obligation.researchQuestionId],
       roles: [selection.role],
       claimTypes: question.claimTypesExpected,
-      subjectRelationship: defaultSubjectRelationship(publisher),
+      subjectRelationship: candidate.subjectRelationship,
       perspectiveTags: [obligation.label],
       historicalJurisdictionCapacityIds: [],
       routingObligationIds: [selection.routingObligationId],

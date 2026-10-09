@@ -11,11 +11,13 @@ import {
   buildRoutingObligationSet,
   buildTopicAuthoritySet,
   completeMaterialJurisdictionProposals,
+  completeProtectedAvailabilityProposals,
   batchRoutingObligations,
   lockRoutingProposals,
   claimAuthorityApplicability,
   isInitialAuthorityRequiredQuestion,
   historicalJurisdictionCapacityCovers,
+  protectedAvailabilityCandidates,
   ProtectedRepresentationAvailabilityError,
   registeredGroundingExpansionPublishers,
   registryCapability,
@@ -242,6 +244,42 @@ test("protected representation fails preflight when the bounded authority univer
     () => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: protectedMap, publishers, proposals: validProposals() }),
     /PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:question-chronology:AFFECTED_COMMUNITY/
   );
+});
+
+test("protected availability candidates are Registry-derived and exclude generic stakeholders", () => {
+  const scholarlyRequirement = { kind: "INDEPENDENT_SCHOLARSHIP" as const, label: "Independent scholarship", rationale: "Independent academic interpretation is required before research begins." };
+  const candidates = protectedAvailabilityCandidates({ scope, researchMap: map, publishers, questionId: "question-interpretation", requirement: scholarlyRequirement });
+  assert.ok(candidates.some((candidate) => candidate.publisherVersionId === publisher("Oxford University Press").publisherVersionId));
+  assert.ok(candidates.every((candidate) => candidate.authorityFamily === "ACADEMIC_SCHOLARLY" && candidate.subjectRelationship === "INDEPENDENT"));
+  assert.deepEqual(protectedAvailabilityCandidates({ scope, researchMap: map, publishers, questionId: "question-chronology", requirement: { kind: "STAKEHOLDER", label: "Mission participants", rationale: "Actors remain an evidence-level requirement." } }), []);
+});
+
+test("unique protected capacity is completed with immutable availability lineage", () => {
+  const berlinScope = scopeFixture({ chronologyStart: date(1948), chronologyEnd: date(1949) });
+  const berlinMap = buildResearchMap({ ...TEST_CONTEXT, topicId: "protected-unique-capacity" }, berlinScope, {
+    version: 1,
+    phases: [{ phaseId: "phase-policy", label: "policy", temporalRule: "1948 through 1949", required: true, rationale: "The policy period is required." }],
+    dimensions: [{ dimensionId: "dimension-policy", label: "policy", required: true, rationale: "The policy dimension is required." }],
+    entities: [],
+    questions: [{ questionId: "question-soviet-policy", text: "Which records establish Soviet occupation policy?", phaseIds: ["phase-policy"], dimensionIds: ["dimension-policy"], claimTypesExpected: ["INSTITUTIONAL_ACTION"], likelySourceClasses: ["PRIMARY_INSTITUTIONAL"], expectedAuthorities: ["Soviet records"], languages: ["ru"], geography: ["Berlin"], historicalPerspectiveRequirements: [{ kind: "MATERIAL_JURISDICTION", label: "Soviet Union", rationale: "Bounded Soviet administrative records are materially required." }], contested: false, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" }],
+    terminology: [], knownUncertainty: []
+  });
+  const completed = completeProtectedAvailabilityProposals({ scope: berlinScope, researchMap: berlinMap, publishers, proposals: [] });
+  assert.equal(completed.unresolved.length, 0);
+  assert.equal(completed.decisions[0]!.selectionMethod, "DETERMINISTIC_UNIQUE");
+  assert.equal(completed.proposals[0]!.publisherVersionId, publisher("State Archive of the Russian Federation").publisherVersionId);
+  assert.equal(completed.decisions[0]!.selectedHistoricalJurisdictionCapacityIds.length, 1);
+});
+
+test("a valid protected model selection is preserved and zero capacity remains fail-closed", () => {
+  const scholarlyMap = { ...map, questions: map.questions.map((question) => question.questionId === "question-interpretation" ? { ...question, historicalPerspectiveRequirements: [{ kind: "INDEPENDENT_SCHOLARSHIP" as const, label: "Independent scholarship", rationale: "Independent academic interpretation is required before research begins." }] } : question) };
+  const oxford = publisher("Oxford University Press");
+  const preserved = completeProtectedAvailabilityProposals({ scope, researchMap: scholarlyMap, publishers, proposals: [proposal("Oxford University Press", { researchQuestionIds: ["question-interpretation"], roles: ["INTERPRETATION"], claimTypes: ["INTERPRETATION"], subjectRelationship: "INDEPENDENT" })] });
+  assert.equal(preserved.decisions[0]!.selectionMethod, "MODEL_PRESERVED");
+  assert.equal(preserved.decisions[0]!.selectedPublisherVersionId, oxford.publisherVersionId);
+  const noCapacity = completeProtectedAvailabilityProposals({ scope, researchMap: { ...scholarlyMap, questions: scholarlyMap.questions.map((question) => question.questionId === "question-interpretation" ? { ...question, historicalPerspectiveRequirements: [{ kind: "CUSTODIAL_COMMUNITY" as const, label: "Unrepresented custodial community", rationale: "A custodial collection is required but none is registered." }] } : question) }, publishers: publishers.filter((item) => item.institutionType === "GOVERNMENT"), proposals: [] });
+  assert.equal(noCapacity.decisions[0]!.selectionMethod, "NO_ELIGIBLE_CAPACITY");
+  assert.equal(noCapacity.decisions[0]!.selectedPublisherVersionId, null);
 });
 
 test("generic stakeholder labels remain immutable evidence requirements without creating a publisher-identity preflight gate", () => {
