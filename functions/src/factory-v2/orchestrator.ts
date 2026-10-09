@@ -626,7 +626,13 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       existing.discoveryText = [...new Set([existing.discoveryText, groundingAttribution?.discoveryText].filter((value): value is string => Boolean(value)))].join(" ").slice(0, 12_000);
     } else discovered.set(key, { canonicalUrl: key, originalUrl: returnedUrl, title: groundingAttribution?.title || new URL(key).pathname.split("/").filter(Boolean).at(-1) || publisher?.canonicalName || domain, domain, queryId: operation.operationId, researchQuestionIds: [...operation.researchQuestionIds], role: operation.layer === "ORIENTATION" ? "ORIENTATION" : "AUTHORITY_TARGETED", intendedSourceClass: provisionalSourceClass(publisher), discoveryOrder: discoveryOrder++, specialistCollectionProfileId: operation.specialistCollectionProfileId, discoveryText: groundingAttribution?.discoveryText || groundingAttribution?.title || "" });
   }
-  const coverageAdmission = rankCoverageSourcesByQuestion({ candidates: [...discovered.values()], map: mapResult.map, publishers, maximumSources: Math.min(40, config.budgetBundle.maximumSourceDocuments) });
+  const coverageAdmission = rankCoverageSourcesByQuestion({
+    candidates: [...discovered.values()],
+    map: mapResult.map,
+    publishers,
+    maximumSources: Math.min(40, config.budgetBundle.maximumSourceDocuments),
+    allowBoundAuthorityCompletionFallback: Boolean(continuation)
+  });
   const sourceCandidates = coverageAdmission.retrievalCandidates;
   progress.sourceDocumentsDiscovered = discovered.size;
   progress.directRetrievalAttempts = 0;

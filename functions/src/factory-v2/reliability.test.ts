@@ -56,6 +56,26 @@ test("verified authority status cannot admit a topic-irrelevant discovery page",
   assert.deepEqual(result.retrievalCandidates.map((item) => item.canonicalUrl), [relevant.canonicalUrl]);
 });
 
+test("bounded completion may retrieve one question-bound verified authority when discovery metadata is lexically empty", () => {
+  const map = { phases: [{ phaseId: "phase-launch", label: "Launch phase (1969-1970)", temporalRule: "1969 through 1970", required: true, rationale: "locked" }], dimensions: [{ dimensionId: "dimension-operations", label: "Operations", required: true, rationale: "locked" }], questions: [question] } as ResearchMap;
+  const boundButMetadataPoor = { ...candidate("https://www.nasa.gov/history/records", "Records", "", 0, "nasa.gov"), role: "AUTHORITY_TARGETED" as const };
+  const defaultAdmission = rankCoverageSourcesByQuestion({ candidates: [boundButMetadataPoor], map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 1 });
+  const completionAdmission = rankCoverageSourcesByQuestion({ candidates: [boundButMetadataPoor], map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 1, allowBoundAuthorityCompletionFallback: true });
+  assert.equal(defaultAdmission.decisions[0]?.disposition, "EXCLUDED_IRRELEVANT");
+  assert.deepEqual(defaultAdmission.retrievalCandidates, []);
+  assert.equal(completionAdmission.decisions[0]?.disposition, "RETRIEVAL_CANDIDATE");
+  assert.deepEqual(completionAdmission.retrievalCandidates.map((item) => item.canonicalUrl), [boundButMetadataPoor.canonicalUrl]);
+});
+
+test("bounded completion fallback never admits provisional or orientation-only discovery", () => {
+  const map = { phases: [{ phaseId: "phase-launch", label: "Launch phase (1969-1970)", temporalRule: "1969 through 1970", required: true, rationale: "locked" }], dimensions: [{ dimensionId: "dimension-operations", label: "Operations", required: true, rationale: "locked" }], questions: [question] } as ResearchMap;
+  const provisional = { ...candidate("https://unknown.example/records", "Records", "", 0, "unknown.example"), role: "AUTHORITY_TARGETED" as const };
+  const orientationOnly = { ...candidate("https://www.nasa.gov/records", "Records", "", 1, "nasa.gov"), role: "ORIENTATION" as const };
+  const result = rankCoverageSourcesByQuestion({ candidates: [provisional, orientationOnly], map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 2, allowBoundAuthorityCompletionFallback: true });
+  assert.deepEqual(result.retrievalCandidates, []);
+  assert.ok(result.decisions.every((item) => item.disposition !== "RETRIEVAL_CANDIDATE"));
+});
+
 test("generic development and press-release path terms cannot fake chronology relevance", () => {
   const chronologyQuestion = { ...question, questionId: "software-chronology-question-printing", text: "What discrete dated occurrences establish the chronology of The Development of the Printing Press?", phaseIds: ["phase-printing"], dimensionIds: ["dimension-printing"] } as ResearchMap["questions"][number];
   const map = { phases: [{ phaseId: "phase-printing", label: "Contemporary Developments", temporalRule: "modern printing developments", required: true, rationale: "locked" }], dimensions: [{ dimensionId: "dimension-printing", label: "Printing technology", required: true, rationale: "locked" }], questions: [chronologyQuestion] } as ResearchMap;

@@ -6,7 +6,13 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_SUCCESSOR_VERIFICATION — FOUNDER_AUTHORIZED_GENERIC_STAKEHOLDER_POLICY_CORRECTION`
+`PHASE_2_SUCCESSOR_VERIFICATION — BOUNDED_CONTINUATION_SOURCE_ADMISSION_CORRECTION`
+
+## 2026-10-09 — `.24` bounded continuation source-admission correction
+
+The sealed `.23` release `f0985483e2345f42fe4fc82a1e05edce38cc474040e4597d9a67db70321b0393` (source `4403c181036c4aa25ecde9fc747f503b296acf6c`) started one fresh four-subject certification. San Francisco and Berlin reached valid CKS results, but Ada Lovelace stopped fail-closed in its bounded second acquisition round: 61 Registry-bound sources were discovered, yet metadata-only lexical admission selected zero retrieval candidates. The terminal reason is `EVIDENCE_FIRST_GAP_COMPLETION_FAILED:NO_DURABLE_SOURCE_SNAPSHOTS,NO_ATOMIC_CLAIMS,NO_SUPPORTED_CLAIMS,ACQUISITION_CONFIDENCE_FAIL`; Printing Press was correctly not executed after the failure. The immutable report is `artifacts/authority-first-acquisition-canary/2026-10-09T09-51-38-332Z/report.json`. All three executed subjects retained exact protected-state parity.
+
+This is a bounded general continuation-source-admission defect, not a failure of the founder-approved generic-stakeholder policy, historical authority, evidence, independence, or protected-representation rules. The `.24` successor permits at most one HTTPS source retrieval per targeted completion question only when that source is already explicitly bound to the question by a verified Registry authority, is authority-targeted, and ordinary lexical admission found no candidate. It does not make the source evidence, does not admit provisional or orientation-only sources, does not change initial acquisition, and leaves claim-relative authority, extraction, source authority, corroboration, coverage, perspective, conflict, security, and final fail-closed CKS audit unchanged. The candidate is versioned `factory-v2-a.49` / `authority-first-research.24`; it requires full repository verification, clean release sealing, and one fresh four-subject Phase-2 certification. `.23` evidence will not be combined with the successor.
 
 ## 2026-10-09 — `.23` protected-representation initial-coverage correction
 

@@ -195,6 +195,14 @@ export function rankCoverageSourcesByQuestion(input: {
   publishers: readonly PublisherAuthorityVersion[];
   maximumSources: number;
   maximumPerQuestion?: number;
+  /**
+   * A bounded continuation may receive a Registry-bound source URL whose
+   * title/snippet has no lexical overlap with the locked gap question.  The
+   * source is not evidence merely because it was bound: this flag permits one
+   * verified, authority-targeted retrieval attempt for that exact question so
+   * extraction and the ordinary evidence audit can decide its value.
+   */
+  allowBoundAuthorityCompletionFallback?: boolean;
 }): { retrievalCandidates: Array<DiscoveredSourceCandidate & { admittedQuestionIds: string[]; admissionScores: Record<string, number> }>; decisions: CoverageAdmissionDecision[] } {
   const ceiling = Math.min(60, Math.max(1, input.maximumSources));
   const maximumPerQuestion = Math.min(4, Math.max(1, input.maximumPerQuestion ?? 4));
@@ -220,6 +228,21 @@ export function rankCoverageSourcesByQuestion(input: {
       const relevant = candidate.components.gapRelevance > 0 || candidate.components.temporalFit > 0;
       decisions.push({ ...candidate, rank: index + 1, disposition: prohibited ? "EXCLUDED_PROHIBITED" : relevant ? "RETRIEVAL_CANDIDATE" : "EXCLUDED_IRRELEVANT", exclusionReason: prohibited ? "SOURCE_AUTHORITY_ORIENTATION_ONLY" : relevant ? null : "SOURCE_DISCOVERY_NOT_RELEVANT_TO_QUESTION" });
     });
+  }
+  if (input.allowBoundAuthorityCompletionFallback) {
+    for (const question of input.map.questions.filter((item) => item.priority !== "SUPPORTING")) {
+      if (decisions.some((decision) => decision.questionId === question.questionId && decision.disposition === "RETRIEVAL_CANDIDATE")) continue;
+      const fallback = decisions
+        .filter((decision) => decision.questionId === question.questionId
+          && decision.disposition === "EXCLUDED_IRRELEVANT"
+          && decision.authorityEligibility === "ELIGIBLE_FOR_EVIDENCE"
+          && decision.role === "AUTHORITY_TARGETED"
+          && decision.canonicalUrl.startsWith("https://"))
+        .sort((left, right) => right.admissionScore - left.admissionScore || left.canonicalUrl.localeCompare(right.canonicalUrl))[0];
+      if (!fallback) continue;
+      fallback.disposition = "RETRIEVAL_CANDIDATE";
+      fallback.exclusionReason = null;
+    }
   }
   const eligible = decisions.filter((decision) => decision.disposition === "RETRIEVAL_CANDIDATE");
   const selectedUrls = new Set<string>();
