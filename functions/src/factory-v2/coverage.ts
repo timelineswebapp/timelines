@@ -4,6 +4,7 @@ import {
   knowledgeCompletionResultSchema,
   knowledgeCoverageAuditSchema,
   researchMapSchema,
+  V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION,
   V2_PIPELINE_VERSION,
   type AtomicClaimVersion,
   type CanonicalEventVersion,
@@ -426,10 +427,10 @@ export function buildKnowledgeCompletionResult(context: ArtifactContext, payload
     gapObligationIds: unique([...(payload.gapObligationIds || [])]),
     completionCandidateAttemptIds: unique([...(payload.completionCandidateAttemptIds || [])]).sort()
   };
-  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: "factory-v2-a.8" });
+  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION });
   return parseSealedArtifact(knowledgeCompletionResultSchema, {
     ...semanticEnvelope(context, completedKnowledgeSetId, payload.completionPlanId),
-    schemaVersion: "factory-v2-a.8",
+    schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION,
     artifactId: completedKnowledgeSetId,
     completionResultId: completedKnowledgeSetId,
     completedKnowledgeSetId,

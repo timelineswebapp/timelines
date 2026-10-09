@@ -87,6 +87,7 @@ export const V2_CORPUS_COLLECTIONS = [
   "v2GapObligations",
   "v2KnowledgeCompletionPlans",
   "v2CompletionCandidatePools",
+  "v2CompletionAuthorityCandidatePools",
   "v2CompletionCandidateAttempts",
   "v2KnowledgeCompletionResults",
   "v2EventLocks",

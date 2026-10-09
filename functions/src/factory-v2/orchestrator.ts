@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, canonicalEventVersionSchema, completionCandidateAttemptSchema, completionCandidatePoolSchema, deadlineTerminalRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthorityProposal, type TopicAuthoritySet } from "./contracts";
+import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, canonicalEventVersionSchema, completionAuthorityCandidatePoolSchema, completionCandidateAttemptSchema, completionCandidatePoolSchema, deadlineTerminalRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthorityProposal, type TopicAuthoritySet } from "./contracts";
 import { assertV2AShadowEnabled, authorityFirstRunDeadlineAt, type FactoryV2Config } from "./config";
 import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
 import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, executionArtifactId, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
@@ -14,7 +14,7 @@ import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion
 import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, completeProtectedAvailabilityProposals, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
-import { classifyCompletionYield, decideCompletionFallback } from "./completion-fallback";
+import { classifyCompletionYield, decideCompletionFallback, sealCompletionAuthorityUniverse, type CompletionAuthorityRequirement } from "./completion-fallback";
 
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
 
@@ -155,6 +155,7 @@ export type V2AShadowResult = {
   conflictSetIds: string[];
   eventVersionIds: string[];
   completionCandidatePoolId: string | null;
+  completionAuthorityCandidatePoolId: string | null;
   completionCandidateAttemptIds: string[];
   metrics: V2ACertificationMetrics;
   blockingReasons: string[];
@@ -275,6 +276,7 @@ export type OrchestratorDependencies = {
     scope: ScopeContract;
     researchMap: ResearchMap;
     gapIdsByQuestionId?: ReadonlyMap<string, readonly string[]>;
+    completionAuthorityRequirements?: readonly CompletionAuthorityRequirement[];
     priorTopicAuthoritySet: TopicAuthoritySet;
   };
 };
@@ -669,13 +671,33 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     // Controlled operations are already Registry-bound to their exact
     // questions. Metadata relevance is a ranking signal, not an additional
     // authority gate; retain one bounded retrieval path when it is empty.
-    allowBoundAuthorityFallback: true
+    // A completion authority is retained in the authority pool even when it
+    // yields no applicable URL. Unlike initial acquisition, never promote an
+    // arbitrary bound URL merely to make the pool non-empty.
+    allowBoundAuthorityFallback: !continuation
   });
   const sourceCandidates = coverageAdmission.retrievalCandidates;
   let completionCandidatePoolId: string | null = null;
+  let completionAuthorityCandidatePoolId: string | null = null;
+  let completionAuthorityPoolCandidates: Array<{ questionId: string; gapObligationIds: string[]; authorityBindingId: string; publisherVersionId: string; candidateRank: number; disposition: "ELIGIBLE" | "EXCLUDED_CEILING"; exclusionReason: "PER_GAP_AUTHORITY_CEILING" | null }> = [];
   let completionPoolCandidates: Array<{ questionId: string; gapObligationIds: string[]; authorityBindingId: string; publisherVersionId: string; canonicalUrl: string; candidateRank: number }> = [];
   const completionCandidateAttemptIds: string[] = [];
   if (continuation) {
+    const authorityCandidates = sealCompletionAuthorityUniverse({
+      bindings: topicAuthoritySet.bindings,
+      requirements: continuation.completionAuthorityRequirements || [...(continuation.gapIdsByQuestionId || new Map()).entries()].map(([questionId, gapObligationIds]) => ({
+        questionId,
+        gapObligationIds,
+        requiredRoles: ["PRIMARY_RECORD", "CORROBORATION"],
+        permittedSubjectRelationships: ["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"],
+        minimumIndependentGroups: 0
+      })),
+      candidateCeiling: 4
+    });
+    completionAuthorityPoolCandidates = authorityCandidates;
+    const authorityPayload = { completionPlanId: continuation.completionPlanId, candidateCeiling: 4, candidates: authorityCandidates };
+    completionAuthorityCandidatePoolId = semanticArtifactId("completion-authority-candidate-pool", context, authorityPayload);
+    await persist("v2CompletionAuthorityCandidatePools", parseSealedArtifact(completionAuthorityCandidatePoolSchema, { ...semanticEnvelope(context, completionAuthorityCandidatePoolId, continuation.completionPlanId), completionAuthorityCandidatePoolId, ...authorityPayload }));
     const candidates = sourceCandidates.flatMap((candidate) => candidate.admittedQuestionIds
       .filter((questionId) => continuation.gapIdsByQuestionId?.has(questionId))
       .map((questionId) => {
@@ -785,6 +807,45 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   progress.controlledResearchLedgerId = controlledResearchLedger.controlledResearchLedgerId;
 
   if (continuation) {
+    // Discovery is downstream of authority eligibility. Record every sealed
+    // authority that did not yield an applicable URL instead of letting it
+    // vanish from lineage. Source-level admission remains strict.
+    const sourceBoundAuthorityKeys = new Set(sourceCandidates.flatMap((candidate) => candidate.admittedQuestionIds.map((questionId) => {
+      const publisher = publisherForDomain(candidate.domain, publishers);
+      const binding = publisher && topicAuthoritySet.bindings.find((item) => item.publisherVersionId === publisher.publisherVersionId && item.researchQuestionIds.includes(questionId));
+      return binding ? `${questionId}:${binding.bindingId}` : null;
+    })).filter((value): value is string => value !== null));
+    for (const authority of completionAuthorityPoolCandidates.filter((candidate) => candidate.disposition === "ELIGIBLE" && !sourceBoundAuthorityKeys.has(`${candidate.questionId}:${candidate.authorityBindingId}`))) {
+      const operations = controlledOperations.filter((operation) => operation.authorityBindingId === authority.authorityBindingId && operation.researchQuestionIds.includes(authority.questionId));
+      const reasons = operations.map((operation) => operation.failureReason || "").join(" ");
+      const retrievalOutcome = /HTTP_403/u.test(reasons) ? "DISCOVERY_HTTP_403" as const
+        : /TIMEOUT|DEADLINE/u.test(reasons) ? "DISCOVERY_TIMEOUT" as const
+          : /SECURITY|SSRF|ROBOTS/u.test(reasons) ? "DISCOVERY_SECURITY_REJECTED" as const
+            : operations.some((operation) => operation.status === "SUCCEEDED" && operation.returnedUrls.length > 0) ? "DISCOVERY_NO_RELEVANT_URL" as const
+              : "DISCOVERY_NO_URLS" as const;
+      const laterCandidateExists = completionAuthorityPoolCandidates.some((candidate) => candidate.questionId === authority.questionId && candidate.disposition === "ELIGIBLE" && candidate.candidateRank > authority.candidateRank);
+      const fallbackDisposition = decideCompletionFallback({ yield: "RETRIEVAL_FAILED", sealedCandidatesRemaining: laterCandidateExists ? 1 : 0 });
+      const payload = {
+        completionPlanId: continuation.completionPlanId,
+        gapObligationIds: authority.gapObligationIds,
+        questionId: authority.questionId,
+        authorityBindingId: authority.authorityBindingId,
+        publisherVersionId: authority.publisherVersionId,
+        sourceSnapshotId: null,
+        canonicalUrl: null,
+        attemptOrder: authority.candidateRank,
+        retrievalOutcome,
+        admissibleAtomicClaimCount: 0,
+        gapRelevantAtomicClaimCount: 0,
+        rejectedAtomicClaimCount: 0,
+        terminalReason: retrievalOutcome,
+        fallbackDisposition
+      };
+      const completionCandidateAttemptId = executionArtifactId("completion-candidate-attempt", context, payload);
+      const sealed = parseSealedArtifact(completionCandidateAttemptSchema, { ...immutableEnvelope(context, completionCandidateAttemptId), completionCandidateAttemptId, ...payload });
+      await persist("v2CompletionCandidateAttempts", sealed);
+      completionCandidateAttemptIds.push(sealed.completionCandidateAttemptId);
+    }
     const retrievedUrls = new Set(retrievedWithDuplicates.map((result) => result.source.canonicalUrl));
     for (const candidate of completionPoolCandidates.filter((item) => !retrievedUrls.has(item.canonicalUrl))) {
       const rejection = progress.retrievalFailureDetails.find((detail) => detail.urlHash === sha256(candidate.canonicalUrl))?.reason || "RETRIEVAL_FAILED";
@@ -1312,6 +1373,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     conflictSetIds: conflictSets.map((conflict) => conflict.conflictSetId),
     eventVersionIds: events.map((event) => event.eventVersionId),
     completionCandidatePoolId,
+    completionAuthorityCandidatePoolId,
     completionCandidateAttemptIds,
     metrics,
     blockingReasons

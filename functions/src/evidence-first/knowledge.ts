@@ -175,7 +175,20 @@ export async function buildCompletedKnowledge(input: {
       for (const task of completionPlan.tasks) for (const questionId of task.questionIds) {
         gapIdsByQuestionId.set(questionId, [...new Set([...(gapIdsByQuestionId.get(questionId) || []), ...task.gapIds])].sort());
       }
-      completionResult = await runV2AShadowFixture(input.descriptor, { ...input.config, budgetBundle: budget }, { ...dependencies, continuation: { context: completionContext, originalKnowledgeRunId: initialResult.context.runId, completionPlanId: completionPlan.completionPlanId, scope: initial.scope, researchMap: completionMap, gapIdsByQuestionId, priorTopicAuthoritySet } });
+      const completionAuthorityRequirements = completionPlan.tasks.flatMap((task) => task.questionIds.map((questionId) => {
+        const obligations = gapObligations.filter((obligation) => task.gapObligationIds?.includes(obligation.gapObligationId));
+        return {
+          questionId,
+          gapObligationIds: task.gapObligationIds || [],
+          requiredRoles: [...new Set(obligations.flatMap((obligation) => obligation.requiredRoles))],
+          permittedSubjectRelationships: [...new Set(obligations.flatMap((obligation) => obligation.permittedSubjectRelationships))],
+          minimumIndependentGroups: Math.max(0, ...obligations.map((obligation) => obligation.minimumIndependentGroups)),
+          languages: completionMap.questions.find((question) => question.questionId === questionId)?.languages || [],
+          geography: [],
+          historicalJurisdictionCapacityIds: []
+        };
+      }));
+      completionResult = await runV2AShadowFixture(input.descriptor, { ...input.config, budgetBundle: budget }, { ...dependencies, continuation: { context: completionContext, originalKnowledgeRunId: initialResult.context.runId, completionPlanId: completionPlan.completionPlanId, scope: initial.scope, researchMap: completionMap, gapIdsByQuestionId, completionAuthorityRequirements, priorTopicAuthoritySet } });
     } catch (error) {
       if (error instanceof V2ARunError) throw new KnowledgeConstructionError(error.message, "GAP_COMPLETION", acquisitionResults, { initialAuditId: initialAudit.coverageAuditId, finalAuditId: null }, [...metrics, error.metrics]);
       throw error;
@@ -208,7 +221,7 @@ export async function buildCompletedKnowledge(input: {
     perspectiveAuditId: result.perspectiveAuditId,
     confidenceVectorId: result.confidenceVectorId
   }));
-  const completedKnowledgeSet = buildKnowledgeCompletionResult(finalContext, { completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash, finalCoverageAuditId: finalAudit.coverageAuditId, finalCoverageAuditPayloadHash: finalAudit.payloadHash, scopeContractId: initial.scope.scopeContractId, scopePayloadHash: initial.scope.payloadHash, researchMapId: finalMap.researchMapId, researchMapPayloadHash: finalMap.payloadHash, authorityAcquisitionRounds, gapObligationIds: completionPlan.gapObligationIds || [], completionCandidatePoolId: acquisitionResults.map((result) => result.completionCandidatePoolId).find((id): id is string => id !== null) || null, completionCandidateAttemptIds: acquisitionResults.flatMap((result) => result.completionCandidateAttemptIds), candidateEventVersionIds: events.map((event) => event.eventVersionId), candidateClaimVersionIds: claims.map((claim) => claim.claimVersionId), authorityVerdictIds: verdicts.map((verdict) => verdict.claimAuthorityVerdictId), conflictSetIds: conflicts.map((conflict) => conflict.conflictSetId), unresolvedGapIds: finalAudit.gaps.map((gap) => gap.gapId), finalVerdict: finalAudit.verdict });
+  const completedKnowledgeSet = buildKnowledgeCompletionResult(finalContext, { completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash, finalCoverageAuditId: finalAudit.coverageAuditId, finalCoverageAuditPayloadHash: finalAudit.payloadHash, scopeContractId: initial.scope.scopeContractId, scopePayloadHash: initial.scope.payloadHash, researchMapId: finalMap.researchMapId, researchMapPayloadHash: finalMap.payloadHash, authorityAcquisitionRounds, gapObligationIds: completionPlan.gapObligationIds || [], completionCandidatePoolId: acquisitionResults.map((result) => result.completionCandidatePoolId).find((id): id is string => id !== null) || null, completionAuthorityCandidatePoolId: acquisitionResults.map((result) => result.completionAuthorityCandidatePoolId).find((id): id is string => id !== null) || null, completionCandidateAttemptIds: acquisitionResults.flatMap((result) => result.completionCandidateAttemptIds), candidateEventVersionIds: events.map((event) => event.eventVersionId), candidateClaimVersionIds: claims.map((claim) => claim.claimVersionId), authorityVerdictIds: verdicts.map((verdict) => verdict.claimAuthorityVerdictId), conflictSetIds: conflicts.map((conflict) => conflict.conflictSetId), unresolvedGapIds: finalAudit.gaps.map((gap) => gap.gapId), finalVerdict: finalAudit.verdict });
   await repository.createImmutable("v2KnowledgeCompletionResults", completedKnowledgeSet);
   if (finalAudit.verdict !== "SUFFICIENT") throw new KnowledgeConstructionError(`EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:${finalAudit.gaps.map((gap) => gap.code).join(",")}`, "FINAL_COVERAGE", acquisitionResults, { initialAuditId: initialAudit.coverageAuditId, finalAuditId: finalAudit.coverageAuditId });
   return { scope: initial.scope, researchMap: finalMap, claims, authorityVerdicts: verdicts, conflicts, events, evidenceSegments: segments, sourceSnapshots: snapshots, sourceDocuments: documents, completedKnowledgeSet, initialCoverageAuditId: initialAudit.coverageAuditId, finalCoverageAuditId: finalAudit.coverageAuditId, completionRoundCount: completionPlan.round, acquisitionMetrics: metrics, controlledResearchLedgerIds: authorityAcquisitionRounds.map((round) => round.controlledResearchLedgerId) };
