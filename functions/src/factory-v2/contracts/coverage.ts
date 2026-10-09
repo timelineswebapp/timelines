@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { boundedText, hashSchema, idSchema, immutableEnvelopeFields, V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_LEGACY_SCHEMA_VERSION, V2_PIPELINE_VERSION, V2_SCHEMA_VERSION } from "./common";
+import { boundedText, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields, V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_LEGACY_SCHEMA_VERSION, V2_PIPELINE_VERSION, V2_SCHEMA_VERSION } from "./common";
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const ids = (maximum = 200) => z.array(idSchema).max(maximum).refine(unique, "IDs must be unique.");
@@ -141,6 +141,48 @@ export const knowledgeCompletionPlanSchema = z.object({
   if (plan.round === 1 && plan.tasks.length === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ["tasks"], message: "A completion round requires at least one gap-directed task." });
 });
 
+/** Immutable, per-candidate proof for the single evidence-derived completion
+ * round.  It distinguishes an empty admissible yield from transport/security
+ * failure and prevents a later candidate from hiding an earlier attempt. */
+export const completionCandidateAttemptSchema = z.object({
+  ...immutableEnvelopeFields,
+  completionCandidateAttemptId: idSchema,
+  completionPlanId: idSchema,
+  gapObligationIds: ids(20),
+  questionId: idSchema,
+  authorityBindingId: idSchema,
+  publisherVersionId: idSchema,
+  sourceSnapshotId: idSchema.nullable(),
+  canonicalUrl: httpsUrlSchema,
+  attemptOrder: z.number().int().min(1).max(2),
+  retrievalOutcome: z.enum(["RETRIEVED", "RETRIEVAL_FAILED", "SECURITY_REJECTED", "DEADLINE_EXHAUSTED", "BUDGET_EXHAUSTED"]),
+  admissibleAtomicClaimCount: z.number().int().nonnegative().max(100),
+  gapRelevantAtomicClaimCount: z.number().int().nonnegative().max(100),
+  rejectedAtomicClaimCount: z.number().int().nonnegative().max(100),
+  terminalReason: z.enum(["QUALIFYING_EVIDENCE", "ZERO_CLAIM_YIELD", "CLAIMS_INADMISSIBLE", "RETRIEVAL_FAILED", "SECURITY_REJECTED", "DEADLINE_EXHAUSTED", "BUDGET_EXHAUSTED", "CANDIDATES_EXHAUSTED"]),
+  fallbackDisposition: z.enum(["STOP_QUALIFYING_EVIDENCE", "STOP_INADMISSIBLE_CLAIMS", "TRY_NEXT_SEALED_CANDIDATE", "STOP_CANDIDATES_EXHAUSTED", "STOP_BUDGET_OR_DEADLINE", "STOP_SECURITY_FAIL_CLOSED"])
+}).strict().superRefine((attempt, context) => {
+  if (attempt.retrievalOutcome === "RETRIEVED" && attempt.sourceSnapshotId === null) context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceSnapshotId"], message: "Retrieved completion candidate requires a sealed snapshot." });
+  if (attempt.terminalReason === "ZERO_CLAIM_YIELD" && (attempt.admissibleAtomicClaimCount !== 0 || attempt.gapRelevantAtomicClaimCount !== 0 || attempt.rejectedAtomicClaimCount !== 0)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["terminalReason"], message: "ZERO_CLAIM_YIELD requires no admissible or rejected atomic claims." });
+  if (attempt.terminalReason === "QUALIFYING_EVIDENCE" && attempt.gapRelevantAtomicClaimCount === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ["terminalReason"], message: "Qualifying evidence requires a gap-relevant admissible claim." });
+});
+
+/** The completion retrieval universe is sealed after normal bounded authority
+ * admission and before any candidate is fetched or extracted. */
+export const completionCandidatePoolSchema = z.object({
+  ...immutableEnvelopeFields,
+  completionCandidatePoolId: idSchema,
+  completionPlanId: idSchema,
+  candidates: z.array(z.object({
+    questionId: idSchema,
+    gapObligationIds: ids(20),
+    authorityBindingId: idSchema,
+    publisherVersionId: idSchema,
+    canonicalUrl: httpsUrlSchema,
+    candidateRank: z.number().int().min(1).max(4)
+  }).strict()).max(30).refine((candidates) => unique(candidates.map((candidate) => `${candidate.questionId}:${candidate.canonicalUrl}`)), "Completion candidates must be unique per question.")
+}).strict();
+
 const legacyKnowledgeCompletionResultSchema = z.object({
   ...immutableEnvelopeFields,
   schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, V2_SCHEMA_VERSION]),
@@ -190,6 +232,10 @@ export const completedKnowledgeSetSchema = z.object({
   }).strict()).min(1).max(2).refine((rounds) => unique(rounds.map((round) => round.controlledResearchLedgerId)), "Authority acquisition rounds must be unique."),
   /** Evidence-derived obligations sealed between initial and completion rounds. */
   gapObligationIds: ids(200).optional(),
+  /** Every attempt in a completion candidate fallback chain, in deterministic
+   * order. Empty only when no completion round was required. */
+  completionCandidateAttemptIds: ids(20).optional(),
+  completionCandidatePoolId: idSchema.nullable().optional(),
   /** Historical pre-Authority-First lineage only. New canonical CKS artifacts
    * use authorityAcquisitionRounds and never populate queryLedgerId. */
   queryLedgerId: idSchema.optional(),
@@ -212,6 +258,8 @@ export type KnowledgeCoverageCell = z.infer<typeof knowledgeCoverageCellSchema>;
 export type KnowledgeCoverageGap = z.infer<typeof knowledgeCoverageGapSchema>;
 export type GapObligation = z.infer<typeof gapObligationSchema>;
 export type KnowledgeCompletionPlan = z.infer<typeof knowledgeCompletionPlanSchema>;
+export type CompletionCandidateAttempt = z.infer<typeof completionCandidateAttemptSchema>;
+export type CompletionCandidatePool = z.infer<typeof completionCandidatePoolSchema>;
 export type KnowledgeCompletionTask = z.infer<typeof knowledgeCompletionTaskSchema>;
 export type KnowledgeCompletionResult = z.infer<typeof knowledgeCompletionResultSchema>;
 export type CompletedKnowledgeSet = z.infer<typeof completedKnowledgeSetSchema>;

@@ -423,12 +423,13 @@ export function buildKnowledgeCompletionResult(context: ArtifactContext, payload
     authorityVerdictIds: unique([...payload.authorityVerdictIds]),
     conflictSetIds: unique([...payload.conflictSetIds]),
     unresolvedGapIds: unique([...payload.unresolvedGapIds]),
-    gapObligationIds: unique([...(payload.gapObligationIds || [])])
+    gapObligationIds: unique([...(payload.gapObligationIds || [])]),
+    completionCandidateAttemptIds: unique([...(payload.completionCandidateAttemptIds || [])]).sort()
   };
-  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: "factory-v2-a.7" });
+  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: "factory-v2-a.8" });
   return parseSealedArtifact(knowledgeCompletionResultSchema, {
     ...semanticEnvelope(context, completedKnowledgeSetId, payload.completionPlanId),
-    schemaVersion: "factory-v2-a.7",
+    schemaVersion: "factory-v2-a.8",
     artifactId: completedKnowledgeSetId,
     completionResultId: completedKnowledgeSetId,
     completedKnowledgeSetId,

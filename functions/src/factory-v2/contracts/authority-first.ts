@@ -10,7 +10,7 @@ const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, i
  * Evidence-derived completion successor.  Historical routing artifacts remain
  * parseable for provenance, but are not part of this policy's execution path.
  */
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.26" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.27" as const;
 export const AUTHORITY_REGISTRY_VERSION = "authority-registry.3" as const;
 /** Versioned admission policy for registry-governed specialist collections. */
 export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;

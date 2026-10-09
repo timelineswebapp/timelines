@@ -326,6 +326,7 @@ async function main() {
       continuation: {
         context,
         originalKnowledgeRunId: SOURCE_RUN_ID,
+        completionPlanId: completionPlan.completionPlanId,
         scope,
         researchMap: completionMap,
         gapIdsByQuestionId,

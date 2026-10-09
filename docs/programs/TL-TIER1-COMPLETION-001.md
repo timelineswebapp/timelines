@@ -6,7 +6,17 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — AUTHORITY_FIRST_.26`
+`PHASE_2_SUCCESSOR_IMPLEMENTATION_VERIFIED — AUTHORITY_FIRST_.27; RELEASE SEAL AND FRESH CERTIFICATION PENDING`
+
+## 2026-10-09 — founder-authorized `.27` claim-yield-aware completion fallback
+
+The founder superseded the `.26` hard stop with one bounded, general correction: within the existing one-round evidence-derived completion authority, a successful retrieval that yields zero admissible atomic claims relevant to the exact locked gap is now explicitly classified as `ZERO_CLAIM_YIELD`. Only then may the next already admitted, Registry-bound candidate for that same gap be attempted. The policy permits no new Registry authority, discovery, provider, geography, source class, completion round, budget, deadline, or subject-specific rule. Inadmissible/weak claims do not trigger source shopping; security, budget, canonical, and deadline failures retain their fail-closed terminal handling.
+
+The `.27` implementation creates a sealed completion-candidate-pool before retrieval and an immutable per-attempt record for retrieval failure/security rejection, `ZERO_CLAIM_YIELD`, inadmissible claims, qualifying evidence, exhaustion, and terminal disposition. A resulting Completed Knowledge Set records the exact pool and all attempt identities. The candidate ceiling is two already-admitted candidates per locked completion question; it is the smallest bounded fallback capacity and remains inside the existing completion budgets. Scope, Research Map, Gap Obligations, authority binding, claim-relative authority, independence, corroboration, perspective, coverage, conflict handling, source security, and protected-state controls are unchanged.
+
+Versions are now `factory-v2-a.52`, `authority-first-research.27`, and artifact/CKS schema `factory-v2-a.8`; Authority Registry remains `.3` and specialist collection profiles remain `.1`. The correction has no subject identity or historical facts in policy code. Its 18 adversarial regression cases cover first-candidate success, zero-yield continuation/exhaustion, retrieval versus yield versus inadmissibility distinction, exact-gap relevance, no source shopping, sealed/unregistered boundaries, scope/map immutability, budget/deadline/security stopping, lineage, CKS reconstruction linkage, and no subject-specific exception.
+
+Repository verification is green: Functions tests 307 passed with 2 intentional emulator skips; root tests 249 passed; strict Functions and root typechecks; root lint; Functions and Next production builds; Tier-1 security gate; `git diff --check`; Firestore emulator 6/6 using process-local JDK 21; and all six institutional certification suites (68/7/7/7/8/8). No provider-backed run, autonomous discovery, production/public/institutional mutation, or release sealing has occurred during this implementation. The next authorized action is to seal one clean `.27` successor and then run one fresh, non-combined four-subject Phase-2 certification.
 
 ## 2026-10-09 — `.26` Phase-2 terminal evidence and source-completion hard stop
 
