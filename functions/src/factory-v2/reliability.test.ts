@@ -149,3 +149,15 @@ test("institutional research candidates outrank orientation sources without trea
   assert.equal(institutionalRetrievalPriority(academic), 70);
   assert.equal(institutionalRetrievalPriority({ ...academic, role: "ORIENTATION", intendedSourceClass: "OTHER" }), 0);
 });
+
+test("independent scholarship requirements reserve a discovered registered scholarly candidate", () => {
+  const scholarlyQuestion = { ...question, historicalPerspectiveRequirements: [{ kind: "INDEPENDENT_SCHOLARSHIP" as const, label: "Independent scholarship", rationale: "Independent scholarly interpretation is materially required." }] };
+  const map = { phases: [{ phaseId: "phase-launch", label: "Launch phase (1969-1970)", temporalRule: "1969 through 1970", required: true, rationale: "locked" }], dimensions: [{ dimensionId: "dimension-operations", label: "Operations", required: true, rationale: "locked" }], questions: [scholarlyQuestion] } as ResearchMap;
+  const evidence = "Apollo 11 launched in 1969.";
+  const result = rankCoverageSourcesByQuestion({ candidates: [
+    candidate("https://www.nasa.gov/a", "Apollo 11 launch", evidence, 0, "nasa.gov"),
+    candidate("https://www.nasa.gov/b", "Apollo 11 records", evidence, 1, "nasa.gov"),
+    candidate("https://academic.oup.com/history/apollo", "Apollo scholarship", evidence, 2, "academic.oup.com")
+  ], map, publishers: bootstrapPublisherRegistry(TEST_CONTEXT), maximumSources: 3 });
+  assert.ok(result.retrievalCandidates.some((item) => item.domain === "academic.oup.com"));
+});

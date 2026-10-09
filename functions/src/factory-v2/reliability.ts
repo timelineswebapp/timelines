@@ -223,6 +223,20 @@ export function rankCoverageSourcesByQuestion(input: {
   }
   const eligible = decisions.filter((decision) => decision.disposition === "RETRIEVAL_CANDIDATE");
   const selectedUrls = new Set<string>();
+  // An explicit independent-scholarship requirement is a structural evidence
+  // constraint, not a score preference. Preserve one discovered, registered
+  // scholarly candidate per affected question before primary-record ranking
+  // can consume the bounded retrieval capacity.
+  for (const question of input.map.questions.filter((item) => item.priority !== "SUPPORTING" && (item.historicalPerspectiveRequirements || []).some((requirement) => requirement.kind === "INDEPENDENT_SCHOLARSHIP"))) {
+    if (selectedUrls.size >= ceiling) break;
+    const scholarly = eligible.filter((decision) => decision.questionId === question.questionId)
+      .filter((decision) => {
+        const publisher = publisherForDomain(decision.domain, input.publishers);
+        return publisher?.institutionType === "UNIVERSITY" || publisher?.institutionType === "SCHOLARLY_PUBLISHER";
+      })
+      .sort((left, right) => left.rank - right.rank || left.canonicalUrl.localeCompare(right.canonicalUrl))[0];
+    if (scholarly) selectedUrls.add(scholarly.canonicalUrl);
+  }
   const maximumRank = Math.min(maximumPerQuestion, Math.max(0, ...eligible.map((decision) => decision.rank)));
   for (let rank = 1; rank <= maximumRank && selectedUrls.size < ceiling; rank += 1) {
     for (const question of input.map.questions.filter((item) => item.priority !== "SUPPORTING")) {

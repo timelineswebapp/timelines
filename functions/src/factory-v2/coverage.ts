@@ -26,7 +26,7 @@ import {
 import { parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId } from "./hashing";
 
-export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.11" as const;
+export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.12" as const;
 
 export const DEFAULT_COMPLETION_BUDGET = {
   maximumRounds: 1 as const,
