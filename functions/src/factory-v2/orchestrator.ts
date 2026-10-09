@@ -702,7 +702,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     });
     completionAuthorityPoolCandidates = authorityCandidates;
     const authorityPayload = { completionPlanId: continuation.completionPlanId, candidateCeiling: 4, candidates: authorityCandidates };
-    completionAuthorityCandidatePoolId = semanticArtifactId("completion-authority-candidate-pool", context, authorityPayload);
+    // Content-address namespaces are deliberately bounded to 31 characters.
+    // Keep this semantic artifact distinct from the URL candidate pool while
+    // retaining a valid, stable namespace for the sealed authority universe.
+    completionAuthorityCandidatePoolId = semanticArtifactId("completion-auth-candidate-pool", context, authorityPayload);
     await persist("v2CompletionAuthorityCandidatePools", parseSealedArtifact(completionAuthorityCandidatePoolSchema, { ...semanticEnvelope(context, completionAuthorityCandidatePoolId, continuation.completionPlanId), completionAuthorityCandidatePoolId, ...authorityPayload }));
     const candidates = sourceCandidates.flatMap((candidate) => candidate.admittedQuestionIds
       .filter((questionId) => continuation.gapIdsByQuestionId?.has(questionId))

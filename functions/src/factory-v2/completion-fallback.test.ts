@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { classifyCompletionYield, decideCompletionFallback, sealCompletionAuthorityUniverse } from "./completion-fallback";
+import { semanticArtifactId } from "./contracts/builders";
 
 const classify = (overrides: Partial<Parameters<typeof classifyCompletionYield>[0]> = {}) => classifyCompletionYield({ retrieved: true, securityRejected: false, deadlineExceeded: false, budgetExhausted: false, admissibleGapClaims: 0, rejectedClaims: 0, ...overrides });
 
@@ -44,4 +45,16 @@ test("completion authority universe: registry outsiders cannot enter because onl
   const result = sealCompletionAuthorityUniverse({ bindings: [authority("bound")], requirements: [requirement], candidateCeiling: 4 });
   assert.equal(result.length, 1);
   assert.equal(result[0]!.publisherVersionId, "publisher-bound");
+});
+
+test("completion authority universe: sealed pool identity uses a valid bounded content-address namespace", () => {
+  const id = semanticArtifactId("completion-auth-candidate-pool", {
+    corpusId: "test-corpus",
+    topicId: "test-topic",
+    generation: 1,
+    policyVersion: "test-policy",
+    runId: "test-run",
+    createdAt: "2026-10-09T00:00:00.000Z"
+  }, { completionPlanId: "plan-1", candidateCeiling: 4, candidates: [] });
+  assert.match(id, /^completion-auth-candidate-pool-[a-f0-9]{64}$/u);
 });

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // a.48 includes every protected historical requirement in the bounded
 // Authority-First availability set before strict admission.
-export const V2_PIPELINE_VERSION = "factory-v2-a.53";
+export const V2_PIPELINE_VERSION = "factory-v2-a.54";
 export const V2_SCHEMA_VERSION = "factory-v2-a.9";
 export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.9";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
