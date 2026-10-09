@@ -6,7 +6,11 @@ const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const ids = (maximum: number, minimum = 0) => z.array(idSchema).min(minimum).max(maximum).refine(unique, "IDs must be unique.");
 const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, itemMaximum)).max(maximum).refine(unique, "Values must be unique.");
 
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.15" as const;
+/**
+ * Evidence-derived completion successor.  Historical routing artifacts remain
+ * parseable for provenance, but are not part of this policy's execution path.
+ */
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.16" as const;
 export const AUTHORITY_REGISTRY_VERSION = "authority-registry.2" as const;
 /** Versioned admission policy for registry-governed specialist collections. */
 export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;
@@ -89,8 +93,8 @@ export const topicAuthorityProposalSchema = z.object({
   claimTypes: z.array(claimTypeSchema).min(1).max(12).refine(unique),
   subjectRelationship: subjectRelationshipSchema,
   perspectiveTags: strings(20, 160),
-  // Omission remains parse-compatible for historical model fixtures, but the
-  // transformed artifact always has an explicit immutable mapping array.
+  /** Legacy routing lineage only.  The .16 canonical path never derives
+   * historical sufficiency from a planned route. */
   routingObligationIds: ids(120).optional().transform((value) => value || []),
   rationale: boundedText(10, 1000)
 }).strict();
@@ -142,8 +146,10 @@ export const topicAuthoritySetSchema = z.object({
   researchMapPayloadHash: hashSchema,
   registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION),
   registryHash: hashSchema,
-  routingObligationSetId: idSchema,
+  /** Null for evidence-derived .16+ authority sets. */
+  routingObligationSetId: idSchema.nullable(),
   bindings: z.array(topicAuthorityBindingSchema).min(1).max(24),
+  /** Historical route records only; canonical .16+ sets seal an empty list. */
   obligationRoutes: z.array(z.object({ routingObligationId: idSchema, bindingId: idSchema }).strict()).max(240).refine((items) => unique(items.map((item) => `${item.routingObligationId}:${item.bindingId}`))),
   rejectedPublisherVersionIds: ids(60),
   criticalQuestionIds: ids(120),
@@ -185,10 +191,12 @@ export const authorityResearchPlanSchema = z.object({
   ...immutableEnvelopeFields,
   authorityResearchPlanId: idSchema,
   topicAuthoritySetId: idSchema,
-  routingObligationSetId: idSchema,
+  /** Null for evidence-derived .16+ research plans. */
+  routingObligationSetId: idSchema.nullable(),
   budget: controlledResearchBudgetSchema,
   operations: z.array(authorityResearchPlanOperationSchema).min(1).max(25),
   coveredCriticalQuestionIds: ids(120),
+  /** Historical route coverage only; canonical .16+ plans seal an empty list. */
   coveredRoutingObligationIds: ids(120),
   state: z.literal("AUTHORIZED")
 }).strict().superRefine((plan, context) => {

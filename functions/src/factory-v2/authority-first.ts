@@ -55,12 +55,12 @@ export const DEFAULT_CONTROLLED_RESEARCH_BUDGET = controlledResearchBudgetSchema
 });
 
 /**
- * Initial authority routing must be closed over every question that later
- * receives a mandatory authority or perspective check. Geography is
- * deliberately absent: it is retrieval context, not a historical viewpoint.
+ * The initial bounded authority universe must cover critical questions and
+ * contested subjects. Historical perspectives remain mandatory in the final
+ * evidence audit, but are not predictive pre-acquisition source routes.
  */
-export function isInitialAuthorityRequiredQuestion(question: Pick<ResearchMap["questions"][number], "priority" | "contested" | "historicalPerspectiveRequirements">): boolean {
-  return question.priority === "CRITICAL" || question.contested || (question.historicalPerspectiveRequirements?.length || 0) > 0;
+export function isInitialAuthorityRequiredQuestion(question: Pick<ResearchMap["questions"][number], "priority" | "contested">): boolean {
+  return question.priority === "CRITICAL" || question.contested;
 }
 
 export function buildRoutingObligationSet(input: { context: ArtifactContext; scope: ScopeContract; researchMap: ResearchMap; requiredQuestionIds?: readonly string[] }): RoutingObligationSet {
@@ -240,16 +240,14 @@ function validateProposal(input: {
   proposal: TopicAuthorityProposal;
   publisher: PublisherAuthorityVersion;
   questionIds: ReadonlySet<string>;
-  obligationsById: ReadonlyMap<string, RoutingObligationSet["obligations"][number]>;
 }): TopicAuthorityBinding {
   const proposal = input.proposal;
   if (input.publisher.state !== "VERIFIED") throw new Error(`AUTHORITY_NOT_VERIFIED:${proposal.publisherVersionId}`);
   if (proposal.researchQuestionIds.some((id) => !input.questionIds.has(id))) throw new Error(`AUTHORITY_BINDING_UNKNOWN_QUESTION:${proposal.publisherVersionId}`);
   const capability = registryCapability(input.publisher);
-  const subjectRelationship = subjectRelationshipForRouting(input.publisher, proposal.routingObligationIds.flatMap((id) => {
-    const obligation = input.obligationsById.get(id);
-    return obligation ? [obligation] : [];
-  }));
+  // Registry metadata, rather than a model-planned route, controls the
+  // relationship classification. Evidence later establishes sufficiency.
+  const subjectRelationship = defaultSubjectRelationship(input.publisher);
   if (capability.authorityFamily === "EDITED_REFERENCE" && proposal.roles.some((role) => role !== "ORIENTATION")) throw new Error(`ORIENTATION_AUTHORITY_ROLE_VIOLATION:${proposal.publisherVersionId}`);
   if (["SUBJECT_SELF", "STATE_PARTY"].includes(subjectRelationship) && proposal.roles.includes("CORROBORATION")) throw new Error(`SELF_INTERESTED_CORROBORATION_FORBIDDEN:${proposal.publisherVersionId}`);
   const semantic = {
@@ -259,7 +257,7 @@ function validateProposal(input: {
     claimTypes: uniqueSorted(proposal.claimTypes),
     subjectRelationship,
     perspectiveTags: uniqueSorted(proposal.perspectiveTags),
-    routingObligationIds: uniqueSorted(proposal.routingObligationIds),
+    routingObligationIds: [],
     rationale: proposal.rationale.normalize("NFKC").trim(),
     publisherId: input.publisher.publisherId,
     authorityFamily: capability.authorityFamily,
@@ -285,20 +283,43 @@ function assertContestedBalance(map: ResearchMap, bindings: readonly TopicAuthor
   }
 }
 
+/**
+ * Protected-representation preflight is an availability guard, not a route
+ * lock: it verifies that the bounded governed universe contains a registered
+ * authority family capable of pursuing the requirement, while the evidence
+ * audit alone decides whether the acquired material satisfies it.
+ */
+function assertProtectedRepresentationAvailability(map: ResearchMap, bindings: readonly TopicAuthorityBinding[], requiredQuestionIds?: ReadonlySet<string>): void {
+  for (const question of map.questions.filter((item) => !requiredQuestionIds || requiredQuestionIds.has(item.questionId))) {
+    const relevant = bindings.filter((binding) => binding.researchQuestionIds.includes(question.questionId) && binding.roles.some((role) => role !== "ORIENTATION"));
+    for (const requirement of question.historicalPerspectiveRequirements || []) {
+      const available = requirement.kind === "AFFECTED_COMMUNITY" || requirement.kind === "CUSTODIAL_COMMUNITY"
+        ? relevant.some((binding) => ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"].includes(binding.subjectRelationship))
+        : requirement.kind === "PARTY_PARTICIPANT"
+          ? relevant.some((binding) => ["STATE_PARTY", "PARTICIPANT", "INDEPENDENT"].includes(binding.subjectRelationship))
+          : requirement.kind === "MATERIAL_JURISDICTION"
+            ? relevant.some((binding) => binding.geography.some((place) => normalize(place) === normalize(requirement.label)))
+            : requirement.kind === "INDEPENDENT_SCHOLARSHIP"
+              ? relevant.some((binding) => binding.subjectRelationship === "INDEPENDENT" && binding.authorityFamily === "ACADEMIC_SCHOLARLY")
+              : relevant.some((binding) => binding.subjectRelationship !== "SUBJECT_SELF");
+      if (!available) throw new Error(`PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:${question.questionId}:${requirement.kind}`);
+    }
+  }
+}
+
 export function buildTopicAuthoritySet(input: {
   context: ArtifactContext;
   scope: ScopeContract;
   researchMap: ResearchMap;
   publishers: readonly PublisherAuthorityVersion[];
   proposals: readonly TopicAuthorityProposal[];
+  /** Historical compatibility only; .16+ ignores this retired artifact. */
   routingObligationSet?: RoutingObligationSet;
   requiredQuestionIds?: readonly string[];
   parentTopicAuthoritySetId?: string;
 }): TopicAuthoritySet {
   const context = { ...input.context, policyVersion: AUTHORITY_FIRST_POLICY_VERSION };
-  const routingObligationSet = input.routingObligationSet || buildRoutingObligationSet({ context, scope: input.scope, researchMap: input.researchMap });
   const registry = new Map(input.publishers.map((publisher) => [publisher.publisherVersionId, publisher]));
-  const obligationsById = new Map(routingObligationSet.obligations.map((obligation) => [obligation.routingObligationId, obligation]));
   const questionIds = new Set(input.researchMap.questions.map((question) => question.questionId));
   const requiredQuestionIds = input.requiredQuestionIds ? new Set(input.requiredQuestionIds) : undefined;
   if (requiredQuestionIds && (requiredQuestionIds.size === 0 || [...requiredQuestionIds].some((id) => !questionIds.has(id)))) throw new Error("AUTHORITY_ROUTING_TARGET_SET_INVALID");
@@ -311,29 +332,21 @@ export function buildTopicAuthoritySet(input: {
       continue;
     }
     if (requiredQuestionIds && proposal.researchQuestionIds.some((id) => !requiredQuestionIds.has(id))) throw new Error(`AUTHORITY_BINDING_OUTSIDE_COMPLETION_TARGET:${proposal.publisherVersionId}`);
-    if (proposal.routingObligationIds.some((id) => !routingObligationSet.obligations.some((obligation) => obligation.routingObligationId === id))) throw new Error(`AUTHORITY_BINDING_UNKNOWN_ROUTING_OBLIGATION:${proposal.publisherVersionId}`);
-    bindings.push(validateProposal({ proposal, publisher, questionIds, obligationsById }));
+    bindings.push(validateProposal({ proposal, publisher, questionIds }));
   }
   if (bindings.length === 0) throw new Error("NO_APPLICABLE_AUTHORITY");
-  const bindingById = new Map(bindings.map((binding) => [binding.bindingId, binding]));
-  const obligationRoutes = bindings.flatMap((binding) => binding.routingObligationIds.map((routingObligationId) => ({ routingObligationId, bindingId: binding.bindingId })));
-  for (const obligation of routingObligationSet.obligations) {
-    const routes = obligationRoutes.map((route) => bindingById.get(route.bindingId)!).filter((binding) => binding.routingObligationIds.includes(obligation.routingObligationId));
-    if (!routes.some((binding) => binding.researchQuestionIds.includes(obligation.researchQuestionId) && binding.roles.some((role) => obligation.requiredRoles.includes(role)) && obligation.permittedSubjectRelationships.includes(binding.subjectRelationship))) throw new Error(`MISSING_ROUTING_OBLIGATION_ROUTE:${obligation.routingObligationId}`);
-  }
-  // Initial routing must cover every question whose explicit historical
-  // perspective requirement will be audited later.  Retrieval geography never
-  // enters this calculation: only locked, historically justified requirements
-  // do.  Continuations remain bounded to their explicit gap targets.
+  // The set proves bounded, registry-governed acquisition capacity. It does
+  // not claim that any authority will yield perspective-sufficient evidence.
   const criticalQuestionIds = input.researchMap.questions
     .filter((question) => requiredQuestionIds
       ? requiredQuestionIds.has(question.questionId)
-      : isInitialAuthorityRequiredQuestion(question))
+      : question.priority === "CRITICAL")
     .map((question) => question.questionId);
   const coreCoverage = new Set(bindings.filter((binding) => binding.roles.some((role) => role !== "ORIENTATION")).flatMap((binding) => binding.researchQuestionIds));
   const missingCritical = criticalQuestionIds.filter((id) => !coreCoverage.has(id));
   if (missingCritical.length > 0) throw new Error(`MISSING_CRITICAL_AUTHORITY_COVERAGE:${missingCritical.join(",")}`);
   assertContestedBalance(input.researchMap, bindings, requiredQuestionIds);
+  assertProtectedRepresentationAvailability(input.researchMap, bindings, requiredQuestionIds);
   const registryHash = payloadHash(input.publishers.map((publisher) => ({ publisherVersionId: publisher.publisherVersionId, payloadHash: publisher.payloadHash })).sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)));
   const semantic = {
     scopeContractId: input.scope.scopeContractId,
@@ -342,9 +355,9 @@ export function buildTopicAuthoritySet(input: {
     researchMapPayloadHash: input.researchMap.payloadHash,
     registryVersion: AUTHORITY_REGISTRY_VERSION,
     registryHash,
-    routingObligationSetId: routingObligationSet.routingObligationSetId,
+    routingObligationSetId: null,
     bindings: bindings.sort((left, right) => left.bindingId.localeCompare(right.bindingId)),
-    obligationRoutes: obligationRoutes.sort((left, right) => `${left.routingObligationId}:${left.bindingId}`.localeCompare(`${right.routingObligationId}:${right.bindingId}`)),
+    obligationRoutes: [],
     rejectedPublisherVersionIds: uniqueSorted(rejectedPublisherVersionIds),
     criticalQuestionIds: uniqueSorted(criticalQuestionIds),
     contestedQuestionIds: uniqueSorted(input.researchMap.questions.filter((question) => question.contested && (!requiredQuestionIds || requiredQuestionIds.has(question.questionId))).map((question) => question.questionId)),
@@ -435,7 +448,7 @@ export function buildAuthorityResearchPlan(input: { context: ArtifactContext; se
     for (const [index, profile] of profiles.entries()) {
       const mechanism = profile.discoveryMechanisms[0]!;
       const semantic = {
-        authorityBindingId: binding.bindingId, researchQuestionIds: uniqueSorted(binding.researchQuestionIds), routingObligationIds: uniqueSorted(binding.routingObligationIds), layer,
+        authorityBindingId: binding.bindingId, researchQuestionIds: uniqueSorted(binding.researchQuestionIds), routingObligationIds: [], layer,
         mechanism, endpoint: operationEndpoint(binding, mechanism, profile), specialistCollectionProfileId: profile.profileId,
         attemptOrder: index, purpose: `Specialist collection attempt ${index + 1}. ${purpose}`.slice(0, 1000)
       };
@@ -444,7 +457,7 @@ export function buildAuthorityResearchPlan(input: { context: ArtifactContext; se
     const generic = {
       authorityBindingId: binding.bindingId,
       researchQuestionIds: uniqueSorted(binding.researchQuestionIds),
-      routingObligationIds: uniqueSorted(binding.routingObligationIds),
+      routingObligationIds: [],
       layer,
       mechanism: genericMechanism,
       endpoint: operationEndpoint(binding, genericMechanism, null),
@@ -456,8 +469,8 @@ export function buildAuthorityResearchPlan(input: { context: ArtifactContext; se
   }
   if (operations.length > DEFAULT_CONTROLLED_RESEARCH_BUDGET.maximumControlledDiscoveryOperations) throw new Error("CONTROLLED_OPERATION_BUDGET_EXHAUSTED");
   const coveredCriticalQuestionIds = uniqueSorted(input.set.criticalQuestionIds);
-  const coveredRoutingObligationIds = uniqueSorted(input.set.obligationRoutes.map((route) => route.routingObligationId));
-  const semantic = { topicAuthoritySetId: input.set.topicAuthoritySetId, routingObligationSetId: input.set.routingObligationSetId, budget: DEFAULT_CONTROLLED_RESEARCH_BUDGET, operations: operations.sort((left, right) => left.plannedOperationId.localeCompare(right.plannedOperationId)), coveredCriticalQuestionIds, coveredRoutingObligationIds, state: "AUTHORIZED" as const };
+  const coveredRoutingObligationIds: string[] = [];
+  const semantic = { topicAuthoritySetId: input.set.topicAuthoritySetId, routingObligationSetId: null, budget: DEFAULT_CONTROLLED_RESEARCH_BUDGET, operations: operations.sort((left, right) => left.plannedOperationId.localeCompare(right.plannedOperationId)), coveredCriticalQuestionIds, coveredRoutingObligationIds, state: "AUTHORIZED" as const };
   const context = { ...input.context, policyVersion: AUTHORITY_FIRST_POLICY_VERSION };
   const authorityResearchPlanId = semanticArtifactId("authority-research-plan", context, semantic);
   return parseSealedArtifact(authorityResearchPlanSchema, { ...semanticEnvelope(context, authorityResearchPlanId, input.set.topicAuthoritySetId), authorityResearchPlanId, ...semantic }) as AuthorityResearchPlan;

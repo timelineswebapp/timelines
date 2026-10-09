@@ -5,7 +5,6 @@ import {
   claimAuthorityVerdictSchema,
   claimConflictSetSchema,
   researchMapSchema,
-  routingObligationSetSchema,
   scopeContractSchema,
   sourceDocumentSchema,
   sourceSnapshotSchema,
@@ -17,7 +16,6 @@ import {
   type CompletedKnowledgeSet,
   type EvidenceSegment,
   type ResearchMap,
-  type RoutingObligationSet,
   type ScopeContract,
   type SourceDocument,
   type SourceSnapshot,
@@ -25,7 +23,7 @@ import {
   topicAuthoritySetSchema
 } from "../factory-v2/contracts";
 import { type ArtifactContext } from "../factory-v2/contracts/builders";
-import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, KNOWLEDGE_COVERAGE_POLICY_VERSION, mergeKnowledgeEventVersions, planGapDirectedCompletion, sealNoCompletionRequired } from "../factory-v2/coverage";
+import { auditKnowledgeCoverage, buildCompletionResearchMap, buildGapObligations, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, KNOWLEDGE_COVERAGE_POLICY_VERSION, mergeKnowledgeEventVersions, planGapDirectedCompletion, sealNoCompletionRequired } from "../factory-v2/coverage";
 import type { FactoryV2Config } from "../factory-v2/config";
 import { runV2AShadowFixture, V2ARunError, type OrchestratorDependencies, type ShadowFixtureDescriptor, type V2ACertificationMetrics } from "../factory-v2/orchestrator";
 import { V2FirestoreRepository } from "../factory-v2/repositories/firestore";
@@ -131,8 +129,13 @@ export async function buildCompletedKnowledge(input: {
   if (!canInitialAcquisitionEnterCoverage(initialResult)) throw new KnowledgeConstructionError(`EVIDENCE_FIRST_INITIAL_ACQUISITION_FAILED:${initialResult.blockingReasons.join(",")}`, "INITIAL_ACQUISITION", acquisitionResults);
   const initial = await loadRunKnowledge(repository, initialResult);
   const initialContext: ArtifactContext = { ...initialResult.context, policyVersion: KNOWLEDGE_COVERAGE_POLICY_VERSION };
-  const initialAudit = auditKnowledgeCoverage({ context: initialContext, stage: "INITIAL", scope: initial.scope, researchMap: initial.researchMap, sourceKnowledgeRunIds: [initialResult.context.runId], claims: initial.claims, authorityVerdicts: initial.authorityVerdicts, conflicts: initial.conflicts, events: initial.events, sourceSnapshots: initial.sourceSnapshots });
+  const initialAuthorityValue = await repository.getById("v2TopicAuthoritySets", initialResult.topicAuthoritySetId);
+  if (!initialAuthorityValue) throw new KnowledgeConstructionError("EVIDENCE_FIRST_INITIAL_AUTHORITY_LINEAGE_MISSING", "INITIAL_ACQUISITION", acquisitionResults);
+  const initialAuthoritySet = topicAuthoritySetSchema.parse(stripRepositoryDocumentId(initialAuthorityValue));
+  const initialAudit = auditKnowledgeCoverage({ context: initialContext, stage: "INITIAL", scope: initial.scope, researchMap: initial.researchMap, sourceKnowledgeRunIds: [initialResult.context.runId], claims: initial.claims, authorityVerdicts: initial.authorityVerdicts, conflicts: initial.conflicts, events: initial.events, sourceSnapshots: initial.sourceSnapshots, sourceDocuments: initial.sourceDocuments, authoritySet: initialAuthoritySet });
   await repository.createImmutable("v2KnowledgeCoverageAudits", initialAudit);
+  const gapObligations = buildGapObligations({ context: initialContext, scope: initial.scope, researchMap: initial.researchMap, audit: initialAudit, authoritySet: initialAuthoritySet, sourceSnapshots: initial.sourceSnapshots });
+  if (gapObligations.length > 0) await repository.createImmutableBatch("v2GapObligations", gapObligations);
 
   let finalContext = initialContext;
   let finalMap = initial.researchMap;
@@ -150,9 +153,9 @@ export async function buildCompletedKnowledge(input: {
   if (initialAudit.verdict === "SUFFICIENT") {
     completionPlan = sealNoCompletionRequired({ context: initialContext, scope: initial.scope, researchMap: initial.researchMap, audit: initialAudit });
     await repository.createImmutable("v2KnowledgeCompletionPlans", completionPlan);
-    finalAudit = auditKnowledgeCoverage({ context: initialContext, stage: "FINAL", scope: initial.scope, researchMap: initial.researchMap, sourceKnowledgeRunIds: [initialResult.context.runId], claims, authorityVerdicts: verdicts, conflicts, events, sourceSnapshots: snapshots });
+    finalAudit = auditKnowledgeCoverage({ context: initialContext, stage: "FINAL", scope: initial.scope, researchMap: initial.researchMap, sourceKnowledgeRunIds: [initialResult.context.runId], claims, authorityVerdicts: verdicts, conflicts, events, sourceSnapshots: snapshots, sourceDocuments: documents, authoritySet: initialAuthoritySet });
   } else {
-    completionPlan = planGapDirectedCompletion({ context: initialContext, scope: initial.scope, researchMap: initial.researchMap, audit: initialAudit, originalKnowledgeRunId: initialResult.context.runId });
+    completionPlan = planGapDirectedCompletion({ context: initialContext, scope: initial.scope, researchMap: initial.researchMap, audit: initialAudit, originalKnowledgeRunId: initialResult.context.runId, gapObligations });
     await repository.createImmutable("v2KnowledgeCompletionPlans", completionPlan);
     const completionContext: ArtifactContext = { corpusId: initialContext.corpusId, topicId: initialContext.topicId, generation: initialContext.generation, runId: `evidence-first-completion-${randomUUID()}`, createdAt: new Date().toISOString(), policyVersion: KNOWLEDGE_COVERAGE_POLICY_VERSION };
     let completionMap: ResearchMap;
@@ -165,18 +168,14 @@ export async function buildCompletedKnowledge(input: {
     }
     let completionResult: Awaited<ReturnType<typeof runV2AShadowFixture>>;
     try {
-      const [priorAuthorityValue, priorObligationValue] = await Promise.all([
-        repository.getById("v2TopicAuthoritySets", initialResult.topicAuthoritySetId),
-        repository.getById("v2RoutingObligationSets", initialResult.routingObligationSetId)
-      ]);
-      if (!priorAuthorityValue || !priorObligationValue) throw new Error("EVIDENCE_FIRST_CONTINUATION_AUTHORITY_LINEAGE_MISSING");
+      const priorAuthorityValue = await repository.getById("v2TopicAuthoritySets", initialResult.topicAuthoritySetId);
+      if (!priorAuthorityValue) throw new Error("EVIDENCE_FIRST_CONTINUATION_AUTHORITY_LINEAGE_MISSING");
       const priorTopicAuthoritySet: TopicAuthoritySet = topicAuthoritySetSchema.parse(stripRepositoryDocumentId(priorAuthorityValue));
-      const priorRoutingObligationSet: RoutingObligationSet = routingObligationSetSchema.parse(stripRepositoryDocumentId(priorObligationValue));
       const gapIdsByQuestionId = new Map<string, readonly string[]>();
       for (const task of completionPlan.tasks) for (const questionId of task.questionIds) {
         gapIdsByQuestionId.set(questionId, [...new Set([...(gapIdsByQuestionId.get(questionId) || []), ...task.gapIds])].sort());
       }
-      completionResult = await runV2AShadowFixture(input.descriptor, { ...input.config, budgetBundle: budget }, { ...dependencies, continuation: { context: completionContext, originalKnowledgeRunId: initialResult.context.runId, scope: initial.scope, researchMap: completionMap, gapIdsByQuestionId, priorTopicAuthoritySet, priorRoutingObligationSet } });
+      completionResult = await runV2AShadowFixture(input.descriptor, { ...input.config, budgetBundle: budget }, { ...dependencies, continuation: { context: completionContext, originalKnowledgeRunId: initialResult.context.runId, scope: initial.scope, researchMap: completionMap, gapIdsByQuestionId, priorTopicAuthoritySet } });
     } catch (error) {
       if (error instanceof V2ARunError) throw new KnowledgeConstructionError(error.message, "GAP_COMPLETION", acquisitionResults, { initialAuditId: initialAudit.coverageAuditId, finalAuditId: null }, [...metrics, error.metrics]);
       throw error;
@@ -185,6 +184,9 @@ export async function buildCompletedKnowledge(input: {
     if (completionResult.metrics.finalV2AVerdict !== "PASS") throw new KnowledgeConstructionError(`EVIDENCE_FIRST_GAP_COMPLETION_FAILED:${completionResult.blockingReasons.join(",")}`, "GAP_COMPLETION", acquisitionResults, { initialAuditId: initialAudit.coverageAuditId, finalAuditId: null });
     metrics.push(completionResult.metrics);
     const completion = await loadRunKnowledge(repository, completionResult);
+    const completionAuthorityValue = await repository.getById("v2TopicAuthoritySets", completionResult.topicAuthoritySetId);
+    if (!completionAuthorityValue) throw new KnowledgeConstructionError("EVIDENCE_FIRST_COMPLETION_AUTHORITY_LINEAGE_MISSING", "GAP_COMPLETION", acquisitionResults, { initialAuditId: initialAudit.coverageAuditId, finalAuditId: null }, metrics);
+    const completionAuthoritySet = topicAuthoritySetSchema.parse(stripRepositoryDocumentId(completionAuthorityValue));
     finalContext = completionContext;
     finalMap = completionMap;
     claims = unique([...claims, ...completion.claims], (value) => value.claimVersionId);
@@ -194,7 +196,8 @@ export async function buildCompletedKnowledge(input: {
     snapshots = unique([...snapshots, ...completion.sourceSnapshots], (value) => value.sourceSnapshotId);
     segments = unique([...segments, ...completion.evidenceSegments], (value) => value.evidenceSegmentId);
     documents = unique([...documents, ...completion.sourceDocuments], (value) => value.sourceId);
-    finalAudit = auditKnowledgeCoverage({ context: completionContext, stage: "FINAL", scope: initial.scope, researchMap: completionMap, sourceKnowledgeRunIds: [initialResult.context.runId, completionResult.context.runId], claims, authorityVerdicts: verdicts, conflicts, events, sourceSnapshots: snapshots });
+    const mergedAuthoritySet = { ...completionAuthoritySet, bindings: [...new Map([...initialAuthoritySet.bindings, ...completionAuthoritySet.bindings].map((binding) => [binding.bindingId, binding])).values()] };
+    finalAudit = auditKnowledgeCoverage({ context: completionContext, stage: "FINAL", scope: initial.scope, researchMap: completionMap, sourceKnowledgeRunIds: [initialResult.context.runId, completionResult.context.runId], claims, authorityVerdicts: verdicts, conflicts, events, sourceSnapshots: snapshots, sourceDocuments: documents, authoritySet: mergedAuthoritySet });
   }
   await repository.createImmutable("v2KnowledgeCoverageAudits", finalAudit);
   const authorityAcquisitionRounds = acquisitionResults.map((result) => ({
@@ -205,7 +208,7 @@ export async function buildCompletedKnowledge(input: {
     perspectiveAuditId: result.perspectiveAuditId,
     confidenceVectorId: result.confidenceVectorId
   }));
-  const completedKnowledgeSet = buildKnowledgeCompletionResult(finalContext, { completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash, finalCoverageAuditId: finalAudit.coverageAuditId, finalCoverageAuditPayloadHash: finalAudit.payloadHash, scopeContractId: initial.scope.scopeContractId, scopePayloadHash: initial.scope.payloadHash, researchMapId: finalMap.researchMapId, researchMapPayloadHash: finalMap.payloadHash, authorityAcquisitionRounds, candidateEventVersionIds: events.map((event) => event.eventVersionId), candidateClaimVersionIds: claims.map((claim) => claim.claimVersionId), authorityVerdictIds: verdicts.map((verdict) => verdict.claimAuthorityVerdictId), conflictSetIds: conflicts.map((conflict) => conflict.conflictSetId), unresolvedGapIds: finalAudit.gaps.map((gap) => gap.gapId), finalVerdict: finalAudit.verdict });
+  const completedKnowledgeSet = buildKnowledgeCompletionResult(finalContext, { completionPlanId: completionPlan.completionPlanId, initialCoverageAuditId: initialAudit.coverageAuditId, initialCoverageAuditPayloadHash: initialAudit.payloadHash, finalCoverageAuditId: finalAudit.coverageAuditId, finalCoverageAuditPayloadHash: finalAudit.payloadHash, scopeContractId: initial.scope.scopeContractId, scopePayloadHash: initial.scope.payloadHash, researchMapId: finalMap.researchMapId, researchMapPayloadHash: finalMap.payloadHash, authorityAcquisitionRounds, gapObligationIds: completionPlan.gapObligationIds || [], candidateEventVersionIds: events.map((event) => event.eventVersionId), candidateClaimVersionIds: claims.map((claim) => claim.claimVersionId), authorityVerdictIds: verdicts.map((verdict) => verdict.claimAuthorityVerdictId), conflictSetIds: conflicts.map((conflict) => conflict.conflictSetId), unresolvedGapIds: finalAudit.gaps.map((gap) => gap.gapId), finalVerdict: finalAudit.verdict });
   await repository.createImmutable("v2KnowledgeCompletionResults", completedKnowledgeSet);
   if (finalAudit.verdict !== "SUFFICIENT") throw new KnowledgeConstructionError(`EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:${finalAudit.gaps.map((gap) => gap.code).join(",")}`, "FINAL_COVERAGE", acquisitionResults, { initialAuditId: initialAudit.coverageAuditId, finalAuditId: finalAudit.coverageAuditId });
   return { scope: initial.scope, researchMap: finalMap, claims, authorityVerdicts: verdicts, conflicts, events, evidenceSegments: segments, sourceSnapshots: snapshots, sourceDocuments: documents, completedKnowledgeSet, initialCoverageAuditId: initialAudit.coverageAuditId, finalCoverageAuditId: finalAudit.coverageAuditId, completionRoundCount: completionPlan.round, acquisitionMetrics: metrics, controlledResearchLedgerIds: authorityAcquisitionRounds.map((round) => round.controlledResearchLedgerId) };

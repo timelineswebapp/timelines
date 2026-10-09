@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { boundedText, hashSchema, historicalDateSchema, idSchema, modelExecutionRefSchema, V2_PIPELINE_VERSION, V2_POLICY_VERSION, V2_PROMPT_VERSION } from "./common";
+import { boundedText, hashSchema, historicalDateSchema, idSchema, modelExecutionRefSchema, V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_PIPELINE_VERSION, V2_POLICY_VERSION, V2_PROMPT_VERSION } from "./common";
 
 export const V2_B_PIPELINE_VERSION = "factory-v2-b.2" as const;
 export const V2_B_LEGACY_PIPELINE_VERSION = "factory-v2-b.1" as const;
@@ -18,7 +18,7 @@ const legacyV2ASourceBundleSchema = z.object({
 }).strict();
 const currentV2ASourceBundleSchema = z.object({
   pipelineVersion: z.literal(V2_PIPELINE_VERSION),
-  schemaVersion: z.literal("factory-v2-a.6"),
+  schemaVersion: z.literal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION),
   policyVersion: z.literal(V2_POLICY_VERSION),
   promptVersion: z.literal(V2_PROMPT_VERSION)
 }).strict();

@@ -35,7 +35,9 @@ export const knowledgeCoverageGapSchema = z.object({
     "MISSING_CHRONOLOGY",
     "STALE_ONGOING_SCOPE",
     "UNANSWERED_CRITICAL_RESEARCH_QUESTION",
-    "MATERIAL_CONFLICT_BLOCKS_COVERAGE"
+    "MATERIAL_CONFLICT_BLOCKS_COVERAGE",
+    "MISSING_HISTORICAL_PERSPECTIVE",
+    "MISSING_INDEPENDENT_SCHOLARSHIP"
   ]),
   phaseIds: ids(24),
   dimensionIds: ids(20),
@@ -74,9 +76,45 @@ export const completionBudgetSchema = z.object({
   maximumWorkerSeconds: z.number().int().min(60).max(480)
 }).strict();
 
+/**
+ * Evidence-derived, immutable remediation authority.  Unlike the retired
+ * Routing Obligation, this artifact cannot exist until an initial audit has
+ * established a material deficiency against acquired evidence.
+ */
+export const gapObligationSchema = z.object({
+  ...immutableEnvelopeFields,
+  gapObligationId: idSchema,
+  scopeContractId: idSchema,
+  scopePayloadHash: hashSchema,
+  researchMapId: idSchema,
+  researchMapPayloadHash: hashSchema,
+  parentCoverageAuditId: idSchema,
+  coverageGapIds: ids(200),
+  questionIds: ids(120),
+  phaseIds: ids(24),
+  dimensionIds: ids(20),
+  historicalRequirements: z.array(z.object({
+    kind: z.enum(["STAKEHOLDER", "PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "INDEPENDENT_SCHOLARSHIP", "MATERIAL_JURISDICTION"]),
+    label: boundedText(2, 160),
+    rationale: boundedText(10, 600)
+  }).strict()).max(40),
+  existingSupportingClaimVersionIds: ids(300),
+  existingSourceSnapshotIds: ids(300),
+  deficiencyCode: boundedText(3, 120),
+  materialReason: boundedText(10, 1200),
+  requiredRoles: z.array(z.enum(["PRIMARY_RECORD", "CORROBORATION", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"])).min(1).max(4).refine(unique),
+  permittedSubjectRelationships: z.array(z.enum(["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"])).min(1).max(5).refine(unique),
+  minimumIndependentGroups: z.number().int().min(0).max(4),
+  candidatePublisherVersionIds: ids(60),
+  specialistCollectionProfileIds: ids(60),
+  budget: completionBudgetSchema,
+  state: z.literal("MATERIAL_EVIDENCE_GAP")
+}).strict();
+
 export const knowledgeCompletionTaskSchema = z.object({
   taskId: idSchema,
   gapIds: ids(20),
+  gapObligationIds: ids(20).optional(),
   phaseIds: ids(24),
   dimensionIds: ids(20),
   questionIds: ids(120),
@@ -96,6 +134,7 @@ export const knowledgeCompletionPlanSchema = z.object({
   round: z.union([z.literal(0), z.literal(1)]),
   budget: completionBudgetSchema,
   tasks: z.array(knowledgeCompletionTaskSchema).max(5),
+  gapObligationIds: ids(200).optional(),
   unplannedMaterialGapIds: ids(200)
 }).strict().superRefine((plan, context) => {
   if (plan.round === 0 && plan.tasks.length !== 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ["tasks"], message: "A no-completion plan cannot contain tasks." });
@@ -143,12 +182,14 @@ export const completedKnowledgeSetSchema = z.object({
   researchMapPayloadHash: hashSchema,
   authorityAcquisitionRounds: z.array(z.object({
     topicAuthoritySetId: idSchema,
-    routingObligationSetId: idSchema,
+    routingObligationSetId: idSchema.nullable(),
     authorityResearchPlanId: idSchema,
     controlledResearchLedgerId: idSchema,
     perspectiveAuditId: idSchema,
     confidenceVectorId: idSchema
   }).strict()).min(1).max(2).refine((rounds) => unique(rounds.map((round) => round.controlledResearchLedgerId)), "Authority acquisition rounds must be unique."),
+  /** Evidence-derived obligations sealed between initial and completion rounds. */
+  gapObligationIds: ids(200).optional(),
   /** Historical pre-Authority-First lineage only. New canonical CKS artifacts
    * use authorityAcquisitionRounds and never populate queryLedgerId. */
   queryLedgerId: idSchema.optional(),
@@ -169,6 +210,7 @@ export const knowledgeCompletionResultSchema = z.union([completedKnowledgeSetSch
 export type KnowledgeCoverageAudit = z.infer<typeof knowledgeCoverageAuditSchema>;
 export type KnowledgeCoverageCell = z.infer<typeof knowledgeCoverageCellSchema>;
 export type KnowledgeCoverageGap = z.infer<typeof knowledgeCoverageGapSchema>;
+export type GapObligation = z.infer<typeof gapObligationSchema>;
 export type KnowledgeCompletionPlan = z.infer<typeof knowledgeCompletionPlanSchema>;
 export type KnowledgeCompletionTask = z.infer<typeof knowledgeCompletionTaskSchema>;
 export type KnowledgeCompletionResult = z.infer<typeof knowledgeCompletionResultSchema>;

@@ -165,7 +165,7 @@ test("missing-event confidence does not duplicate the sole completion-eligible b
   assert.equal(confidenceRequiresAdditionalBlock(temporalOnly, ["NO_RESOLVED_EVENT_CANDIDATES"]), false);
   assert.equal(confidenceRequiresAdditionalBlock({ ...temporalOnly, provenanceIntegrity: "FAIL" }, ["NO_RESOLVED_EVENT_CANDIDATES"]), true);
   assert.equal(confidenceRequiresAdditionalBlock(temporalOnly, ["NO_SUPPORTED_CLAIMS", "NO_RESOLVED_EVENT_CANDIDATES"]), true);
-  assert.equal(confidenceRequiresAdditionalBlock({ ...temporalOnly, verdict: "REVIEW_REQUIRED", perspectiveAdequacy: "REVIEW_REQUIRED" }, ["NO_RESOLVED_EVENT_CANDIDATES"]), true);
+  assert.equal(confidenceRequiresAdditionalBlock({ ...temporalOnly, verdict: "REVIEW_REQUIRED", perspectiveAdequacy: "REVIEW_REQUIRED" }, ["NO_RESOLVED_EVENT_CANDIDATES"]), false);
 });
 
 test("event resolution prefers the most precise supported temporal observation deterministically", () => {

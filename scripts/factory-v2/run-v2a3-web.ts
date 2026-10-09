@@ -196,8 +196,7 @@ async function main() {
   const scope = scopes[0]!;
   const parentMap = maps[0]!;
   const priorTopicAuthoritySet = authoritySets.find((item) => item.researchMapId === parentMap.researchMapId);
-  const priorRoutingObligationSet = routingObligationSets.find((item) => item.researchMapId === parentMap.researchMapId);
-  if (!priorTopicAuthoritySet || !priorRoutingObligationSet) throw new Error("Certified Web continuation authority lineage is missing or ambiguous.");
+  if (!priorTopicAuthoritySet) throw new Error("Certified Web continuation authority lineage is missing or ambiguous.");
   const initialKnowledgeReuseMs = Date.now() - initialReuseStartedAt;
   const runId = `v2-a3-web-${randomUUID()}`;
   const context: ArtifactContext = {
@@ -331,7 +330,6 @@ async function main() {
         researchMap: completionMap,
         gapIdsByQuestionId,
         priorTopicAuthoritySet,
-        priorRoutingObligationSet,
       },
     },
   );

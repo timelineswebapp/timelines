@@ -40,7 +40,7 @@ test("semantic identity property matrix versions policy, schema, meaning, and se
   const base = context("semantic-policy-v1");
   const expected = semanticArtifactId("property", base, payload);
   assert.notEqual(semanticArtifactId("property", context("semantic-policy-v2"), payload), expected);
-  assert.notEqual(semanticArtifactId("property", base, payload, { schemaVersion: "factory-v2-a.5" }), expected);
+  assert.notEqual(semanticArtifactId("property", base, payload, { schemaVersion: "factory-v2-a.4" }), expected);
   assert.notEqual(semanticArtifactId("property", base, { ...payload, meaning: "changed meaning" }), expected);
   assert.notEqual(semanticArtifactId("property", base, { ...payload, parent: "semantic-parent-v2" }), expected);
   assert.equal(semanticArtifactId("property", { ...base, runId: "execution-parent-retry" }, payload), expected);

@@ -1,4 +1,5 @@
 import {
+  gapObligationSchema,
   knowledgeCompletionPlanSchema,
   knowledgeCompletionResultSchema,
   knowledgeCoverageAuditSchema,
@@ -9,6 +10,7 @@ import {
   type ClaimAuthorityVerdict,
   type ClaimConflictSet,
   type CompletedKnowledgeSet,
+  type GapObligation,
   type KnowledgeCompletionPlan,
   type KnowledgeCompletionResult,
   type KnowledgeCompletionTask,
@@ -17,12 +19,14 @@ import {
   type KnowledgeCoverageGap,
   type ResearchMap,
   type ScopeContract,
-  type SourceSnapshot
+  type SourceDocument,
+  type SourceSnapshot,
+  type TopicAuthoritySet
 } from "./contracts";
 import { parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId } from "./hashing";
 
-export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.9" as const;
+export const KNOWLEDGE_COVERAGE_POLICY_VERSION = "knowledge-coverage-v2-a3.10" as const;
 
 export const DEFAULT_COMPLETION_BUDGET = {
   maximumRounds: 1 as const,
@@ -58,6 +62,8 @@ type CoverageInput = {
   conflicts: ClaimConflictSet[];
   events: CanonicalEventVersion[];
   sourceSnapshots?: SourceSnapshot[];
+  sourceDocuments?: SourceDocument[];
+  authoritySet?: TopicAuthoritySet;
 };
 
 function claimQuestionIds(claim: AtomicClaimVersion): string[] {
@@ -83,6 +89,10 @@ function intersects(left: { start: number; end: number }, right: { start: number
 
 function unique(values: string[]): string[] {
   return [...new Set(values)].sort();
+}
+
+function normalizedPerspective(value: string): string {
+  return value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
 }
 
 function makeCell(input: Omit<KnowledgeCoverageCell, "cellId">): KnowledgeCoverageCell {
@@ -162,6 +172,37 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
     const question = questionsById.get(cell.lockedRefId)!;
     gaps.push(makeGap({ code: cell.state === "BLOCKED" ? "MATERIAL_CONFLICT_BLOCKS_COVERAGE" : "UNANSWERED_CRITICAL_RESEARCH_QUESTION", phaseIds: question.phaseIds, dimensionIds: question.dimensionIds, questionIds: [question.questionId], existingSupportingClaimVersionIds: cell.supportingClaimVersionIds, reason: `Critical locked Research Map question remains ${cell.state.toLowerCase()} while its material phase or dimension coverage is insufficient.` }));
   }
+  // Perspective adequacy is evidence-derived. A registered binding contributes
+  // only after a source from that authority was actually snapshotted and
+  // admitted into this audit; planned binding tags alone have no force here.
+  if (input.authoritySet && input.sourceDocuments) {
+    const acquiredPublisherIds = new Set(input.sourceDocuments.map((source) => source.publisherId).filter((id): id is string => id !== null));
+    const evidentiaryBindings = input.authoritySet.bindings.filter((binding) => acquiredPublisherIds.has(binding.publisherId));
+    for (const question of input.researchMap.questions) {
+      const requirements = question.historicalPerspectiveRequirements || [];
+      if (requirements.length === 0) continue;
+      const questionBindings = evidentiaryBindings.filter((binding) => binding.researchQuestionIds.includes(question.questionId));
+      for (const requirement of requirements) {
+        const target = normalizedPerspective(requirement.label);
+        const represented = requirement.kind === "INDEPENDENT_SCHOLARSHIP"
+          ? questionBindings.some((binding) => binding.subjectRelationship === "INDEPENDENT" && (binding.authorityFamily === "ACADEMIC_SCHOLARLY" || binding.roles.includes("INTERPRETATION") || binding.roles.includes("CORROBORATION")))
+          : questionBindings.some((binding) => [...binding.perspectiveTags, ...binding.geography].some((tag) => {
+            const observed = normalizedPerspective(tag);
+            return observed === target || observed.includes(target) || target.includes(observed);
+          }));
+        if (represented) continue;
+        const matchingClaims = questionCells.find((cell) => cell.lockedRefId === question.questionId)?.supportingClaimVersionIds || [];
+        gaps.push(makeGap({
+          code: requirement.kind === "INDEPENDENT_SCHOLARSHIP" ? "MISSING_INDEPENDENT_SCHOLARSHIP" : "MISSING_HISTORICAL_PERSPECTIVE",
+          phaseIds: question.phaseIds,
+          dimensionIds: question.dimensionIds,
+          questionIds: [question.questionId],
+          existingSupportingClaimVersionIds: matchingClaims,
+          reason: `Historically required ${requirement.kind} perspective "${requirement.label}" has no admitted evidence from a qualifying authority.`
+        }));
+      }
+    }
+  }
   const latestEventYear = eligibleEvents.length > 0 ? Math.max(...eligibleEvents.map((event) => eventYears(event).end)) : null;
   let ongoingFreshness: KnowledgeCoverageAudit["ongoingFreshness"] = "NOT_APPLICABLE";
   if (input.scope.topicClass === "ONGOING_SUBJECT") {
@@ -170,7 +211,7 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
     if (ongoingFreshness === "STALE_LOCKED_PHASE" && currentPhase) gaps.push(makeGap({ code: "STALE_ONGOING_SCOPE", phaseIds: [currentPhase.lockedRefId], dimensionIds: [], questionIds: [], existingSupportingClaimVersionIds: currentPhase.supportingClaimVersionIds, reason: `The latest locked ongoing phase "${currentPhase.label}" has no sufficient authoritative chronology event; staleness is derived from locked scope, not an arbitrary year threshold.` }));
   }
   if (eligibleEvents.length === 0) gaps.push(makeGap({ code: "MISSING_CHRONOLOGY", phaseIds: phaseCells.filter((cell) => cell.material).map((cell) => cell.lockedRefId), dimensionIds: [], questionIds: [], existingSupportingClaimVersionIds: [], reason: "No supported chronology-eligible event candidates exist inside the locked scope." }));
-  const materialInsufficient = cells.some((cell) => cell.material && cell.state !== "SUFFICIENT") || ongoingFreshness === "STALE_LOCKED_PHASE";
+  const materialInsufficient = cells.some((cell) => cell.material && cell.state !== "SUFFICIENT") || gaps.length > 0 || ongoingFreshness === "STALE_LOCKED_PHASE";
   const auditPayload = {
     auditStage: input.stage,
     scopeContractId: input.scope.scopeContractId,
@@ -194,9 +235,74 @@ export function auditKnowledgeCoverage(input: CoverageInput): KnowledgeCoverageA
   });
 }
 
-export function planGapDirectedCompletion(input: { context: ArtifactContext; scope: ScopeContract; researchMap: ResearchMap; audit: KnowledgeCoverageAudit; originalKnowledgeRunId: string; budget?: typeof DEFAULT_COMPLETION_BUDGET }): KnowledgeCompletionPlan {
+/**
+ * Seals only material, evidence-proven deficiencies.  This deliberately
+ * consumes a completed initial audit; it cannot be used as predictive routing.
+ */
+export function buildGapObligations(input: {
+  context: ArtifactContext;
+  scope: ScopeContract;
+  researchMap: ResearchMap;
+  audit: KnowledgeCoverageAudit;
+  authoritySet: TopicAuthoritySet;
+  sourceSnapshots: readonly SourceSnapshot[];
+}): GapObligation[] {
+  if (input.audit.auditStage !== "INITIAL" || input.audit.verdict === "SUFFICIENT") return [];
+  if (input.audit.scopeContractId !== input.scope.scopeContractId || input.audit.researchMapId !== input.researchMap.researchMapId) {
+    throw new Error("GAP_OBLIGATION_AUDIT_LINEAGE_MISMATCH");
+  }
+  const context = { ...input.context, policyVersion: KNOWLEDGE_COVERAGE_POLICY_VERSION };
+  return input.audit.gaps.map((gap) => {
+    const questions = input.researchMap.questions.filter((question) => gap.questionIds.includes(question.questionId)
+      || question.phaseIds.some((id) => gap.phaseIds.includes(id))
+      || question.dimensionIds.some((id) => gap.dimensionIds.includes(id)));
+    const questionIds = unique([...new Set([...gap.questionIds, ...questions.map((question) => question.questionId)])]);
+    const historicalRequirements = questions.flatMap((question) => question.historicalPerspectiveRequirements || [])
+      .map((requirement) => ({ kind: requirement.kind, label: requirement.label, rationale: requirement.rationale }))
+      .sort((left, right) => `${left.kind}:${left.label}`.localeCompare(`${right.kind}:${right.label}`));
+    const relevantBindings = input.authoritySet.bindings.filter((binding) => questionIds.length === 0 || binding.researchQuestionIds.some((id) => questionIds.includes(id)));
+    const candidateBindings = relevantBindings.length > 0 ? relevantBindings : input.authoritySet.bindings;
+    const perspectiveGap = historicalRequirements.length > 0;
+    const conflictGap = gap.code === "MATERIAL_CONFLICT_BLOCKS_COVERAGE";
+    const requiredRoles = perspectiveGap ? ["PERSPECTIVE_TESTIMONY", "INTERPRETATION"] as const : conflictGap ? ["CORROBORATION", "INTERPRETATION"] as const : ["PRIMARY_RECORD", "CORROBORATION"] as const;
+    const permittedSubjectRelationships = historicalRequirements.some((requirement) => requirement.kind === "AFFECTED_COMMUNITY" || requirement.kind === "CUSTODIAL_COMMUNITY")
+      ? ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"] as const
+      : historicalRequirements.some((requirement) => requirement.kind === "PARTY_PARTICIPANT")
+        ? ["STATE_PARTY", "PARTICIPANT", "INDEPENDENT"] as const
+        : ["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"] as const;
+    const minimumIndependentGroups = conflictGap || historicalRequirements.some((requirement) => requirement.kind === "INDEPENDENT_SCHOLARSHIP") ? 2 : 0;
+    const semantic = {
+      scopeContractId: input.scope.scopeContractId,
+      scopePayloadHash: input.scope.payloadHash,
+      researchMapId: input.researchMap.researchMapId,
+      researchMapPayloadHash: input.researchMap.payloadHash,
+      parentCoverageAuditId: input.audit.coverageAuditId,
+      coverageGapIds: [gap.gapId],
+      questionIds,
+      phaseIds: unique(gap.phaseIds),
+      dimensionIds: unique(gap.dimensionIds),
+      historicalRequirements,
+      existingSupportingClaimVersionIds: unique(gap.existingSupportingClaimVersionIds),
+      existingSourceSnapshotIds: unique(input.sourceSnapshots.map((snapshot) => snapshot.sourceSnapshotId)),
+      deficiencyCode: gap.code,
+      materialReason: gap.reason,
+      requiredRoles: [...requiredRoles],
+      permittedSubjectRelationships: [...permittedSubjectRelationships],
+      minimumIndependentGroups,
+      candidatePublisherVersionIds: unique(candidateBindings.map((binding) => binding.publisherVersionId)),
+      specialistCollectionProfileIds: unique(candidateBindings.flatMap((binding) => binding.specialistCollectionProfiles.map((profile) => profile.profileId))),
+      budget: DEFAULT_COMPLETION_BUDGET,
+      state: "MATERIAL_EVIDENCE_GAP" as const
+    };
+    const gapObligationId = semanticArtifactId("gap-obligation", context, semantic);
+    return parseSealedArtifact(gapObligationSchema, { ...semanticEnvelope(context, gapObligationId, input.audit.coverageAuditId), artifactId: gapObligationId, gapObligationId, ...semantic }) as GapObligation;
+  }).sort((left, right) => left.gapObligationId.localeCompare(right.gapObligationId));
+}
+
+export function planGapDirectedCompletion(input: { context: ArtifactContext; scope: ScopeContract; researchMap: ResearchMap; audit: KnowledgeCoverageAudit; originalKnowledgeRunId: string; gapObligations?: readonly GapObligation[]; budget?: typeof DEFAULT_COMPLETION_BUDGET }): KnowledgeCompletionPlan {
   if (input.audit.verdict === "SUFFICIENT") throw new Error("Coverage completion cannot run when the initial audit is already sufficient.");
   const budget = input.budget || DEFAULT_COMPLETION_BUDGET;
+  const gapObligationByCoverageGapId = new Map((input.gapObligations || []).flatMap((obligation) => obligation.coverageGapIds.map((gapId) => [gapId, obligation.gapObligationId] as const)));
   type Candidate = Omit<KnowledgeCompletionTask, "taskId" | "questionId"> & { stableKey: string; priorityRank: number };
   const candidates: Candidate[] = [];
   const phaseGaps = input.audit.gaps.filter((gap) => ["MISSING_PHASE_KNOWLEDGE", "WEAK_PHASE_KNOWLEDGE", "STALE_ONGOING_SCOPE"].includes(gap.code));
@@ -261,8 +367,12 @@ export function planGapDirectedCompletion(input: { context: ArtifactContext; sco
   const remaining = [...candidates];
   const appendTask = (selected: Candidate) => {
     const { stableKey: _stableKey, priorityRank: _priorityRank, ...taskBase } = selected;
+    const gapObligationIds = unique(taskBase.gapIds.flatMap((gapId) => {
+      const obligationId = gapObligationByCoverageGapId.get(gapId);
+      return obligationId ? [obligationId] : [];
+    }));
     const questionId = contentAddressedId("coverage-question", taskBase);
-    tasks.push({ taskId: contentAddressedId("coverage-task", { ...taskBase, questionId }), ...taskBase, questionId });
+    tasks.push({ taskId: contentAddressedId("coverage-task", { ...taskBase, gapObligationIds, questionId }), ...taskBase, gapObligationIds, questionId });
     taskBase.gapIds.forEach((id) => plannedGapIds.add(id));
   };
   if (reservedChronologyCandidate && tasks.length < budget.maximumGapQuestions) appendTask(reservedChronologyCandidate);
@@ -277,7 +387,7 @@ export function planGapDirectedCompletion(input: { context: ArtifactContext; sco
     appendTask(selected);
   }
   if (tasks.length === 0) throw new Error("KNOWLEDGE_COVERAGE_INSUFFICIENT: no bounded completion task can be derived from locked gaps.");
-  const planPayload = { parentCoverageAuditId: input.audit.coverageAuditId, originalScopeContractId: input.scope.scopeContractId, originalResearchMapId: input.researchMap.researchMapId, originalKnowledgeRunId: null, round: 1 as const, budget, tasks, unplannedMaterialGapIds: input.audit.gaps.filter((gap) => !plannedGapIds.has(gap.gapId)).map((gap) => gap.gapId) };
+  const planPayload = { parentCoverageAuditId: input.audit.coverageAuditId, originalScopeContractId: input.scope.scopeContractId, originalResearchMapId: input.researchMap.researchMapId, originalKnowledgeRunId: null, round: 1 as const, budget, tasks, gapObligationIds: unique(tasks.flatMap((task) => task.gapObligationIds || [])), unplannedMaterialGapIds: input.audit.gaps.filter((gap) => !plannedGapIds.has(gap.gapId)).map((gap) => gap.gapId) };
   const completionPlanId = semanticArtifactId("knowledge-completion-plan", input.context, planPayload);
   return parseSealedArtifact(knowledgeCompletionPlanSchema, { ...semanticEnvelope(input.context, completionPlanId, input.audit.coverageAuditId), artifactId: completionPlanId, completionPlanId, ...planPayload });
 }
@@ -285,7 +395,7 @@ export function planGapDirectedCompletion(input: { context: ArtifactContext; sco
 export function sealNoCompletionRequired(input: { context: ArtifactContext; scope: ScopeContract; researchMap: ResearchMap; audit: KnowledgeCoverageAudit }): KnowledgeCompletionPlan {
   if (input.audit.verdict !== "SUFFICIENT" || input.audit.auditStage !== "INITIAL") throw new Error("NO_COMPLETION_REQUIRES_SUFFICIENT_INITIAL_AUDIT");
   if (input.audit.scopeContractId !== input.scope.scopeContractId || input.audit.researchMapId !== input.researchMap.researchMapId) throw new Error("NO_COMPLETION_LINEAGE_MISMATCH");
-  const planPayload = { parentCoverageAuditId: input.audit.coverageAuditId, originalScopeContractId: input.scope.scopeContractId, originalResearchMapId: input.researchMap.researchMapId, originalKnowledgeRunId: null, round: 0 as const, budget: DEFAULT_COMPLETION_BUDGET, tasks: [], unplannedMaterialGapIds: [] };
+  const planPayload = { parentCoverageAuditId: input.audit.coverageAuditId, originalScopeContractId: input.scope.scopeContractId, originalResearchMapId: input.researchMap.researchMapId, originalKnowledgeRunId: null, round: 0 as const, budget: DEFAULT_COMPLETION_BUDGET, tasks: [], gapObligationIds: [], unplannedMaterialGapIds: [] };
   const completionPlanId = semanticArtifactId("knowledge-completion-plan", input.context, planPayload);
   return parseSealedArtifact(knowledgeCompletionPlanSchema, { ...semanticEnvelope(input.context, completionPlanId, input.audit.coverageAuditId), artifactId: completionPlanId, completionPlanId, ...planPayload });
 }
@@ -307,12 +417,13 @@ export function buildKnowledgeCompletionResult(context: ArtifactContext, payload
     candidateClaimVersionIds: unique([...payload.candidateClaimVersionIds]),
     authorityVerdictIds: unique([...payload.authorityVerdictIds]),
     conflictSetIds: unique([...payload.conflictSetIds]),
-    unresolvedGapIds: unique([...payload.unresolvedGapIds])
+    unresolvedGapIds: unique([...payload.unresolvedGapIds]),
+    gapObligationIds: unique([...(payload.gapObligationIds || [])])
   };
-  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: "factory-v2-a.6" });
+  const completedKnowledgeSetId = semanticArtifactId("completed-knowledge-set", context, semanticPayload, { schemaVersion: "factory-v2-a.7" });
   return parseSealedArtifact(knowledgeCompletionResultSchema, {
     ...semanticEnvelope(context, completedKnowledgeSetId, payload.completionPlanId),
-    schemaVersion: "factory-v2-a.6",
+    schemaVersion: "factory-v2-a.7",
     artifactId: completedKnowledgeSetId,
     completionResultId: completedKnowledgeSetId,
     completedKnowledgeSetId,

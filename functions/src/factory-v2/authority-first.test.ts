@@ -160,6 +160,20 @@ test("contested routing rejects self-interested or single-group interpretation c
   assert.throws(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: [validProposals()[0]!, validProposals()[1]!] }), /PERSPECTIVE_INDEPENDENCE_INSUFFICIENT/);
 });
 
+test("protected representation fails preflight when the bounded authority universe has no eligible family", () => {
+  const protectedMap = {
+    ...map,
+    questions: map.questions.map((question) => question.questionId === "question-chronology" ? {
+      ...question,
+      historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected community", rationale: "The affected community's evidence is materially necessary for this protected representation." }]
+    } : question)
+  };
+  assert.throws(
+    () => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: protectedMap, publishers, proposals: validProposals() }),
+    /PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:question-chronology:AFFECTED_COMMUNITY/
+  );
+});
+
 test("validated Topic Authority Set is immutable, registry-bound, diverse, and routine without manual selection", () => {
   const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: validProposals() });
   const retrySet = buildTopicAuthoritySet({ context: { ...TEST_CONTEXT, runId: "retry-run", createdAt: "2027-01-01T00:00:00.000Z" }, scope, researchMap: map, publishers, proposals: validProposals() });
@@ -176,7 +190,7 @@ test("validated Topic Authority Set is immutable, registry-bound, diverse, and r
   assert.deepEqual(plan.coveredCriticalQuestionIds, set.criticalQuestionIds);
 });
 
-test("initial authority routing covers supporting questions with explicit historical perspective requirements", () => {
+test("supporting historical perspectives do not require predictive route proof before acquisition", () => {
   const perspectiveBearingSupportingQuestion = {
     ...map.questions[0]!,
     questionId: "question-community",
@@ -185,32 +199,27 @@ test("initial authority routing covers supporting questions with explicit histor
     historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected local community", rationale: "The community directly experienced the program and its consequences." }]
   };
   const mapWithRequiredPerspective = { ...map, questions: [...map.questions, perspectiveBearingSupportingQuestion] };
-  assert.throws(
-    () => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: mapWithRequiredPerspective, publishers, proposals: validProposals() }),
-    /MISSING_ROUTING_OBLIGATION_ROUTE/
-  );
-  const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: mapWithRequiredPerspective });
-  const communityObligation = obligations.obligations.find((item) => item.researchQuestionId === "question-community")!;
   const set = buildTopicAuthoritySet({
     context: TEST_CONTEXT,
     scope,
     researchMap: mapWithRequiredPerspective,
-    routingObligationSet: obligations,
     publishers,
     proposals: [...validProposals(), proposal("National Archives and Records Administration", {
       researchQuestionIds: ["question-community"],
-      perspectiveTags: ["Affected local community"],
-      routingObligationIds: [communityObligation.routingObligationId]
+      perspectiveTags: ["Affected local community"]
     })]
   });
-  assert.ok(set.criticalQuestionIds.includes("question-community"));
+  assert.equal(set.routingObligationSetId, null);
+  assert.deepEqual(set.obligationRoutes, []);
+  assert.equal(set.criticalQuestionIds.includes("question-community"), false);
 });
 
-test("initial authority routing includes contested supporting questions without treating geography as a viewpoint", () => {
+test("initial authority planning includes contested questions but does not promote a supporting perspective to predictive routing", () => {
   const supportingQuestion = { ...map.questions[0]!, priority: "IMPORTANT" as const, contested: true, historicalPerspectiveRequirements: undefined };
-  assert.equal(isInitialAuthorityRequiredQuestion(supportingQuestion), true);
   const londonRetrieval = { ...supportingQuestion, contested: false, geography: ["London"] };
   const globalRetrieval = { ...supportingQuestion, contested: false, geography: ["Global"] };
+  assert.equal(isInitialAuthorityRequiredQuestion(supportingQuestion), true);
+  assert.equal(isInitialAuthorityRequiredQuestion({ ...supportingQuestion, contested: false }), false);
   assert.equal(isInitialAuthorityRequiredQuestion(londonRetrieval), false);
   assert.equal(isInitialAuthorityRequiredQuestion(globalRetrieval), false);
 });
@@ -301,35 +310,31 @@ test("route locks preserve partial success and expose only missing obligations t
   assert.throws(() => lockRoutingProposals({ locked: [], proposals: [{ ...first, roles: ["CORROBORATION"] }], candidates }), /ROUTING_LOCK_ROLE_OR_QUESTION_INVALID/);
 });
 
-test("routing fails closed before acquisition when a locked obligation has no eligible registered route", () => {
+test("Topic Authority Set does not turn a historical perspective into a predictive source route", () => {
   const obligationQuestion = {
     ...map.questions[0]!, questionId: "question-route", historicalPerspectiveRequirements: [
       { kind: "PARTY_PARTICIPANT" as const, label: "Party records", rationale: "A direct participant perspective is historically material." }
     ]
   };
   const obligationMap = { ...map, questions: [obligationQuestion] };
-  const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: obligationMap });
-  assert.throws(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: obligationMap, publishers, routingObligationSet: obligations, proposals: [proposal("National Archives and Records Administration", { researchQuestionIds: ["question-route"], subjectRelationship: "INDEPENDENT" })] }), /MISSING_ROUTING_OBLIGATION_ROUTE/);
-  const route = obligations.obligations[0]!;
-  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: obligationMap, publishers, routingObligationSet: obligations, proposals: [proposal("National Archives and Records Administration", { researchQuestionIds: ["question-route"], subjectRelationship: "INDEPENDENT", roles: ["PRIMARY_RECORD"], routingObligationIds: [route.routingObligationId] })] });
-  assert.equal(set.obligationRoutes.length, 1);
+  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: obligationMap, publishers, proposals: [proposal("National Archives and Records Administration", { researchQuestionIds: ["question-route"], subjectRelationship: "INDEPENDENT", roles: ["PRIMARY_RECORD"] })] });
+  assert.equal(set.routingObligationSetId, null);
+  assert.equal(set.obligationRoutes.length, 0);
   const plan = buildAuthorityResearchPlan({ context: TEST_CONTEXT, set, researchMap: obligationMap });
-  assert.deepEqual(plan.coveredRoutingObligationIds, [route.routingObligationId]);
-  assert.ok(plan.operations.filter((operation) => operation.layer === "EVIDENTIARY_CORE").every((operation) => operation.routingObligationIds.includes(route.routingObligationId)));
+  assert.deepEqual(plan.coveredRoutingObligationIds, []);
+  assert.ok(plan.operations.filter((operation) => operation.layer === "EVIDENTIARY_CORE").every((operation) => operation.routingObligationIds.length === 0));
 });
 
-test("routing rejects unknown mappings while registered archives may explicitly route community records", () => {
+test("retired route mappings cannot alter canonical authority-set semantics", () => {
   const communityQuestion = {
     ...map.questions[0]!, questionId: "question-community-route", historicalPerspectiveRequirements: [
       { kind: "CUSTODIAL_COMMUNITY" as const, label: "Community custodians", rationale: "Custodial interpretation is historically material." }
     ]
   };
   const obligationMap = { ...map, questions: [communityQuestion] };
-  const obligations = buildRoutingObligationSet({ context: TEST_CONTEXT, scope, researchMap: obligationMap });
-  assert.throws(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: obligationMap, publishers, routingObligationSet: obligations, proposals: [proposal("National Archives and Records Administration", { researchQuestionIds: ["question-community-route"], routingObligationIds: ["not-a-locked-obligation"] })] }), /AUTHORITY_BINDING_UNKNOWN_ROUTING_OBLIGATION/);
-  const obligation = obligations.obligations[0]!;
-  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: obligationMap, publishers, routingObligationSet: obligations, proposals: [proposal("National Archives and Records Administration", { researchQuestionIds: ["question-community-route"], roles: ["PRIMARY_RECORD"], routingObligationIds: [obligation.routingObligationId] })] });
-  assert.equal(set.obligationRoutes[0]?.routingObligationId, obligation.routingObligationId);
+  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: obligationMap, publishers, proposals: [proposal("National Archives and Records Administration", { researchQuestionIds: ["question-community-route"], roles: ["PRIMARY_RECORD"], routingObligationIds: ["not-a-locked-obligation"] })] });
+  assert.deepEqual(set.obligationRoutes, []);
+  assert.deepEqual(set.bindings[0]?.routingObligationIds, []);
 });
 
 test("specialist collection selection is deterministic metadata matching, never array order", () => {

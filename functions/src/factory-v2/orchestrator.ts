@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, deadlineTerminalRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type RoutingObligationSet, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthorityProposal, type TopicAuthoritySet } from "./contracts";
+import { V2_PIPELINE_VERSION, V2_POLICY_VERSION, auditRecordSchema, canonicalEntityRecordSchema, canonicalEntityVersionSchema, canonicalEventRecordSchema, deadlineTerminalRecordSchema, entityAliasSchema, eventClaimEdgeSchema, eventEntityEdgeSchema, modelExecutionSchema, publisherAuthorityRecordSchema, reconnaissanceRecordSchema, sourceDocumentSchema, topicOperationSchema, v2FailureRecordSchema, type AcquisitionConfidenceVector, type AtomicClaimVersion, type CanonicalEntityVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimEvidenceEdge, type ControlledResearchOperation, type EvidenceSegment, type HistoricalDate, type PublisherAuthorityVersion, type ResearchMap, type ScopeContract, type SourceDocument, type SourceSnapshot, type TopicAuthorityProposal, type TopicAuthoritySet } from "./contracts";
 import { assertV2AShadowEnabled, authorityFirstRunDeadlineAt, type FactoryV2Config } from "./config";
 import { bootstrapPublisherRegistry, detectClaimConflicts, evaluateClaimAuthority, independenceGroup } from "./authority";
 import { buildAtomicClaimVersion, buildCanonicalEntityVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, executionArtifactId, immutableEnvelope, normalizedIdentityText, parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
@@ -9,9 +9,9 @@ import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { performBoundedReconnaissance } from "./reconnaissance";
 import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate } from "./resolution";
 import { V2FirestoreRepository } from "./repositories/firestore";
-import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, selectRoutingObligationBatch, StructuredStageError, type V2ModelProvider } from "./vertex";
+import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2ModelProvider } from "./vertex";
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
-import { auditPerspective, authorizeEscalation, batchRoutingObligations, buildAuthorityResearchPlan, buildConfidenceVector, buildEligibleRoutingCandidates, buildRoutingObligationSet, buildTopicAuthoritySet, lockRoutingProposals, registeredGroundingExpansionPublishers, sealControlledResearchLedger, unresolvedRoutingObligationIds } from "./authority-first";
+import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 
@@ -140,7 +140,7 @@ export type V2AShadowResult = {
   researchMapId: string;
   queryPlanId: string | null;
   topicAuthoritySetId: string;
-  routingObligationSetId: string;
+  routingObligationSetId: string | null;
   authorityResearchPlanId: string;
   controlledResearchLedgerId: string;
   perspectiveAuditId: string;
@@ -213,7 +213,9 @@ export function confidenceRequiresAdditionalBlock(
   confidence: Pick<AcquisitionConfidenceVector, "verdict" | "authorityApplicability" | "evidenceDirectness" | "independentCorroboration" | "perspectiveAdequacy" | "conflictStatus" | "provenanceIntegrity">,
   existingBlockingReasons: readonly string[]
 ): boolean {
-  if (confidence.verdict === "REVIEW_REQUIRED") return true;
+  // .16 defers perspective sufficiency to the evidence-derived coverage audit.
+  // A planning-time perspective review alone is not an acquisition failure.
+  if (confidence.verdict === "REVIEW_REQUIRED") return confidence.conflictStatus === "REVIEW_REQUIRED";
   if (confidence.verdict !== "FAIL") return false;
   const missingEventOnly = existingBlockingReasons.length === 1 && existingBlockingReasons[0] === "NO_RESOLVED_EVENT_CANDIDATES";
   const independentFailure = confidence.authorityApplicability === "FAIL"
@@ -267,7 +269,6 @@ export type OrchestratorDependencies = {
     researchMap: ResearchMap;
     gapIdsByQuestionId?: ReadonlyMap<string, readonly string[]>;
     priorTopicAuthoritySet: TopicAuthoritySet;
-    priorRoutingObligationSet: RoutingObligationSet;
   };
 };
 
@@ -294,43 +295,23 @@ async function mapLimit<T, R>(items: readonly T[], concurrency: number, task: (i
   return results;
 }
 
-function inheritContinuationAuthorityProposals(input: { continuation: NonNullable<OrchestratorDependencies["continuation"]>; routingObligationSet: RoutingObligationSet; requiredQuestionIds: readonly string[] }): TopicAuthorityProposal[] {
-  const targets = new Set(input.requiredQuestionIds);
-  const priorById = new Map(input.continuation.priorRoutingObligationSet.obligations.map((item) => [item.routingObligationId, item]));
-  const successorByIdentity = new Map(input.routingObligationSet.obligations.map((item) => [`${item.researchQuestionId}\n${item.semanticIdentity}`, item.routingObligationId]));
-  return input.continuation.priorTopicAuthoritySet.bindings.flatMap((binding) => {
-    const researchQuestionIds = binding.researchQuestionIds.filter((id) => targets.has(id));
-    if (researchQuestionIds.length === 0) return [];
-    const routingObligationIds = binding.routingObligationIds.flatMap((priorId) => {
-      const prior = priorById.get(priorId);
-      const successor = prior && targets.has(prior.researchQuestionId) ? successorByIdentity.get(`${prior.researchQuestionId}\n${prior.semanticIdentity}`) : undefined;
-      return successor ? [successor] : [];
-    });
-    return [{ publisherVersionId: binding.publisherVersionId, researchQuestionIds, roles: binding.roles, claimTypes: binding.claimTypes, subjectRelationship: binding.subjectRelationship, perspectiveTags: binding.perspectiveTags, routingObligationIds, rationale: binding.rationale }];
-  });
-}
-
-/** Route locks merge monotonically. A later batch can only add an explicit
- * obligation mapping; it cannot replace or erase an already locked route. */
+/** Merges bounded authority proposals without granting semantic authority to
+ * any planned historical perspective. */
 function mergeAuthorityProposals(proposals: readonly TopicAuthorityProposal[]): TopicAuthorityProposal[] {
   const merged = new Map<string, TopicAuthorityProposal>();
   for (const proposal of proposals) {
     const existing = merged.get(proposal.publisherVersionId);
     if (!existing) {
-      merged.set(proposal.publisherVersionId, { ...proposal, researchQuestionIds: [...proposal.researchQuestionIds].sort(), roles: [...proposal.roles].sort(), claimTypes: [...proposal.claimTypes].sort(), perspectiveTags: [...proposal.perspectiveTags].sort(), routingObligationIds: [...proposal.routingObligationIds].sort() });
+      merged.set(proposal.publisherVersionId, { ...proposal, researchQuestionIds: [...proposal.researchQuestionIds].sort(), roles: [...proposal.roles].sort(), claimTypes: [...proposal.claimTypes].sort(), perspectiveTags: [...proposal.perspectiveTags].sort(), routingObligationIds: [] });
       continue;
     }
-    // Supplemental planning is not permitted to mutate a locked routing
-    // binding. Keeping the original binding also prevents a broad later role
-    // (for example CORROBORATION) from invalidating a self/state route.
-    if (existing.routingObligationIds.length > 0 && proposal.routingObligationIds.length === 0) continue;
     merged.set(proposal.publisherVersionId, {
       ...existing,
       researchQuestionIds: [...new Set([...existing.researchQuestionIds, ...proposal.researchQuestionIds])].sort(),
       roles: [...new Set([...existing.roles, ...proposal.roles])].sort(),
       claimTypes: [...new Set([...existing.claimTypes, ...proposal.claimTypes])].sort(),
       perspectiveTags: [...new Set([...existing.perspectiveTags, ...proposal.perspectiveTags])].sort(),
-      routingObligationIds: [...new Set([...existing.routingObligationIds, ...proposal.routingObligationIds])].sort(),
+      routingObligationIds: [],
       rationale: existing.rationale
     });
   }
@@ -491,56 +472,20 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   await persistSemanticDerivation("v2ResearchMaps", mapResult.map, mapResult.executions.at(-1));
   assertDeadline();
   const requiredAuthorityQuestionIds = continuation?.gapIdsByQuestionId ? [...continuation.gapIdsByQuestionId.keys()] : undefined;
-  const routingObligationSet = buildRoutingObligationSet({ context, scope: scopeResult.scope, researchMap: mapResult.map, requiredQuestionIds: requiredAuthorityQuestionIds });
-  await persist("v2RoutingObligationSets", routingObligationSet);
-  const inheritedContinuationProposals = continuation && requiredAuthorityQuestionIds ? inheritContinuationAuthorityProposals({ continuation, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds }) : [];
-  const eligibleRoutingCandidates = buildEligibleRoutingCandidates({ routingObligationSet, publishers });
-  const lockedRoutingProposals = [...inheritedContinuationProposals];
-  const lockedObligationIds = new Set(lockedRoutingProposals.flatMap((proposal) => proposal.routingObligationIds));
-  // Completeness is deterministic: only unresolved locked IDs are ever sent
-  // to the selector, and accepted selections are monotonic route locks.
-  for (let repairRound = 0; repairRound <= 2; repairRound += 1) {
-    const unresolved = routingObligationSet.obligations.filter((obligation) => !lockedObligationIds.has(obligation.routingObligationId));
-    if (unresolved.length === 0) break;
-    const unresolvedSet = new Set(unresolved.map((obligation) => obligation.routingObligationId));
-    const batches = batchRoutingObligations({
-      routingObligationSet: { ...routingObligationSet, obligations: unresolved },
-      candidates: eligibleRoutingCandidates.filter((candidate) => unresolvedSet.has(candidate.routingObligationId))
-    });
-    let newlyLocked = 0;
-    for (const batch of batches) {
-      const result = await selectRoutingObligationBatch({
-        context, scope: scopeResult.scope, map: mapResult.map, publishers,
-        obligations: batch,
-        candidates: eligibleRoutingCandidates.filter((candidate) => batch.some((obligation) => obligation.routingObligationId === candidate.routingObligationId)),
-        provider: dependencies.provider, deadlineAt, supervisor
-      });
-      modelExecutions.push(...result.executions.map((execution) => modelExecutionSchema.parse(execution)));
-      for (const execution of result.executions) await persist("v2ModelExecutions", execution);
-      const before = lockedRoutingProposals.length;
-      const accepted = lockRoutingProposals({ locked: lockedRoutingProposals, proposals: result.proposals, candidates: eligibleRoutingCandidates });
-      lockedRoutingProposals.splice(0, lockedRoutingProposals.length, ...accepted);
-      for (const proposal of accepted.slice(before)) lockedObligationIds.add(proposal.routingObligationIds[0]!);
-      newlyLocked += accepted.length - before;
-    }
-    if (newlyLocked === 0) break;
-  }
-  const unresolvedObligationIds = unresolvedRoutingObligationIds({ routingObligationSet, locked: lockedRoutingProposals });
-  if (unresolvedObligationIds.length > 0) throw new Error(`ROUTING_OBLIGATION_REPAIR_EXHAUSTED:${unresolvedObligationIds.join(",")}`);
-  // Supplemental planning is not allowed to carry a mandatory route. The
-  // locked proposals above already prove the obligation set before acquisition.
+  // .16 deliberately has no pre-acquisition route-selection, batching, or
+  // repair phase. The bounded authority set is an acquisition universe, not
+  // evidence of perspective sufficiency.
   const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: [], provider: dependencies.provider, deadlineAt, supervisor });
   modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
-  const allAuthorityProposals = mergeAuthorityProposals([...lockedRoutingProposals, ...authorityProposalResult.proposals]);
-  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds });
+  const allAuthorityProposals = mergeAuthorityProposals(authorityProposalResult.proposals);
+  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId: continuation?.priorTopicAuthoritySet.topicAuthoritySetId });
   await persist("v2TopicAuthoritySets", topicAuthoritySet);
   await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));
   const authorityResearchPlan = buildAuthorityResearchPlan({ context, set: topicAuthoritySet, researchMap: mapResult.map });
   await persist("v2AuthorityResearchPlans", authorityResearchPlan);
   let perspectiveAudit = auditPerspective({ context, set: topicAuthoritySet, requiredPerspectiveTags: requiredPerspectiveTags(mapResult.map, requiredAuthorityQuestionIds), requiredPerspectiveRequirements: requiredPerspectiveRequirements(mapResult.map, requiredAuthorityQuestionIds), sensitive: false });
   await persist("v2PerspectiveAudits", perspectiveAudit);
-  if (perspectiveAudit.verdict === "INADEQUATE") throw new Error(`PERSPECTIVE_DIVERSITY_INADEQUATE:${perspectiveAudit.reasonCodes.join(",")}`);
   progress.topicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
   progress.authorityResearchPlanId = authorityResearchPlan.authorityResearchPlanId;
   progress.perspectiveAuditId = perspectiveAudit.perspectiveAuditId;
@@ -609,19 +554,17 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const expansionPublishers = registeredGroundingExpansionPublishers({ set: topicAuthoritySet, publishers, researchQuestionId: question.questionId, references: acquisition.chunks });
     if (expansionPublishers.length > 0) {
       try {
-        const continuationObligations = routingObligationSet.obligations.filter((obligation) => obligation.researchQuestionId === question.questionId);
-        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], routingObligations: continuationObligations, maximumRepairs: 0, provider: dependencies.provider, deadlineAt, supervisor });
+        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], routingObligations: [], maximumRepairs: 0, provider: dependencies.provider, deadlineAt, supervisor });
         modelExecutions.push(...expansionResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
         for (const execution of expansionResult.executions) await persist("v2ModelExecutions", execution);
         const parentTopicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
         allAuthorityProposals.push(...expansionResult.proposals);
-        topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, routingObligationSet, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId });
+        topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId });
         await persist("v2TopicAuthoritySets", topicAuthoritySet);
         await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, expansionResult.executions.at(-1));
         for (const binding of topicAuthoritySet.bindings) bindingById.set(binding.bindingId, binding);
         perspectiveAudit = auditPerspective({ context, set: topicAuthoritySet, requiredPerspectiveTags: requiredPerspectiveTags(mapResult.map, requiredAuthorityQuestionIds), requiredPerspectiveRequirements: requiredPerspectiveRequirements(mapResult.map, requiredAuthorityQuestionIds), sensitive: false });
         await persist("v2PerspectiveAudits", perspectiveAudit);
-        if (perspectiveAudit.verdict === "INADEQUATE") throw new Error(`PERSPECTIVE_DIVERSITY_INADEQUATE:${perspectiveAudit.reasonCodes.join(",")}`);
         progress.topicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
         progress.perspectiveAuditId = perspectiveAudit.perspectiveAuditId;
       } catch (error) {
@@ -1198,7 +1141,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     researchMapId: mapResult.map.researchMapId,
     queryPlanId: null,
     topicAuthoritySetId: topicAuthoritySet.topicAuthoritySetId,
-    routingObligationSetId: routingObligationSet.routingObligationSetId,
+    routingObligationSetId: null,
     authorityResearchPlanId: authorityResearchPlan.authorityResearchPlanId,
     controlledResearchLedgerId: controlledResearchLedger.controlledResearchLedgerId,
     perspectiveAuditId: perspectiveAudit.perspectiveAuditId,

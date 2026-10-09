@@ -14,6 +14,7 @@ import {
   V2_PIPELINE_VERSION,
   V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION,
   V2_POLICY_VERSION,
+  V2_SCHEMA_VERSION,
   type AtomicClaimVersion,
   type CanonicalEventVersion,
   type ClaimAuthorityVerdict,
@@ -163,9 +164,9 @@ export async function reconstructCompletedKnowledgeSetForB1(reader: CompletedKno
     ...conflicts.map((value) => ["Conflict Set", value] as const)
   ] as const) assertArtifactBoundary(set, artifact, label);
 
-  if ([initialCoverageAudit, finalCoverageAudit, completionPlan].some((artifact) => artifact.schemaVersion !== "factory-v2-a.4" || artifact.policyVersion !== set.policyVersion)) throw new Error("B1_LINEAGE_SEMANTIC_VERSION_INCOMPATIBLE: coverage chain.");
+  if ([initialCoverageAudit, finalCoverageAudit, completionPlan].some((artifact) => artifact.schemaVersion !== V2_SCHEMA_VERSION || artifact.policyVersion !== set.policyVersion)) throw new Error("B1_LINEAGE_SEMANTIC_VERSION_INCOMPATIBLE: coverage chain.");
   const expectedResearchMapPolicy = completionPlan.round === 0 ? V2_POLICY_VERSION : set.policyVersion;
-  if (researchMap.schemaVersion !== "factory-v2-a.4" || researchMap.policyVersion !== expectedResearchMapPolicy || originalResearchMap.schemaVersion !== "factory-v2-a.4" || originalResearchMap.policyVersion !== V2_POLICY_VERSION) throw new Error("B1_LINEAGE_SEMANTIC_VERSION_INCOMPATIBLE: research maps.");
+  if (researchMap.schemaVersion !== V2_SCHEMA_VERSION || researchMap.policyVersion !== expectedResearchMapPolicy || originalResearchMap.schemaVersion !== V2_SCHEMA_VERSION || originalResearchMap.policyVersion !== V2_POLICY_VERSION) throw new Error("B1_LINEAGE_SEMANTIC_VERSION_INCOMPATIBLE: research maps.");
 
   if (set.parentArtifactId !== completionPlan.completionPlanId || completionPlan.parentArtifactId !== initialCoverageAudit.coverageAuditId || completionPlan.parentCoverageAuditId !== initialCoverageAudit.coverageAuditId) throw new Error("B1_LINEAGE_COMPLETION_PLAN_MISMATCH.");
   if (initialCoverageAudit.auditStage !== "INITIAL" || initialCoverageAudit.payloadHash !== set.initialCoverageAuditPayloadHash) throw new Error("B1_LINEAGE_INITIAL_AUDIT_MISMATCH.");

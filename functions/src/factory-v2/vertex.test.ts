@@ -169,7 +169,7 @@ test("an empty routing batch remains an explicit unresolved result for bounded m
   assert.equal(result.executions[0]!.validationState, "VALID");
 });
 
-test("initial authority routing requires explicit historical-perspective and contested questions, not retrieval geography", async () => {
+test("initial authority planning requires contested questions, while historical perspective remains evidence-audited", async () => {
   const scope = scopeFixture();
   const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
   const map = {
@@ -196,6 +196,7 @@ test("initial authority routing requires explicit historical-perspective and con
   assert.equal(result.executions[1]!.validationState, "REPAIRED");
   assert.deepEqual(new Set(result.proposals.flatMap((proposal) => proposal.researchQuestionIds)), new Set([map.questions[0]!.questionId, map.questions[1]!.questionId]));
   assert.match(requests[0]!.contents, /CRITICAL or contested Research Map question/u);
+  assert.match(requests[0]!.contents, /Historical perspective sufficiency is determined only from acquired evidence/u);
   assert.match(requests[0]!.contents, /Retrieval geography alone is never/u);
 });
 

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildAtomicClaimVersion, buildCanonicalEventVersion, buildResearchMap, immutableEnvelope, parseSealedArtifact } from "./contracts/builders";
-import { claimAuthorityVerdictSchema, claimConflictSetSchema, type AtomicClaimVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimConflictSet } from "./contracts";
-import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion, sealNoCompletionRequired } from "./coverage";
+import { claimAuthorityVerdictSchema, claimConflictSetSchema, type AtomicClaimVersion, type CanonicalEventVersion, type ClaimAuthorityVerdict, type ClaimConflictSet, type SourceDocument, type SourceSnapshot, type TopicAuthoritySet } from "./contracts";
+import { auditKnowledgeCoverage, buildCompletionResearchMap, buildGapObligations, buildKnowledgeCompletionResult, DEFAULT_COMPLETION_BUDGET, mergeKnowledgeEventVersions, planGapDirectedCompletion, sealNoCompletionRequired } from "./coverage";
 import { contentAddressedId, deterministicUuid } from "./hashing";
 import { date, scopeFixture, TEST_CONTEXT } from "./test-fixtures";
 
@@ -48,6 +48,44 @@ function audit(claims: AtomicClaimVersion[], verdicts: ClaimAuthorityVerdict[], 
   return auditKnowledgeCoverage({ context: TEST_CONTEXT, stage: "INITIAL", scope: topicScope, researchMap: map, sourceKnowledgeRunIds: ["source-run"], claims, authorityVerdicts: verdicts, conflicts, events });
 }
 
+const evidencePublisherId = "4f5e4c55-7c5f-4a40-b632-77b5f5dcd2f8";
+const evidencePublisherVersionId = "evidence-publisher-version";
+const evidenceSnapshotId = "evidence-source-snapshot";
+
+function evidenceAuthoritySet(questionId: string, perspectiveTags: string[]): TopicAuthoritySet {
+  return {
+    topicAuthoritySetId: "evidence-authority-set",
+    bindings: [{
+      bindingId: "evidence-binding",
+      publisherId: evidencePublisherId,
+      publisherVersionId: evidencePublisherVersionId,
+      researchQuestionIds: [questionId],
+      roles: ["PERSPECTIVE_TESTIMONY"],
+      claimTypes: ["OCCURRENCE"],
+      subjectRelationship: "COMMUNITY_CUSTODIAN",
+      perspectiveTags,
+      routingObligationIds: [],
+      rationale: "Test-only governed community authority.",
+      authorityFamily: "COMMUNITY_CUSTODIAL",
+      independenceGroupId: "community-independence-group",
+      verifiedDomains: ["community.example"],
+      languages: ["en"],
+      geography: [],
+      officialEndpoints: ["https://community.example/archive"],
+      discoveryMechanisms: ["DIRECT_URL"],
+      specialistCollectionProfiles: [],
+      validationStatus: "ELIGIBLE"
+    }]
+  } as unknown as TopicAuthoritySet;
+}
+
+function acquiredEvidence(): { sourceDocuments: SourceDocument[]; sourceSnapshots: SourceSnapshot[] } {
+  return {
+    sourceDocuments: [{ publisherId: evidencePublisherId }] as SourceDocument[],
+    sourceSnapshots: [{ sourceSnapshotId: evidenceSnapshotId, retrievedAt: "2026-09-06T00:00:00.000Z" }] as SourceSnapshot[]
+  };
+}
+
 test("adequate multi-phase knowledge passes without equal-time quotas", () => {
   const claims = [claim("claim-1989", "q-foundation-tech", 1989), claim("claim-2010", "q-expansion-tech", 2010), claim("claim-2024", "q-current-society", 2024)];
   const result = audit(claims, claims.map((item) => verdict(item)), claims.map((item) => event(item, item.temporal!.start.year)));
@@ -62,6 +100,63 @@ test("sufficient initial knowledge seals a zero-round completion plan without re
   assert.equal(plan.round, 0);
   assert.deepEqual(plan.tasks, []);
   assert.throws(() => planGapDirectedCompletion({ context: TEST_CONTEXT, scope, researchMap: map, audit: result, originalKnowledgeRunId: "source-run" }), /cannot run when the initial audit is already sufficient/);
+});
+
+test("Gap Obligations are impossible before a material initial evidence deficiency", () => {
+  const claims = [claim("claim-gap-zero-foundation", "q-foundation-tech", 1989), claim("claim-gap-zero-expansion", "q-expansion-tech", 2010), claim("claim-gap-zero-current", "q-current-society", 2024)];
+  const result = audit(claims, claims.map((item) => verdict(item)), claims.map((item) => event(item, item.temporal!.start.year)));
+  assert.equal(result.verdict, "SUFFICIENT");
+  assert.deepEqual(buildGapObligations({ context: TEST_CONTEXT, scope, researchMap: map, audit: result, authoritySet: evidenceAuthoritySet("q-current-society", []), sourceSnapshots: acquiredEvidence().sourceSnapshots }), []);
+});
+
+test("missing acquired affected-community evidence creates a lineage-bearing Gap Obligation", () => {
+  const perspectiveMap = buildResearchMap(TEST_CONTEXT, scope, {
+    version: 1,
+    phases,
+    dimensions,
+    entities: [],
+    questions: map.questions.map((item) => item.questionId === "q-current-society" ? {
+      ...item,
+      historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected community", rationale: "The community directly experienced the material historical consequences." }]
+    } : item),
+    terminology: [],
+    knownUncertainty: []
+  });
+  const claims = [claim("claim-gap-perspective-foundation", "q-foundation-tech", 1989), claim("claim-gap-perspective-expansion", "q-expansion-tech", 2010), claim("claim-gap-perspective-current", "q-current-society", 2024)];
+  const evidence = acquiredEvidence();
+  const result = auditKnowledgeCoverage({ context: TEST_CONTEXT, stage: "INITIAL", scope, researchMap: perspectiveMap, sourceKnowledgeRunIds: ["source-run"], claims, authorityVerdicts: claims.map((item) => verdict(item)), conflicts: [], events: claims.map((item) => event(item, item.temporal!.start.year)), ...evidence, authoritySet: evidenceAuthoritySet("q-current-society", ["Unrelated institutional record"]) });
+  const perspectiveGap = result.gaps.find((gap) => gap.code === "MISSING_HISTORICAL_PERSPECTIVE");
+  assert.ok(perspectiveGap);
+  const obligations = buildGapObligations({ context: TEST_CONTEXT, scope, researchMap: perspectiveMap, audit: result, authoritySet: evidenceAuthoritySet("q-current-society", ["Unrelated institutional record"]), sourceSnapshots: evidence.sourceSnapshots });
+  const obligation = obligations.find((item) => item.coverageGapIds.includes(perspectiveGap!.gapId));
+  assert.ok(obligation);
+  assert.deepEqual(obligation!.existingSourceSnapshotIds, [evidenceSnapshotId]);
+  assert.ok(obligation!.existingSupportingClaimVersionIds.includes(claims[2]!.claimVersionId));
+  assert.deepEqual(obligation!.historicalRequirements.map((item) => item.label), ["Affected community"]);
+  const plan = planGapDirectedCompletion({ context: TEST_CONTEXT, scope, researchMap: perspectiveMap, audit: result, originalKnowledgeRunId: "source-run", gapObligations: obligations });
+  assert.ok(plan.tasks.some((task) => task.gapObligationIds?.includes(obligation!.gapObligationId)));
+  assert.ok(plan.tasks.flatMap((task) => task.gapObligationIds || []).every((id) => obligations.some((item) => item.gapObligationId === id)));
+});
+
+test("acquired matching community evidence satisfies the historical perspective without a completion obligation", () => {
+  const perspectiveMap = buildResearchMap(TEST_CONTEXT, scope, {
+    version: 1,
+    phases,
+    dimensions,
+    entities: [],
+    questions: map.questions.map((item) => item.questionId === "q-current-society" ? {
+      ...item,
+      historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected community", rationale: "The community directly experienced the material historical consequences." }]
+    } : item),
+    terminology: [],
+    knownUncertainty: []
+  });
+  const claims = [claim("claim-perspective-pass-foundation", "q-foundation-tech", 1989), claim("claim-perspective-pass-expansion", "q-expansion-tech", 2010), claim("claim-perspective-pass-current", "q-current-society", 2024)];
+  const evidence = acquiredEvidence();
+  const result = auditKnowledgeCoverage({ context: TEST_CONTEXT, stage: "INITIAL", scope, researchMap: perspectiveMap, sourceKnowledgeRunIds: ["source-run"], claims, authorityVerdicts: claims.map((item) => verdict(item)), conflicts: [], events: claims.map((item) => event(item, item.temporal!.start.year)), ...evidence, authoritySet: evidenceAuthoritySet("q-current-society", ["Affected community"]) });
+  assert.equal(result.gaps.some((gap) => gap.code === "MISSING_HISTORICAL_PERSPECTIVE"), false);
+  assert.equal(result.verdict, "SUFFICIENT");
+  assert.deepEqual(buildGapObligations({ context: TEST_CONTEXT, scope, researchMap: perspectiveMap, audit: result, authoritySet: evidenceAuthoritySet("q-current-society", ["Affected community"]), sourceSnapshots: evidence.sourceSnapshots }), []);
 });
 
 test("missing and weak material phases are distinct and create locked gap tasks", () => {

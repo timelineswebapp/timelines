@@ -84,6 +84,7 @@ export const V2_CORPUS_COLLECTIONS = [
   "v2TimelineViewSpecifications",
   "v2TimelineEventMemberships",
   "v2KnowledgeCoverageAudits",
+  "v2GapObligations",
   "v2KnowledgeCompletionPlans",
   "v2KnowledgeCompletionResults",
   "v2EventLocks",
