@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_SUCCESSOR_RELEASE_PREPARATION — MATERIAL_JURISDICTION_CAPACITY_AUTHORIZED`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — UNAUTHORIZED_STAKEHOLDER_CAPACITY_GAP`
+
+## 2026-10-09 — `.18` fresh Phase-2 certification boundary
+
+The clean successor source `5e36ed61fb430d85c4d80a575e5bb2bd362600de`, release `fb53e1fc7b168ea4d9ed7abb85de08ee991b4aa7f4fa328ef18bad970e296398`, was sealed and started one fresh four-subject Phase-2 certification. It did not reuse any prior result. The first subject, San Francisco, stopped fail-closed during initial authority availability before retrieval: `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT` for the `STAKEHOLDER` requirement `City Planners and Relief Organizations`. The durable diagnostic has requirement `perspective-requirement-4167d9e64c8d1c8c69869b48a4f5b56778b7feda4f92179502398693b2f5c4d8`, no historical-jurisdiction constraint, and zero eligible Registry candidates. Berlin, Ada, and Printing Press were not executed.
+
+The exact protected-state snapshot before and after is identical (including governance, library, published-memory, platform, search, and sitemap collections). The sealed report is `artifacts/authority-first-acquisition-canary/2026-10-09T08-09-02-750Z/report.json`, SHA-256 `8c2b18efc751a574649b1deec02baef01d661d112f2bd02915ff0add8783c65f`.
+
+This is not a material-jurisdiction or records-holder semantics defect and is outside the founder's bounded `.18` remediation authorization. The next action requires founder direction for a separately governed stakeholder-capacity/policy resolution. Do not rerun a subject or expand the Registry under the current authorization.
 
 ## 2026-10-09 — Founder-authorized historical-jurisdiction capacity correction
 
@@ -82,7 +90,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | IN_PROGRESS | The founder authorized the bounded Registry-governed material-jurisdiction capacity correction. Local implementation and verification are complete; clean successor-release sealing and one fresh four-subject certification remain. Historical `.4`–`.17` evidence remains non-combinable diagnostic evidence. No 4/4 certification exists. |
+| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | Clean `.18` release `fb53e1…6398` began a fresh four-subject run but San Francisco stopped before retrieval on a separate `STAKEHOLDER` availability gap, with exact protected-state parity. The `.18` material-jurisdiction authorization does not cover a stakeholder-capacity/policy expansion. No 4/4 certification exists. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -96,4 +104,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-The founder has authorized the current bounded material-jurisdiction correction. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or combine evidence across materially different releases.
+Founder review is required for the separate `.18` San Francisco stakeholder-capacity availability gap. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or combine evidence across materially different releases.
