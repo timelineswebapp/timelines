@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_1_SUCCESSOR_RELEASE_SEALING_REQUIRED — APPROVED_TOOLING_RISK_BOUND_TO_RELEASE`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — MATERIAL_JURISDICTION_AUTHORITY_CAPACITY`
+
+## 2026-10-09 — `.17` certification authority-capacity boundary
+
+The approved security disposition was bound into `generation-release-manifest-v2`; the `.17` successor is source `7e35d14846de597ec68c039041f33a5a2240fba1`, release `f61f2278b2fa042244c7bcbdd8db6d39274b5ed6622d266fe2ed516b50e25035`, with `authority-first-research.17` and `factory-v2-a-prompts.15`. Full root/Functions regression, typecheck, lint, build, security-gate, and Firestore emulator verification passed.
+
+The first fresh `.17` Phase-2 subject, San Francisco, produced valid CKS `completed-knowledge-set-6d63615b6a9bb68a1a0ff6ec36d3b1add9dd14b0cff4d4e64ec3ec54c34dce0f` with exact protected-state parity. Berlin then fail-closed before retrieval on `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT` for a locked `MATERIAL_JURISDICTION` requirement. Its protected-state parity was exact; Ada and Printing Press were not executed. Sealed evidence is `artifacts/authority-first-acquisition-canary/2026-10-09T01-31-56-614Z/report.json`.
+
+The failure is not remediable by geography aliasing or substituting an unrelated/general authority: that would weaken the founder-preserved multi-jurisdictional perspective requirement. Founder review is required to authorize a registry-governed, historically justified authority-capacity expansion for the specific material jurisdiction(s), or to direct another compliant resolution. No further Phase-2 certification run may begin before that decision.
 
 ## 2026-10-09 — Founder-approved Tier-1 security gate
 
