@@ -36,6 +36,16 @@ export class WholeRunDeadlineExceededError extends Error {
   }
 }
 
+/** A local transport/stage allowance is not the authority to terminate the
+ * whole sealed run. Callers may consume their already-budgeted retries after
+ * this error, while the absolute supervisor deadline remains authoritative. */
+export class ChildOperationDeadlineExceededError extends Error {
+  constructor(message = "CHILD_OPERATION_DEADLINE_EXCEEDED") {
+    super(message);
+    this.name = "ChildOperationDeadlineExceededError";
+  }
+}
+
 type Timer = ReturnType<typeof setTimeout>;
 
 export class AuthorityFirstExecutionSupervisor {
@@ -100,9 +110,17 @@ export class AuthorityFirstExecutionSupervisor {
     let timer: Timer | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
-        this.cancel("WHOLE_RUN_DEADLINE_EXCEEDED");
+        if (this.remainingMs() <= 0) {
+          this.cancel("WHOLE_RUN_DEADLINE_EXCEEDED");
+          operation.state = "TIMED_OUT";
+          childController.abort(this.controller.signal.reason || new WholeRunDeadlineExceededError());
+          reject(new WholeRunDeadlineExceededError());
+          return;
+        }
+        const timeoutError = new ChildOperationDeadlineExceededError(`${operationName}:CHILD_OPERATION_DEADLINE_EXCEEDED`);
         operation.state = "TIMED_OUT";
-        reject(new WholeRunDeadlineExceededError());
+        childController.abort(timeoutError);
+        reject(timeoutError);
       }, allowance);
     });
     const child = Promise.resolve().then(() => input.run(childController.signal));

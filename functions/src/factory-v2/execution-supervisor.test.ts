@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
+import { AuthorityFirstExecutionSupervisor, ChildOperationDeadlineExceededError, WholeRunDeadlineExceededError } from "./execution-supervisor";
+
+test("a local child timeout aborts only that operation and preserves the whole-run allowance", async () => {
+  const supervisor = new AuthorityFirstExecutionSupervisor(Date.now(), Date.now() + 1_000, 1);
+  await assert.rejects(supervisor.runChild({
+    name: "bounded-provider",
+    maximumMs: 10,
+    run: async (signal) => await new Promise<never>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }))
+  }), ChildOperationDeadlineExceededError);
+  assert.equal(supervisor.status, "ACTIVE");
+  await supervisor.runChild({ name: "next-budgeted-operation", maximumMs: 10, run: async () => undefined });
+  supervisor.close();
+});
 
 test("non-cooperative child cannot retain supervised control beyond its allowance", async () => {
   const supervisor = new AuthorityFirstExecutionSupervisor(Date.now(), Date.now() + 25, 1);
