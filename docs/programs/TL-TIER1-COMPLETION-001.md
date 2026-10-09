@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_SUCCESSOR_VERIFICATION — AUTHORITY_FIRST_.26`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — AUTHORITY_FIRST_.26`
+
+## 2026-10-09 — `.26` Phase-2 terminal evidence and source-completion hard stop
+
+The sealed `.26` release `a0371d94db7ad0aacb9dd0b3de5dea3e833b5aca52da5fd29ceb0971c42beb9b` (source `62b1039d22d6c536b9cb643bf25ad8f123a9a600`, `factory-v2-a.51` / `authority-first-research.26`, Authority Registry `.3`, specialist profile `.1`, artifact schema `.7`) ran one fresh Phase-2 certification in `artifacts/authority-first-acquisition-canary/2026-10-09T12-43-12-406Z/report.json`. It is a single materially equivalent release and does not combine `.24` or `.25` evidence.
+
+San Francisco produced valid CKS `completed-knowledge-set-466c49b7411ac561cc09e5d92c5b0066dd90fbe04e172efaf929a65c77fc4f04`; Berlin produced valid CKS `completed-knowledge-set-1705255a3de66dae3d659d5ffd5bd0cea987d08ce6ca24edcedcd90da4e525dd`. Ada stopped fail-closed in `GAP_COMPLETION` with `EVIDENCE_FIRST_GAP_COMPLETION_FAILED:NO_ATOMIC_CLAIMS,NO_SUPPORTED_CLAIMS,ACQUISITION_CONFIDENCE_FAIL`; Printing Press was correctly not executed after failure. Ada's initial round was valid enough to enter completion; the sealed continuation operation `evidence-first-completion-dff2f221-a1a8-4cfc-a40e-7d81abcd4809` retrieved one permitted source but produced zero atomic and supported claims. Exact protected-state parity holds for all three executed subjects and no provider, public, institutional, discovery, Registry, or deployment mutation remains active.
+
+This is a recurrence in the bounded source-admission/evidence-bearing completion class after the `.24` continuation-admission and `.25` initial-admission corrections: admission now obtains a source but the existing one-candidate completion allowance cannot establish whether another already governed candidate would yield claim-bearing evidence. Raising that allowance, changing completion candidate-selection semantics, or admitting a new source class would be a material authority/budget-policy expansion. It is outside the founder-authorized `.26` protected-authority correction and reaches the master-goal founder-review boundary. Do not rerun the failed certification or alter source-admission/completion policy without a founder decision.
 
 ## 2026-10-09 — founder-authorized `.26` deterministic protected-authority completion
 
@@ -146,7 +154,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | SUCCESSOR_VERIFICATION | Founder authorized the `.26` Registry-governed deterministic protected-authority correction. All local gates pass; a clean sealed `.26` release and fresh 4/4 certification remain required. |
+| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | Sealed `.26` release `a0371d94…2beb9b`: San Francisco and Berlin valid CKS; Ada fail-closed in bounded gap completion after one retrieved source yielded zero claims; Printing Press not executed. Exact protected-state parity. A further source-admission/completion-policy expansion requires founder direction. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -160,4 +168,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Seal the verified `.26` successor, recheck production-read and protected-state parity, then run one fresh four-subject Phase-2 certification. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or combine evidence across materially different releases.
+Founder review is required for the `.26` recurring bounded source-admission/evidence-bearing completion failure. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or combine evidence across materially different releases.
