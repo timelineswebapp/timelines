@@ -16,7 +16,7 @@ import {
   sameCanonicalEvent,
   temporalIntervalsCompatible
 } from "./contracts/builders";
-import { acquisitionDiscoverySchema } from "./contracts";
+import { acquisitionDiscoverySchema, deadlineTerminalRecordSchema } from "./contracts";
 import { payloadHash, verifyPayloadHash } from "./hashing";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
 
@@ -40,6 +40,37 @@ test("Schema normalization happens before the persisted payload hash is sealed",
   });
   assert.equal(discovery.chunks[0]!.title, "Mission record");
   assert.equal(verifyPayloadHash(discovery), true);
+});
+
+test("deadline terminal evidence is sealed before strict validation", () => {
+  const artifactId = "deadline-terminal-regression";
+  const terminal = parseSealedArtifact(deadlineTerminalRecordSchema, {
+    ...immutableEnvelope(TEST_CONTEXT, artifactId),
+    deadlineTerminalRecordId: artifactId,
+    failureRecordId: "failure-deadline-regression",
+    terminalStage: "A3_CLAIMS",
+    deadlineAt: "2026-09-22T00:20:00.000Z",
+    elapsedMs: 1_200_000,
+    lastCompletedOperation: "firestore:set-operation:A3#1",
+    activeOperation: null,
+    completedOperations: ["firestore:set-operation:A3#1"],
+    timedOutOperations: [],
+    lateCompletionsIgnored: [],
+    shutdownGraceMs: 5_000,
+    shutdownGraceOutcome: "SETTLED",
+    controlledOperationCount: 1,
+    directRetrievalAttempts: 1,
+    retrievalSuccesses: 1,
+    retrievalFailures: 0,
+    sourceSnapshotIds: [],
+    claimVersionIds: [],
+    eventVersionIds: [],
+    coverageState: "INCOMPLETE_DEADLINE_TERMINATED",
+    perspectiveAuditId: null,
+    confidenceVectorId: null,
+    protectedStateParity: "PENDING_EXTERNAL_VERIFICATION"
+  });
+  assert.equal(verifyPayloadHash(terminal), true);
 });
 
 test("Research Map validates every required phase and dimension against questions", () => {

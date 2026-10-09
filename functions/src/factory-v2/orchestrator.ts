@@ -1218,7 +1218,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
         protectedStateParity: "PENDING_EXTERNAL_VERIFICATION" as const
       };
       const deadlineTerminalRecordId = executionArtifactId("deadline-terminal", context, terminalPayload);
-      const terminal = deadlineTerminalRecordSchema.parse({ ...immutableEnvelope(context, deadlineTerminalRecordId), deadlineTerminalRecordId, ...terminalPayload });
+      // Terminal evidence is an immutable execution artifact.  Parse through
+      // the same sealing path as every other immutable record so a deadline
+      // cannot erase its required terminal proof through a missing hash.
+      const terminal = parseSealedArtifact(deadlineTerminalRecordSchema, { ...immutableEnvelope(context, deadlineTerminalRecordId), deadlineTerminalRecordId, ...terminalPayload });
       try { await terminalWrite(() => repository.createImmutable("v2DeadlineTerminalRecords", terminal)); } catch { /* Failure record remains the canonical fail-closed minimum. */ }
     } else {
       try { await persist("v2FailureRecords", failure); } catch { /* Preserve the originating failure. */ }
