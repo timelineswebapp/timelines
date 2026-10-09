@@ -7,10 +7,11 @@ test("bounded continuation escalation follows sealed completion-plan order", () 
   assert.deepEqual(ordered.slice(0, 2), ["relief", "casualties"]);
 });
 
-test("a specialist collection landing endpoint never suppresses its sealed same-authority fallback", () => {
-  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "SUCCEEDED", returnedUrls: ["https://example.org/collections/"], specialistCollectionProfileId: "specialist-profile-1" }), true);
-  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "SUCCEEDED", returnedUrls: ["https://example.org/topic"], specialistCollectionProfileId: null }), false);
-  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "FAILED", returnedUrls: [], specialistCollectionProfileId: null }), true);
+test("specialist and sitemap discovery never suppress their sealed same-authority fallback", () => {
+  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "SUCCEEDED", returnedUrls: ["https://example.org/collections/"], specialistCollectionProfileId: "specialist-profile-1", mechanism: "DIRECT_URL" }), true);
+  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "SUCCEEDED", returnedUrls: ["https://example.org/governance"], specialistCollectionProfileId: null, mechanism: "SITEMAP" }), true);
+  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "SUCCEEDED", returnedUrls: ["https://example.org/topic"], specialistCollectionProfileId: null, mechanism: "DIRECT_URL" }), false);
+  assert.equal(shouldContinueSameAuthorityDiscovery({ status: "FAILED", returnedUrls: [], specialistCollectionProfileId: null, mechanism: "DIRECT_URL" }), true);
 });
 
 test("grounding escalation is constrained to the sealed registered-authority domains", () => {

@@ -109,8 +109,14 @@ export function prioritizeContinuationQuestionIds(questionIds: readonly string[]
  * that it yielded an admissible question-relevant source. Its sealed
  * same-authority fallback must therefore still run.
  */
-export function shouldContinueSameAuthorityDiscovery(operation: Pick<ControlledResearchOperation, "status" | "returnedUrls" | "specialistCollectionProfileId">): boolean {
-  return operation.status !== "SUCCEEDED" || operation.returnedUrls.length === 0 || operation.specialistCollectionProfileId !== null;
+export function shouldContinueSameAuthorityDiscovery(operation: Pick<ControlledResearchOperation, "status" | "returnedUrls" | "specialistCollectionProfileId" | "mechanism">): boolean {
+  // Sitemap output is a transport lead, not source-level relevance. Keep the
+  // pre-sealed same-authority direct fallback available even if a sitemap
+  // returns an irrelevant governance URL.
+  return operation.status !== "SUCCEEDED"
+    || operation.returnedUrls.length === 0
+    || operation.specialistCollectionProfileId !== null
+    || operation.mechanism === "SITEMAP";
 }
 
 /** Builds an escalation query from the sealed authority set without broadening source eligibility. */

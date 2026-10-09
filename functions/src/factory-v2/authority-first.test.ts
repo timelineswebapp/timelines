@@ -525,18 +525,34 @@ test("specialist collection selection is deterministic metadata matching, never 
   assert.deepEqual(applicableSpecialistCollectionProfiles({ binding, researchMap: map }).map((profile) => profile.profileId), ["specialist-profile-a", "specialist-profile-b"]);
   const plan = buildAuthorityResearchPlan({ context: TEST_CONTEXT, researchMap: map, set: { ...set, bindings: set.bindings.map((candidate) => candidate.bindingId === binding.bindingId ? binding : candidate) } });
   const attempts = plan.operations.filter((operation) => operation.authorityBindingId === binding.bindingId).sort((left, right) => left.attemptOrder - right.attemptOrder);
-  assert.deepEqual(attempts.map((operation) => operation.specialistCollectionProfileId), ["specialist-profile-a", "specialist-profile-b", null]);
-  assert.deepEqual(attempts.map((operation) => operation.attemptOrder), [0, 1, 2]);
+  assert.deepEqual(attempts.map((operation) => operation.specialistCollectionProfileId), ["specialist-profile-a", "specialist-profile-b", null, null]);
+  assert.deepEqual(attempts.map((operation) => operation.mechanism), ["DIRECT_URL", "DIRECT_URL", "SITEMAP", "DIRECT_URL"]);
+  assert.deepEqual(attempts.map((operation) => operation.attemptOrder), [0, 1, 2, 3]);
 });
 
-test("generic authority discovery remains the only plan when no registered specialist profile applies", () => {
+test("generic sitemap discovery retains its registered direct fallback when no specialist profile applies", () => {
   const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: validProposals() });
   const nasa = set.bindings.find((binding) => binding.publisherId === publisher("National Aeronautics and Space Administration").publisherId)!;
   const unrelated = { ...collectionProfile("specialist-profile-unrelated", "https://nasa.gov/collections/unrelated", ["manuscript codices"]), collectionScope: "Papyri and codicology collection." };
   const plan = buildAuthorityResearchPlan({ context: TEST_CONTEXT, researchMap: map, set: { ...set, bindings: set.bindings.map((binding) => binding.bindingId === nasa.bindingId ? { ...binding, specialistCollectionProfiles: [unrelated] } : binding) } });
-  const attempts = plan.operations.filter((operation) => operation.authorityBindingId === nasa.bindingId);
-  assert.equal(attempts.length, 1);
-  assert.equal(attempts[0]!.specialistCollectionProfileId, null);
+  const attempts = plan.operations.filter((operation) => operation.authorityBindingId === nasa.bindingId).sort((left, right) => left.attemptOrder - right.attemptOrder);
+  assert.equal(attempts.length, 2);
+  assert.deepEqual(attempts.map((operation) => operation.mechanism), ["SITEMAP", "DIRECT_URL"]);
+  assert.ok(attempts.every((operation) => operation.specialistCollectionProfileId === null));
+});
+
+test("registered direct endpoint fallback is sealed after a sitemap without expanding the authority universe", () => {
+  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: validProposals() });
+  const nasa = set.bindings.find((binding) => binding.publisherId === publisher("National Aeronautics and Space Administration").publisherId)!;
+  const plan = buildAuthorityResearchPlan({
+    context: TEST_CONTEXT,
+    researchMap: map,
+    set: { ...set, bindings: set.bindings.map((binding) => binding.bindingId === nasa.bindingId ? { ...binding, discoveryMechanisms: ["SITEMAP", "DIRECT_URL"] } : binding) }
+  });
+  const attempts = plan.operations.filter((operation) => operation.authorityBindingId === nasa.bindingId).sort((left, right) => left.attemptOrder - right.attemptOrder);
+  assert.deepEqual(attempts.map((operation) => operation.mechanism), ["SITEMAP", "DIRECT_URL"]);
+  assert.equal(attempts[1]!.endpoint, nasa.officialEndpoints[0]);
+  assert.ok(plan.operations.length <= plan.budget.maximumControlledDiscoveryOperations);
 });
 
 test("claim-relative authority accepts NASA mission facts but not independent Space Race interpretation", () => {

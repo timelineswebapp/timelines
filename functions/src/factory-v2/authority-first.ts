@@ -741,17 +741,24 @@ export function buildAuthorityResearchPlan(input: { context: ArtifactContext; se
   }
   const questionTextById = new Map(input.researchMap.questions.map((question) => [question.questionId, question.text]));
   const baseOperationCount = input.set.bindings.length;
-  let remainingSpecialistAttempts = Math.max(0, DEFAULT_CONTROLLED_RESEARCH_BUDGET.maximumControlledDiscoveryOperations - baseOperationCount);
+  // A generic operation is reserved for every sealed authority. The fixed
+  // remainder is allocated at plan time to governed specialist collections
+  // and registered direct-endpoint fallbacks; discovery results cannot grow it.
+  let remainingSupplementalAttempts = Math.max(0, DEFAULT_CONTROLLED_RESEARCH_BUDGET.maximumControlledDiscoveryOperations - baseOperationCount);
   for (const binding of input.set.bindings) {
     const layer = binding.roles.every((role) => role === "ORIENTATION") ? "ORIENTATION" as const : "EVIDENTIARY_CORE" as const;
     const genericMechanism = layer === "ORIENTATION"
       ? "DIRECT_URL" as const
       : binding.discoveryMechanisms.includes("SITEMAP") ? "SITEMAP" as const : binding.discoveryMechanisms[0]!;
     const purpose = `Research questions: ${binding.researchQuestionIds.map((questionId) => questionTextById.get(questionId)).filter((text): text is string => Boolean(text)).join(" | ")}. Authority rationale: ${binding.rationale}. ${layer === "ORIENTATION" ? "Orient research" : "Acquire direct institutional evidence"}.`.slice(0, 1000);
+    const directFallbackAvailable = layer === "EVIDENTIARY_CORE"
+      && genericMechanism !== "DIRECT_URL"
+      && binding.discoveryMechanisms.includes("DIRECT_URL");
+    const specialistCapacity = Math.max(0, remainingSupplementalAttempts - (directFallbackAvailable ? 1 : 0));
     const profiles = layer === "EVIDENTIARY_CORE"
-      ? applicableSpecialistCollectionProfiles({ binding, researchMap: input.researchMap }).slice(0, Math.min(3, remainingSpecialistAttempts))
+      ? applicableSpecialistCollectionProfiles({ binding, researchMap: input.researchMap }).slice(0, Math.min(3, specialistCapacity))
       : [];
-    remainingSpecialistAttempts -= profiles.length;
+    remainingSupplementalAttempts -= profiles.length;
     for (const [index, profile] of profiles.entries()) {
       const mechanism = profile.discoveryMechanisms[0]!;
       const semantic = {
@@ -773,6 +780,21 @@ export function buildAuthorityResearchPlan(input: { context: ArtifactContext; se
       purpose: `${profiles.length > 0 ? "Same-authority generic fallback. " : ""}${purpose}`.slice(0, 1000)
     };
     operations.push({ ...generic, plannedOperationId: contentAddressedId("planned-authority-operation", generic) });
+    if (directFallbackAvailable && remainingSupplementalAttempts > 0) {
+      const fallback = {
+        authorityBindingId: binding.bindingId,
+        researchQuestionIds: uniqueSorted(binding.researchQuestionIds),
+        routingObligationIds: [],
+        layer,
+        mechanism: "DIRECT_URL" as const,
+        endpoint: operationEndpoint(binding, "DIRECT_URL", null),
+        specialistCollectionProfileId: null,
+        attemptOrder: profiles.length + 1,
+        purpose: `Same-authority registered direct-endpoint fallback. ${purpose}`.slice(0, 1000)
+      };
+      operations.push({ ...fallback, plannedOperationId: contentAddressedId("planned-authority-operation", fallback) });
+      remainingSupplementalAttempts -= 1;
+    }
   }
   if (operations.length > DEFAULT_CONTROLLED_RESEARCH_BUDGET.maximumControlledDiscoveryOperations) throw new Error("CONTROLLED_OPERATION_BUDGET_EXHAUSTED");
   const coveredCriticalQuestionIds = uniqueSorted(input.set.criticalQuestionIds);
