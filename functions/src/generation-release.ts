@@ -6,15 +6,17 @@ import { V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_PIPELINE_VERSION, V2_POLI
 import { V2_B_PIPELINE_VERSION, V2_B_SCHEMA_VERSION, V2_B_SELECTION_POLICY_VERSION } from "./factory-v2/contracts/assembly";
 import { payloadHash } from "./factory-v2/hashing";
 import { SOURCE_AUTHORITY_POLICY_VERSION } from "./source-authority";
+import { tier1SecurityGateBundle, tier1SecurityGateBundleSchema } from "./security-gate";
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 
 export const generationReleaseManifestSchema = z.object({
-  manifestSchemaVersion: z.literal("generation-release-manifest-v1"),
+  manifestSchemaVersion: z.literal("generation-release-manifest-v2"),
   sourceRevision: z.string().regex(/^[a-f0-9]{40}$/u),
   sourceTreeSha256: hash,
   dependencyLocks: z.object({ rootSha256: hash, functionsSha256: hash }).strict(),
   configurationBundleHash: hash,
+  securityGateBundle: tier1SecurityGateBundleSchema,
   generationCapability: z.literal(EVIDENCE_FIRST_PIPELINE_VERSION),
   legacyPipelineVersion: z.literal(PIPELINE_VERSION),
   knowledgeBundle: z.object({ pipelineVersion: z.literal(V2_PIPELINE_VERSION), policyVersion: z.literal(V2_POLICY_VERSION), promptVersion: z.literal(V2_PROMPT_VERSION), schemaVersion: z.literal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION) }).strict(),
@@ -35,11 +37,12 @@ export function buildGenerationReleaseManifest(input: {
   configurationBundle: Record<string, unknown>;
 }): GenerationRelease {
   const manifest = generationReleaseManifestSchema.parse({
-    manifestSchemaVersion: "generation-release-manifest-v1",
+    manifestSchemaVersion: "generation-release-manifest-v2",
     sourceRevision: input.sourceRevision,
     sourceTreeSha256: input.sourceTreeSha256,
     dependencyLocks: { rootSha256: input.rootDependencyLockSha256, functionsSha256: input.functionsDependencyLockSha256 },
     configurationBundleHash: payloadHash(input.configurationBundle),
+    securityGateBundle: tier1SecurityGateBundle(),
     generationCapability: EVIDENCE_FIRST_PIPELINE_VERSION,
     legacyPipelineVersion: PIPELINE_VERSION,
     knowledgeBundle: { pipelineVersion: V2_PIPELINE_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION, schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION },

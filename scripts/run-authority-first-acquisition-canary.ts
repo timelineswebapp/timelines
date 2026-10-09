@@ -49,6 +49,18 @@ function loadGenerationRelease(): GenerationRelease {
   return JSON.parse(raw) as GenerationRelease;
 }
 
+/** Certification must never treat a recorded disposition as a silent waiver. */
+function assertTier1SecurityGate(): void {
+  const npmCliPath = process.env.npm_execpath;
+  if (!npmCliPath) throw new Error("Authority-First canary must be launched through npm so the Tier-1 security gate is deterministic.");
+  execFileSync(process.execPath, [npmCliPath, "run", "--silent", "security:gate"], {
+    cwd: REPOSITORY_ROOT,
+    env: process.env,
+    stdio: "pipe",
+    maxBuffer: 5 * 1024 * 1024
+  });
+}
+
 function serviceState(service: string): Record<string, unknown> {
   const raw = execFileSync("gcloud", ["run", "services", "describe", service, `--region=${REGION}`, `--project=${PROJECT_ID}`, "--format=json"], { encoding: "utf8", maxBuffer: 5 * 1024 * 1024 });
   const value = JSON.parse(raw) as { status?: { latestReadyRevisionName?: string; traffic?: unknown; url?: string; conditions?: unknown } };
@@ -131,6 +143,7 @@ async function runIsolatedSubject(input: { outputDirectory: string; ordinal: num
 async function main() {
   if (process.env.EVIDENCE_FIRST_MODE !== "SHADOW") throw new Error("Authority-First canaries require EVIDENCE_FIRST_MODE=SHADOW.");
   if ((process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || PROJECT_ID) !== PROJECT_ID) throw new Error("Refusing canaries outside the TiMELiNES project.");
+  assertTier1SecurityGate();
   if (getApps().length === 0) initializeApp({ projectId: PROJECT_ID });
   const firestore = getFirestore();
   const remoteConfigSnapshot = await firestore.collection("factoryV2").doc("config").get();

@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_1_SECURITY_REMEDIATION_REQUIRED — DEPENDENCY_AUDIT_HIGH_SEVERITY`
+`PHASE_1_SUCCESSOR_RELEASE_SEALING_REQUIRED — APPROVED_TOOLING_RISK_BOUND_TO_RELEASE`
+
+## 2026-10-09 — Founder-approved Tier-1 security gate
+
+The founder approved a narrow, non-runtime disposition for the propagated root lint-tooling advisory `GHSA-vfj7-8cjw-p6xm` / `CVE-2026-93687`; it is **not** a general high/critical waiver. The exact path is `eslint-config-next@16.4.0 → @next/eslint-plugin-next@16.4.0 → fast-glob@3.3.1 → micromatch@4.0.8 → braces@3.0.3`. Its release-visible policy bundle is defined in `functions/src/security-gate.ts`, included in every generation release manifest, and verified by `npm run security:gate` before an Authority-First certification canary opens provider or Firestore access.
+
+The disposition is `ACCEPTED_TOOLING_RISK_PENDING_UPSTREAM_FIX`, valid only while the chain is root development/lint tooling, remains absent from Next.js and Functions request paths, accepts no application/user-controlled lint-glob input, remains controlled by repository-owned configuration, and both production dependency audits have zero high/critical findings. The gate fails closed for unknown reachability, any unapproved high/critical finding, changed approved topology/advisory, or a non-zero production audit. It must be re-evaluated for every release, any dependency-topology change, and any upstream fix or material advisory change. See `docs/certification/TL-TIER1-SECURITY-GATE.md` for the durable disposition record.
+
+No forced audit downgrade and no Firebase, Next.js, `eslint-config-next`, or ESLint downgrade is authorized. The separate moderate Firebase/UUID transitive finding remains under normal moderate-vulnerability policy.
 
 ## 2026-10-09 — Evidence-derived Gap Obligation successor
 

@@ -14,6 +14,7 @@
     "test:search-certification": "tsx --test src/server/services/search-certification-service.test.ts",
     "test:platform-certification": "tsx --test src/server/services/platform-certification-service.test.ts",
     "lint": "eslint .",
+    "security:gate": "tsx scripts/verify-tier1-security-gate.ts",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
     "factory:reset": "tsx scripts/factory-reset.ts",

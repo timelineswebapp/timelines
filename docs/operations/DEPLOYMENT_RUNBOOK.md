@@ -92,6 +92,7 @@ Required validation before production promotion:
 - `npm run lint`
 - `npm run build`
 - `npm audit --audit-level=high --omit=dev`
+- `npm run security:gate`
 - `npm run ops:migrations:dry-run`
 - `npm run ops:monitoring:verify`
 - `npm run ops:production:verify`

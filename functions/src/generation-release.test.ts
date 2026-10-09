@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertGenerationReleaseParity, assertPinnedGenerationRelease, buildGenerationReleaseManifest } from "./generation-release";
+import { TIER1_SECURITY_GATE_POLICY_VERSION } from "./security-gate";
 
 const input = {
   sourceRevision: "a".repeat(40),
@@ -15,8 +16,20 @@ test("generation release identity binds source, dependencies, configuration, sch
   assert.equal(release.generationReleaseId.length, 64);
   assert.equal(release.manifest.sourceRevision, input.sourceRevision);
   assert.equal(release.manifest.sourceTreeSha256, input.sourceTreeSha256);
+  assert.equal(release.manifest.manifestSchemaVersion, "generation-release-manifest-v2");
   assert.equal(release.manifest.generationCapability, "evidence-first-generation-v1");
+  assert.equal(release.manifest.securityGateBundle.policyVersion, TIER1_SECURITY_GATE_POLICY_VERSION);
+  assert.equal(release.manifest.securityGateBundle.approvedToolingRisks[0].advisory, "GHSA-vfj7-8cjw-p6xm");
   assert.doesNotThrow(() => assertPinnedGenerationRelease(release.generationReleaseId, release));
+});
+
+test("generation release identity binds Tier-1 security dispositions", () => {
+  const current = buildGenerationReleaseManifest(input);
+  const changedPolicy = buildGenerationReleaseManifest({
+    ...input,
+    configurationBundle: { ...input.configurationBundle, securityGatePolicyReview: "new-release" }
+  });
+  assert.throws(() => assertGenerationReleaseParity(current, changedPolicy), /PARITY_MISMATCH/);
 });
 
 test("generation release parity fails closed on priority/autonomous revision or configuration skew", () => {
