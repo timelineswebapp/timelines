@@ -6,7 +6,17 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — ROUTING_COMPLETENESS_RECURRENCE`
+`PHASE_1_SECURITY_REMEDIATION_REQUIRED — DEPENDENCY_AUDIT_HIGH_SEVERITY`
+
+## 2026-10-09 — Evidence-derived Gap Obligation successor
+
+The founder superseded the predictive Routing Obligation architecture with Authority-First Research plus Evidence-Derived Gap Obligations. The `.16` successor is checkpointed at source `b019f856acfe62d3beb17c07c2e72ee1cff4af86`: `factory-v2-a.42`, `authority-first-research.16`, `factory-v2-a-prompts.14`, CKS schema `factory-v2-a.7`, and coverage policy `knowledge-coverage-v2-a3.10`. Its clean-checkout generation release is `4e56f6d1432ba541b71b8aab8df28e1eebeca77872fdf6d03ca1d1fb793382db`.
+
+The canonical path no longer performs universal predictive routing, route locking, route repair, continuation-route inheritance, or route-completeness admission. It validates a bounded registered authority universe, acquires governed evidence, creates immutable Gap Obligations only for material initial-audit deficiencies, permits one targeted completion round, and re-audits merged immutable evidence. Protected-representation availability and contested independent-family safeguards remain pre-acquisition gates; final perspective sufficiency remains evidence-derived and fail-closed. Historical routing code/artifacts are retained only for compatibility and diagnostic regression.
+
+Verification passed: root tests (249), Functions tests (273 passed, 2 intentional skips), root and Functions typechecks, root lint, Functions build, Next production build, `git diff --check`, and Firestore emulator tests (6). JDK 21.0.12.1 was selected process-locally for the emulator gate. No provider-backed certification, autonomous discovery, institutional, public, or production mutation occurred.
+
+The fresh Phase-2 certification cannot begin yet because `npm audit --audit-level=high` reports five high-severity dependency findings. The non-breaking audit remediation made no change; the remaining offered remediation requires forced breaking downgrades of `eslint-config-next` and `firebase-admin`. This is a master-goal material framework/dependency migration boundary. Do not certify or seal a final Phase-2 release until the security gate is resolved under founder direction.
 
 On 2026-10-08, the founder authorized the general obligation-complete-by-construction routing correction. The candidate implements deterministic eligible-candidate construction, per-obligation AI selection constrained to that matrix, immutable monotonic route locks, missing-only bounded repair, and deterministic completeness proof before acquisition. Supplemental authority planning cannot add, remove, or mutate mandatory routing mappings. It preserves independent-scholarship structural checks and the post-acquisition evidence/perspective audit.
 
