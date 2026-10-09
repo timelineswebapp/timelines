@@ -14,20 +14,19 @@ test("a local child timeout aborts only that operation and preserves the whole-r
   supervisor.close();
 });
 
-test("non-cooperative child cannot retain supervised control beyond its allowance", async () => {
-  const supervisor = new AuthorityFirstExecutionSupervisor(Date.now(), Date.now() + 25, 1);
+test("non-cooperative child cannot retain supervised control beyond its local allowance", async () => {
+  const supervisor = new AuthorityFirstExecutionSupervisor(Date.now(), Date.now() + 1_000, 1);
   const startedAt = Date.now();
-  await assert.rejects(supervisor.runChild({ name: "provider", maximumMs: 25, run: async () => await new Promise<never>(() => undefined) }), WholeRunDeadlineExceededError);
+  await assert.rejects(supervisor.runChild({ name: "provider", maximumMs: 25, run: async () => await new Promise<never>(() => undefined) }), ChildOperationDeadlineExceededError);
   assert.ok(Date.now() - startedAt < 500);
-  await supervisor.awaitShutdownGrace();
-  assert.equal(supervisor.terminalSnapshot().shutdownGraceOutcome, "EXPIRED");
+  assert.equal(supervisor.status, "ACTIVE");
   supervisor.close();
 });
 
 test("no child may start after cancellation and late completion is ignored", async () => {
   const supervisor = new AuthorityFirstExecutionSupervisor(Date.now(), Date.now() + 15, 1);
   let resolve!: () => void;
-  const delayed = supervisor.runChild({ name: "retrieval", maximumMs: 15, run: async () => await new Promise<void>((done) => { resolve = done; }) });
+  const delayed = supervisor.runChild({ name: "retrieval", maximumMs: 1_000, run: async () => await new Promise<void>((done) => { resolve = done; }) });
   await assert.rejects(delayed, WholeRunDeadlineExceededError);
   await assert.rejects(supervisor.runChild({ name: "late", maximumMs: 1, run: async () => undefined }), WholeRunDeadlineExceededError);
   resolve();
@@ -47,7 +46,7 @@ test("a provider that honors abort settles within the recorded shutdown grace", 
   const supervisor = new AuthorityFirstExecutionSupervisor(Date.now(), Date.now() + 15, 30);
   await assert.rejects(supervisor.runChild({
     name: "provider-honors-abort",
-    maximumMs: 15,
+    maximumMs: 1_000,
     run: async (signal) => await new Promise<never>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }))
   }), WholeRunDeadlineExceededError);
   await supervisor.awaitShutdownGrace();
