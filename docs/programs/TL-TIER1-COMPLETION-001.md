@@ -8,6 +8,12 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 `PHASE_2_SUCCESSOR_VERIFICATION — FOUNDER_AUTHORIZED_GENERIC_STAKEHOLDER_POLICY_CORRECTION`
 
+## 2026-10-09 — `.23` protected-representation initial-coverage correction
+
+The fresh `.22` release `db022b8d67c148343272be045fb6216b890bb6646ac4d619b2deea4f2172ea05` ran a new San Francisco subject and sealed a fail-closed terminal report at `artifacts/authority-first-acquisition-canary/2026-10-09T09-45-44-946Z/report.json`. It did not acquire sources or execute Berlin, Ada, or Printing Press. The exact protected-state snapshot remained unchanged. Its durable diagnostic shows a locked `AFFECTED_COMMUNITY` requirement for `San Francisco Residents` on a non-critical/non-contested Research Map question. Initial Authority Routing correctly selected only critical/contested questions, while the protected-availability audit correctly evaluated all protected requirements; that inconsistency yielded zero bound candidates.
+
+The bounded `.23` successor treats every non-stakeholder protected historical requirement as an initial bounded-authority coverage requirement regardless of question priority, and validates an eligible registered relationship before acquisition. This does not turn generic `STAKEHOLDER` labels or retrieval geography into pre-acquisition routes, does not infer a community authority from a label, and does not weaken final evidence-level community, independence, authority, corroboration, or coverage audit. The candidate is versioned `factory-v2-a.48` / `authority-first-research.23`; full verification, release sealing, and a fresh four-subject certification remain required. `.22` evidence will not be combined with this successor.
+
 ## 2026-10-09 — `.22` deterministic historical-jurisdiction capacity completion
 
 The fresh `.21` Phase-2 run sealed a valid San Francisco CKS, then Berlin stopped fail-closed during Authority Routing. Its sealed report is `artifacts/authority-first-acquisition-canary/2026-10-09T09-32-31-891Z/report.json`; protected-state parity was exact, and Ada and Printing Press were not executed. The failure did not show that the founder-approved bounded GARF `Soviet Union` capacity was absent: the immutable Registry still contains it. Instead, Authority Routing required the model to reproduce the capacity's opaque identifier, allowing model-schema repair to exhaust before the deterministic Topic Authority Set could validate the registered capacity.

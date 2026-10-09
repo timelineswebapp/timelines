@@ -310,6 +310,8 @@ test("initial authority planning includes contested questions but does not promo
   assert.equal(isInitialAuthorityRequiredQuestion({ ...supportingQuestion, contested: false }), false);
   assert.equal(isInitialAuthorityRequiredQuestion(londonRetrieval), false);
   assert.equal(isInitialAuthorityRequiredQuestion(globalRetrieval), false);
+  assert.equal(isInitialAuthorityRequiredQuestion({ ...londonRetrieval, historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY", label: "Affected residents", rationale: "This community experienced the material historical consequences directly." }] }), true);
+  assert.equal(isInitialAuthorityRequiredQuestion({ ...globalRetrieval, historicalPerspectiveRequirements: [{ kind: "STAKEHOLDER", label: "Municipal responders", rationale: "These actors made material historical decisions during the episode." }] }), false);
 });
 
 test("immutable routing obligations preserve historical requirements without converting retrieval context into viewpoints", () => {

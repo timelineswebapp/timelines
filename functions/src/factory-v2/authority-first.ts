@@ -87,8 +87,10 @@ export const DEFAULT_CONTROLLED_RESEARCH_BUDGET = controlledResearchBudgetSchema
  * contested subjects. Historical perspectives remain mandatory in the final
  * evidence audit, but are not predictive pre-acquisition source routes.
  */
-export function isInitialAuthorityRequiredQuestion(question: Pick<ResearchMap["questions"][number], "priority" | "contested">): boolean {
-  return question.priority === "CRITICAL" || question.contested;
+export function isInitialAuthorityRequiredQuestion(question: Pick<ResearchMap["questions"][number], "priority" | "contested" | "historicalPerspectiveRequirements">): boolean {
+  return question.priority === "CRITICAL"
+    || question.contested
+    || (question.historicalPerspectiveRequirements || []).some((requirement) => requiresProtectedPreAcquisitionAvailability(requirement.kind));
 }
 
 export function buildRoutingObligationSet(input: { context: ArtifactContext; scope: ScopeContract; researchMap: ResearchMap; requiredQuestionIds?: readonly string[] }): RoutingObligationSet {

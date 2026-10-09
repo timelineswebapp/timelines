@@ -5,7 +5,7 @@ import { V2_PROMPT_VERSION, V2_SCHEMA_VERSION, authorityResearchRoleSchema, clai
 import { atomicityFindings, buildAtomicClaimVersion, buildQueryPlan, buildResearchMap, buildScopeContract, executionArtifactId, immutableEnvelope, parseSealedArtifact, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { authorizeSearchQueries, normalizeSearchQuery, type QueryAuthorizationDecision, type SearchQueryCandidate } from "./query-authorization";
-import { authorityFamilyForPublisher, defaultSubjectRelationship, isInitialAuthorityRequiredQuestion, type RoutingEligibleCandidate } from "./authority-first";
+import { authorityFamilyForPublisher, defaultSubjectRelationship, isInitialAuthorityRequiredQuestion, requiresProtectedPreAcquisitionAvailability, type RoutingEligibleCandidate } from "./authority-first";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 
 type ProviderResponse = {
@@ -170,6 +170,25 @@ function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly Pub
     // locked requirement and immutable registry after model parsing. Requiring
     // a model to reproduce an opaque capacity ID makes protected availability
     // stochastic; downstream Topic Authority Set validation remains strict.
+    for (const [questionIndex, question] of map.questions.entries()) {
+      if (requiredQuestionIds && !requiredQuestionIds.has(question.questionId)) continue;
+      for (const requirement of question.historicalPerspectiveRequirements || []) {
+        if (requirement.kind === "MATERIAL_JURISDICTION" || !requiresProtectedPreAcquisitionAvailability(requirement.kind)) continue;
+        const permittedRelationships = requirement.kind === "AFFECTED_COMMUNITY" || requirement.kind === "CUSTODIAL_COMMUNITY"
+          ? ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"]
+          : requirement.kind === "PARTY_PARTICIPANT"
+            ? ["STATE_PARTY", "PARTICIPANT", "INDEPENDENT"]
+            : ["INDEPENDENT"];
+        const covered = value.authorities.some((proposal) => {
+          const publisher = publishers[proposal.publisherNumber - 1];
+          return proposal.researchQuestionNumbers.includes(questionIndex + 1)
+            && publisher !== undefined
+            && effectiveRoles(proposal).some((role) => role !== "ORIENTATION")
+            && permittedRelationships.includes(defaultSubjectRelationship(publisher));
+        });
+        if (!covered) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Protected ${requirement.kind} requirement for question ${questionIndex + 1} requires an eligible registered authority.` });
+      }
+    }
     for (const questionNumber of criticalNumbers) {
       const covered = value.authorities.some((proposal) => proposal.researchQuestionNumbers.includes(questionNumber) && effectiveRoles(proposal).some((role) => role !== "ORIENTATION"));
       if (!covered) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Critical question ${questionNumber} requires at least one evidentiary-core authority.` });
