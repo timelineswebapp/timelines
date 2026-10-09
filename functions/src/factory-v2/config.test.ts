@@ -10,8 +10,8 @@ test("V2-A executes only in non-public shadow mode with autonomous discovery pau
   assert.deepEqual(config.artifactPolicyBundle, { schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION });
   assert.equal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, "factory-v2-a.7");
   assert.equal(V2_SCHEMA_VERSION, "factory-v2-a.5");
-  assert.equal(V2_POLICY_VERSION, "authority-first-research.16");
-  assert.equal(V2_PROMPT_VERSION, "factory-v2-a-prompts.14");
+  assert.equal(V2_POLICY_VERSION, "authority-first-research.17");
+  assert.equal(V2_PROMPT_VERSION, "factory-v2-a-prompts.15");
   assert.throws(() => assertV2AShadowEnabled({ ...shadowConfig(), operatingMode: "OFF" }), /refuses/);
   assert.throws(() => assertV2AShadowEnabled({ ...shadowConfig(), killSwitch: true }), /refuses/);
 });

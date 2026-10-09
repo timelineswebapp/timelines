@@ -186,6 +186,19 @@ function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly Pub
       if (independentGroups.size < 2) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Contested question ${questionIndex + 1} requires two independent registered authority groups.` });
       if (!relevant.some((proposal) => effectiveRoles(proposal).includes("CORROBORATION") || effectiveRoles(proposal).includes("INTERPRETATION"))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Contested question ${questionIndex + 1} requires independent corroboration or interpretation.` });
     }
+    for (const [questionIndex, question] of map.questions.entries()) {
+      if (requiredQuestionIds && !requiredQuestionIds.has(question.questionId)) continue;
+      if (!(question.historicalPerspectiveRequirements || []).some((requirement) => requirement.kind === "INDEPENDENT_SCHOLARSHIP")) continue;
+      const hasScholarlyCapacity = value.authorities.some((proposal) => {
+        const publisher = publishers[proposal.publisherNumber - 1];
+        return proposal.researchQuestionNumbers.includes(questionIndex + 1) &&
+          publisher !== undefined &&
+          defaultSubjectRelationship(publisher) === "INDEPENDENT" &&
+          authorityFamilyForPublisher(publisher) === "ACADEMIC_SCHOLARLY" &&
+          effectiveRoles(proposal).some((role) => role === "CORROBORATION" || role === "INTERPRETATION");
+      });
+      if (!hasScholarlyCapacity) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Independent scholarship requirement for question ${questionIndex + 1} requires registered academic/scholarly authority capacity.` });
+    }
   });
 }
 
@@ -664,6 +677,7 @@ export async function generateTopicAuthorityProposals(input: {
     requiredQuestionIds ? "Map only every TARGET completion question to at least one evidentiary-core authority. Do not route non-target questions in this bounded completion round. Orientation-only authorities may guide research but cannot satisfy evidentiary coverage." : "Map every CRITICAL or contested Research Map question to at least one evidentiary-core authority. Historical perspective sufficiency is determined only from acquired evidence in the final audit; do not predict it here. Retrieval geography alone is never a historical-perspective requirement. Orientation-only authorities may guide research but cannot satisfy evidentiary coverage.",
     "Use PRIMARY_RECORD for records produced or held by the responsible institution; CORROBORATION and INTERPRETATION require independent authorities. A SUBJECT_SELF, STATE_PARTY, or PARTICIPANT authority must not be assigned CORROBORATION.",
     "For every contested question, propose at least two independent authority groups suitable for corroboration or interpretation and include meaningful geographic, participant, or community perspective tags.",
+    "For every question whose historicalPerspectiveRequirements include INDEPENDENT_SCHOLARSHIP, include at least one registered independent ACADEMIC_SCHOLARLY authority with CORROBORATION or INTERPRETATION capacity. This proves bounded acquisition capacity only; final perspective sufficiency remains evidence-audited.",
     "Perspective tags describe the bounded authority's declared relationship or context. They are not proof that a mandatory historical perspective has been satisfied.",
     `Every number in REQUIRED_QUESTION_NUMBERS must appear on at least one authority with a permitted non-ORIENTATION role. REQUIRED_QUESTION_NUMBERS=${JSON.stringify(input.map.questions.flatMap((question, index) => (requiredQuestionIds ? requiredQuestionIds.has(question.questionId) : isInitialAuthorityRequiredQuestion(question)) ? [index + 1] : []))}`,
     ...(legacyRoutingCompatibility ? [
