@@ -6,7 +6,17 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_SUCCESSOR_IMPLEMENTATION_VERIFIED — AUTHORITY_FIRST_.27; RELEASE SEAL AND FRESH CERTIFICATION PENDING`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — AUTHORITY_FIRST_.27 CANDIDATE_POOL_EXHAUSTED`
+
+## 2026-10-09 — `.27` Phase-2 terminal evidence: completion candidate pool exhausted
+
+The sealed `.27` release `4d154dff36a05d7cd36be8a707d6c2d55938101aa8b36c3dd2afc92b9c91c8d5` (source `50c4bfccdd0f1646bc22f615b7704cd6daaed56e`, `factory-v2-a.52` / `authority-first-research.27`, Authority Registry `.3`, specialist profile `.1`, artifact/CKS schema `.8`) ran one fresh, non-combined four-subject Phase-2 certification. Its sealed report is retained at `/tmp/tl-tier1-release-kZnN5q/artifacts/authority-first-acquisition-canary/2026-10-09T13-35-02-389Z/report.json` in the isolated clean release checkout.
+
+San Francisco produced valid CKS `completed-knowledge-set-6b451db77642f28404929985029ef06b237e355b2fa0fd882dd683fc56a3e1f6`; Berlin produced valid CKS `completed-knowledge-set-e83cc0cc8691cc8fac74b41b7a0a6e0c8c466da7dd6609a6fedb3206da78a8e0`. Ada stopped fail-closed in `GAP_COMPLETION` with `EVIDENCE_FIRST_GAP_COMPLETION_FAILED:NO_ATOMIC_CLAIMS,NO_SUPPORTED_CLAIMS,ACQUISITION_CONFIDENCE_FAIL`; Printing Press was not executed after the terminal failure. All three executed subjects have exact protected-state parity; no process, discovery, public, institutional, Registry, or deployment mutation remains active.
+
+Ada's `.27` immutable completion-candidate pool `completion-candidate-pool-3476da70627499407f652e8e00ac2f022499c05f4e614d917c921dc0b0148024` contains exactly one already-authorized candidate: the Registry-bound British Library Advisory Council page. Its immutable attempt `completion-candidate-attempt-3283e78a775b8b33d1ac4df01951fd49f2925268120951d62c9e9f66e750a7e2` records successful retrieval, zero admissible and zero gap-relevant atomic claims, `ZERO_CLAIM_YIELD`, and `STOP_CANDIDATES_EXHAUSTED`. Thus the founder-authorized fallback executed correctly but cannot proceed without enlarging the candidate universe or changing an existing admission/authority/budget boundary.
+
+This reaches the explicit `.27` founder boundary. No code remediation, candidate-pool expansion, Registry expansion, additional completion round, new provider, budget/deadline increase, or further Phase-2 rerun is authorized. Founder review must decide whether to authorize a further general bounded authority/candidate-universe correction; otherwise the `.27` 2/4 result remains the terminal Phase-2 verdict.
 
 ## 2026-10-09 — founder-authorized `.27` claim-yield-aware completion fallback
 
