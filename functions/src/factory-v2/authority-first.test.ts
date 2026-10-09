@@ -282,6 +282,54 @@ test("a valid protected model selection is preserved and zero capacity remains f
   assert.equal(noCapacity.decisions[0]!.selectedPublisherVersionId, null);
 });
 
+test("protected Registry completion admits only declared party and community capacity", () => {
+  const withRequirement = (kind: "INDEPENDENT_SCHOLARSHIP" | "PARTY_PARTICIPANT" | "AFFECTED_COMMUNITY" | "CUSTODIAL_COMMUNITY", label: string) => ({
+    ...map,
+    questions: map.questions.map((question) => question.questionId === "question-chronology" ? {
+      ...question,
+      historicalPerspectiveRequirements: [{ kind, label, rationale: "The locked historical requirement must be represented by governed capacity." }]
+    } : question)
+  });
+  const uk = publisher("Government of the United Kingdom");
+  const partyMap = withRequirement("PARTY_PARTICIPANT", "United Kingdom");
+  const party = completeProtectedAvailabilityProposals({ scope, researchMap: partyMap, publishers: [uk], proposals: [], requiredQuestionIds: ["question-chronology"] });
+  assert.equal(party.decisions[0]!.selectionMethod, "DETERMINISTIC_UNIQUE");
+  assert.equal(party.proposals[0]!.subjectRelationship, "STATE_PARTY");
+  assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: partyMap, publishers: [uk], proposals: party.proposals, protectedAvailabilityDecisions: party.decisions, requiredQuestionIds: ["question-chronology"] }));
+
+  const recordsHolder = { ...publisher("National Archives and Records Administration"), authorityDomains: ["Named affected community custodial records"], independenceGroupId: "publisher-community-records-holder" };
+  for (const kind of ["AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY"] as const) {
+    const communityMap = withRequirement(kind, "Named affected community");
+    const completed = completeProtectedAvailabilityProposals({ scope, researchMap: communityMap, publishers: [recordsHolder], proposals: [], requiredQuestionIds: ["question-chronology"] });
+    assert.equal(completed.decisions[0]!.selectionMethod, "DETERMINISTIC_UNIQUE");
+    assert.equal(completed.proposals[0]!.subjectRelationship, "COMMUNITY_CUSTODIAN");
+    assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: communityMap, publishers: [recordsHolder], proposals: completed.proposals, protectedAvailabilityDecisions: completed.decisions, requiredQuestionIds: ["question-chronology"] }));
+  }
+
+  const undeclared = { ...recordsHolder, authorityDomains: ["Federal administrative records"], independenceGroupId: "publisher-not-community" };
+  const noCommunityCapacity = completeProtectedAvailabilityProposals({ scope, researchMap: withRequirement("CUSTODIAL_COMMUNITY", "Named affected community"), publishers: [undeclared], proposals: [], requiredQuestionIds: ["question-chronology"] });
+  assert.equal(noCommunityCapacity.decisions[0]!.selectionMethod, "NO_ELIGIBLE_CAPACITY");
+});
+
+test("protected completion cannot preserve a proposal with an ineligible role or relationship", () => {
+  const scholarlyMap = {
+    ...map,
+    questions: map.questions.map((question) => question.questionId === "question-interpretation" ? {
+      ...question,
+      historicalPerspectiveRequirements: [{ kind: "INDEPENDENT_SCHOLARSHIP" as const, label: "Independent scholarship", rationale: "Independent academic interpretation is required before research begins." }]
+    } : question)
+  };
+  const oxford = publisher("Oxford University Press");
+  const invalid = completeProtectedAvailabilityProposals({
+    scope,
+    researchMap: scholarlyMap,
+    publishers: [oxford],
+    proposals: [proposal("Oxford University Press", { researchQuestionIds: ["question-interpretation"], roles: ["PRIMARY_RECORD"], claimTypes: ["INTERPRETATION"], subjectRelationship: "SUBJECT_SELF" })]
+  });
+  assert.equal(invalid.decisions[0]!.selectionMethod, "DETERMINISTIC_UNIQUE");
+  assert.equal(invalid.proposals.filter((item) => item.publisherVersionId === oxford.publisherVersionId).some((item) => item.roles.includes("INTERPRETATION") && item.subjectRelationship === "INDEPENDENT"), true);
+});
+
 test("generic stakeholder labels remain immutable evidence requirements without creating a publisher-identity preflight gate", () => {
   const stakeholderMap = {
     ...map,
@@ -325,14 +373,16 @@ test("supporting historical perspectives do not require predictive route proof b
     historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected local community", rationale: "The community directly experienced the program and its consequences." }]
   };
   const mapWithRequiredPerspective = { ...map, questions: [...map.questions, perspectiveBearingSupportingQuestion] };
+  const communityHolder = { ...publisher("National Archives and Records Administration"), authorityDomains: ["Affected local community custodial records"], independenceGroupId: "publisher-affected-community-holder" };
   const set = buildTopicAuthoritySet({
     context: TEST_CONTEXT,
     scope,
     researchMap: mapWithRequiredPerspective,
-    publishers,
+    publishers: publishers.map((item) => item.publisherVersionId === communityHolder.publisherVersionId ? communityHolder : item),
     proposals: [...validProposals(), proposal("National Archives and Records Administration", {
       researchQuestionIds: ["question-community"],
-      perspectiveTags: ["Affected local community"]
+      perspectiveTags: ["Affected local community"],
+      subjectRelationship: "COMMUNITY_CUSTODIAN"
     })]
   });
   assert.equal(set.routingObligationSetId, null);
@@ -460,7 +510,8 @@ test("retired route mappings cannot alter canonical authority-set semantics", ()
     ]
   };
   const obligationMap = { ...map, questions: [communityQuestion] };
-  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: obligationMap, publishers, proposals: [proposal("National Archives and Records Administration", { researchQuestionIds: ["question-community-route"], roles: ["PRIMARY_RECORD"], routingObligationIds: ["not-a-locked-obligation"] })] });
+  const communityHolder = { ...publisher("National Archives and Records Administration"), authorityDomains: ["Community custodial records"], independenceGroupId: "publisher-custodial-holder" };
+  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: obligationMap, publishers: publishers.map((item) => item.publisherVersionId === communityHolder.publisherVersionId ? communityHolder : item), proposals: [proposal("National Archives and Records Administration", { researchQuestionIds: ["question-community-route"], roles: ["PRIMARY_RECORD"], subjectRelationship: "COMMUNITY_CUSTODIAN", routingObligationIds: ["not-a-locked-obligation"] })] });
   assert.deepEqual(set.obligationRoutes, []);
   assert.deepEqual(set.bindings[0]?.routingObligationIds, []);
 });

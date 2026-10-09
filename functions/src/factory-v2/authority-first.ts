@@ -155,6 +155,15 @@ function normalize(value: string): string {
   return value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
 }
 
+/**
+ * Community/custodial capacity must be explicitly declared by the verified
+ * Registry authority metadata.  A model-supplied perspective label and a
+ * publisher's ordinary geography are never capacity evidence.
+ */
+export function hasCommunityCustodialCapability(publisher: PublisherAuthorityVersion): boolean {
+  return publisher.authorityDomains.some((domain) => /\b(?:community|custodial)\b/iu.test(domain));
+}
+
 /** Registry-only eligibility for protected pre-acquisition availability. */
 export function protectedAvailabilityCandidates(input: {
   scope: ScopeContract;
@@ -176,6 +185,8 @@ export function protectedAvailabilityCandidates(input: {
     if (family === "EDITED_REFERENCE") return [];
     const relationship = input.requirement.kind === "PARTY_PARTICIPANT"
       ? subjectRelationshipForRouting(publisher, [{ requirementKind: "PARTY_PARTICIPANT", label: input.requirement.label }])
+      : (input.requirement.kind === "AFFECTED_COMMUNITY" || input.requirement.kind === "CUSTODIAL_COMMUNITY") && hasCommunityCustodialCapability(publisher)
+        ? "COMMUNITY_CUSTODIAN"
       : defaultSubjectRelationship(publisher);
     const base = {
       requirementId: requirementIdValue,
@@ -196,8 +207,12 @@ export function protectedAvailabilityCandidates(input: {
       return capacity ? [{ ...base, eligibleRoles: ["PRIMARY_RECORD"], historicalJurisdictionCapacityIds: [capacity.capacityId] }] : [];
     }
     const permitted = input.requirement.kind === "PARTY_PARTICIPANT"
-      ? ["STATE_PARTY", "PARTICIPANT", "INDEPENDENT"]
-      : ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"];
+      ? relationship === "INDEPENDENT" && family === "ARCHIVE_LIBRARY"
+        ? ["INDEPENDENT"]
+        : ["STATE_PARTY", "PARTICIPANT"]
+      : hasCommunityCustodialCapability(publisher)
+        ? ["COMMUNITY_CUSTODIAN"]
+        : [];
     return permitted.includes(relationship)
       ? [{ ...base, eligibleRoles: [relationship === "INDEPENDENT" ? "INTERPRETATION" : "PRIMARY_RECORD"], historicalJurisdictionCapacityIds: [] }]
       : [];
@@ -217,7 +232,7 @@ export function completeProtectedAvailabilityProposals(input: {
   requiredQuestionIds?: readonly string[];
 }): ProtectedAvailabilityCompletion {
   const required = input.requiredQuestionIds ? new Set(input.requiredQuestionIds) : undefined;
-  const proposals = input.proposals.map((proposal) => ({ ...proposal, researchQuestionIds: uniqueSorted(proposal.researchQuestionIds), roles: uniqueSorted(proposal.roles), claimTypes: uniqueSorted(proposal.claimTypes), perspectiveTags: uniqueSorted(proposal.perspectiveTags), historicalJurisdictionCapacityIds: uniqueSorted(proposal.historicalJurisdictionCapacityIds || []), routingObligationIds: [] }));
+  const proposals: TopicAuthorityProposal[] = input.proposals.map((proposal) => ({ ...proposal, researchQuestionIds: uniqueSorted(proposal.researchQuestionIds), roles: uniqueSorted(proposal.roles), claimTypes: uniqueSorted(proposal.claimTypes), perspectiveTags: uniqueSorted(proposal.perspectiveTags), historicalJurisdictionCapacityIds: uniqueSorted(proposal.historicalJurisdictionCapacityIds || []), routingObligationIds: [] }));
   const decisions: ProtectedAvailabilityCompletion["decisions"] = [];
   const unresolved: ProtectedAvailabilityCandidate[][] = [];
   for (const question of input.researchMap.questions) {
@@ -226,16 +241,16 @@ export function completeProtectedAvailabilityProposals(input: {
       if (requirement.kind === "STAKEHOLDER") continue;
       const candidates = protectedAvailabilityCandidates({ scope: input.scope, researchMap: input.researchMap, publishers: input.publishers, questionId: question.questionId, requirement });
       const modelProposedPublisherVersionIds = proposals.filter((proposal) => proposal.researchQuestionIds.includes(question.questionId)).map((proposal) => proposal.publisherVersionId).filter((publisherVersionId) => candidates.some((candidate) => candidate.publisherVersionId === publisherVersionId)).sort();
-      const preserved = candidates.find((candidate) => proposals.some((proposal) => proposal.publisherVersionId === candidate.publisherVersionId && proposal.researchQuestionIds.includes(question.questionId) && proposal.roles.some((role) => candidate.eligibleRoles.includes(role as "PRIMARY_RECORD" | "INTERPRETATION" | "PERSPECTIVE_TESTIMONY")) && candidate.historicalJurisdictionCapacityIds.every((id) => (proposal.historicalJurisdictionCapacityIds || []).includes(id))));
+      const preserved = candidates.find((candidate) => proposals.some((proposal) => proposal.publisherVersionId === candidate.publisherVersionId && proposal.researchQuestionIds.includes(question.questionId) && proposal.subjectRelationship === candidate.subjectRelationship && proposal.roles.some((role) => candidate.eligibleRoles.includes(role as "PRIMARY_RECORD" | "INTERPRETATION" | "PERSPECTIVE_TESTIMONY")) && candidate.historicalJurisdictionCapacityIds.every((id) => (proposal.historicalJurisdictionCapacityIds || []).includes(id))));
       let selected: ProtectedAvailabilityCandidate | undefined = preserved;
       let method: ProtectedAvailabilityCompletion["decisions"][number]["selectionMethod"] = preserved ? "MODEL_PRESERVED" : candidates.length === 0 ? "NO_ELIGIBLE_CAPACITY" : candidates.length === 1 ? "DETERMINISTIC_UNIQUE" : "UNRESOLVED_AMBIGUITY";
       if (!selected && candidates.length === 1) {
         const uniqueCandidate = candidates[0]!;
         selected = uniqueCandidate;
-        proposals.push({ publisherVersionId: uniqueCandidate.publisherVersionId, researchQuestionIds: [question.questionId], roles: uniqueCandidate.eligibleRoles, claimTypes: uniqueSorted(question.claimTypesExpected), subjectRelationship: uniqueCandidate.subjectRelationship, perspectiveTags: [requirement.label], historicalJurisdictionCapacityIds: uniqueCandidate.historicalJurisdictionCapacityIds, routingObligationIds: [], rationale: "Deterministically completed from one exact eligible Registry capacity for the locked protected requirement." });
+        proposals.push({ publisherVersionId: uniqueCandidate.publisherVersionId, researchQuestionIds: [question.questionId], roles: uniqueCandidate.eligibleRoles, claimTypes: uniqueSorted(question.claimTypesExpected), subjectRelationship: uniqueCandidate.subjectRelationship, perspectiveTags: [requirement.label], historicalJurisdictionCapacityIds: uniqueCandidate.historicalJurisdictionCapacityIds, routingObligationIds: uniqueCandidate.subjectRelationship === "STATE_PARTY" ? [uniqueCandidate.requirementId] : [], rationale: "Deterministically completed from one exact eligible Registry capacity for the locked protected requirement." });
       }
       if (!selected && candidates.length > 1) unresolved.push(candidates);
-      decisions.push({ requirementId: candidates[0]?.requirementId || requirementId(input.researchMap, question.questionId, requirement), requirementKind: requirement.kind, requirementLabel: requirement.label.normalize("NFKC").trim(), researchQuestionId: question.questionId, eligibleCandidates: candidates.map((candidate) => ({ ...candidate, rejectionReason: null })), modelProposedPublisherVersionIds, selectedPublisherVersionId: selected?.publisherVersionId || null, selectedHistoricalJurisdictionCapacityIds: selected?.historicalJurisdictionCapacityIds || [], selectionMethod: method, registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION });
+      decisions.push({ requirementId: candidates[0]?.requirementId || requirementId(input.researchMap, question.questionId, requirement), requirementKind: requirement.kind, requirementLabel: requirement.label.normalize("NFKC").trim(), researchQuestionId: question.questionId, eligibleCandidates: candidates.map((candidate) => ({ publisherVersionId: candidate.publisherVersionId, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, historicalJurisdictionCapacityIds: candidate.historicalJurisdictionCapacityIds, rejectionReason: null })), modelProposedPublisherVersionIds, selectedPublisherVersionId: selected?.publisherVersionId || null, selectedHistoricalJurisdictionCapacityIds: selected?.historicalJurisdictionCapacityIds || [], selectionMethod: method, registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION });
     }
   }
   return { proposals: proposals.sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)), decisions, unresolved };
@@ -402,11 +417,14 @@ function validateProposal(input: {
   // relationship classification. Evidence later establishes sufficiency.
   // Only the bounded protected selector can carry a STATE_PARTY relationship;
   // ordinary model proposals remain unable to relabel a publisher.
-  const subjectRelationship = input.proposal.routingObligationIds.length > 0
-    && input.proposal.subjectRelationship === "STATE_PARTY"
+  const subjectRelationship = input.proposal.subjectRelationship === "STATE_PARTY"
+    && input.proposal.routingObligationIds.length > 0
     && input.publisher.institutionType === "GOVERNMENT"
     ? "STATE_PARTY" as const
-    : defaultSubjectRelationship(input.publisher);
+    : input.proposal.subjectRelationship === "COMMUNITY_CUSTODIAN"
+      && hasCommunityCustodialCapability(input.publisher)
+      ? "COMMUNITY_CUSTODIAN" as const
+      : defaultSubjectRelationship(input.publisher);
   if (capability.authorityFamily === "EDITED_REFERENCE" && proposal.roles.some((role) => role !== "ORIENTATION")) throw new Error(`ORIENTATION_AUTHORITY_ROLE_VIOLATION:${proposal.publisherVersionId}`);
   if (["SUBJECT_SELF", "STATE_PARTY"].includes(subjectRelationship) && proposal.roles.includes("CORROBORATION")) throw new Error(`SELF_INTERESTED_CORROBORATION_FORBIDDEN:${proposal.publisherVersionId}`);
   const capacityById = new Map(input.publisher.historicalJurisdictionCapacities.map((item) => [item.capacityId, item]));
@@ -581,7 +599,7 @@ function assertProtectedRepresentationAvailability(scope: ScopeContract, map: Re
     for (const requirement of question.historicalPerspectiveRequirements || []) {
       if (!requiresProtectedPreAcquisitionAvailability(requirement.kind)) continue;
       const available = requirement.kind === "AFFECTED_COMMUNITY" || requirement.kind === "CUSTODIAL_COMMUNITY"
-        ? relevant.some((binding) => ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"].includes(binding.subjectRelationship))
+        ? relevant.some((binding) => binding.subjectRelationship === "COMMUNITY_CUSTODIAN")
         : requirement.kind === "PARTY_PARTICIPANT"
           ? relevant.some((binding) => ["STATE_PARTY", "PARTICIPANT", "INDEPENDENT"].includes(binding.subjectRelationship))
           : requirement.kind === "MATERIAL_JURISDICTION"
