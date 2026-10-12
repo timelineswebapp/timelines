@@ -254,6 +254,26 @@ export function resolutionEntityContext(scopeEntities: ScopeContract["centralEnt
   return [...byEntityId.values()].sort((left, right) => left.entityVersionId.localeCompare(right.entityVersionId));
 }
 
+/**
+ * A historical year qualifies an entity mention but is not part of its lexical
+ * identity.  Evidence commonly says "San Francisco earthquake" where a
+ * locked scope calls it the "1906 San Francisco Earthquake".  Requiring the
+ * year in both places prevents otherwise supported dated occurrences from
+ * being resolved, while accepting a year-only match would be unsafe.  This
+ * keeps the substantive, ordered identity tokens mandatory and only removes
+ * standalone four-digit historical-year qualifiers.
+ */
+export function evidenceMentionsScopeEntity(evidence: string, entityName: string): boolean {
+  const tokens = (value: string) => normalizedIdentityText(value).match(/[\p{L}\p{N}]+/gu) || [];
+  const substantive = tokens(entityName).filter((token) => !/^(?:1[0-9]{3}|2[0-9]{3})$/u.test(token));
+  const observed = tokens(evidence);
+  if (substantive.length < 2 || observed.length < substantive.length) return false;
+  for (let index = 0; index <= observed.length - substantive.length; index += 1) {
+    if (substantive.every((token, offset) => observed[index + offset] === token)) return true;
+  }
+  return false;
+}
+
 /** Legacy telemetry normalization retained only to reconstruct historical
  * Google-grounded acquisition evidence. Authority-First does not use this as
  * an execution budget or canonical acquisition ledger. */
@@ -1142,7 +1162,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const entityNameKey = normalizedIdentityText(entityRef.name);
     const entityEvidence = identityEvidence.filter((segmentId) => {
       const segment = segmentsById.get(segmentId);
-      return segment ? normalizedIdentityText(segment.exactText).includes(entityNameKey) : false;
+      return segment ? evidenceMentionsScopeEntity(segment.exactText, entityRef.name) : false;
     });
     if (entityEvidence.length === 0) continue;
     const candidate = buildCanonicalEntityVersion(context, { version: 1, entityType: entityRef.type, canonicalName: entityRef.name, language: entityRef.language, externalIdentifiers: entityRef.entityId ? [{ scheme: "scope", value: entityRef.entityId }] : [], activeTemporal: null, geographyKeys: scopeResult.scope.spatialScope.included, state: "FACTORY_CANDIDATE", resolutionState: "PROPOSED", identityEvidenceSegmentIds: entityEvidence.slice(0, 20), supersedesEntityVersionId: null });
@@ -1210,7 +1230,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       return segment ? [segment.exactText] : [];
     });
     const clusterText = normalizedIdentityText([...cluster.map((claim) => `${claim.subject.label} ${typeof claim.object.value === "string" || typeof claim.object.value === "number" ? claim.object.value : claim.object.value.label} ${claim.normalizedAssertion}`), ...clusterEvidenceText].join(" "));
-    const relatedEntities = resolutionEntities.filter((entity) => clusterText.includes(normalizedIdentityText(entity.canonicalName)));
+    const relatedEntities = resolutionEntities.filter((entity) => evidenceMentionsScopeEntity(clusterText, entity.canonicalName));
     if (relatedEntities.length === 0) { rejectEventCluster("NO_RELATED_RESOLVED_ENTITY"); continue; }
     const semanticClass = semanticClassByClaim.get(cluster[0]!.claimVersionId) || "CONTEXT";
     const temporalClaim = selectMostPreciseHistoricalDate(core.flatMap((claim) => {

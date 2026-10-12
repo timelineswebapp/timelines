@@ -5,7 +5,7 @@ import { auditPerspective, buildAuthorityResearchPlan, buildConfidenceVector, bu
 import { buildCanonicalEntityVersion, buildResearchMap } from "./contracts/builders";
 import type { TopicAuthorityProposal } from "./contracts";
 import { TEST_CONTEXT, scopeFixture } from "./test-fixtures";
-import { confidenceRequiresAdditionalBlock, conflictConfidenceStatus, independentCorroborationStatus, requiredPerspectiveRequirements, requiredPerspectiveTags, resolutionEntityContext, selectMostPreciseHistoricalDate, temporalPrecisionStatus } from "./orchestrator";
+import { confidenceRequiresAdditionalBlock, conflictConfidenceStatus, evidenceMentionsScopeEntity, independentCorroborationStatus, requiredPerspectiveRequirements, requiredPerspectiveTags, resolutionEntityContext, selectMostPreciseHistoricalDate, temporalPrecisionStatus } from "./orchestrator";
 
 const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
 const byName = (name: string) => publishers.find((publisher) => publisher.canonicalName === name)!;
@@ -173,6 +173,13 @@ test("event resolution prefers the most precise supported temporal observation d
   const day = { year: 1906, month: 4, day: 18, precision: "DAY" as const, earliestYear: 1906, latestYear: 1906, label: "April 18, 1906" };
   assert.equal(selectMostPreciseHistoricalDate([{ value: "year", date: year, stableId: "a" }, { value: "day", date: day, stableId: "b" }]), "day");
   assert.equal(selectMostPreciseHistoricalDate([{ value: "day", date: day, stableId: "b" }, { value: "year", date: year, stableId: "a" }]), "day");
+});
+
+test("event resolution accepts a substantive scope-entity mention without a historical-year qualifier", () => {
+  assert.equal(evidenceMentionsScopeEntity("The San Francisco earthquake occurred on April 18, 1906.", "1906 San Francisco Earthquake"), true);
+  assert.equal(evidenceMentionsScopeEntity("The Berlin blockade began in 1948.", "1948 Berlin Airlift"), false);
+  assert.equal(evidenceMentionsScopeEntity("The earthquake occurred in 1906.", "1906 San Francisco Earthquake"), false);
+  assert.equal(evidenceMentionsScopeEntity("The 1906 San Francisco earthquake occurred.", "1906 San Francisco Earthquake"), true);
 });
 
 test("completion event resolution reuses only resolved entities matching the locked scope", () => {
