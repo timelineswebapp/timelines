@@ -6,7 +6,17 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — AUTHORITY_FIRST_.27 CANDIDATE_POOL_EXHAUSTED`
+`PHASE_2_CERTIFICATION_PENDING — AUTHORITY_FIRST_.32 GENERAL ENTITY-RESOLUTION CORRECTION VERIFIED`
+
+## 2026-10-12 — `.57` terminal evidence and `.58` general entity-resolution correction
+
+The sealed `.57` release `d66f25d598b419e52d5976c4b881966052732e480c0fe9f76070213a3d68b1d8` (source `633dfc72adee2f8edf7e4552fb162afa24d4a4eb`, `factory-v2-a.57` / `authority-first-research.31`, prompt `.19`, schema/CKS `.12`) ran San Francisco first and sealed a normal fail-closed terminal report at `/private/tmp/tl-tier1-seal-xmbfbI/artifacts/authority-first-acquisition-canary/2026-10-12T16-55-27-822Z/report.json`. San Francisco exhausted its one bounded continuation and stopped in `FINAL_COVERAGE` with `EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:WEAK_PHASE_KNOWLEDGE,UNANSWERED_CRITICAL_RESEARCH_QUESTION,MISSING_CHRONOLOGY`; Berlin, Ada, and Printing Press were correctly not executed after the first terminal failure. The report records 11 supported claims, eight durable source snapshots, zero resolved chronology events, and exact protected-state parity for every protected collection hash and count. The worker ended cleanly within its 1,200-second deadline; this was neither a deadline nor Vertex-capacity failure.
+
+Immutable run lineage shows the general defect: a locked central entity with a historical-year qualifier (for example, `1906 San Francisco Earthquake`) required an exact lexical occurrence in evidence. Dated supported claims naming the same substantive entity without repeating that qualifier (for example, `San Francisco earthquake`) could therefore neither resolve the scope entity nor attach the event cluster. This is a general deterministic entity-resolution defect, not a recurrence of source-authority/participant conflation, and it does not broaden source admission, Registry capacity, budgets, deadlines, providers, completion rounds, or historical-perspective requirements.
+
+Checkpoint `8a4ed0cfb13611e93263c9a8073a5df1b2429bac` creates the `.58` successor (`factory-v2-a.58` / `authority-first-research.32`, prompt `.19`, schema/CKS `.12`). Its deterministic matcher removes only standalone four-digit historical-year qualifiers, requires at least two ordered substantive identity tokens, and is used both for evidence-to-scope entity resolution and event-to-resolved-entity linkage. Regression coverage proves the permitted dated-name match and rejects year-only and different-substantive-name false matches. The full verification matrix is green: Functions 320 passed/2 intentional skips; root 249 passed; strict root and Functions typechecks; root lint; Functions and Next production builds; Tier-1 security gate with zero high/critical production findings; `git diff --check`; Firestore emulator 6/6; and institutional certification suites 68/7/7/7/8/8. No autonomous discovery, Registry mutation, public/institutional mutation, deployment, or production configuration change occurred.
+
+The next authorized action is to seal one clean `.58` release and execute one fresh, non-combined four-subject Phase-2 certification. `.57` artifacts remain preserved and are not final certification evidence.
 
 ## 2026-10-09 — `.27` Phase-2 terminal evidence: completion candidate pool exhausted
 
