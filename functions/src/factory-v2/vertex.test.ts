@@ -98,7 +98,7 @@ test("Research Map and Query Plan structured stages bind exact locked scope and 
   assert.equal(planResult.plan.scopeContractId, scope.scopeContractId);
 });
 
-test("Research Map repairs an unbounded critical-question set to the controlled completion capacity", async () => {
+test("Research Map deterministically bounds an unbounded critical-question set to the controlled completion capacity", async () => {
   const scope = scopeFixture();
   const overCritical = {
     questions: Array.from({ length: 8 }, (_, index) => ({
@@ -106,9 +106,9 @@ test("Research Map repairs an unbounded critical-question set to the controlled 
       phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: true, priority: "CRITICAL"
     }))
   };
-  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(overCritical), JSON.stringify(mapProposal)]) });
-  assert.equal(result.executions[0]!.validationState, "INVALID");
-  assert.equal(result.executions[1]!.validationState, "REPAIRED");
+  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(overCritical)]) });
+  assert.equal(result.executions[0]!.validationState, "VALID");
+  assert.equal(result.executions.length, 1);
   assert.ok(result.map.questions.filter((question) => question.priority === "CRITICAL").length <= 5);
 });
 
@@ -166,10 +166,22 @@ test("direct historical-action bases preserve genuine parties without admitting 
     "The military command deployed personnel and commanded the direct operation.",
     "The individual participated directly in the event and carried out the material action.",
     "The historical institution administered the program and exercised material authority during the period.",
-    "The later investigator also participated directly by responding operationally during the event."
+    "The later investigator also participated directly by responding operationally during the event.",
+    "The fire department directly engaged in fire fighting and resource allocation during the disaster."
   ];
   for (const basis of validBases) assert.equal(hasDirectHistoricalActionBasis(basis), true, basis);
   assert.equal(hasDirectHistoricalActionBasis("The later investigator only analyzed and documented the earlier event."), false);
+  assert.equal(hasDirectHistoricalActionBasis("The scientific agency engaged in later investigation and documentation."), false);
+});
+
+test("Research Map deterministically demotes surplus critical questions without changing coverage", async () => {
+  const scope = scopeFixture();
+  const questions = Array.from({ length: 5 }, (_, index) => ({
+    text: `What material issue ${index + 1} must be established for the mission?`, phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["Official mission record"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "CRITICAL" as const
+  }));
+  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify({ questions })]) });
+  assert.equal(result.map.questions.filter((question) => question.priority === "CRITICAL").length, 5);
+  assert.equal(result.map.questions.find((question) => question.text === questions[4]!.text)?.priority, "IMPORTANT");
 });
 
 test("Authority routing can select only registered publishers and preserves question lineage", async () => {

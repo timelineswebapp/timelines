@@ -8,7 +8,8 @@ import {
   idSchema,
   immutableEnvelopeFields,
   languageSchema,
-  modelExecutionRefSchema
+  modelExecutionRefSchema,
+  V2_SCHEMA_VERSION
 } from "./common";
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
@@ -100,12 +101,15 @@ export const scopeAmendmentProposalSchema = z.object({
   automaticApprovalAllowed: z.literal(false)
 }).strict();
 
-const directHistoricalActionBasis = /\b(?:acted|action(?:s)?|participat(?:e|ed|ing|ion)|party|respond(?:ed|ing|er|se)|operat(?:ed|ing|ion)|made\s+(?:a\s+)?(?:material\s+)?decision(?:s)?|decid(?:ed|ing|es)|exercis(?:ed|ing)\s+(?:material\s+)?authority|command(?:ed|ing)?|deploy(?:ed|ing)|provided\s+(?:relief|aid)|carried\s+out|implement(?:ed|ing)|administer(?:ed|ing)|govern(?:ed|ing)|negotia(?:ted|ting)|fought|conducted\s+(?:the\s+)?response)\b/iu;
+const directHistoricalActionBasis = /\b(?:acted|action(?:s)?|participat(?:e|ed|ing|ion)|party|respond(?:ed|ing|er|se)|operat(?:ed|ing|ion)|made\s+(?:a\s+)?(?:material\s+)?decision(?:s)?|decid(?:ed|ing|es)|exercis(?:ed|ing)\s+(?:material\s+)?authority|command(?:ed|ing)?|deploy(?:ed|ing)|provided\s+(?:relief|aid|medical\s+care)|carried\s+out|implement(?:ed|ing)|administer(?:ed|ing)|govern(?:ed|ing)|negotia(?:ted|ting)|fought|conducted\s+(?:the\s+)?response|(?:directly\s+)?engaged\s+in\s+(?:fire\s*fight(?:ing)?|relief|rescue|evacuation|emergency\s+response|demolition)|fire\s*fight(?:ing)?|maintain(?:ed|ing)\s+(?:public\s+)?order|distribut(?:ed|ing)\s+(?:aid|relief|supplies)|manag(?:ed|ing)\s+(?:refugee\s+)?camps|allocat(?:ed|ing)\s+resources)\b/iu;
 
 /**
  * PARTY_PARTICIPANT protects an historical actor's perspective. A source
  * institution's authority, custody, or later analysis is valuable evidence,
  * but is not historical participation without a separately stated action.
+ * The action vocabulary accepts bounded operational conduct (for example,
+ * firefighting or relief) but never mere investigation, custody,
+ * documentation, publishing, or interpretation.
  */
 export function hasDirectHistoricalActionBasis(value: string | null | undefined): boolean {
   if (!value) return false;
@@ -179,10 +183,10 @@ export const researchMapSchema = z.object({
   for (const [index, question] of map.questions.entries()) {
     if (question.phaseIds.some((id) => !phases.has(id))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["questions", index, "phaseIds"], message: "Question references an unknown phase." });
     if (question.dimensionIds.some((id) => !dimensions.has(id))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["questions", index, "dimensionIds"], message: "Question references an unknown dimension." });
-    // .9 and earlier artifacts are immutable historical evidence. New .10
+    // Earlier artifacts are immutable historical evidence. New artifacts
     // artifacts must carry an explicit direct-action basis before they can
     // create a protected PARTY_PARTICIPANT obligation.
-    if (map.schemaVersion === "factory-v2-a.10") for (const [requirementIndex, requirement] of (question.historicalPerspectiveRequirements || []).entries()) {
+    if (map.schemaVersion === V2_SCHEMA_VERSION) for (const [requirementIndex, requirement] of (question.historicalPerspectiveRequirements || []).entries()) {
       if (requirement.kind === "PARTY_PARTICIPANT" && !hasDirectHistoricalActionBasis(requirement.historicalActionBasis)) {
         context.addIssue({ code: z.ZodIssueCode.custom, path: ["questions", index, "historicalPerspectiveRequirements", requirementIndex, "historicalActionBasis"], message: "PARTY_PARTICIPANT requires an explicit direct historical-action basis; source authority, custody, documentation, investigation, or later interpretation alone is insufficient." });
       }

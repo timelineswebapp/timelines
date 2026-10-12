@@ -81,8 +81,20 @@ const historicalPerspectiveRequirementProposalSchema = z.object({
 
 const researchMapSemanticBaseSchema = z.object({
   questions: z.array(z.object({ text: boundedText(10, 700), phaseLabels: z.array(boundedText(2, 160)).min(1).max(8).refine(unique), dimensionLabels: z.array(boundedText(2, 120)).min(1).max(8).refine(unique), expectedAuthorities: z.array(boundedText(1, 240)).min(1).max(12).refine(unique), languages: z.array(languageSchema).min(1).max(8).refine(unique), geography: z.array(boundedText(1, 240)).min(1).max(12).refine(unique), historicalPerspectiveRequirements: z.array(historicalPerspectiveRequirementProposalSchema).max(8).optional(), contested: z.boolean(), dateCritical: z.boolean(), priority: z.enum(["CRITICAL", "IMPORTANT", "SUPPORTING"]) }).strict()).min(1).max(16)
-}).strict().superRefine((map, context) => {
-  if (map.questions.filter((question) => question.priority === "CRITICAL").length > 4) context.addIssue({ code: z.ZodIssueCode.custom, path: ["questions"], message: "At most four model-defined questions may be CRITICAL; prioritize the material blockers and classify the rest as IMPORTANT or SUPPORTING." });
+}).strict().transform((map) => {
+  // Criticality governs bounded acquisition ordering, not what may be known.
+  // Preserve the first four model-ranked blockers in stable response order and
+  // deterministically demote surplus labels instead of exhausting an otherwise
+  // well-formed historical map.
+  let criticalCount = 0;
+  return {
+    ...map,
+    questions: map.questions.map((question) => {
+      if (question.priority !== "CRITICAL") return question;
+      criticalCount += 1;
+      return criticalCount <= 4 ? question : { ...question, priority: "IMPORTANT" as const };
+    })
+  };
 });
 
 function normalizedLabel(value: string): string {

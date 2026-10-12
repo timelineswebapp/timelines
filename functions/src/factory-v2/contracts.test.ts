@@ -106,7 +106,9 @@ test("current Research Maps require direct historical action before creating a p
   const valid = buildResearchMap(TEST_CONTEXT, scope, { ...base, questions: [{ ...question, historicalPerspectiveRequirements: [{ kind: "PARTY_PARTICIPANT", label: "Emergency command", rationale: "The command made material response decisions during the event.", historicalActionBasis: "The emergency command directed operations and made material response decisions during the historical episode." }] }] });
   assert.equal(valid.questions[0]!.historicalPerspectiveRequirements?.[0]?.historicalActionBasis?.includes("directed operations"), true);
   assert.equal(hasDirectHistoricalActionBasis("The command deployed responders and carried out relief operations."), true);
+  assert.equal(hasDirectHistoricalActionBasis("The fire department directly engaged in fire fighting and resource allocation during the disaster."), true);
   assert.equal(hasDirectHistoricalActionBasis("The archive preserved and interpreted later records."), false);
+  assert.equal(hasDirectHistoricalActionBasis("The scientific agency engaged in later investigation and documentation."), false);
   const legacy = structuredClone(valid) as Record<string, unknown>;
   legacy.schemaVersion = "factory-v2-a.9";
   const legacyQuestions = legacy.questions as Array<Record<string, unknown>>;
