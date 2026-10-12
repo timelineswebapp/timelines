@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_CERTIFICATION_PENDING — AUTHORITY_FIRST_.32 GENERAL ENTITY-RESOLUTION CORRECTION VERIFIED`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — AUTHORITY_FIRST_.32 AFFECTED_COMMUNITY_CAPACITY_ABSENT`
+
+## 2026-10-12 — `.58` Phase-2 terminal evidence: protected affected-community capacity absent
+
+The sealed `.58` release `a5ddfcf6ae10c0203db36797fc709f66c810e3f84874fcbc4afed1bda9a5e748` (source `e43e4de948526eb8a5deab8849dfd475d366f1c3`, `factory-v2-a.58` / `authority-first-research.32`, prompt `.19`, schema/CKS `.12`) ran a fresh, non-combined Phase-2 certification at `/private/tmp/tl-tier1-seal-58/artifacts/authority-first-acquisition-canary/2026-10-12T17-10-40-479Z/report.json`. San Francisco produced valid CKS `completed-knowledge-set-fd6834560362332fdea487ff1ac2279f541b4ae83326ab8e4c49f6099791abf1` with sufficient final coverage, six resolved events, and exact protected-state parity.
+
+Berlin then stopped fail-closed before source acquisition in `INITIAL_ACQUISITION`: `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:question-e7aed6a1f66287ba9e63b28d171d0341ff5ce2108b6c50edccc44348d01778d2:AFFECTED_COMMUNITY`. Its immutable Research Map requires `West Berlin Civilians` because their daily lives and morale were materially affected by the blockade and airlift. The Registry offered no explicitly declared, relationship-eligible affected-community capacity. This is a genuine protected historical requirement; treating retrieval geography, a general archive, a party/government record, or a source-authority institution as community capacity would violate the preserved community/Registry safeguards. Exact protected-state parity holds for Berlin. Ada and Printing Press were correctly not executed after the terminal subject failure; no canary worker, monitor, provider call, discovery, public/institutional action, Registry mutation, or deployment remains active.
+
+The `.58` entity-resolution correction remains verified: it enabled the fresh valid San Francisco CKS by matching substantive entity tokens while excluding four-digit historical-year qualifiers, without changing sources, Registry capacity, budgets, deadlines, completion rounds, or historical-perspective policy. The Berlin result is not a recurrence of source-authority/participant conflation and is not remediable under the bounded semantic-correction authorization. Further work requires founder direction authorizing a general Registry-governed, historically justified affected-community capacity resolution (or another resolution that preserves the mandatory affected-community standard). Do not rerun certification, expand Registry capacity, weaken the requirement, or resume discovery/public launch before that decision.
 
 ## 2026-10-12 — `.57` terminal evidence and `.58` general entity-resolution correction
 
