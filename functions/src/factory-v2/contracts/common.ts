@@ -2,12 +2,12 @@ import { z } from "zod";
 
 // a.48 includes every protected historical requirement in the bounded
 // Authority-First availability set before strict admission.
-export const V2_PIPELINE_VERSION = "factory-v2-a.56";
-export const V2_SCHEMA_VERSION = "factory-v2-a.11";
-export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.11";
+export const V2_PIPELINE_VERSION = "factory-v2-a.57";
+export const V2_SCHEMA_VERSION = "factory-v2-a.12";
+export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.12";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "authority-first-research.30";
-export const V2_PROMPT_VERSION = "factory-v2-a-prompts.18";
+export const V2_POLICY_VERSION = "authority-first-research.31";
+export const V2_PROMPT_VERSION = "factory-v2-a-prompts.19";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);
 export const idSchema = z.string().trim().min(3).max(160).regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/u);
@@ -47,7 +47,7 @@ export const modelExecutionRefSchema = z.object({
 
 export const immutableEnvelopeFields = {
   artifactId: idSchema,
-  schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, "factory-v2-a.4", "factory-v2-a.5", "factory-v2-a.6", "factory-v2-a.7", "factory-v2-a.9", "factory-v2-a.10", V2_SCHEMA_VERSION]),
+  schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, "factory-v2-a.4", "factory-v2-a.5", "factory-v2-a.6", "factory-v2-a.7", "factory-v2-a.9", "factory-v2-a.10", "factory-v2-a.11", V2_SCHEMA_VERSION]),
   policyVersion: boundedText(2, 120),
   promptVersion: boundedText(2, 120).nullable(),
   modelExecutionRef: modelExecutionRefSchema.nullable(),

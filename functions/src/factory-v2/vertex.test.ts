@@ -167,7 +167,8 @@ test("direct historical-action bases preserve genuine parties without admitting 
     "The individual participated directly in the event and carried out the material action.",
     "The historical institution administered the program and exercised material authority during the period.",
     "The later investigator also participated directly by responding operationally during the event.",
-    "The fire department directly engaged in fire fighting and resource allocation during the disaster."
+    "The fire department directly engaged in fire fighting and resource allocation during the disaster.",
+    "The Soviet administration initiated the blockade while the Western Allies launched and organized the airlift."
   ];
   for (const basis of validBases) assert.equal(hasDirectHistoricalActionBasis(basis), true, basis);
   assert.equal(hasDirectHistoricalActionBasis("The later investigator only analyzed and documented the earlier event."), false);
