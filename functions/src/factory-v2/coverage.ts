@@ -264,7 +264,7 @@ export function buildGapObligations(input: {
       || question.dimensionIds.some((id) => gap.dimensionIds.includes(id)));
     const questionIds = unique([...new Set([...gap.questionIds, ...questions.map((question) => question.questionId)])]);
     const historicalRequirements = questions.flatMap((question) => question.historicalPerspectiveRequirements || [])
-      .map((requirement) => ({ kind: requirement.kind, label: requirement.label, rationale: requirement.rationale }))
+      .map((requirement) => ({ kind: requirement.kind, label: requirement.label, rationale: requirement.rationale, historicalActionBasis: requirement.historicalActionBasis ?? null }))
       .sort((left, right) => `${left.kind}:${left.label}`.localeCompare(`${right.kind}:${right.label}`));
     const relevantBindings = input.authoritySet.bindings.filter((binding) => questionIds.length === 0 || binding.researchQuestionIds.some((id) => questionIds.includes(id)));
     const candidateBindings = relevantBindings.length > 0 ? relevantBindings : input.authoritySet.bindings;

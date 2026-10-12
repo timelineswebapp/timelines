@@ -19,7 +19,7 @@ const scope = {
   researchBudget: { maximumGroundingCalls: 7, maximumProviderQueries: 40, maximumSourceDocuments: 60, maximumAtomicClaims: 300, maximumSemanticRepairs: 2, maximumTransportAttemptsPerCall: 3, maximumConcurrency: 3, maximumWorkerSeconds: 1200 }
 };
 
-const map = { questions: [{ text: "When and how did Apollo 11 launch?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], historicalPerspectiveRequirements: [{ kind: "STAKEHOLDER", label: "NASA mission operations", rationale: "Mission operations made material operational decisions." }], contested: false, dateCritical: true, priority: "CRITICAL" }] };
+const map = { questions: [{ text: "When and how did Apollo 11 launch?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], historicalPerspectiveRequirements: [{ kind: "STAKEHOLDER", label: "NASA mission operations", rationale: "Mission operations made material operational decisions.", historicalActionBasis: null }], contested: false, dateCritical: true, priority: "CRITICAL" }] };
 
 test("Full V2-A shadow orchestration creates verified candidate knowledge without publication paths", { skip: !enabled }, async () => {
   const provider: V2ModelProvider = {

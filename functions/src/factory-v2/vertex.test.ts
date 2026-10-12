@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { extractAtomicClaims, generateQueryPlan, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, selectRoutingObligationBatch, StructuredStageError, type V2GenerateRequest, type V2ModelProvider } from "./vertex";
 import { buildEvidenceSegment } from "./contracts/builders";
+import { hasDirectHistoricalActionBasis } from "./contracts";
 import { bootstrapPublisherRegistry } from "./authority";
-import { buildEligibleRoutingCandidates, buildRoutingObligationSet } from "./authority-first";
+import { buildEligibleRoutingCandidates, buildRoutingObligationSet, isInitialAuthorityRequiredQuestion } from "./authority-first";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
 
 function providerFrom(values: unknown[], requests: V2GenerateRequest[] = []): V2ModelProvider {
@@ -109,6 +110,66 @@ test("Research Map repairs an unbounded critical-question set to the controlled 
   assert.equal(result.executions[0]!.validationState, "INVALID");
   assert.equal(result.executions[1]!.validationState, "REPAIRED");
   assert.ok(result.map.questions.filter((question) => question.priority === "CRITICAL").length <= 5);
+});
+
+test("Research Map repairs source-only institutions out of protected party requirements while retaining their authority eligibility", async () => {
+  const scope = scopeFixture();
+  const sourceOnlyKinds = [
+    ["Scientific agency", "The agency documented and investigated the event after it occurred."],
+    ["Later investigator", "The investigator later studied and analyzed the event."],
+    ["Archive", "The archive holds and preserves records about the event."],
+    ["Library", "The library holds published accounts of the event."],
+    ["Museum", "The museum interprets its collection for later audiences."],
+    ["University", "The university published scholarly analysis of the event."],
+    ["Publisher", "The publisher issued a historical account of the event."],
+    ["Records holder", "The institution is the records holder for provenance materials."]
+  ] as const;
+  const invalid = { questions: [{
+    text: "Which scientific records explain the event?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["United States Geological Survey"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "IMPORTANT",
+    historicalPerspectiveRequirements: sourceOnlyKinds.map(([label, historicalActionBasis]) => ({ kind: "PARTY_PARTICIPANT", label, rationale: `${label} is useful for evidence about the event.`, historicalActionBasis }))
+  }] };
+  const repaired = { questions: [{
+    text: "Which scientific records explain the event?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["United States Geological Survey"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "IMPORTANT"
+  }] };
+  const requests: V2GenerateRequest[] = [];
+  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(invalid), JSON.stringify(repaired)], requests) });
+  assert.equal(result.executions[0]!.validationState, "INVALID");
+  assert.equal(result.executions[1]!.validationState, "REPAIRED");
+  const question = result.map.questions.find((item) => item.text === repaired.questions[0]!.text)!;
+  assert.deepEqual(question.historicalPerspectiveRequirements || [], []);
+  assert.deepEqual(question.expectedAuthorities, ["United States Geological Survey"]);
+  assert.equal(isInitialAuthorityRequiredQuestion(question), false);
+  const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
+  const usgsNumber = publishers.findIndex((publisher) => publisher.canonicalName === "United States Geological Survey") + 1;
+  const authority = await generateTopicAuthorityProposals({ context: TEST_CONTEXT, scope, map: result.map, publishers, provider: providerFrom([JSON.stringify({ authorities: [{ publisherNumber: usgsNumber, researchQuestionNumbers: result.map.questions.map((_, index) => index + 1), roles: ["PRIMARY_RECORD", "INTERPRETATION"], claimTypes: ["OCCURRENCE", "INTERPRETATION"], subjectRelationship: "SUBJECT_SELF", perspectiveTags: ["Scientific authority"], rationale: "USGS remains a governed scientific and technical source authority for this research question." }] })]) });
+  assert.equal(authority.proposals[0]!.publisherVersionId, publishers[usgsNumber - 1]!.publisherVersionId);
+  assert.match(requests[0]!.contents, /scientific agency, later investigator, archive, library, museum, university, publisher, records holder/i);
+});
+
+test("Research Map preserves a genuine direct historical party and sends it to protected availability", async () => {
+  const scope = scopeFixture();
+  const valid = { questions: [{
+    text: "How did the operational command direct the emergency response?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["Official operational records"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "IMPORTANT",
+    historicalPerspectiveRequirements: [{ kind: "PARTY_PARTICIPANT", label: "Operational command", rationale: "The command's direct response decisions are materially necessary to the account.", historicalActionBasis: "The operational command directed and carried out the emergency response during the historical episode." }]
+  }] };
+  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(valid)]) });
+  const question = result.map.questions.find((item) => item.text === valid.questions[0]!.text)!;
+  assert.equal(question.historicalPerspectiveRequirements?.[0]?.kind, "PARTY_PARTICIPANT");
+  assert.match(question.historicalPerspectiveRequirements?.[0]?.historicalActionBasis || "", /directed and carried out/i);
+  assert.equal(isInitialAuthorityRequiredQuestion(question), true);
+});
+
+test("direct historical-action bases preserve genuine parties without admitting source-only substitutes", () => {
+  const validBases = [
+    "The fire department responded operationally and carried out firefighting during the disaster.",
+    "The government implemented the policy and made material decisions in the historical process.",
+    "The military command deployed personnel and commanded the direct operation.",
+    "The individual participated directly in the event and carried out the material action.",
+    "The historical institution administered the program and exercised material authority during the period.",
+    "The later investigator also participated directly by responding operationally during the event."
+  ];
+  for (const basis of validBases) assert.equal(hasDirectHistoricalActionBasis(basis), true, basis);
+  assert.equal(hasDirectHistoricalActionBasis("The later investigator only analyzed and documented the earlier event."), false);
 });
 
 test("Authority routing can select only registered publishers and preserves question lineage", async () => {

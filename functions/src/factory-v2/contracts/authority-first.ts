@@ -10,7 +10,9 @@ const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, i
  * Evidence-derived completion successor.  Historical routing artifacts remain
  * parseable for provenance, but are not part of this policy's execution path.
  */
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.28" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.29" as const;
+/** Deterministic boundary between historical participation and source authority. */
+export const PARTY_PARTICIPANT_SEMANTICS_POLICY_VERSION = "party-participant-semantics.1" as const;
 export const AUTHORITY_REGISTRY_VERSION = "authority-registry.3" as const;
 /** Versioned admission policy for registry-governed specialist collections. */
 export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;
@@ -109,6 +111,7 @@ export const routingObligationSchema = z.object({
   semanticIdentity: boundedText(2, 320),
   label: boundedText(2, 160),
   rationale: boundedText(10, 600),
+  historicalActionBasis: boundedText(10, 600).nullable().optional(),
   requiredRoles: z.array(authorityResearchRoleSchema).min(1).max(5).refine(unique),
   permittedSubjectRelationships: z.array(subjectRelationshipSchema).min(1).max(5).refine(unique),
   materialGeography: strings(20, 160)

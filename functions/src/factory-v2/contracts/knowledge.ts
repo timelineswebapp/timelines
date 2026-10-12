@@ -100,10 +100,25 @@ export const scopeAmendmentProposalSchema = z.object({
   automaticApprovalAllowed: z.literal(false)
 }).strict();
 
+const directHistoricalActionBasis = /\b(?:acted|action(?:s)?|participat(?:e|ed|ing|ion)|party|respond(?:ed|ing|er|se)|operat(?:ed|ing|ion)|made\s+(?:a\s+)?(?:material\s+)?decision(?:s)?|decid(?:ed|ing|es)|exercis(?:ed|ing)\s+(?:material\s+)?authority|command(?:ed|ing)?|deploy(?:ed|ing)|provided\s+(?:relief|aid)|carried\s+out|implement(?:ed|ing)|administer(?:ed|ing)|govern(?:ed|ing)|negotia(?:ted|ting)|fought|conducted\s+(?:the\s+)?response)\b/iu;
+
+/**
+ * PARTY_PARTICIPANT protects an historical actor's perspective. A source
+ * institution's authority, custody, or later analysis is valuable evidence,
+ * but is not historical participation without a separately stated action.
+ */
+export function hasDirectHistoricalActionBasis(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const basis = value.normalize("NFKC").trim();
+  return directHistoricalActionBasis.test(basis);
+}
+
 const historicalPerspectiveRequirementSchema = z.object({
   kind: z.enum(["STAKEHOLDER", "PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "INDEPENDENT_SCHOLARSHIP", "MATERIAL_JURISDICTION"]),
   label: boundedText(2, 160),
-  rationale: boundedText(10, 600)
+  rationale: boundedText(10, 600),
+  /** Required for current PARTY_PARTICIPANT artifacts; null for other kinds. */
+  historicalActionBasis: boundedText(10, 600).nullable().optional()
 }).strict();
 
 /**
@@ -164,6 +179,14 @@ export const researchMapSchema = z.object({
   for (const [index, question] of map.questions.entries()) {
     if (question.phaseIds.some((id) => !phases.has(id))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["questions", index, "phaseIds"], message: "Question references an unknown phase." });
     if (question.dimensionIds.some((id) => !dimensions.has(id))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["questions", index, "dimensionIds"], message: "Question references an unknown dimension." });
+    // .9 and earlier artifacts are immutable historical evidence. New .10
+    // artifacts must carry an explicit direct-action basis before they can
+    // create a protected PARTY_PARTICIPANT obligation.
+    if (map.schemaVersion === "factory-v2-a.10") for (const [requirementIndex, requirement] of (question.historicalPerspectiveRequirements || []).entries()) {
+      if (requirement.kind === "PARTY_PARTICIPANT" && !hasDirectHistoricalActionBasis(requirement.historicalActionBasis)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["questions", index, "historicalPerspectiveRequirements", requirementIndex, "historicalActionBasis"], message: "PARTY_PARTICIPANT requires an explicit direct historical-action basis; source authority, custody, documentation, investigation, or later interpretation alone is insufficient." });
+      }
+    }
   }
   for (const phase of map.phases.filter((item) => item.required)) if (!map.questions.some((question) => question.phaseIds.includes(phase.phaseId) && question.priority !== "SUPPORTING")) context.addIssue({ code: z.ZodIssueCode.custom, path: ["phases"], message: `Required phase ${phase.phaseId} is not exercised by a critical or important question.` });
   for (const dimension of map.dimensions.filter((item) => item.required)) if (!map.questions.some((question) => question.dimensionIds.includes(dimension.dimensionId))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["dimensions"], message: `Required dimension ${dimension.dimensionId} is not exercised by a question.` });

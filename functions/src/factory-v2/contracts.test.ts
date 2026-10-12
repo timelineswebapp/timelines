@@ -16,7 +16,7 @@ import {
   sameCanonicalEvent,
   temporalIntervalsCompatible
 } from "./contracts/builders";
-import { acquisitionDiscoverySchema, deadlineTerminalRecordSchema } from "./contracts";
+import { acquisitionDiscoverySchema, deadlineTerminalRecordSchema, hasDirectHistoricalActionBasis, researchMapSchema } from "./contracts";
 import { payloadHash, verifyPayloadHash } from "./hashing";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
 
@@ -91,6 +91,28 @@ test("Research Map validates every required phase and dimension against question
   });
   assert.equal(map.scopePayloadHash, scope.payloadHash);
   assert.equal(verifyPayloadHash(map), true);
+});
+
+test("current Research Maps require direct historical action before creating a protected party requirement", () => {
+  const scope = scopeFixture();
+  const base = {
+    version: 1,
+    phases: [{ phaseId: "launch", label: "Launch", temporalRule: "Mission launch operations", required: true, rationale: "Launch opens the scoped mission." }],
+    dimensions: [{ dimensionId: "science", label: "Science", required: true, rationale: "Scientific objectives are required." }],
+    entities: [], terminology: [], knownUncertainty: []
+  };
+  const question = { questionId: "q-party", text: "What did the institution do during the event?", phaseIds: ["launch"], dimensionIds: ["science"], claimTypesExpected: ["OCCURRENCE"] as Array<"OCCURRENCE">, likelySourceClasses: ["PRIMARY_INSTITUTIONAL"] as Array<"PRIMARY_INSTITUTIONAL">, expectedAuthorities: ["Registered authority"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "IMPORTANT" as const, state: "UNRESEARCHED" as const };
+  assert.throws(() => buildResearchMap(TEST_CONTEXT, scope, { ...base, questions: [{ ...question, historicalPerspectiveRequirements: [{ kind: "PARTY_PARTICIPANT", label: "Scientific agency", rationale: "The agency documented the event and is technically authoritative.", historicalActionBasis: "The agency documented and investigated the event after it occurred." }] }] }), z.ZodError);
+  const valid = buildResearchMap(TEST_CONTEXT, scope, { ...base, questions: [{ ...question, historicalPerspectiveRequirements: [{ kind: "PARTY_PARTICIPANT", label: "Emergency command", rationale: "The command made material response decisions during the event.", historicalActionBasis: "The emergency command directed operations and made material response decisions during the historical episode." }] }] });
+  assert.equal(valid.questions[0]!.historicalPerspectiveRequirements?.[0]?.historicalActionBasis?.includes("directed operations"), true);
+  assert.equal(hasDirectHistoricalActionBasis("The command deployed responders and carried out relief operations."), true);
+  assert.equal(hasDirectHistoricalActionBasis("The archive preserved and interpreted later records."), false);
+  const legacy = structuredClone(valid) as Record<string, unknown>;
+  legacy.schemaVersion = "factory-v2-a.9";
+  const legacyQuestions = legacy.questions as Array<Record<string, unknown>>;
+  const legacyRequirements = legacyQuestions[0]!.historicalPerspectiveRequirements as Array<Record<string, unknown>>;
+  delete legacyRequirements[0]!.historicalActionBasis;
+  assert.doesNotThrow(() => researchMapSchema.parse(legacy), "sealed .9 maps remain explicitly supported historical artifacts");
 });
 
 test("Query planning deterministically normalizes, deduplicates, and enforces role budgets", () => {

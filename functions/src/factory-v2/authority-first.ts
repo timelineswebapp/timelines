@@ -140,6 +140,7 @@ export function buildRoutingObligationSet(input: { context: ArtifactContext; sco
       semanticIdentity: `${requirement.kind}:${normalize(requirement.label)}`,
       label: requirement.label,
       rationale: requirement.rationale,
+      historicalActionBasis: requirement.historicalActionBasis ?? null,
       requiredRoles: ["PRIMARY_RECORD", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"] as const,
       permittedSubjectRelationships,
       materialGeography: requirement.kind === "MATERIAL_JURISDICTION" ? [requirement.label] : []

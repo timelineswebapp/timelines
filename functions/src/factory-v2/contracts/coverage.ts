@@ -96,7 +96,8 @@ export const gapObligationSchema = z.object({
   historicalRequirements: z.array(z.object({
     kind: z.enum(["STAKEHOLDER", "PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "INDEPENDENT_SCHOLARSHIP", "MATERIAL_JURISDICTION"]),
     label: boundedText(2, 160),
-    rationale: boundedText(10, 600)
+    rationale: boundedText(10, 600),
+    historicalActionBasis: boundedText(10, 600).nullable().optional()
   }).strict()).max(40),
   existingSupportingClaimVersionIds: ids(300),
   existingSourceSnapshotIds: ids(300),
