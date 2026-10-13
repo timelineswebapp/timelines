@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_SUCCESSOR_PRESEAL — AUTHORITY_FIRST_.33 AFFECTED_COMMUNITY_EVIDENCE_CAPACITY`
+`PHASE_2_SUCCESSOR_PRESEAL — AUTHORITY_FIRST_.34 POSITIVE_PARTY_ACTION_NORMALIZATION`
+
+## 2026-10-13 — `.60` positive party-action normalization successor
+
+The sealed `.59` run exposed a distinct Research Map implementation defect: after valid San Francisco acquisition, Berlin's model repeatedly proposed two `PARTY_PARTICIPANT` requirements without a direct historical-action basis, exhausting bounded schema repair before Authority Registry or source acquisition. These unproven labels are neither valid historical party requirements nor evidence of an absent Registry capacity. The terminal report is preserved at `/private/tmp/tl-tier1-seal-59/artifacts/authority-first-acquisition-canary/2026-10-13T01-05-02-025Z/report.json`; San Francisco sealed valid CKS `completed-knowledge-set-d691c0556cbecd1f9ecbf564640cd328e18714d4d55beff47b6e3d04d3be5d4c`, Berlin failed closed at `INITIAL_ACQUISITION` with `MODEL_SCHEMA_VALIDATION_EXHAUSTED:RESEARCH_MAP`, and Ada/Printing Press were not executed. Every executed subject has exact protected-state parity, and no certification worker remains active.
+
+The `.60` successor (`factory-v2-a.60` / `authority-first-research.34` / `party-participant-semantics.4`, prompt `.20`, Registry `.4`) makes the existing positive-action rule deterministic at Research Map construction. A model-declared `PARTY_PARTICIPANT` requirement is sealed only when its supplied basis positively matches the direct historical-action contract; a malformed peer is retained in the immutable provider execution observation but is excluded from the sealed map. This neither reclassifies an archive, museum, publisher, or records holder as a party nor suppresses a genuine party that meets the same direct-action contract. Requirements of every other kind remain unchanged. The correction does not expand the Registry, source universe, budgets, provider, retries, deadlines, discovery, or protected-state scope; all existing authority, independence, community, jurisdiction, corroboration, coverage, conflict, security, and final fail-closed checks remain mandatory.
+
+Full repository verification is green: Functions 322 passed/2 intentional skips; root 249 passed; strict root and Functions typechecks; root lint; Functions and Next production builds; Tier-1 security gate with zero high/critical production findings; `git diff --check`; Firestore emulator 6/6 under process-local JDK 21.0.12.1; and institutional suites 68/7/7/7/8/8. A clean release seal and one fresh non-combined four-subject Phase-2 certification are still required. `.59` evidence remains preserved and cannot be combined with `.60`.
 
 ## 2026-10-13 — `.59` governed affected-community evidence-capacity successor
 
@@ -14,7 +22,7 @@ The founder-authorized general records-holder correction is implemented but not 
 
 The Registry now contains one independently documented municipal-museum capacity for attributable `West Berlin Civilians` evidence: Museums Tempelhof-Schöneberg's official Berlin Airlift exhibition documentation identifies contemporary witness accounts about everyday life during the 1948–1949 blockade. This is a bounded acquisition capability, not final evidence sufficiency and not a declaration that the museum is the community. Its direct official endpoint is preserved as a Registry specialist collection profile; retrieval and final evidence audit remain subject to normal source security, attribution, authority, corroboration, coverage, and fail-closed requirements.
 
-Pre-seal verification is green: Functions 323 passed/2 intentional skips; root 249 passed; strict root and Functions typechecks; root lint; Functions and Next production builds; Tier-1 security gate with zero high/critical production findings; `git diff --check`; Firestore emulator 6/6 under process-local JDK 21.0.12.1; and institutional suites 68/7/7/7/8/8. No provider-backed certification, discovery, deployment, public/institutional mutation, or protected-state mutation occurred. A clean sealed `.59` successor and one fresh, non-combined four-subject Phase-2 certification remain required; `.58` evidence is preserved and cannot be combined.
+Pre-seal verification was green: Functions 323 passed/2 intentional skips; root 249 passed; strict root and Functions typechecks; root lint; Functions and Next production builds; Tier-1 security gate with zero high/critical production findings; `git diff --check`; Firestore emulator 6/6 under process-local JDK 21.0.12.1; and institutional suites 68/7/7/7/8/8. The clean sealed `.59` successor then ran one fresh, non-combined certification. Its terminal evidence is preserved in the `.60` record above and cannot be combined with a successor.
 
 ## 2026-10-12 — `.58` Phase-2 terminal evidence: protected affected-community capacity absent
 

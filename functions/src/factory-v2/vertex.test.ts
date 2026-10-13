@@ -112,7 +112,7 @@ test("Research Map deterministically bounds an unbounded critical-question set t
   assert.ok(result.map.questions.filter((question) => question.priority === "CRITICAL").length <= 5);
 });
 
-test("Research Map repairs source-only institutions out of protected party requirements while retaining their authority eligibility", async () => {
+test("Research Map deterministically excludes source-only institutions from protected party requirements while retaining their authority eligibility", async () => {
   const scope = scopeFixture();
   const sourceOnlyKinds = [
     ["Scientific agency", "The agency documented and investigated the event after it occurred."],
@@ -128,14 +128,11 @@ test("Research Map repairs source-only institutions out of protected party requi
     text: "Which scientific records explain the event?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["United States Geological Survey"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "IMPORTANT",
     historicalPerspectiveRequirements: sourceOnlyKinds.map(([label, historicalActionBasis]) => ({ kind: "PARTY_PARTICIPANT", label, rationale: `${label} is useful for evidence about the event.`, historicalActionBasis }))
   }] };
-  const repaired = { questions: [{
-    text: "Which scientific records explain the event?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["United States Geological Survey"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "IMPORTANT"
-  }] };
   const requests: V2GenerateRequest[] = [];
-  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(invalid), JSON.stringify(repaired)], requests) });
-  assert.equal(result.executions[0]!.validationState, "INVALID");
-  assert.equal(result.executions[1]!.validationState, "REPAIRED");
-  const question = result.map.questions.find((item) => item.text === repaired.questions[0]!.text)!;
+  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(invalid)], requests) });
+  assert.equal(result.executions[0]!.validationState, "VALID");
+  assert.equal(result.executions.length, 1);
+  const question = result.map.questions.find((item) => item.text === invalid.questions[0]!.text)!;
   assert.deepEqual(question.historicalPerspectiveRequirements || [], []);
   assert.deepEqual(question.expectedAuthorities, ["United States Geological Survey"]);
   assert.equal(isInitialAuthorityRequiredQuestion(question), false);
@@ -144,6 +141,21 @@ test("Research Map repairs source-only institutions out of protected party requi
   const authority = await generateTopicAuthorityProposals({ context: TEST_CONTEXT, scope, map: result.map, publishers, provider: providerFrom([JSON.stringify({ authorities: [{ publisherNumber: usgsNumber, researchQuestionNumbers: result.map.questions.map((_, index) => index + 1), roles: ["PRIMARY_RECORD", "INTERPRETATION"], claimTypes: ["OCCURRENCE", "INTERPRETATION"], subjectRelationship: "SUBJECT_SELF", perspectiveTags: ["Scientific authority"], rationale: "USGS remains a governed scientific and technical source authority for this research question." }] })]) });
   assert.equal(authority.proposals[0]!.publisherVersionId, publishers[usgsNumber - 1]!.publisherVersionId);
   assert.match(requests[0]!.contents, /scientific agency, later investigator, archive, library, museum, university, publisher, records holder/i);
+});
+
+test("Research Map preserves only positively established direct historical parties while excluding malformed peers", async () => {
+  const scope = scopeFixture();
+  const proposal = { questions: [{
+    text: "How did parties and later historians describe the operational response?", phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["Official operational records"], languages: ["en"], geography: ["United States"], contested: false, dateCritical: false, priority: "IMPORTANT",
+    historicalPerspectiveRequirements: [
+      { kind: "PARTY_PARTICIPANT", label: "Operational command", rationale: "The command's direct response decisions are materially necessary to the account.", historicalActionBasis: "The operational command directed and carried out the emergency response during the historical episode." },
+      { kind: "PARTY_PARTICIPANT", label: "Later archive", rationale: "The archive preserves records for later interpretation.", historicalActionBasis: "The archive preserved records and published an interpretation after the episode." },
+      { kind: "INDEPENDENT_SCHOLARSHIP", label: "Independent historians", rationale: "Independent historical interpretation remains necessary for the contested account.", historicalActionBasis: null }
+    ]
+  }] };
+  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(proposal)]) });
+  const requirements = result.map.questions.find((item) => item.text === proposal.questions[0]!.text)!.historicalPerspectiveRequirements || [];
+  assert.deepEqual(requirements.map((requirement) => `${requirement.kind}:${requirement.label}`), ["PARTY_PARTICIPANT:Operational command", "INDEPENDENT_SCHOLARSHIP:Independent historians"]);
 });
 
 test("Research Map preserves a genuine direct historical party and sends it to protected availability", async () => {
