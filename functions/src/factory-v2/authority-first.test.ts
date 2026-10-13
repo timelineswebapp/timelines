@@ -255,11 +255,19 @@ test("contested Registry completion supplies two independent acquisition opportu
     claimTypes: ["INTERPRETATION"],
     subjectRelationship: "INDEPENDENT",
     perspectiveTags: ["Historical collections"]
+  }), proposal("National Archives and Records Administration", {
+    researchQuestionIds: ["question-chronology"],
+    roles: ["PRIMARY_RECORD"],
+    claimTypes: ["OCCURRENCE", "DATE"],
+    subjectRelationship: "INDEPENDENT",
+    perspectiveTags: ["Federal records"]
   })];
   const completed = completeContestedAvailabilityProposals({ researchMap: map, publishers, proposals: modelOnly });
   const decision = completed.decisions.find((item) => item.researchQuestionId === "question-interpretation")!;
   assert.equal(decision.selectionMethod, "DETERMINISTIC_REGISTRY_COMPLETION");
   assert.equal(new Set(decision.selectedPublisherVersionIds.map((id) => publishers.find((item) => item.publisherVersionId === id)!.independenceGroupId)).size, 2);
+  assert.ok(decision.selectedPublisherVersionIds.includes(publisher("National Archives and Records Administration").publisherVersionId));
+  assert.ok(!decision.selectedPublisherVersionIds.includes(publisher("Associated Press").publisherVersionId));
   assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: completed.proposals, contestedAvailabilityDecisions: completed.decisions }));
 });
 

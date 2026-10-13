@@ -10,7 +10,7 @@ const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, i
  * Evidence-derived completion successor.  Historical routing artifacts remain
  * parseable for provenance, but are not part of this policy's execution path.
  */
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.35" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.36" as const;
 /** Deterministic boundary between historical participation and source authority. */
 export const PARTY_PARTICIPANT_SEMANTICS_POLICY_VERSION = "party-participant-semantics.4" as const;
 export const AUTHORITY_REGISTRY_VERSION = "authority-registry.4" as const;

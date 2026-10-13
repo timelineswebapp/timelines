@@ -324,6 +324,17 @@ export function completeContestedAvailabilityProposals(input: { researchMap: Res
   const required = input.requiredQuestionIds ? new Set(input.requiredQuestionIds) : undefined;
   const proposals = input.proposals.map((proposal) => ({ ...proposal, researchQuestionIds: uniqueSorted(proposal.researchQuestionIds), roles: uniqueSorted(proposal.roles), claimTypes: uniqueSorted(proposal.claimTypes), perspectiveTags: uniqueSorted(proposal.perspectiveTags), historicalJurisdictionCapacityIds: uniqueSorted(proposal.historicalJurisdictionCapacityIds || []), affectedCommunityEvidenceCapacityIds: uniqueSorted(proposal.affectedCommunityEvidenceCapacityIds || []), routingObligationIds: [] }));
   const publisherByVersion = new Map(input.publishers.map((publisher) => [publisher.publisherVersionId, publisher]));
+  // When the model leaves a contested question one independent group short,
+  // prefer a second *already topic-bound* Registry authority before adding a
+  // new arbitrary Registry publisher.  This is a deterministic minimisation
+  // of the acquisition universe, not a claim that the existing authority
+  // supplies sufficient evidence; final authority, corroboration, and
+  // coverage audits remain the only evidence-level proof.
+  const topicBoundIndependentPublisherVersionIds = new Set(proposals
+    .filter((proposal) => proposal.roles.some((role) => role !== "ORIENTATION"))
+    .map((proposal) => publisherByVersion.get(proposal.publisherVersionId))
+    .filter((publisher): publisher is PublisherAuthorityVersion => publisher !== undefined && defaultSubjectRelationship(publisher) === "INDEPENDENT")
+    .map((publisher) => publisher.publisherVersionId));
   const decisions: ContestedAvailabilityCompletion["decisions"] = [];
   for (const question of input.researchMap.questions) {
     if (!question.contested || (required && !required.has(question.questionId))) continue;
@@ -336,7 +347,12 @@ export function completeContestedAvailabilityProposals(input: { researchMap: Res
       const candidate = candidateByVersion.get(proposal.publisherVersionId);
       if (candidate && proposal.roles.some((role) => role !== "ORIENTATION")) selected.set(candidate.independenceGroupId, candidate);
     }
-    for (const candidate of candidates) {
+    const completionCandidates = [...candidates].sort((left, right) => {
+      const leftExisting = topicBoundIndependentPublisherVersionIds.has(left.publisherVersionId) ? 0 : 1;
+      const rightExisting = topicBoundIndependentPublisherVersionIds.has(right.publisherVersionId) ? 0 : 1;
+      return leftExisting - rightExisting || `${left.independenceGroupId}:${left.publisherVersionId}`.localeCompare(`${right.independenceGroupId}:${right.publisherVersionId}`);
+    });
+    for (const candidate of completionCandidates) {
       if (selected.size >= 2) break;
       if (!selected.has(candidate.independenceGroupId)) selected.set(candidate.independenceGroupId, candidate);
     }
