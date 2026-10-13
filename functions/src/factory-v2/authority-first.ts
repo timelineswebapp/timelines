@@ -86,11 +86,25 @@ export type ProtectedAvailabilityCompletion = {
     selectedPublisherVersionId: string | null;
     selectedHistoricalJurisdictionCapacityIds: string[];
     selectedAffectedCommunityEvidenceCapacityIds: string[];
-    selectionMethod: "MODEL_PRESERVED" | "DETERMINISTIC_UNIQUE" | "BOUNDED_AI_SELECTION" | "NO_ELIGIBLE_CAPACITY" | "UNRESOLVED_AMBIGUITY";
+    selectionMethod: "MODEL_PRESERVED" | "DETERMINISTIC_UNIQUE" | "DETERMINISTIC_REGISTRY_COMPLETION" | "NO_ELIGIBLE_CAPACITY";
     registryVersion: typeof AUTHORITY_REGISTRY_VERSION;
     policyVersion: typeof AUTHORITY_FIRST_POLICY_VERSION;
   }>;
+  /** Retained for artifact/test compatibility; deterministic completion leaves no ambiguity. */
   unresolved: ProtectedAvailabilityCandidate[][];
+};
+
+export type ContestedAvailabilityCompletion = {
+  proposals: TopicAuthorityProposal[];
+  decisions: Array<{
+    researchQuestionId: string;
+    eligibleCandidates: Array<{ publisherVersionId: string; independenceGroupId: string; eligibleRoles: Array<"PRIMARY_RECORD" | "CORROBORATION" | "INTERPRETATION">; authorityFamily: AuthorityFamily }>;
+    modelProposedPublisherVersionIds: string[];
+    selectedPublisherVersionIds: string[];
+    selectionMethod: "MODEL_PRESERVED" | "DETERMINISTIC_REGISTRY_COMPLETION" | "NO_ELIGIBLE_CAPACITY";
+    registryVersion: typeof AUTHORITY_REGISTRY_VERSION;
+    policyVersion: typeof AUTHORITY_FIRST_POLICY_VERSION;
+  }>;
 };
 
 export class ProtectedRepresentationAvailabilityError extends Error {
@@ -246,9 +260,9 @@ export function protectedAvailabilityCandidates(input: {
 }
 
 /**
- * Preserves valid model choices and completes only unique protected Registry
- * capacity. Multiple eligible candidates are deliberately returned unresolved
- * for the bounded semantic selector; array order is never a historical rule.
+ * Preserves valid model choices, then deterministically completes the minimum
+ * protected Registry capacity. This is availability accounting, not a claim
+ * that an authority yields qualifying evidence or satisfies the perspective.
  */
 export function completeProtectedAvailabilityProposals(input: {
   scope: ScopeContract;
@@ -260,7 +274,6 @@ export function completeProtectedAvailabilityProposals(input: {
   const required = input.requiredQuestionIds ? new Set(input.requiredQuestionIds) : undefined;
   const proposals: TopicAuthorityProposal[] = input.proposals.map((proposal) => ({ ...proposal, researchQuestionIds: uniqueSorted(proposal.researchQuestionIds), roles: uniqueSorted(proposal.roles), claimTypes: uniqueSorted(proposal.claimTypes), perspectiveTags: uniqueSorted(proposal.perspectiveTags), historicalJurisdictionCapacityIds: uniqueSorted(proposal.historicalJurisdictionCapacityIds || []), affectedCommunityEvidenceCapacityIds: uniqueSorted(proposal.affectedCommunityEvidenceCapacityIds || []), routingObligationIds: [] }));
   const decisions: ProtectedAvailabilityCompletion["decisions"] = [];
-  const unresolved: ProtectedAvailabilityCandidate[][] = [];
   for (const question of input.researchMap.questions) {
     if (required && !required.has(question.questionId)) continue;
     for (const requirement of question.historicalPerspectiveRequirements || []) {
@@ -269,17 +282,79 @@ export function completeProtectedAvailabilityProposals(input: {
       const modelProposedPublisherVersionIds = proposals.filter((proposal) => proposal.researchQuestionIds.includes(question.questionId)).map((proposal) => proposal.publisherVersionId).filter((publisherVersionId) => candidates.some((candidate) => candidate.publisherVersionId === publisherVersionId)).sort();
       const preserved = candidates.find((candidate) => proposals.some((proposal) => proposal.publisherVersionId === candidate.publisherVersionId && proposal.researchQuestionIds.includes(question.questionId) && proposal.subjectRelationship === candidate.subjectRelationship && proposal.roles.some((role) => candidate.eligibleRoles.includes(role as "PRIMARY_RECORD" | "INTERPRETATION" | "PERSPECTIVE_TESTIMONY")) && candidate.historicalJurisdictionCapacityIds.every((id) => (proposal.historicalJurisdictionCapacityIds || []).includes(id)) && candidate.affectedCommunityEvidenceCapacityIds.every((id) => (proposal.affectedCommunityEvidenceCapacityIds || []).includes(id))));
       let selected: ProtectedAvailabilityCandidate | undefined = preserved;
-      let method: ProtectedAvailabilityCompletion["decisions"][number]["selectionMethod"] = preserved ? "MODEL_PRESERVED" : candidates.length === 0 ? "NO_ELIGIBLE_CAPACITY" : candidates.length === 1 ? "DETERMINISTIC_UNIQUE" : "UNRESOLVED_AMBIGUITY";
-      if (!selected && candidates.length === 1) {
-        const uniqueCandidate = candidates[0]!;
-        selected = uniqueCandidate;
-        proposals.push({ publisherVersionId: uniqueCandidate.publisherVersionId, researchQuestionIds: [question.questionId], roles: uniqueCandidate.eligibleRoles, claimTypes: uniqueSorted(question.claimTypesExpected), subjectRelationship: uniqueCandidate.subjectRelationship, perspectiveTags: [requirement.label], historicalJurisdictionCapacityIds: uniqueCandidate.historicalJurisdictionCapacityIds, affectedCommunityEvidenceCapacityIds: uniqueCandidate.affectedCommunityEvidenceCapacityIds, routingObligationIds: uniqueCandidate.subjectRelationship === "STATE_PARTY" ? [uniqueCandidate.requirementId] : [], rationale: "Deterministically completed from one exact eligible Registry capacity for the locked protected requirement." });
+      let method: ProtectedAvailabilityCompletion["decisions"][number]["selectionMethod"] = preserved ? "MODEL_PRESERVED" : candidates.length === 0 ? "NO_ELIGIBLE_CAPACITY" : candidates.length === 1 ? "DETERMINISTIC_UNIQUE" : "DETERMINISTIC_REGISTRY_COMPLETION";
+      if (!selected && candidates.length > 0) {
+        // Publisher version identity is a canonical Registry key, not a
+        // historical ranking. The resulting binding reserves one bounded
+        // acquisition opportunity; final evidence audit remains mandatory.
+        const registryCandidate = candidates[0]!;
+        selected = registryCandidate;
+        proposals.push({ publisherVersionId: registryCandidate.publisherVersionId, researchQuestionIds: [question.questionId], roles: registryCandidate.eligibleRoles, claimTypes: uniqueSorted(question.claimTypesExpected), subjectRelationship: registryCandidate.subjectRelationship, perspectiveTags: [requirement.label], historicalJurisdictionCapacityIds: registryCandidate.historicalJurisdictionCapacityIds, affectedCommunityEvidenceCapacityIds: registryCandidate.affectedCommunityEvidenceCapacityIds, routingObligationIds: registryCandidate.subjectRelationship === "STATE_PARTY" ? [registryCandidate.requirementId] : [], rationale: "Deterministically completed from exact eligible Registry capacity for the locked protected requirement; this is not evidence sufficiency." });
       }
-      if (!selected && candidates.length > 1) unresolved.push(candidates);
       decisions.push({ requirementId: candidates[0]?.requirementId || requirementId(input.researchMap, question.questionId, requirement), requirementKind: requirement.kind, requirementLabel: requirement.label.normalize("NFKC").trim(), researchQuestionId: question.questionId, eligibleCandidates: candidates.map((candidate) => ({ publisherVersionId: candidate.publisherVersionId, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, historicalJurisdictionCapacityIds: candidate.historicalJurisdictionCapacityIds, affectedCommunityEvidenceCapacityIds: candidate.affectedCommunityEvidenceCapacityIds, rejectionReason: null })), modelProposedPublisherVersionIds, selectedPublisherVersionId: selected?.publisherVersionId || null, selectedHistoricalJurisdictionCapacityIds: selected?.historicalJurisdictionCapacityIds || [], selectedAffectedCommunityEvidenceCapacityIds: selected?.affectedCommunityEvidenceCapacityIds || [], selectionMethod: method, registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION });
     }
   }
-  return { proposals: proposals.sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)), decisions, unresolved };
+  return { proposals: proposals.sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)), decisions, unresolved: [] };
+}
+
+/** Registry-only independent capacity for contested-question acquisition. */
+export function contestedAvailabilityCandidates(input: { researchMap: ResearchMap; publishers: readonly PublisherAuthorityVersion[]; questionId: string }): Array<{ publisherVersionId: string; independenceGroupId: string; eligibleRoles: Array<"PRIMARY_RECORD" | "CORROBORATION" | "INTERPRETATION">; authorityFamily: AuthorityFamily }> {
+  const question = input.researchMap.questions.find((item) => item.questionId === input.questionId);
+  if (!question) throw new Error(`CONTESTED_AVAILABILITY_UNKNOWN_QUESTION:${input.questionId}`);
+  return input.publishers
+    .filter((publisher) => publisher.state === "VERIFIED")
+    .filter((publisher) => defaultSubjectRelationship(publisher) === "INDEPENDENT")
+    .filter((publisher) => authorityFamilyForPublisher(publisher) !== "EDITED_REFERENCE")
+    .filter((publisher) => question.languages.some((language) => publisher.languages.includes(language)))
+    .map((publisher) => ({
+      publisherVersionId: publisher.publisherVersionId,
+      independenceGroupId: publisher.independenceGroupId,
+      eligibleRoles: (authorityFamilyForPublisher(publisher) === "ACADEMIC_SCHOLARLY" ? ["INTERPRETATION"] : ["CORROBORATION"]) as Array<"PRIMARY_RECORD" | "CORROBORATION" | "INTERPRETATION">,
+      authorityFamily: authorityFamilyForPublisher(publisher)
+    }))
+    .sort((left, right) => `${left.independenceGroupId}:${left.publisherVersionId}`.localeCompare(`${right.independenceGroupId}:${right.publisherVersionId}`));
+}
+
+/**
+ * Locks the minimum two independent registered acquisition opportunities for
+ * every contested question. It never treats planned bindings as corroborated
+ * evidence; that proof remains exclusively in final evidence audit.
+ */
+export function completeContestedAvailabilityProposals(input: { researchMap: ResearchMap; publishers: readonly PublisherAuthorityVersion[]; proposals: readonly TopicAuthorityProposal[]; requiredQuestionIds?: readonly string[] }): ContestedAvailabilityCompletion {
+  const required = input.requiredQuestionIds ? new Set(input.requiredQuestionIds) : undefined;
+  const proposals = input.proposals.map((proposal) => ({ ...proposal, researchQuestionIds: uniqueSorted(proposal.researchQuestionIds), roles: uniqueSorted(proposal.roles), claimTypes: uniqueSorted(proposal.claimTypes), perspectiveTags: uniqueSorted(proposal.perspectiveTags), historicalJurisdictionCapacityIds: uniqueSorted(proposal.historicalJurisdictionCapacityIds || []), affectedCommunityEvidenceCapacityIds: uniqueSorted(proposal.affectedCommunityEvidenceCapacityIds || []), routingObligationIds: [] }));
+  const publisherByVersion = new Map(input.publishers.map((publisher) => [publisher.publisherVersionId, publisher]));
+  const decisions: ContestedAvailabilityCompletion["decisions"] = [];
+  for (const question of input.researchMap.questions) {
+    if (!question.contested || (required && !required.has(question.questionId))) continue;
+    const candidates = contestedAvailabilityCandidates({ researchMap: input.researchMap, publishers: input.publishers, questionId: question.questionId });
+    const candidateByVersion = new Map(candidates.map((candidate) => [candidate.publisherVersionId, candidate]));
+    const modelProposedPublisherVersionIds = proposals.filter((proposal) => proposal.researchQuestionIds.includes(question.questionId) && candidateByVersion.has(proposal.publisherVersionId)).map((proposal) => proposal.publisherVersionId).sort();
+    const selected = new Map<string, typeof candidates[number]>();
+    for (const proposal of proposals) {
+      if (!proposal.researchQuestionIds.includes(question.questionId)) continue;
+      const candidate = candidateByVersion.get(proposal.publisherVersionId);
+      if (candidate && proposal.roles.some((role) => role !== "ORIENTATION")) selected.set(candidate.independenceGroupId, candidate);
+    }
+    for (const candidate of candidates) {
+      if (selected.size >= 2) break;
+      if (!selected.has(candidate.independenceGroupId)) selected.set(candidate.independenceGroupId, candidate);
+    }
+    const selectedCandidates = [...selected.values()];
+    const method: ContestedAvailabilityCompletion["decisions"][number]["selectionMethod"] = selectedCandidates.length < 2 ? "NO_ELIGIBLE_CAPACITY" : selectedCandidates.every((candidate) => modelProposedPublisherVersionIds.includes(candidate.publisherVersionId)) ? "MODEL_PRESERVED" : "DETERMINISTIC_REGISTRY_COMPLETION";
+    for (const candidate of selectedCandidates) {
+      const existing = proposals.find((proposal) => proposal.publisherVersionId === candidate.publisherVersionId);
+      if (existing) {
+        if (!existing.researchQuestionIds.includes(question.questionId)) existing.researchQuestionIds.push(question.questionId);
+        if (!existing.roles.some((role) => role !== "ORIENTATION")) existing.roles.push(...candidate.eligibleRoles);
+        continue;
+      }
+      const publisher = publisherByVersion.get(candidate.publisherVersionId)!;
+      proposals.push({ publisherVersionId: candidate.publisherVersionId, researchQuestionIds: [question.questionId], roles: candidate.eligibleRoles, claimTypes: uniqueSorted(question.claimTypesExpected), subjectRelationship: defaultSubjectRelationship(publisher), perspectiveTags: ["Independent registered capacity"], historicalJurisdictionCapacityIds: [], affectedCommunityEvidenceCapacityIds: [], routingObligationIds: [], rationale: "Deterministically reserved as one of two independent Registry-governed acquisition opportunities for a contested question; final corroboration remains evidence-audited." });
+    }
+    decisions.push({ researchQuestionId: question.questionId, eligibleCandidates: candidates, modelProposedPublisherVersionIds, selectedPublisherVersionIds: selectedCandidates.map((candidate) => candidate.publisherVersionId).sort(), selectionMethod: method, registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION });
+  }
+  return { proposals: proposals.map((proposal) => ({ ...proposal, researchQuestionIds: uniqueSorted(proposal.researchQuestionIds), roles: uniqueSorted(proposal.roles), claimTypes: uniqueSorted(proposal.claimTypes), perspectiveTags: uniqueSorted(proposal.perspectiveTags) })).sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)), decisions };
 }
 
 /** Generic stakeholders are evidence-level actor requirements, not publishers. */
@@ -666,6 +741,7 @@ export function buildTopicAuthoritySet(input: {
   publishers: readonly PublisherAuthorityVersion[];
   proposals: readonly TopicAuthorityProposal[];
   protectedAvailabilityDecisions?: ProtectedAvailabilityCompletion["decisions"];
+  contestedAvailabilityDecisions?: ContestedAvailabilityCompletion["decisions"];
   /** Historical compatibility only; .16+ ignores this retired artifact. */
   routingObligationSet?: RoutingObligationSet;
   requiredQuestionIds?: readonly string[];
@@ -711,6 +787,7 @@ export function buildTopicAuthoritySet(input: {
     routingObligationSetId: null,
     bindings: bindings.sort((left, right) => left.bindingId.localeCompare(right.bindingId)),
     protectedAvailabilityDecisions: [...(input.protectedAvailabilityDecisions || [])].sort((left, right) => left.requirementId.localeCompare(right.requirementId)),
+    contestedAvailabilityDecisions: [...(input.contestedAvailabilityDecisions || [])].sort((left, right) => left.researchQuestionId.localeCompare(right.researchQuestionId)),
     obligationRoutes: [],
     rejectedPublisherVersionIds: uniqueSorted(rejectedPublisherVersionIds),
     criticalQuestionIds: uniqueSorted(criticalQuestionIds),

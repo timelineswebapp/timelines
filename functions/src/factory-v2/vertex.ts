@@ -217,31 +217,10 @@ function topicAuthorityProposalSchema(map: ResearchMap, publishers: readonly Pub
       const covered = value.authorities.some((proposal) => proposal.routingObligationIds.includes(obligation.routingObligationId) && proposal.researchQuestionNumbers.includes(questionNumber) && effectiveRoles(proposal).some((role) => role !== "ORIENTATION"));
       if (!covered) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Routing obligation ${obligation.routingObligationId} lacks an eligible authority route.` });
     }
-    for (const [questionIndex, question] of map.questions.entries()) {
-      if (!question.contested || (requiredQuestionIds && !requiredQuestionIds.has(question.questionId))) continue;
-      const relevant = value.authorities.filter((proposal) => proposal.researchQuestionNumbers.includes(questionIndex + 1) && effectiveRoles(proposal).some((role) => role !== "ORIENTATION"));
-      const independentGroups = new Set(relevant.flatMap((proposal) => {
-        const publisher = publishers[proposal.publisherNumber - 1];
-        if (!publisher) return [];
-        const subjectAssociated = publisher.primarySecondaryTendency === "PRIMARY" && ["GOVERNMENT", "OTHER", "STANDARDS_BODY"].includes(publisher.institutionType);
-        return subjectAssociated ? [] : [publisher.independenceGroupId];
-      }));
-      if (independentGroups.size < 2) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Contested question ${questionIndex + 1} requires two independent registered authority groups.` });
-      if (!relevant.some((proposal) => effectiveRoles(proposal).includes("CORROBORATION") || effectiveRoles(proposal).includes("INTERPRETATION"))) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Contested question ${questionIndex + 1} requires independent corroboration or interpretation.` });
-    }
-    for (const [questionIndex, question] of map.questions.entries()) {
-      if (requiredQuestionIds && !requiredQuestionIds.has(question.questionId)) continue;
-      if (!(question.historicalPerspectiveRequirements || []).some((requirement) => requirement.kind === "INDEPENDENT_SCHOLARSHIP")) continue;
-      const hasScholarlyCapacity = value.authorities.some((proposal) => {
-        const publisher = publishers[proposal.publisherNumber - 1];
-        return proposal.researchQuestionNumbers.includes(questionIndex + 1) &&
-          publisher !== undefined &&
-          defaultSubjectRelationship(publisher) === "INDEPENDENT" &&
-          authorityFamilyForPublisher(publisher) === "ACADEMIC_SCHOLARLY" &&
-          effectiveRoles(proposal).some((role) => role === "CORROBORATION" || role === "INTERPRETATION");
-      });
-      if (!hasScholarlyCapacity) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorities"], message: `Independent scholarship requirement for question ${questionIndex + 1} requires registered academic/scholarly authority capacity.` });
-    }
+    // Contested independent capacity and protected historical requirements are
+    // completed only after this proposal parses, from the immutable Registry.
+    // A model omission must not erase governed availability or claim evidence
+    // sufficiency before bounded acquisition and final audit occur.
   });
 }
 

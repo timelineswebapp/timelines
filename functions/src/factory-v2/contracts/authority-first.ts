@@ -10,7 +10,7 @@ const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, i
  * Evidence-derived completion successor.  Historical routing artifacts remain
  * parseable for provenance, but are not part of this policy's execution path.
  */
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.34" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.35" as const;
 /** Deterministic boundary between historical participation and source authority. */
 export const PARTY_PARTICIPANT_SEMANTICS_POLICY_VERSION = "party-participant-semantics.4" as const;
 export const AUTHORITY_REGISTRY_VERSION = "authority-registry.4" as const;
@@ -170,7 +170,28 @@ export const protectedAvailabilityDecisionSchema = z.object({
   selectedPublisherVersionId: idSchema.nullable(),
   selectedHistoricalJurisdictionCapacityIds: ids(24),
   selectedAffectedCommunityEvidenceCapacityIds: ids(24),
-  selectionMethod: z.enum(["MODEL_PRESERVED", "DETERMINISTIC_UNIQUE", "BOUNDED_AI_SELECTION", "NO_ELIGIBLE_CAPACITY", "UNRESOLVED_AMBIGUITY"]),
+  selectionMethod: z.enum(["MODEL_PRESERVED", "DETERMINISTIC_UNIQUE", "DETERMINISTIC_REGISTRY_COMPLETION", "NO_ELIGIBLE_CAPACITY"]),
+  registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION),
+  policyVersion: z.literal(AUTHORITY_FIRST_POLICY_VERSION)
+}).strict();
+
+/**
+ * Immutable pre-acquisition accounting for the minimum independent capacity
+ * required by a contested question. It proves only the Registry universe and
+ * selected bounded acquisition opportunities; evidence remains authoritative
+ * only after retrieval and final audit.
+ */
+export const contestedAvailabilityDecisionSchema = z.object({
+  researchQuestionId: idSchema,
+  eligibleCandidates: z.array(z.object({
+    publisherVersionId: idSchema,
+    independenceGroupId: idSchema,
+    eligibleRoles: z.array(authorityResearchRoleSchema.exclude(["ORIENTATION"])).min(1).max(4).refine(unique),
+    authorityFamily: authorityFamilySchema
+  }).strict()).max(60),
+  modelProposedPublisherVersionIds: ids(60),
+  selectedPublisherVersionIds: ids(24),
+  selectionMethod: z.enum(["MODEL_PRESERVED", "DETERMINISTIC_REGISTRY_COMPLETION", "NO_ELIGIBLE_CAPACITY"]),
   registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION),
   policyVersion: z.literal(AUTHORITY_FIRST_POLICY_VERSION)
 }).strict();
@@ -188,6 +209,7 @@ export const topicAuthoritySetSchema = z.object({
   routingObligationSetId: idSchema.nullable(),
   bindings: z.array(topicAuthorityBindingSchema).min(1).max(24),
   protectedAvailabilityDecisions: z.array(protectedAvailabilityDecisionSchema).max(120).default([]),
+  contestedAvailabilityDecisions: z.array(contestedAvailabilityDecisionSchema).max(120).default([]),
   /** Historical route records only; canonical .16+ sets seal an empty list. */
   obligationRoutes: z.array(z.object({ routingObligationId: idSchema, bindingId: idSchema }).strict()).max(240).refine((items) => unique(items.map((item) => `${item.routingObligationId}:${item.bindingId}`))),
   rejectedPublisherVersionIds: ids(60),

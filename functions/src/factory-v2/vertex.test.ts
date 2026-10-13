@@ -286,7 +286,7 @@ test("initial authority planning requires contested questions, while historical 
   assert.match(requests[0]!.contents, /Retrieval geography alone is never/u);
 });
 
-test("independent scholarship requirements force registered scholarly acquisition capacity without claiming final evidence sufficiency", async () => {
+test("independent scholarship omissions parse for deterministic Registry completion without claiming final evidence sufficiency", async () => {
   const scope = scopeFixture();
   const mapResult = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(mapProposal)]) });
   const question = {
@@ -297,18 +297,11 @@ test("independent scholarship requirements force registered scholarly acquisitio
   const map = { ...mapResult.map, questions: [question] };
   const publishers = bootstrapPublisherRegistry(TEST_CONTEXT);
   const nasaNumber = publishers.findIndex((publisher) => publisher.canonicalName === "National Aeronautics and Space Administration") + 1;
-  const oupNumber = publishers.findIndex((publisher) => publisher.canonicalName === "Oxford University Press") + 1;
-  const cupNumber = publishers.findIndex((publisher) => publisher.canonicalName === "Cambridge University Press & Assessment") + 1;
   const insufficient = { authorities: [{ publisherNumber: nasaNumber, researchQuestionNumbers: [1], roles: ["PRIMARY_RECORD"], claimTypes: ["OCCURRENCE"], subjectRelationship: "SUBJECT_SELF", perspectiveTags: [], rationale: "NASA is a registered primary authority for mission chronology." }] };
-  const repaired = { authorities: [
-    insufficient.authorities[0],
-    { publisherNumber: oupNumber, researchQuestionNumbers: [1], roles: ["INTERPRETATION"], claimTypes: ["INTERPRETATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["Independent scholarship"], rationale: "Oxford University Press is a registered independent scholarly authority." },
-    { publisherNumber: cupNumber, researchQuestionNumbers: [1], roles: ["CORROBORATION"], claimTypes: ["INTERPRETATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["Independent scholarship"], rationale: "Cambridge University Press is a registered independent scholarly authority." }
-  ] };
   const requests: V2GenerateRequest[] = [];
-  const result = await generateTopicAuthorityProposals({ context: TEST_CONTEXT, scope, map, publishers, provider: providerFrom([JSON.stringify(insufficient), JSON.stringify(repaired)], requests) });
-  assert.equal(result.executions[0]!.validationState, "INVALID");
-  assert.equal(result.executions[1]!.validationState, "REPAIRED");
+  const result = await generateTopicAuthorityProposals({ context: TEST_CONTEXT, scope, map, publishers, provider: providerFrom([JSON.stringify(insufficient)], requests) });
+  assert.equal(result.executions.length, 1);
+  assert.equal(result.executions[0]!.validationState, "VALID");
   assert.match(requests[0]!.contents, /INDEPENDENT_SCHOLARSHIP/u);
   assert.match(requests[0]!.contents, /final perspective sufficiency remains evidence-audited/u);
 });

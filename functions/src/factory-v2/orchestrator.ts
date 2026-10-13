@@ -9,9 +9,9 @@ import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { performBoundedReconnaissance } from "./reconnaissance";
 import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate } from "./resolution";
 import { V2FirestoreRepository } from "./repositories/firestore";
-import { createCapacityControlledProvider, extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, selectRoutingObligationBatch, StructuredStageError, type V2ModelProvider } from "./vertex";
+import { createCapacityControlledProvider, extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, StructuredStageError, type V2ModelProvider } from "./vertex";
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
-import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, completeProtectedAvailabilityProposals, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
+import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, completeContestedAvailabilityProposals, completeProtectedAvailabilityProposals, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 import { classifyCompletionYield, decideCompletionFallback, sealCompletionAuthorityUniverse, type CompletionAuthorityRequirement } from "./completion-fallback";
@@ -20,7 +20,6 @@ import type { ProviderAttemptTelemetry } from "./provider-capacity";
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
 
 /** Must remain aligned with the Authority Routing structured-output contract. */
-const PROTECTED_SELECTION_BATCH_SIZE = 16;
 
 export type V2ACertificationMetrics = {
   totalExecutionMs: number;
@@ -529,35 +528,14 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     proposals: authorityProposalResult.proposals,
     requiredQuestionIds: requiredAuthorityQuestionIds
   });
-  // This is not universal predictive routing. It ranks only protected
-  // requirements that remain ambiguous after Registry-only completion.
-  const protectedSelections = [];
-  for (let offset = 0; offset < protectedAvailability.unresolved.length; offset += PROTECTED_SELECTION_BATCH_SIZE) {
-    const unresolvedBatch = protectedAvailability.unresolved.slice(offset, offset + PROTECTED_SELECTION_BATCH_SIZE);
-    const protectedSelection = await selectRoutingObligationBatch({
-      context,
-      scope: scopeResult.scope,
-      map: mapResult.map,
-      publishers,
-      obligations: unresolvedBatch.map((items) => items[0]!).map((candidate) => ({ routingObligationId: candidate.requirementId, researchQuestionId: candidate.researchQuestionId, requirementKind: candidate.requirementKind, label: candidate.requirementLabel, rationale: "Locked protected availability requires selection from the already eligible Registry candidate set." })),
-      candidates: unresolvedBatch.flat().map((candidate) => ({ routingObligationId: candidate.requirementId, researchQuestionId: candidate.researchQuestionId, publisherVersionId: candidate.publisherVersionId, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, independenceGroupId: publishers.find((publisher) => publisher.publisherVersionId === candidate.publisherVersionId)!.independenceGroupId, specialistCollectionProfileIds: [] })),
-      provider,
-      deadlineAt,
-      supervisor
-    });
-    protectedSelections.push(protectedSelection);
-    modelExecutions.push(...protectedSelection.executions.map((execution) => modelExecutionSchema.parse(execution)));
-    for (const execution of protectedSelection.executions) await persist("v2ModelExecutions", execution);
-    for (const decision of protectedAvailability.decisions) {
-      const selected = protectedSelection.proposals.find((proposal) => proposal.routingObligationIds.includes(decision.requirementId));
-      if (!selected) continue;
-      decision.selectedPublisherVersionId = selected.publisherVersionId;
-      decision.selectedHistoricalJurisdictionCapacityIds = selected.historicalJurisdictionCapacityIds || [];
-      decision.selectionMethod = "BOUNDED_AI_SELECTION";
-    }
-  }
-  const allAuthorityProposals = mergeAuthorityProposals([...protectedAvailability.proposals, ...protectedSelections.flatMap((selection) => selection.proposals)]);
-  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, protectedAvailabilityDecisions: protectedAvailability.decisions, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId: continuation?.priorTopicAuthoritySet.topicAuthoritySetId });
+  const contestedAvailability = completeContestedAvailabilityProposals({
+    researchMap: mapResult.map,
+    publishers,
+    proposals: protectedAvailability.proposals,
+    requiredQuestionIds: requiredAuthorityQuestionIds
+  });
+  const allAuthorityProposals = mergeAuthorityProposals(contestedAvailability.proposals);
+  let topicAuthoritySet = buildTopicAuthoritySet({ context, scope: scopeResult.scope, researchMap: mapResult.map, publishers, proposals: allAuthorityProposals, protectedAvailabilityDecisions: protectedAvailability.decisions, contestedAvailabilityDecisions: contestedAvailability.decisions, requiredQuestionIds: requiredAuthorityQuestionIds, parentTopicAuthoritySetId: continuation?.priorTopicAuthoritySet.topicAuthoritySetId });
   await persist("v2TopicAuthoritySets", topicAuthoritySet);
   await persistSemanticDerivation("v2TopicAuthoritySets", topicAuthoritySet, authorityProposalResult.executions.at(-1));
   const authorityResearchPlan = buildAuthorityResearchPlan({ context, set: topicAuthoritySet, researchMap: mapResult.map });

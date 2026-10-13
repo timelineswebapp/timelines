@@ -11,6 +11,7 @@ import {
   buildEligibleRoutingCandidates,
   buildRoutingObligationSet,
   buildTopicAuthoritySet,
+  completeContestedAvailabilityProposals,
   completeMaterialJurisdictionProposals,
   completeProtectedAvailabilityProposals,
   batchRoutingObligations,
@@ -245,6 +246,21 @@ test("AI cannot relabel a subject-associated authority as independent", () => {
 
 test("contested routing rejects self-interested or single-group interpretation coverage", () => {
   assert.throws(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: [validProposals()[0]!, validProposals()[1]!] }), /PERSPECTIVE_INDEPENDENCE_INSUFFICIENT/);
+});
+
+test("contested Registry completion supplies two independent acquisition opportunities without claiming evidence sufficiency", () => {
+  const modelOnly = [proposal("National Aeronautics and Space Administration", {}), proposal("British Library", {
+    researchQuestionIds: ["question-interpretation"],
+    roles: ["INTERPRETATION"],
+    claimTypes: ["INTERPRETATION"],
+    subjectRelationship: "INDEPENDENT",
+    perspectiveTags: ["Historical collections"]
+  })];
+  const completed = completeContestedAvailabilityProposals({ researchMap: map, publishers, proposals: modelOnly });
+  const decision = completed.decisions.find((item) => item.researchQuestionId === "question-interpretation")!;
+  assert.equal(decision.selectionMethod, "DETERMINISTIC_REGISTRY_COMPLETION");
+  assert.equal(new Set(decision.selectedPublisherVersionIds.map((id) => publishers.find((item) => item.publisherVersionId === id)!.independenceGroupId)).size, 2);
+  assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: completed.proposals, contestedAvailabilityDecisions: completed.decisions }));
 });
 
 test("protected representation fails preflight when the bounded authority universe has no eligible family", () => {
