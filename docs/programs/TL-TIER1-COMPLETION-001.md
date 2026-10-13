@@ -6,7 +6,17 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_CAPACITY_REMEDIATION_VERIFIED — SUCCESSOR_SEAL_PENDING`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — ROUTING_COMPLETENESS_RECURRENCE`
+
+## 2026-10-13 — `.61` Phase-2 terminal evidence: capacity corrected; routing recurrence
+
+The clean `.61` release `34a99d8f7abb54c5fed75c98f74216403215dd495aa6c176eec0317a7a989207` (source `281923609a64cfdc2c3504122b2084947c164e0c`, `factory-v2-a.61` / `authority-first-research.34` / `vertex-capacity-control.1`) completed one fresh, non-combined Phase-2 certification at `/private/tmp/tl-tier1-seal-61/artifacts/authority-first-acquisition-canary/2026-10-13T02-10-34-210Z/report.json`.
+
+San Francisco produced valid CKS `completed-knowledge-set-531808e8d0d1a0d8d788cce624577a48caabf4eaa36b8dc4fdd9432efeec0823` with sufficient final coverage and exact protected-state parity. It made 11 Vertex calls with 135,144 input tokens and 11,476 output tokens; the sealed provider-attempt ledger records zero capacity failures and zero circuit openings. This proves the corrected controller admitted and completed normal on-demand work without a `429`.
+
+Berlin then failed closed in `INITIAL_ACQUISITION`, not from provider capacity: `MODEL_SCHEMA_VALIDATION_EXHAUSTED:AUTHORITY_ROUTING`, because contested question 11 did not receive two independent registered authority groups after the bounded repair path. Berlin's protected-state parity is exact. Ada and Printing Press were correctly not executed after this terminal failure. No worker remains active. Discovery stayed paused; publication and governance submission stayed disabled; no public or institutional state changed.
+
+This is a recurrence in the already protected Authority Routing / routing-completeness defect class, not a capacity, historical-policy, evidence-quality, Registry, or protected-state defect. The `.61` capacity correction is preserved and remains verified, but it does not authorize another routing correction. Per the master-goal recurrence boundary, stop for founder review before changing routing semantics, Registry capacity, prompts, or certification execution. `.61` is not a 4/4 Phase-2 certification and cannot be combined with earlier releases.
 
 ## 2026-10-13 — `.61` Vertex capacity-control successor
 
