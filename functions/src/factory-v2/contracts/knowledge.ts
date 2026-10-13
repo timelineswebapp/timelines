@@ -146,6 +146,27 @@ export const historicalJurisdictionCapacitySchema = z.object({
   accessLimitations: stringList(0, 12, 300)
 }).strict();
 
+/**
+ * A governed collection capability for evidence originating with an affected
+ * community. This establishes only bounded acquisition possibility; it never
+ * asserts that the authority is the community or that a retrieved item is
+ * attributable community evidence.
+ */
+export const affectedCommunityEvidenceCapacitySchema = z.object({
+  capacityId: idSchema,
+  representedCommunity: boundedText(2, 160),
+  communityAliases: stringList(0, 20, 160),
+  period: z.object({ startYear: z.number().int().min(-10_000).max(10_000), endYear: z.number().int().min(-10_000).max(10_000) }).strict()
+    .refine((period) => period.startYear <= period.endYear, "Affected-community capacity period is invalid."),
+  geography: stringList(1, 20, 160),
+  collectionScope: boundedText(10, 600),
+  recordTypes: stringList(1, 12, 160),
+  permittedResearchRoles: z.array(z.enum(["PRIMARY_RECORD", "PERSPECTIVE_TESTIMONY"])).min(1).max(2).refine(unique),
+  provenance: boundedText(20, 1_000),
+  verificationSources: z.array(httpsUrlSchema).min(1).max(8).refine(unique),
+  accessLimitations: stringList(0, 12, 300)
+}).strict();
+
 const researchQuestionSchema = z.object({
   questionId: idSchema,
   text: boundedText(10, 700),
@@ -236,6 +257,7 @@ export const publisherAuthorityVersionSchema = z.object({
   authorityDomains: stringList(1, 20, 160),
   geographicScope: stringList(1, 20, 160),
   historicalJurisdictionCapacities: z.array(historicalJurisdictionCapacitySchema).max(24).refine((items) => unique(items.map((item) => item.capacityId))).default([]),
+  affectedCommunityEvidenceCapacities: z.array(affectedCommunityEvidenceCapacitySchema).max(24).refine((items) => unique(items.map((item) => item.capacityId))).default([]),
   languages: z.array(languageSchema).min(1).max(20).refine(unique),
   primarySecondaryTendency: z.enum(["PRIMARY", "SECONDARY", "MIXED"]),
   knownDomains: z.array(boundedText(3, 253).regex(/^[a-z0-9.-]+$/u)).min(1).max(30).refine(unique),
@@ -520,6 +542,7 @@ export type ResearchMap = z.infer<typeof researchMapSchema>;
 export type QueryPlan = z.infer<typeof queryPlanSchema>;
 export type PublisherAuthorityVersion = z.infer<typeof publisherAuthorityVersionSchema>;
 export type HistoricalJurisdictionCapacity = z.infer<typeof historicalJurisdictionCapacitySchema>;
+export type AffectedCommunityEvidenceCapacity = z.infer<typeof affectedCommunityEvidenceCapacitySchema>;
 export type SourceDocument = z.infer<typeof sourceDocumentSchema>;
 export type SourceSnapshot = z.infer<typeof sourceSnapshotSchema>;
 export type EvidenceSegment = z.infer<typeof evidenceSegmentSchema>;

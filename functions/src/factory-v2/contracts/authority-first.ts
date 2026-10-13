@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { boundedText, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields, languageSchema } from "./common";
-import { claimTypeSchema, historicalJurisdictionCapacitySchema, type HistoricalJurisdictionCapacity } from "./knowledge";
+import { affectedCommunityEvidenceCapacitySchema, claimTypeSchema, historicalJurisdictionCapacitySchema, type AffectedCommunityEvidenceCapacity, type HistoricalJurisdictionCapacity } from "./knowledge";
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
 const ids = (maximum: number, minimum = 0) => z.array(idSchema).min(minimum).max(maximum).refine(unique, "IDs must be unique.");
@@ -10,10 +10,10 @@ const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, i
  * Evidence-derived completion successor.  Historical routing artifacts remain
  * parseable for provenance, but are not part of this policy's execution path.
  */
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.32" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.33" as const;
 /** Deterministic boundary between historical participation and source authority. */
 export const PARTY_PARTICIPANT_SEMANTICS_POLICY_VERSION = "party-participant-semantics.3" as const;
-export const AUTHORITY_REGISTRY_VERSION = "authority-registry.3" as const;
+export const AUTHORITY_REGISTRY_VERSION = "authority-registry.4" as const;
 /** Versioned admission policy for registry-governed specialist collections. */
 export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;
 export const CONTROLLED_RESEARCH_BUDGET_VERSION = "controlled-research-budget.1" as const;
@@ -44,7 +44,8 @@ export const subjectRelationshipSchema = z.enum([
   "SUBJECT_SELF",
   "STATE_PARTY",
   "PARTICIPANT",
-  "COMMUNITY_CUSTODIAN"
+  "COMMUNITY_CUSTODIAN",
+  "COMMUNITY_EVIDENCE_RECORDS_HOLDER"
 ]);
 
 export const institutionalDiscoveryMechanismSchema = z.enum([
@@ -85,6 +86,7 @@ export const authorityRegistryCapabilitySchema = z.object({
   discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(5).refine(unique),
   specialistCollectionProfiles: z.array(specialistCollectionProfileSchema).max(12),
   historicalJurisdictionCapacities: z.array(historicalJurisdictionCapacitySchema).max(24).default([]),
+  affectedCommunityEvidenceCapacities: z.array(affectedCommunityEvidenceCapacitySchema).max(24).default([]),
   storageConstraints: strings(20, 500),
   registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION)
 }).strict();
@@ -97,6 +99,7 @@ export const topicAuthorityProposalSchema = z.object({
   subjectRelationship: subjectRelationshipSchema,
   perspectiveTags: strings(20, 160),
   historicalJurisdictionCapacityIds: ids(24).optional().transform((value) => value || []),
+  affectedCommunityEvidenceCapacityIds: ids(24).optional().transform((value) => value || []),
   /** Legacy routing lineage only.  The .16 canonical path never derives
    * historical sufficiency from a planned route. */
   routingObligationIds: ids(120).optional().transform((value) => value || []),
@@ -140,6 +143,7 @@ export const topicAuthorityBindingSchema = topicAuthorityProposalSchema.extend({
   discoveryMechanisms: z.array(institutionalDiscoveryMechanismSchema.exclude(["GOOGLE_GROUNDING_ESCALATION"])).min(1).max(5).refine(unique),
   specialistCollectionProfiles: z.array(specialistCollectionProfileSchema).max(12),
   historicalJurisdictionCapacities: z.array(historicalJurisdictionCapacitySchema).max(24).default([]),
+  affectedCommunityEvidenceCapacities: z.array(affectedCommunityEvidenceCapacitySchema).max(24).default([]),
   validationStatus: z.literal("ELIGIBLE")
 }).strict();
 
@@ -159,11 +163,13 @@ export const protectedAvailabilityDecisionSchema = z.object({
     subjectRelationship: subjectRelationshipSchema,
     authorityFamily: authorityFamilySchema,
     historicalJurisdictionCapacityIds: ids(24),
+    affectedCommunityEvidenceCapacityIds: ids(24),
     rejectionReason: boundedText(2, 240).nullable()
   }).strict()).max(60),
   modelProposedPublisherVersionIds: ids(60),
   selectedPublisherVersionId: idSchema.nullable(),
   selectedHistoricalJurisdictionCapacityIds: ids(24),
+  selectedAffectedCommunityEvidenceCapacityIds: ids(24),
   selectionMethod: z.enum(["MODEL_PRESERVED", "DETERMINISTIC_UNIQUE", "BOUNDED_AI_SELECTION", "NO_ELIGIBLE_CAPACITY", "UNRESOLVED_AMBIGUITY"]),
   registryVersion: z.literal(AUTHORITY_REGISTRY_VERSION),
   policyVersion: z.literal(AUTHORITY_FIRST_POLICY_VERSION)
@@ -325,8 +331,8 @@ export type SpecialistCollectionProfile = z.infer<typeof specialistCollectionPro
 export type AuthorityRegistryCapability = z.infer<typeof authorityRegistryCapabilitySchema>;
 export type AuthorityResearchRole = z.infer<typeof authorityResearchRoleSchema>;
 export type SubjectRelationship = z.infer<typeof subjectRelationshipSchema>;
-export type TopicAuthorityProposal = Omit<z.infer<typeof topicAuthorityProposalSchema>, "routingObligationIds" | "historicalJurisdictionCapacityIds"> & { routingObligationIds: string[]; historicalJurisdictionCapacityIds?: string[] };
-export type TopicAuthorityBinding = Omit<z.infer<typeof topicAuthorityBindingSchema>, "routingObligationIds" | "historicalJurisdictionCapacityIds" | "historicalJurisdictionCapacities"> & { routingObligationIds: string[]; historicalJurisdictionCapacityIds?: string[]; historicalJurisdictionCapacities?: HistoricalJurisdictionCapacity[] };
+export type TopicAuthorityProposal = Omit<z.infer<typeof topicAuthorityProposalSchema>, "routingObligationIds" | "historicalJurisdictionCapacityIds" | "affectedCommunityEvidenceCapacityIds"> & { routingObligationIds: string[]; historicalJurisdictionCapacityIds?: string[]; affectedCommunityEvidenceCapacityIds?: string[] };
+export type TopicAuthorityBinding = Omit<z.infer<typeof topicAuthorityBindingSchema>, "routingObligationIds" | "historicalJurisdictionCapacityIds" | "affectedCommunityEvidenceCapacityIds" | "historicalJurisdictionCapacities" | "affectedCommunityEvidenceCapacities"> & { routingObligationIds: string[]; historicalJurisdictionCapacityIds?: string[]; affectedCommunityEvidenceCapacityIds?: string[]; historicalJurisdictionCapacities?: HistoricalJurisdictionCapacity[]; affectedCommunityEvidenceCapacities?: AffectedCommunityEvidenceCapacity[] };
 export type TopicAuthoritySet = Omit<z.infer<typeof topicAuthoritySetSchema>, "bindings"> & { bindings: TopicAuthorityBinding[] };
 export type RoutingObligation = z.infer<typeof routingObligationSchema>;
 export type RoutingObligationSet = z.infer<typeof routingObligationSetSchema>;

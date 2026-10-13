@@ -4,6 +4,7 @@ import {
   DEFAULT_CONTROLLED_RESEARCH_BUDGET,
   auditPerspective,
   applicableSpecialistCollectionProfiles,
+  affectedCommunityEvidenceCapacityCovers,
   authorizeEscalation,
   buildAuthorityResearchPlan,
   buildConfidenceVector,
@@ -17,6 +18,7 @@ import {
   claimAuthorityApplicability,
   isInitialAuthorityRequiredQuestion,
   historicalJurisdictionCapacityCovers,
+  hasCommunityCustodialCapability,
   protectedAvailabilityCandidates,
   ProtectedRepresentationAvailabilityError,
   registeredGroundingExpansionPublishers,
@@ -130,6 +132,19 @@ test("historical-jurisdiction records-holder capacity is explicit, bounded, and 
   assert.equal(historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: "Soviet Union", period: { startYear: 1948, endYear: 1949 }, authorityDomains: ["unrelated spaceflight records"], roles: ["PRIMARY_RECORD"], subjectRelationship: "INDEPENDENT" }), false, "collection/domain bounds are mandatory");
   assert.equal(publisher("Library of Congress").historicalJurisdictionCapacities.length, 0, "international collection geography is not a named historical jurisdiction capacity");
   assert.equal(publisher("John F. Kennedy Presidential Library and Museum").historicalJurisdictionCapacities.length, 0, "an unrelated Cuban Missile Crisis scope cannot satisfy Berlin");
+});
+
+test("affected-community records-holder capacity is explicit, bounded, and distinct from custodianship", () => {
+  const holder = publisher("Museums Tempelhof-Schöneberg");
+  const capacity = holder.affectedCommunityEvidenceCapacities[0]!;
+  assert.equal(capacity.representedCommunity, "West Berlin Civilians");
+  assert.equal(affectedCommunityEvidenceCapacityCovers({ capacity, community: "West Berlin Civilians", period: { startYear: 1948, endYear: 1949 }, roles: ["PERSPECTIVE_TESTIMONY"] }), true);
+  assert.equal(affectedCommunityEvidenceCapacityCovers({ capacity, community: "West Berlin Civilians", period: { startYear: 1950, endYear: 1950 }, roles: ["PERSPECTIVE_TESTIMONY"] }), false);
+  assert.equal(affectedCommunityEvidenceCapacityCovers({ capacity, community: "West Berlin Civilians", period: { startYear: 1948, endYear: 1949 }, roles: ["INTERPRETATION"] }), false);
+  assert.equal(hasCommunityCustodialCapability(holder), false, "a records holder must not become a custodial community");
+  const profiles = registryCapability(holder).specialistCollectionProfiles;
+  assert.equal(profiles.length, 1);
+  assert.equal(profiles[0]!.endpoint, "https://www.berlin.de/ba-tempelhof-schoeneberg/aktuelles/pressemitteilungen/2023/pressemitteilung.1361562.php");
 });
 
 test("a governed records holder satisfies Berlin Soviet jurisdiction only through its selected bounded capacity and emits diagnostics otherwise", () => {
@@ -297,17 +312,19 @@ test("protected Registry completion admits only declared party and community cap
   assert.equal(party.proposals[0]!.subjectRelationship, "STATE_PARTY");
   assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: partyMap, publishers: [uk], proposals: party.proposals, protectedAvailabilityDecisions: party.decisions, requiredQuestionIds: ["question-chronology"] }));
 
-  const recordsHolder = { ...publisher("National Archives and Records Administration"), authorityDomains: ["Named affected community custodial records"], independenceGroupId: "publisher-community-records-holder" };
-  for (const kind of ["AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY"] as const) {
-    const communityMap = withRequirement(kind, "Named affected community");
-    const completed = completeProtectedAvailabilityProposals({ scope, researchMap: communityMap, publishers: [recordsHolder], proposals: [], requiredQuestionIds: ["question-chronology"] });
-    assert.equal(completed.decisions[0]!.selectionMethod, "DETERMINISTIC_UNIQUE");
-    assert.equal(completed.proposals[0]!.subjectRelationship, "COMMUNITY_CUSTODIAN");
-    assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: communityMap, publishers: [recordsHolder], proposals: completed.proposals, protectedAvailabilityDecisions: completed.decisions, requiredQuestionIds: ["question-chronology"] }));
-  }
+  const recordsHolder = { ...publisher("National Archives and Records Administration"), independenceGroupId: "publisher-community-records-holder", affectedCommunityEvidenceCapacities: [{ capacityId: "affected-community-evidence-capacity-test", representedCommunity: "Named affected community", communityAliases: ["Affected community"], period: { startYear: 1960, endYear: 1970 }, geography: ["United States"], collectionScope: "A bounded, verified collection of attributable first-person affected-community testimony.", recordTypes: ["oral-history testimony"], permittedResearchRoles: ["PERSPECTIVE_TESTIMONY" as const], provenance: "The repository's official collection record identifies testimony created by members of the represented community.", verificationSources: ["https://archives.gov/"], accessLimitations: [] }] };
+  const communityMap = withRequirement("AFFECTED_COMMUNITY", "Named affected community");
+  const completed = completeProtectedAvailabilityProposals({ scope, researchMap: communityMap, publishers: [recordsHolder], proposals: [], requiredQuestionIds: ["question-chronology"] });
+  assert.equal(completed.decisions[0]!.selectionMethod, "DETERMINISTIC_UNIQUE");
+  assert.equal(completed.proposals[0]!.subjectRelationship, "COMMUNITY_EVIDENCE_RECORDS_HOLDER");
+  assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: communityMap, publishers: [recordsHolder], proposals: completed.proposals, protectedAvailabilityDecisions: completed.decisions, requiredQuestionIds: ["question-chronology"] }));
 
-  const undeclared = { ...recordsHolder, authorityDomains: ["Federal administrative records"], independenceGroupId: "publisher-not-community" };
-  const noCommunityCapacity = completeProtectedAvailabilityProposals({ scope, researchMap: withRequirement("CUSTODIAL_COMMUNITY", "Named affected community"), publishers: [undeclared], proposals: [], requiredQuestionIds: ["question-chronology"] });
+  const custodialMap = withRequirement("CUSTODIAL_COMMUNITY", "Named affected community");
+  const noCustodialCapacity = completeProtectedAvailabilityProposals({ scope, researchMap: custodialMap, publishers: [recordsHolder], proposals: [], requiredQuestionIds: ["question-chronology"] });
+  assert.equal(noCustodialCapacity.decisions[0]!.selectionMethod, "NO_ELIGIBLE_CAPACITY");
+
+  const undeclared = { ...recordsHolder, affectedCommunityEvidenceCapacities: [], independenceGroupId: "publisher-not-community" };
+  const noCommunityCapacity = completeProtectedAvailabilityProposals({ scope, researchMap: withRequirement("AFFECTED_COMMUNITY", "Named affected community"), publishers: [undeclared], proposals: [], requiredQuestionIds: ["question-chronology"] });
   assert.equal(noCommunityCapacity.decisions[0]!.selectionMethod, "NO_ELIGIBLE_CAPACITY");
 });
 
@@ -373,7 +390,7 @@ test("supporting historical perspectives do not require predictive route proof b
     historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected local community", rationale: "The community directly experienced the program and its consequences." }]
   };
   const mapWithRequiredPerspective = { ...map, questions: [...map.questions, perspectiveBearingSupportingQuestion] };
-  const communityHolder = { ...publisher("National Archives and Records Administration"), authorityDomains: ["Affected local community custodial records"], independenceGroupId: "publisher-affected-community-holder" };
+  const communityHolder = { ...publisher("National Archives and Records Administration"), independenceGroupId: "publisher-affected-community-holder", affectedCommunityEvidenceCapacities: [{ capacityId: "affected-community-evidence-capacity-supporting-test", representedCommunity: "Affected local community", communityAliases: [], period: { startYear: 1960, endYear: 1972 }, geography: ["United States"], collectionScope: "A bounded collection of attributable community testimony relevant to the supporting research question.", recordTypes: ["oral-history testimony"], permittedResearchRoles: ["PERSPECTIVE_TESTIMONY" as const], provenance: "Official collection documentation establishes attributable testimony from the represented affected community.", verificationSources: ["https://archives.gov/"], accessLimitations: [] }] };
   const set = buildTopicAuthoritySet({
     context: TEST_CONTEXT,
     scope,
@@ -382,7 +399,9 @@ test("supporting historical perspectives do not require predictive route proof b
     proposals: [...validProposals(), proposal("National Archives and Records Administration", {
       researchQuestionIds: ["question-community"],
       perspectiveTags: ["Affected local community"],
-      subjectRelationship: "COMMUNITY_CUSTODIAN"
+      subjectRelationship: "COMMUNITY_EVIDENCE_RECORDS_HOLDER",
+      roles: ["PERSPECTIVE_TESTIMONY"],
+      affectedCommunityEvidenceCapacityIds: ["affected-community-evidence-capacity-supporting-test"]
     })]
   });
   assert.equal(set.routingObligationSetId, null);

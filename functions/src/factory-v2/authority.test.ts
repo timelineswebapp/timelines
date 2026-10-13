@@ -28,7 +28,7 @@ function edge(value: AtomicClaimVersion, publisher: PublisherAuthorityVersion | 
 }
 
 test("Publisher Registry remains bounded, versioned, alias-aware, and policy-admitted", () => {
-  assert.ok(publishers.length <= 33);
+  assert.ok(publishers.length <= 34);
   assert.equal(byName("National Aeronautics and Space Administration").aliases.includes("NASA"), true);
   assert.equal(publishers.every((publisher) => publisher.state === "VERIFIED" && publisher.admittedBy === "POLICY"), true);
   assert.equal(new Set(publishers.map((publisher) => publisher.payloadHash)).size, publishers.length);

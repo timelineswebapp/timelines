@@ -6,7 +6,15 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — AUTHORITY_FIRST_.32 AFFECTED_COMMUNITY_CAPACITY_ABSENT`
+`PHASE_2_SUCCESSOR_PRESEAL — AUTHORITY_FIRST_.33 AFFECTED_COMMUNITY_EVIDENCE_CAPACITY`
+
+## 2026-10-13 — `.59` governed affected-community evidence-capacity successor
+
+The founder-authorized general records-holder correction is implemented but not yet sealed or provider-certified. `authority-first-research.33` / `authority-registry.4` adds the immutable `AFFECTED_COMMUNITY_EVIDENCE_CAPACITY` model and distinct `COMMUNITY_EVIDENCE_RECORDS_HOLDER` relationship. Capacity admission is exact-label/alias, bounded-period, role, Registry, and verified-authority based; it does not infer capacity from geography, archive status, or a textual community label, and it does not classify a records holder as a custodial community. The Authority Set and protected-availability decision retain selected capacity identity and fail closed for unknown, wrong-period, wrong-role, or wrong-relationship capacity.
+
+The Registry now contains one independently documented municipal-museum capacity for attributable `West Berlin Civilians` evidence: Museums Tempelhof-Schöneberg's official Berlin Airlift exhibition documentation identifies contemporary witness accounts about everyday life during the 1948–1949 blockade. This is a bounded acquisition capability, not final evidence sufficiency and not a declaration that the museum is the community. Its direct official endpoint is preserved as a Registry specialist collection profile; retrieval and final evidence audit remain subject to normal source security, attribution, authority, corroboration, coverage, and fail-closed requirements.
+
+Pre-seal verification is green: Functions 323 passed/2 intentional skips; root 249 passed; strict root and Functions typechecks; root lint; Functions and Next production builds; Tier-1 security gate with zero high/critical production findings; `git diff --check`; Firestore emulator 6/6 under process-local JDK 21.0.12.1; and institutional suites 68/7/7/7/8/8. No provider-backed certification, discovery, deployment, public/institutional mutation, or protected-state mutation occurred. A clean sealed `.59` successor and one fresh, non-combined four-subject Phase-2 certification remain required; `.58` evidence is preserved and cannot be combined.
 
 ## 2026-10-12 — `.58` Phase-2 terminal evidence: protected affected-community capacity absent
 
