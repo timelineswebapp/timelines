@@ -6,11 +6,11 @@ import { assertV2AShadowEnabled, authorityFirstRunDeadlineAt, shadowConfig } fro
 test("V2-A executes only in non-public shadow mode with autonomous discovery paused", () => {
   const config = shadowConfig("2026-09-06T00:00:00.000Z");
   assert.doesNotThrow(() => assertV2AShadowEnabled(config));
-  assert.equal(config.pipelineVersion, "factory-v2-a.65");
+  assert.equal(config.pipelineVersion, "factory-v2-a.66");
   assert.deepEqual(config.artifactPolicyBundle, { schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION });
-  assert.equal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, "factory-v2-a.12");
-  assert.equal(V2_SCHEMA_VERSION, "factory-v2-a.12");
-  assert.equal(V2_POLICY_VERSION, "authority-first-research.34");
+  assert.equal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, "factory-v2-a.13");
+  assert.equal(V2_SCHEMA_VERSION, "factory-v2-a.13");
+  assert.equal(V2_POLICY_VERSION, "authority-first-research.39");
   assert.equal(V2_PROMPT_VERSION, "factory-v2-a-prompts.20");
   assert.throws(() => assertV2AShadowEnabled({ ...shadowConfig(), operatingMode: "OFF" }), /refuses/);
   assert.throws(() => assertV2AShadowEnabled({ ...shadowConfig(), killSwitch: true }), /refuses/);

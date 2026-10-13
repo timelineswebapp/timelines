@@ -154,6 +154,7 @@ export const historicalJurisdictionCapacitySchema = z.object({
  */
 export const affectedCommunityEvidenceCapacitySchema = z.object({
   capacityId: idSchema,
+  communityIdentityId: idSchema,
   representedCommunity: boundedText(2, 160),
   communityAliases: stringList(0, 20, 160),
   period: z.object({ startYear: z.number().int().min(-10_000).max(10_000), endYear: z.number().int().min(-10_000).max(10_000) }).strict()
@@ -166,6 +167,30 @@ export const affectedCommunityEvidenceCapacitySchema = z.object({
   verificationSources: z.array(httpsUrlSchema).min(1).max(8).refine(unique),
   accessLimitations: stringList(0, 12, 300)
 }).strict();
+
+/**
+ * Immutable, policy-owned identity vocabulary for protected affected
+ * communities.  Research Maps may name an identity only through its
+ * canonical label or a controlled alias; capacity selection always binds the
+ * stable identifier below.  This is deliberately not an open-world entity
+ * resolver and has no fuzzy, model, demographic, or geography-only path.
+ */
+export const communityIdentitySchema = z.object({
+  communityIdentityId: idSchema,
+  canonicalLabel: boundedText(2, 160),
+  aliases: stringList(0, 32, 160),
+  category: z.literal("AFFECTED_POPULATION"),
+  geography: stringList(1, 20, 160),
+  period: z.object({ startYear: z.number().int().min(-10_000).max(10_000), endYear: z.number().int().min(-10_000).max(10_000) }).strict()
+    .refine((period) => period.startYear <= period.endYear, "Community identity period is invalid."),
+  languages: z.array(languageSchema).min(1).max(20).refine(unique),
+  provenance: boundedText(20, 1_000),
+  verificationSources: z.array(httpsUrlSchema).min(1).max(8).refine(unique),
+  lifecycle: z.literal("VERIFIED"),
+  version: z.number().int().positive().max(1_000)
+}).strict();
+
+export type CommunityIdentity = z.infer<typeof communityIdentitySchema>;
 
 const researchQuestionSchema = z.object({
   questionId: idSchema,
@@ -530,7 +555,13 @@ export const v2FailureRecordSchema = z.object({
     eligibleCandidates: z.array(z.object({ publisherVersionId: idSchema, capacityIds: z.array(idSchema).max(24).refine(unique), rejectionReason: boundedText(2, 500) }).strict()).max(60),
     registryVersion: boundedText(2, 120),
     policyVersion: boundedText(2, 120),
-    releaseIdentity: hashSchema.nullable()
+    releaseIdentity: hashSchema.nullable(),
+    communityIdentityResolution: z.object({
+      rawLabel: boundedText(2, 160), normalizedLabel: boundedText(2, 160), communityIdentityId: idSchema.nullable(), canonicalLabel: boundedText(2, 160).nullable(), aliasOrRule: boundedText(2, 120).nullable(),
+      qualifierComparison: z.object({ period: z.enum(["MATCH", "OUT_OF_RANGE"]), geography: z.enum(["MATCH", "MISMATCH"]), language: z.enum(["MATCH", "MISMATCH"]), category: z.enum(["MATCH", "MISMATCH"]) }).strict(),
+      rejectionReason: boundedText(2, 160).nullable()
+    }).strict().nullable().default(null),
+    communityCapacityEvaluations: z.array(z.object({ publisherVersionId: idSchema, capacityId: idSchema, accepted: z.boolean(), rejectionReason: boundedText(2, 160).nullable() }).strict()).max(120).default([])
   }).strict().nullable().default(null),
   blockingArtifactIds: z.array(idSchema).max(50).refine(unique),
   attemptsConsumed: z.number().int().nonnegative().max(100),

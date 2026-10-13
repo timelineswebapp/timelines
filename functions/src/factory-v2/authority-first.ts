@@ -32,6 +32,7 @@ import {
 } from "./contracts";
 import { parseSealedArtifact, semanticArtifactId, semanticEnvelope, type ArtifactContext } from "./contracts/builders";
 import { contentAddressedId, payloadHash } from "./hashing";
+import { COMMUNITY_IDENTITY_POLICY_VERSION, COMMUNITY_IDENTITY_REGISTRY_VERSION, resolveGovernedCommunityIdentity } from "./community-identity";
 
 export type RoutingEligibleCandidate = {
   routingObligationId: string;
@@ -59,6 +60,16 @@ export type ProtectedRepresentationDiagnostic = {
   registryVersion: string;
   policyVersion: string;
   releaseIdentity: string | null;
+  communityIdentityResolution?: {
+    rawLabel: string;
+    normalizedLabel: string;
+    communityIdentityId: string | null;
+    canonicalLabel: string | null;
+    aliasOrRule: string | null;
+    qualifierComparison: { period: "MATCH" | "OUT_OF_RANGE"; geography: "MATCH" | "MISMATCH"; language: "MATCH" | "MISMATCH"; category: "MATCH" | "MISMATCH" };
+    rejectionReason: string | null;
+  } | null;
+  communityCapacityEvaluations?: Array<{ publisherVersionId: string; capacityId: string; accepted: boolean; rejectionReason: string | null }>;
 };
 
 export type ProtectedAvailabilityCandidate = {
@@ -81,6 +92,9 @@ export type ProtectedAvailabilityCompletion = {
     requirementKind: "INDEPENDENT_SCHOLARSHIP" | "PARTY_PARTICIPANT" | "AFFECTED_COMMUNITY" | "CUSTODIAL_COMMUNITY" | "MATERIAL_JURISDICTION";
     requirementLabel: string;
     researchQuestionId: string;
+    resolvedCommunityIdentityId: string | null;
+    communityIdentityRegistryVersion: string | null;
+    communityIdentityPolicyVersion: string | null;
     eligibleCandidates: Array<{ publisherVersionId: string; eligibleRoles: Array<"PRIMARY_RECORD" | "INTERPRETATION" | "PERSPECTIVE_TESTIMONY">; subjectRelationship: SubjectRelationship; authorityFamily: AuthorityFamily; historicalJurisdictionCapacityIds: string[]; affectedCommunityEvidenceCapacityIds: string[]; rejectionReason: string | null }>;
     modelProposedPublisherVersionIds: string[];
     selectedPublisherVersionId: string | null;
@@ -185,14 +199,20 @@ export function hasCommunityCustodialCapability(publisher: PublisherAuthorityVer
 /** Exact Registry capability match for acquiring attributable affected-community evidence. */
 export function affectedCommunityEvidenceCapacityCovers(input: {
   capacity: AffectedCommunityEvidenceCapacity;
-  community: string;
+  communityIdentityId?: string;
+  community?: string;
   period: { startYear: number; endYear: number };
+  geography?: readonly string[];
+  languages?: readonly string[];
   roles: readonly string[];
 }): boolean {
-  const community = normalize(input.community);
-  return [input.capacity.representedCommunity, ...input.capacity.communityAliases].some((label) => normalize(label) === community)
+  const communityMatches = input.communityIdentityId
+    ? input.capacity.communityIdentityId === input.communityIdentityId
+    : input.community !== undefined && [input.capacity.representedCommunity, ...input.capacity.communityAliases].some((label) => normalize(label) === normalize(input.community!));
+  return communityMatches
     && input.capacity.period.startYear <= input.period.startYear
     && input.capacity.period.endYear >= input.period.endYear
+    && (!input.geography || input.geography.some((value) => input.capacity.geography.some((capacityGeography) => normalize(capacityGeography) === normalize(value))))
     && input.capacity.permittedResearchRoles.some((role) => input.roles.includes(role));
 }
 
@@ -210,13 +230,15 @@ export function protectedAvailabilityCandidates(input: {
   const requirementIdValue = requirementId(input.researchMap, question.questionId, input.requirement);
   const endYear = input.scope.chronologyEnd?.latestYear ?? input.scope.chronologyEnd?.year ?? input.scope.chronologyStart.latestYear ?? input.scope.chronologyStart.year;
   const period = { startYear: input.scope.chronologyStart.earliestYear ?? input.scope.chronologyStart.year, endYear };
+  const resolveCommunity = (requirement: typeof input.requirement) => resolveGovernedCommunityIdentity({ rawLabel: requirement.label, scopePeriod: period, geography: question.geography, languages: question.languages, category: "AFFECTED_POPULATION" });
+  const communityResolution = input.requirement.kind === "AFFECTED_COMMUNITY" ? resolveCommunity(input.requirement) : null;
   return input.publishers.flatMap<ProtectedAvailabilityCandidate>((publisher): ProtectedAvailabilityCandidate[] => {
     if (publisher.state !== "VERIFIED") return [];
     if (!question.languages.some((language) => publisher.languages.includes(language))) return [];
     const family = authorityFamilyForPublisher(publisher);
     if (family === "EDITED_REFERENCE") return [];
     const affectedCommunityCapacity = input.requirement.kind === "AFFECTED_COMMUNITY"
-      ? publisher.affectedCommunityEvidenceCapacities.find((capacity) => affectedCommunityEvidenceCapacityCovers({ capacity, community: input.requirement.label, period, roles: ["PRIMARY_RECORD", "PERSPECTIVE_TESTIMONY"] }))
+      ? publisher.affectedCommunityEvidenceCapacities.find((capacity) => communityResolution?.communityIdentityId !== null && affectedCommunityEvidenceCapacityCovers({ capacity, communityIdentityId: communityResolution!.communityIdentityId!, period, geography: question.geography, languages: question.languages, roles: ["PRIMARY_RECORD", "PERSPECTIVE_TESTIMONY"] }))
       : undefined;
     const relationship = input.requirement.kind === "PARTY_PARTICIPANT"
       ? subjectRelationshipForRouting(publisher, [{ requirementKind: "PARTY_PARTICIPANT", label: input.requirement.label }])
@@ -291,7 +313,10 @@ export function completeProtectedAvailabilityProposals(input: {
         selected = registryCandidate;
         proposals.push({ publisherVersionId: registryCandidate.publisherVersionId, researchQuestionIds: [question.questionId], roles: registryCandidate.eligibleRoles, claimTypes: uniqueSorted(question.claimTypesExpected), subjectRelationship: registryCandidate.subjectRelationship, perspectiveTags: [requirement.label], historicalJurisdictionCapacityIds: registryCandidate.historicalJurisdictionCapacityIds, affectedCommunityEvidenceCapacityIds: registryCandidate.affectedCommunityEvidenceCapacityIds, routingObligationIds: registryCandidate.subjectRelationship === "STATE_PARTY" ? [registryCandidate.requirementId] : [], rationale: "Deterministically completed from exact eligible Registry capacity for the locked protected requirement; this is not evidence sufficiency." });
       }
-      decisions.push({ requirementId: candidates[0]?.requirementId || requirementId(input.researchMap, question.questionId, requirement), requirementKind: requirement.kind, requirementLabel: requirement.label.normalize("NFKC").trim(), researchQuestionId: question.questionId, eligibleCandidates: candidates.map((candidate) => ({ publisherVersionId: candidate.publisherVersionId, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, historicalJurisdictionCapacityIds: candidate.historicalJurisdictionCapacityIds, affectedCommunityEvidenceCapacityIds: candidate.affectedCommunityEvidenceCapacityIds, rejectionReason: null })), modelProposedPublisherVersionIds, selectedPublisherVersionId: selected?.publisherVersionId || null, selectedHistoricalJurisdictionCapacityIds: selected?.historicalJurisdictionCapacityIds || [], selectedAffectedCommunityEvidenceCapacityIds: selected?.affectedCommunityEvidenceCapacityIds || [], selectionMethod: method, registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION });
+      const resolution = requirement.kind === "AFFECTED_COMMUNITY"
+        ? resolveGovernedCommunityIdentity({ rawLabel: requirement.label, scopePeriod: { startYear: input.scope.chronologyStart.earliestYear ?? input.scope.chronologyStart.year, endYear: input.scope.chronologyEnd?.latestYear ?? input.scope.chronologyEnd?.year ?? input.scope.chronologyStart.latestYear ?? input.scope.chronologyStart.year }, geography: question.geography, languages: question.languages, category: "AFFECTED_POPULATION" })
+        : null;
+      decisions.push({ requirementId: candidates[0]?.requirementId || requirementId(input.researchMap, question.questionId, requirement), requirementKind: requirement.kind, requirementLabel: requirement.label.normalize("NFKC").trim(), researchQuestionId: question.questionId, resolvedCommunityIdentityId: resolution?.communityIdentityId || null, communityIdentityRegistryVersion: resolution ? COMMUNITY_IDENTITY_REGISTRY_VERSION : null, communityIdentityPolicyVersion: resolution ? COMMUNITY_IDENTITY_POLICY_VERSION : null, eligibleCandidates: candidates.map((candidate) => ({ publisherVersionId: candidate.publisherVersionId, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, historicalJurisdictionCapacityIds: candidate.historicalJurisdictionCapacityIds, affectedCommunityEvidenceCapacityIds: candidate.affectedCommunityEvidenceCapacityIds, rejectionReason: null })), modelProposedPublisherVersionIds, selectedPublisherVersionId: selected?.publisherVersionId || null, selectedHistoricalJurisdictionCapacityIds: selected?.historicalJurisdictionCapacityIds || [], selectedAffectedCommunityEvidenceCapacityIds: selected?.affectedCommunityEvidenceCapacityIds || [], selectionMethod: method, registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION });
     }
   }
   return { proposals: proposals.sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)), decisions, unresolved: [] };
@@ -716,11 +741,29 @@ function materialJurisdictionCapacityMatches(capacity: HistoricalJurisdictionCap
   return historicalJurisdictionCapacityCovers({ capacity, historicalJurisdiction: requirementLabel, period: { startYear: scope.chronologyStart.earliestYear ?? scope.chronologyStart.year, endYear }, roles: binding.roles, subjectRelationship: binding.subjectRelationship });
 }
 
-function representationDiagnostic(map: ResearchMap, question: ResearchMap["questions"][number], requirement: NonNullable<ResearchMap["questions"][number]["historicalPerspectiveRequirements"]>[number], relevant: readonly TopicAuthorityBinding[]): ProtectedRepresentationDiagnostic {
+function communityCapacityEvaluations(scope: ScopeContract, question: ResearchMap["questions"][number], publishers: readonly PublisherAuthorityVersion[], resolution: ReturnType<typeof resolveGovernedCommunityIdentity>): Array<{ publisherVersionId: string; capacityId: string; accepted: boolean; rejectionReason: string | null }> {
+  const endYear = scope.chronologyEnd?.latestYear ?? scope.chronologyEnd?.year ?? scope.chronologyStart.latestYear ?? scope.chronologyStart.year;
+  const period = { startYear: scope.chronologyStart.earliestYear ?? scope.chronologyStart.year, endYear };
+  return publishers.flatMap((publisher) => (publisher.affectedCommunityEvidenceCapacities || []).map((capacity) => {
+    const rejectionReason = publisher.state !== "VERIFIED" ? "PUBLISHER_NOT_VERIFIED"
+      : !question.languages.some((language) => publisher.languages.includes(language)) ? "PUBLISHER_LANGUAGE_MISMATCH"
+      : resolution.rejectionReason ? resolution.rejectionReason
+      : capacity.communityIdentityId !== resolution.communityIdentityId ? "CAPACITY_COMMUNITY_ID_MISMATCH"
+      : capacity.period.startYear > period.startYear || capacity.period.endYear < period.endYear ? "CAPACITY_PERIOD_MISMATCH"
+      : !question.geography.some((geography) => capacity.geography.some((item) => normalize(item) === normalize(geography))) ? "CAPACITY_GEOGRAPHY_MISMATCH"
+      : !capacity.permittedResearchRoles.some((role) => ["PRIMARY_RECORD", "PERSPECTIVE_TESTIMONY"].includes(role)) ? "CAPACITY_ROLE_MISMATCH"
+      : null;
+    return { publisherVersionId: publisher.publisherVersionId, capacityId: capacity.capacityId, accepted: rejectionReason === null, rejectionReason };
+  })).sort((left, right) => `${left.publisherVersionId}:${left.capacityId}`.localeCompare(`${right.publisherVersionId}:${right.capacityId}`));
+}
+
+function representationDiagnostic(scope: ScopeContract, map: ResearchMap, question: ResearchMap["questions"][number], requirement: NonNullable<ResearchMap["questions"][number]["historicalPerspectiveRequirements"]>[number], relevant: readonly TopicAuthorityBinding[], publishers: readonly PublisherAuthorityVersion[]): ProtectedRepresentationDiagnostic {
   const requiredRoles: ProtectedRepresentationDiagnostic["requiredRoles"] = requirement.kind === "MATERIAL_JURISDICTION" ? ["PRIMARY_RECORD", "CORROBORATION"] : ["PRIMARY_RECORD", "CORROBORATION", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"];
   const permittedSubjectRelationships: ProtectedRepresentationDiagnostic["permittedSubjectRelationships"] = requirement.kind === "AFFECTED_COMMUNITY"
     ? ["COMMUNITY_EVIDENCE_RECORDS_HOLDER"]
     : ["INDEPENDENT", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"];
+  const endYear = scope.chronologyEnd?.latestYear ?? scope.chronologyEnd?.year ?? scope.chronologyStart.latestYear ?? scope.chronologyStart.year;
+  const communityIdentityResolution = requirement.kind === "AFFECTED_COMMUNITY" ? resolveGovernedCommunityIdentity({ rawLabel: requirement.label, scopePeriod: { startYear: scope.chronologyStart.earliestYear ?? scope.chronologyStart.year, endYear }, geography: question.geography, languages: question.languages, category: "AFFECTED_POPULATION" }) : null;
   return {
     requirementId: requirementId(map, question.questionId, requirement), requirementKind: requirement.kind, canonicalLabel: requirement.label.normalize("NFKC").trim(), researchMapId: map.researchMapId, researchQuestionId: question.questionId,
     phaseIds: [...question.phaseIds], dimensionIds: [...question.dimensionIds], requiredRoles, permittedSubjectRelationships,
@@ -730,17 +773,19 @@ function representationDiagnostic(map: ResearchMap, question: ResearchMap["quest
       : requirement.kind === "MATERIAL_JURISDICTION"
       ? (binding.historicalJurisdictionCapacities || []).length === 0 ? "NO_SELECTED_HISTORICAL_JURISDICTION_CAPACITY" : "NO_SELECTED_CAPACITY_MATCHES_REQUIRED_HISTORICAL_JURISDICTION"
       : "RELATIONSHIP_OR_FAMILY_CONSTRAINT_NOT_MET" })).sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)),
-    registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION, releaseIdentity: null
+    registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION, releaseIdentity: null,
+    communityIdentityResolution,
+    communityCapacityEvaluations: communityIdentityResolution ? communityCapacityEvaluations(scope, question, publishers, communityIdentityResolution) : []
   };
 }
 
-function assertProtectedRepresentationAvailability(scope: ScopeContract, map: ResearchMap, bindings: readonly TopicAuthorityBinding[], requiredQuestionIds?: ReadonlySet<string>): void {
+function assertProtectedRepresentationAvailability(scope: ScopeContract, map: ResearchMap, bindings: readonly TopicAuthorityBinding[], publishers: readonly PublisherAuthorityVersion[], requiredQuestionIds?: ReadonlySet<string>): void {
   for (const question of map.questions.filter((item) => !requiredQuestionIds || requiredQuestionIds.has(item.questionId))) {
     const relevant = bindings.filter((binding) => binding.researchQuestionIds.includes(question.questionId) && binding.roles.some((role) => role !== "ORIENTATION"));
     for (const requirement of question.historicalPerspectiveRequirements || []) {
       if (!requiresProtectedPreAcquisitionAvailability(requirement.kind)) continue;
       const available = requirement.kind === "AFFECTED_COMMUNITY"
-        ? relevant.some((binding) => binding.subjectRelationship === "COMMUNITY_EVIDENCE_RECORDS_HOLDER" && (binding.affectedCommunityEvidenceCapacities || []).some((capacity) => affectedCommunityEvidenceCapacityCovers({ capacity, community: requirement.label, period: { startYear: scope.chronologyStart.earliestYear ?? scope.chronologyStart.year, endYear: scope.chronologyEnd?.latestYear ?? scope.chronologyEnd?.year ?? scope.chronologyStart.latestYear ?? scope.chronologyStart.year }, roles: binding.roles })))
+        ? (() => { const endYear = scope.chronologyEnd?.latestYear ?? scope.chronologyEnd?.year ?? scope.chronologyStart.latestYear ?? scope.chronologyStart.year; const resolution = resolveGovernedCommunityIdentity({ rawLabel: requirement.label, scopePeriod: { startYear: scope.chronologyStart.earliestYear ?? scope.chronologyStart.year, endYear }, geography: question.geography, languages: question.languages, category: "AFFECTED_POPULATION" }); return resolution.communityIdentityId !== null && relevant.some((binding) => binding.subjectRelationship === "COMMUNITY_EVIDENCE_RECORDS_HOLDER" && (binding.affectedCommunityEvidenceCapacities || []).some((capacity) => affectedCommunityEvidenceCapacityCovers({ capacity, communityIdentityId: resolution.communityIdentityId!, period: { startYear: scope.chronologyStart.earliestYear ?? scope.chronologyStart.year, endYear }, geography: question.geography, languages: question.languages, roles: binding.roles }))); })()
         : requirement.kind === "CUSTODIAL_COMMUNITY"
           ? relevant.some((binding) => binding.subjectRelationship === "COMMUNITY_CUSTODIAN")
         : requirement.kind === "PARTY_PARTICIPANT"
@@ -750,7 +795,7 @@ function assertProtectedRepresentationAvailability(scope: ScopeContract, map: Re
             : requirement.kind === "INDEPENDENT_SCHOLARSHIP"
               ? relevant.some((binding) => binding.subjectRelationship === "INDEPENDENT" && binding.authorityFamily === "ACADEMIC_SCHOLARLY")
               : relevant.some((binding) => binding.subjectRelationship !== "SUBJECT_SELF");
-      if (!available) throw new ProtectedRepresentationAvailabilityError(representationDiagnostic(map, question, requirement, relevant));
+      if (!available) throw new ProtectedRepresentationAvailabilityError(representationDiagnostic(scope, map, question, requirement, relevant, publishers));
     }
   }
 }
@@ -796,7 +841,7 @@ export function buildTopicAuthoritySet(input: {
   const missingCritical = criticalQuestionIds.filter((id) => !coreCoverage.has(id));
   if (missingCritical.length > 0) throw new Error(`MISSING_CRITICAL_AUTHORITY_COVERAGE:${missingCritical.join(",")}`);
   assertContestedBalance(input.researchMap, bindings, requiredQuestionIds);
-  assertProtectedRepresentationAvailability(input.scope, input.researchMap, bindings, requiredQuestionIds);
+  assertProtectedRepresentationAvailability(input.scope, input.researchMap, bindings, input.publishers, requiredQuestionIds);
   const registryHash = payloadHash(input.publishers.map((publisher) => ({ publisherVersionId: publisher.publisherVersionId, payloadHash: publisher.payloadHash })).sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)));
   const semantic = {
     scopeContractId: input.scope.scopeContractId,

@@ -4,6 +4,7 @@ import { READER_EDITORIAL_POLICY_VERSION } from "./editorial-reader";
 import { EVIDENCE_FIRST_PIPELINE_VERSION, COMPOSITION_SCHEMA_VERSION, EVENT_LOCK_SCHEMA_VERSION } from "./evidence-first/contracts";
 import { V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION, V2_PIPELINE_VERSION, V2_POLICY_VERSION, V2_PROMPT_VERSION } from "./factory-v2/contracts";
 import { V2_B_PIPELINE_VERSION, V2_B_SCHEMA_VERSION, V2_B_SELECTION_POLICY_VERSION } from "./factory-v2/contracts/assembly";
+import { COMMUNITY_IDENTITY_POLICY_VERSION, COMMUNITY_IDENTITY_REGISTRY_VERSION } from "./factory-v2/community-identity";
 import { payloadHash } from "./factory-v2/hashing";
 import { SOURCE_AUTHORITY_POLICY_VERSION } from "./source-authority";
 import { tier1SecurityGateBundle, tier1SecurityGateBundleSchema } from "./security-gate";
@@ -20,6 +21,7 @@ export const generationReleaseManifestSchema = z.object({
   generationCapability: z.literal(EVIDENCE_FIRST_PIPELINE_VERSION),
   legacyPipelineVersion: z.literal(PIPELINE_VERSION),
   knowledgeBundle: z.object({ pipelineVersion: z.literal(V2_PIPELINE_VERSION), policyVersion: z.literal(V2_POLICY_VERSION), promptVersion: z.literal(V2_PROMPT_VERSION), schemaVersion: z.literal(V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION) }).strict(),
+  communityIdentityBundle: z.object({ registryVersion: z.literal(COMMUNITY_IDENTITY_REGISTRY_VERSION), policyVersion: z.literal(COMMUNITY_IDENTITY_POLICY_VERSION) }).strict(),
   selectionBundle: z.object({ pipelineVersion: z.literal(V2_B_PIPELINE_VERSION), policyVersion: z.literal(V2_B_SELECTION_POLICY_VERSION), schemaVersion: z.literal(V2_B_SCHEMA_VERSION) }).strict(),
   compositionBundle: z.object({ eventLockSchemaVersion: z.literal(EVENT_LOCK_SCHEMA_VERSION), compositionSchemaVersion: z.literal(COMPOSITION_SCHEMA_VERSION) }).strict(),
   institutionalGateBundle: z.object({ promptVersion: z.literal(PROMPT_VERSION), generatedTimelineSchemaVersion: z.literal(SCHEMA_VERSION), timelineQualityPolicyVersion: z.literal(QUALITY_POLICY_VERSION), sourceAuthorityPolicyVersion: z.literal(SOURCE_AUTHORITY_POLICY_VERSION), readerPolicyVersion: z.literal(READER_EDITORIAL_POLICY_VERSION), governancePolicyVersion: z.literal(GOVERNANCE_POLICY_VERSION) }).strict()
@@ -46,6 +48,7 @@ export function buildGenerationReleaseManifest(input: {
     generationCapability: EVIDENCE_FIRST_PIPELINE_VERSION,
     legacyPipelineVersion: PIPELINE_VERSION,
     knowledgeBundle: { pipelineVersion: V2_PIPELINE_VERSION, policyVersion: V2_POLICY_VERSION, promptVersion: V2_PROMPT_VERSION, schemaVersion: V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION },
+    communityIdentityBundle: { registryVersion: COMMUNITY_IDENTITY_REGISTRY_VERSION, policyVersion: COMMUNITY_IDENTITY_POLICY_VERSION },
     selectionBundle: { pipelineVersion: V2_B_PIPELINE_VERSION, policyVersion: V2_B_SELECTION_POLICY_VERSION, schemaVersion: V2_B_SCHEMA_VERSION },
     compositionBundle: { eventLockSchemaVersion: EVENT_LOCK_SCHEMA_VERSION, compositionSchemaVersion: COMPOSITION_SCHEMA_VERSION },
     institutionalGateBundle: { promptVersion: PROMPT_VERSION, generatedTimelineSchemaVersion: SCHEMA_VERSION, timelineQualityPolicyVersion: QUALITY_POLICY_VERSION, sourceAuthorityPolicyVersion: SOURCE_AUTHORITY_POLICY_VERSION, readerPolicyVersion: READER_EDITORIAL_POLICY_VERSION, governancePolicyVersion: GOVERNANCE_POLICY_VERSION }

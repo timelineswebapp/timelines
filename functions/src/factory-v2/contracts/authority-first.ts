@@ -10,10 +10,10 @@ const strings = (maximum: number, itemMaximum = 240) => z.array(boundedText(1, i
  * Evidence-derived completion successor.  Historical routing artifacts remain
  * parseable for provenance, but are not part of this policy's execution path.
  */
-export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.38" as const;
+export const AUTHORITY_FIRST_POLICY_VERSION = "authority-first-research.39" as const;
 /** Deterministic boundary between historical participation and source authority. */
 export const PARTY_PARTICIPANT_SEMANTICS_POLICY_VERSION = "party-participant-semantics.4" as const;
-export const AUTHORITY_REGISTRY_VERSION = "authority-registry.4" as const;
+export const AUTHORITY_REGISTRY_VERSION = "authority-registry.5" as const;
 /** Versioned admission policy for registry-governed specialist collections. */
 export const SPECIALIST_COLLECTION_PROFILE_POLICY_VERSION = "specialist-collection-profile.1" as const;
 export const CONTROLLED_RESEARCH_BUDGET_VERSION = "controlled-research-budget.1" as const;
@@ -157,6 +157,9 @@ export const protectedAvailabilityDecisionSchema = z.object({
   requirementKind: z.enum(["INDEPENDENT_SCHOLARSHIP", "PARTY_PARTICIPANT", "AFFECTED_COMMUNITY", "CUSTODIAL_COMMUNITY", "MATERIAL_JURISDICTION"]),
   requirementLabel: boundedText(1, 160),
   researchQuestionId: idSchema,
+  resolvedCommunityIdentityId: idSchema.nullable().default(null),
+  communityIdentityRegistryVersion: boundedText(1, 120).nullable().default(null),
+  communityIdentityPolicyVersion: boundedText(1, 120).nullable().default(null),
   eligibleCandidates: z.array(z.object({
     publisherVersionId: idSchema,
     eligibleRoles: z.array(authorityResearchRoleSchema.exclude(["ORIENTATION"])).min(1).max(4).refine(unique),

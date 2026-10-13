@@ -294,7 +294,12 @@ test("protected representation fails preflight when the bounded authority univer
   };
   assert.throws(
     () => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: protectedMap, publishers, proposals: validProposals() }),
-    /PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:question-chronology:AFFECTED_COMMUNITY/
+    (error: unknown) => {
+      assert.ok(error instanceof ProtectedRepresentationAvailabilityError);
+      assert.equal(error.diagnostic.communityIdentityResolution?.rejectionReason, "UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY");
+      assert.ok(error.diagnostic.communityCapacityEvaluations?.every((item) => item.accepted === false && item.rejectionReason === "UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY"));
+      return /PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:question-chronology:AFFECTED_COMMUNITY/.test(error.message);
+    }
   );
 });
 
@@ -349,12 +354,11 @@ test("protected Registry completion admits only declared party and community cap
   assert.equal(party.proposals[0]!.subjectRelationship, "STATE_PARTY");
   assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: partyMap, publishers: [uk], proposals: party.proposals, protectedAvailabilityDecisions: party.decisions, requiredQuestionIds: ["question-chronology"] }));
 
-  const recordsHolder = { ...publisher("National Archives and Records Administration"), independenceGroupId: "publisher-community-records-holder", affectedCommunityEvidenceCapacities: [{ capacityId: "affected-community-evidence-capacity-test", representedCommunity: "Named affected community", communityAliases: ["Affected community"], period: { startYear: 1960, endYear: 1970 }, geography: ["United States"], collectionScope: "A bounded, verified collection of attributable first-person affected-community testimony.", recordTypes: ["oral-history testimony"], permittedResearchRoles: ["PERSPECTIVE_TESTIMONY" as const], provenance: "The repository's official collection record identifies testimony created by members of the represented community.", verificationSources: ["https://archives.gov/"], accessLimitations: [] }] };
+  const recordsHolder = { ...publisher("National Archives and Records Administration"), independenceGroupId: "publisher-community-records-holder", affectedCommunityEvidenceCapacities: [{ capacityId: "affected-community-evidence-capacity-test", communityIdentityId: "community-identity-test", representedCommunity: "Named affected community", communityAliases: ["Affected community"], period: { startYear: 1960, endYear: 1970 }, geography: ["United States"], collectionScope: "A bounded, verified collection of attributable first-person affected-community testimony.", recordTypes: ["oral-history testimony"], permittedResearchRoles: ["PERSPECTIVE_TESTIMONY" as const], provenance: "The repository's official collection record identifies testimony created by members of the represented community.", verificationSources: ["https://archives.gov/"], accessLimitations: [] }] };
   const communityMap = withRequirement("AFFECTED_COMMUNITY", "Named affected community");
   const completed = completeProtectedAvailabilityProposals({ scope, researchMap: communityMap, publishers: [recordsHolder], proposals: [], requiredQuestionIds: ["question-chronology"] });
-  assert.equal(completed.decisions[0]!.selectionMethod, "DETERMINISTIC_UNIQUE");
-  assert.equal(completed.proposals[0]!.subjectRelationship, "COMMUNITY_EVIDENCE_RECORDS_HOLDER");
-  assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: communityMap, publishers: [recordsHolder], proposals: completed.proposals, protectedAvailabilityDecisions: completed.decisions, requiredQuestionIds: ["question-chronology"] }));
+  assert.equal(completed.decisions[0]!.selectionMethod, "NO_ELIGIBLE_CAPACITY");
+  assert.equal(completed.proposals.length, 0, "an undeclared model label cannot create a governed community identity");
 
   const custodialMap = withRequirement("CUSTODIAL_COMMUNITY", "Named affected community");
   const noCustodialCapacity = completeProtectedAvailabilityProposals({ scope, researchMap: custodialMap, publishers: [recordsHolder], proposals: [], requiredQuestionIds: ["question-chronology"] });
@@ -427,8 +431,8 @@ test("supporting historical perspectives do not require predictive route proof b
     historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY" as const, label: "Affected local community", rationale: "The community directly experienced the program and its consequences." }]
   };
   const mapWithRequiredPerspective = { ...map, questions: [...map.questions, perspectiveBearingSupportingQuestion] };
-  const communityHolder = { ...publisher("National Archives and Records Administration"), independenceGroupId: "publisher-affected-community-holder", affectedCommunityEvidenceCapacities: [{ capacityId: "affected-community-evidence-capacity-supporting-test", representedCommunity: "Affected local community", communityAliases: [], period: { startYear: 1960, endYear: 1972 }, geography: ["United States"], collectionScope: "A bounded collection of attributable community testimony relevant to the supporting research question.", recordTypes: ["oral-history testimony"], permittedResearchRoles: ["PERSPECTIVE_TESTIMONY" as const], provenance: "Official collection documentation establishes attributable testimony from the represented affected community.", verificationSources: ["https://archives.gov/"], accessLimitations: [] }] };
-  const set = buildTopicAuthoritySet({
+  const communityHolder = { ...publisher("National Archives and Records Administration"), independenceGroupId: "publisher-affected-community-holder", affectedCommunityEvidenceCapacities: [{ capacityId: "affected-community-evidence-capacity-supporting-test", communityIdentityId: "community-identity-supporting-test", representedCommunity: "Affected local community", communityAliases: [], period: { startYear: 1960, endYear: 1972 }, geography: ["United States"], collectionScope: "A bounded collection of attributable community testimony relevant to the supporting research question.", recordTypes: ["oral-history testimony"], permittedResearchRoles: ["PERSPECTIVE_TESTIMONY" as const], provenance: "Official collection documentation establishes attributable testimony from the represented affected community.", verificationSources: ["https://archives.gov/"], accessLimitations: [] }] };
+  assert.throws(() => buildTopicAuthoritySet({
     context: TEST_CONTEXT,
     scope,
     researchMap: mapWithRequiredPerspective,
@@ -440,10 +444,7 @@ test("supporting historical perspectives do not require predictive route proof b
       roles: ["PERSPECTIVE_TESTIMONY"],
       affectedCommunityEvidenceCapacityIds: ["affected-community-evidence-capacity-supporting-test"]
     })]
-  });
-  assert.equal(set.routingObligationSetId, null);
-  assert.deepEqual(set.obligationRoutes, []);
-  assert.equal(set.criticalQuestionIds.includes("question-community"), false);
+  }), /PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT/);
 });
 
 test("initial authority planning includes contested questions but does not promote a supporting perspective to predictive routing", () => {
