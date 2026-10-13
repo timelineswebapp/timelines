@@ -16,7 +16,7 @@ import {
   sameCanonicalEvent,
   temporalIntervalsCompatible
 } from "./contracts/builders";
-import { acquisitionDiscoverySchema, deadlineTerminalRecordSchema, hasDirectHistoricalActionBasis, researchMapSchema } from "./contracts";
+import { acquisitionDiscoverySchema, deadlineTerminalRecordSchema, hasDirectHistoricalActionBasis, researchMapSchema, v2FailureRecordSchema } from "./contracts";
 import { payloadHash, verifyPayloadHash } from "./hashing";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
 
@@ -71,6 +71,24 @@ test("deadline terminal evidence is sealed before strict validation", () => {
     protectedStateParity: "PENDING_EXTERNAL_VERIFICATION"
   });
   assert.equal(verifyPayloadHash(terminal), true);
+});
+
+test("protected-community failure diagnostics retain the governed records-holder relationship", () => {
+  const artifactId = "failure-community-records-holder-regression";
+  const failure = parseSealedArtifact(v2FailureRecordSchema, {
+    ...immutableEnvelope(TEST_CONTEXT, artifactId),
+    failureRecordId: artifactId,
+    stage: "A2_SCOPE_ACQUISITION",
+    failureClass: "SOURCE_AUTHORITY_INSUFFICIENT",
+    severity: "HIGH",
+    retryable: false,
+    message: "The bounded affected-community evidence capacity is unavailable.",
+    protectedRepresentationDiagnostics: {
+      requirementId: "perspective-requirement-community", requirementKind: "AFFECTED_COMMUNITY", canonicalLabel: "Affected community", researchMapId: "research-map-community", researchQuestionId: "question-community", phaseIds: ["phase-community"], dimensionIds: ["dimension-community"], requiredRoles: ["PERSPECTIVE_TESTIMONY"], permittedSubjectRelationships: ["COMMUNITY_EVIDENCE_RECORDS_HOLDER"], historicalJurisdiction: null, eligibleCandidates: [], registryVersion: "authority-registry.4", policyVersion: "authority-first-research.37", releaseIdentity: null
+    },
+    blockingArtifactIds: [], attemptsConsumed: 0, budgetConsumed: {}
+  });
+  assert.equal(failure.protectedRepresentationDiagnostics?.permittedSubjectRelationships[0], "COMMUNITY_EVIDENCE_RECORDS_HOLDER");
 });
 
 test("Research Map validates every required phase and dimension against questions", () => {

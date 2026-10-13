@@ -701,7 +701,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
         questionId,
         gapObligationIds,
         requiredRoles: ["PRIMARY_RECORD", "CORROBORATION"],
-        permittedSubjectRelationships: ["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"],
+        permittedSubjectRelationships: ["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN", "COMMUNITY_EVIDENCE_RECORDS_HOLDER"],
         minimumIndependentGroups: 0
       })),
       candidateCeiling: 4

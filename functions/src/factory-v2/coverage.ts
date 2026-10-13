@@ -272,7 +272,7 @@ export function buildGapObligations(input: {
     const conflictGap = gap.code === "MATERIAL_CONFLICT_BLOCKS_COVERAGE";
     const requiredRoles = perspectiveGap ? ["PERSPECTIVE_TESTIMONY", "INTERPRETATION"] as const : conflictGap ? ["CORROBORATION", "INTERPRETATION"] as const : ["PRIMARY_RECORD", "CORROBORATION"] as const;
     const permittedSubjectRelationships = historicalRequirements.some((requirement) => requirement.kind === "AFFECTED_COMMUNITY" || requirement.kind === "CUSTODIAL_COMMUNITY")
-      ? ["COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"] as const
+      ? ["COMMUNITY_EVIDENCE_RECORDS_HOLDER", "COMMUNITY_CUSTODIAN", "PARTICIPANT", "INDEPENDENT"] as const
       : historicalRequirements.some((requirement) => requirement.kind === "PARTY_PARTICIPANT")
         ? ["STATE_PARTY", "PARTICIPANT", "INDEPENDENT"] as const
         : ["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"] as const;

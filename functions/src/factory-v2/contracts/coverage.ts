@@ -104,7 +104,7 @@ export const gapObligationSchema = z.object({
   deficiencyCode: boundedText(3, 120),
   materialReason: boundedText(10, 1200),
   requiredRoles: z.array(z.enum(["PRIMARY_RECORD", "CORROBORATION", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"])).min(1).max(4).refine(unique),
-  permittedSubjectRelationships: z.array(z.enum(["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"])).min(1).max(5).refine(unique),
+  permittedSubjectRelationships: z.array(z.enum(["INDEPENDENT", "SUBJECT_SELF", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN", "COMMUNITY_EVIDENCE_RECORDS_HOLDER"])).min(1).max(6).refine(unique),
   minimumIndependentGroups: z.number().int().min(0).max(4),
   candidatePublisherVersionIds: ids(60),
   specialistCollectionProfileIds: ids(60),

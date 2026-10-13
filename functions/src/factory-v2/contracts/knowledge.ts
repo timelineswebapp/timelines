@@ -525,7 +525,7 @@ export const v2FailureRecordSchema = z.object({
     phaseIds: z.array(idSchema).min(1).max(8).refine(unique),
     dimensionIds: z.array(idSchema).min(1).max(8).refine(unique),
     requiredRoles: z.array(z.enum(["PRIMARY_RECORD", "CORROBORATION", "INTERPRETATION", "PERSPECTIVE_TESTIMONY"])).min(1).max(4).refine(unique),
-    permittedSubjectRelationships: z.array(z.enum(["INDEPENDENT", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"])).min(1).max(4).refine(unique),
+    permittedSubjectRelationships: z.array(z.enum(["INDEPENDENT", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN", "COMMUNITY_EVIDENCE_RECORDS_HOLDER"])).min(1).max(5).refine(unique),
     historicalJurisdiction: boundedText(2, 160).nullable(),
     eligibleCandidates: z.array(z.object({ publisherVersionId: idSchema, capacityIds: z.array(idSchema).max(24).refine(unique), rejectionReason: boundedText(2, 500) }).strict()).max(60),
     registryVersion: boundedText(2, 120),
