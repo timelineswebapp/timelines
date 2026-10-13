@@ -7,6 +7,7 @@ import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { authorizeSearchQueries, normalizeSearchQuery, type QueryAuthorizationDecision, type SearchQueryCandidate } from "./query-authorization";
 import { authorityFamilyForPublisher, defaultSubjectRelationship, isInitialAuthorityRequiredQuestion, requiresProtectedPreAcquisitionAvailability, type RoutingEligibleCandidate } from "./authority-first";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
+import { ProviderCapacityController, ProviderCapacityError, type ProviderAttemptTelemetry, type ProviderCapacityPolicy } from "./provider-capacity";
 
 type ProviderResponse = {
   text?: string | (() => string);
@@ -20,7 +21,11 @@ export type V2GenerateRequest = {
   config: Record<string, unknown>;
 };
 
-export type V2ModelProvider = { generateContent(request: V2GenerateRequest): Promise<ProviderResponse> };
+export type V2ProviderOperation = { logicalOperationId: string; stage: string; deadlineAt: number };
+export type V2ModelProvider = {
+  generateContent(request: V2GenerateRequest, operation?: V2ProviderOperation): Promise<ProviderResponse>;
+  providerAttemptTelemetry?: () => readonly ProviderAttemptTelemetry[];
+};
 
 export class StructuredStageError extends Error {
   constructor(message: string, readonly executions: ReturnType<typeof buildExecution>[], options?: ErrorOptions) {
@@ -434,6 +439,24 @@ function defaultProvider(): V2ModelProvider {
   return { generateContent: (request) => ai.models.generateContent(request as never) as Promise<ProviderResponse> };
 }
 
+/** The only production provider adapter used by a V2-A run.  Test providers
+ * remain injectable, while real Vertex calls share one capacity budget. */
+export function createCapacityControlledProvider(input: { context: ArtifactContext; policy: ProviderCapacityPolicy; deadlineAt: number }): V2ModelProvider {
+  const raw = defaultProvider();
+  const controller = new ProviderCapacityController({
+    runId: input.context.runId, topicId: input.context.topicId, project: PROJECT_ID,
+    model: VERTEX_MODEL, location: VERTEX_LOCATION, policy: input.policy
+  });
+  return {
+    generateContent: (request, operation) => controller.execute({
+      logicalOperationId: operation?.logicalOperationId || `${input.context.runId}:UNSPECIFIED`,
+      stage: operation?.stage || "UNSPECIFIED", deadlineAt: operation?.deadlineAt || input.deadlineAt,
+      run: () => raw.generateContent(request)
+    }),
+    providerAttemptTelemetry: () => controller.telemetry
+  };
+}
+
 function buildExecution(input: { context: ArtifactContext; stage: "SCOPE" | "RESEARCH_MAP" | "AUTHORITY_ROUTING" | "QUERY_PLAN" | "GROUNDING" | "CLAIM_EXTRACTION"; prompt: string; response: string; startedAt: number; usage: ProviderResponse["usageMetadata"]; repairAttempt: number; transportAttempts: number; inputArtifactIds?: string[]; queries?: string[]; chunkCount?: number; supportCount?: number; validationState: "VALID" | "INVALID" | "REPAIRED" | "FAILED" }) {
   const promptHash = sha256(input.prompt);
   const responseHash = sha256(input.response);
@@ -509,7 +532,8 @@ async function structuredCall<T>(input: { context: ArtifactContext; provider?: V
       try {
         const stageTimeoutMs = input.stage === "CLAIM_EXTRACTION" ? 60_000 : input.stage === "RESEARCH_MAP" ? 90_000 : 60_000;
         if (transportAttempt > 1 && input.supervisor) input.supervisor.assertMayStartRetry(`provider:${input.stage}`, stageTimeoutMs);
-        const response = await boundedProviderCall(() => provider.generateContent({ model: VERTEX_MODEL, contents: prompt, config: { responseMimeType: "application/json", responseJsonSchema: input.jsonSchema, temperature: 0, maxOutputTokens: input.stage === "RESEARCH_MAP" ? 8_000 : input.stage === "CLAIM_EXTRACTION" ? 4_000 : 8_000, thinkingConfig: { thinkingBudget: 0 }, abortSignal: deadlineSignal(stageTimeoutMs, input.deadlineAt, input.supervisor) } }), stageTimeoutMs, input.deadlineAt, input.supervisor, `provider:${input.stage}:${repairAttempt}:${transportAttempt}`);
+        const logicalOperationId = `${input.context.runId}:${input.stage}:${repairAttempt}`;
+        const response = await boundedProviderCall(() => provider.generateContent({ model: VERTEX_MODEL, contents: prompt, config: { responseMimeType: "application/json", responseJsonSchema: input.jsonSchema, temperature: 0, maxOutputTokens: input.stage === "RESEARCH_MAP" ? 8_000 : input.stage === "CLAIM_EXTRACTION" ? 4_000 : 8_000, thinkingConfig: { thinkingBudget: 0 }, abortSignal: deadlineSignal(stageTimeoutMs, input.deadlineAt, input.supervisor) } }, { logicalOperationId, stage: input.stage, deadlineAt: input.deadlineAt || Date.now() + stageTimeoutMs }), stageTimeoutMs, input.deadlineAt, input.supervisor, `provider:${input.stage}:${repairAttempt}:${transportAttempt}`);
         const body = responseText(response);
         try {
           const value = input.schema.parse(JSON.parse(body));
@@ -523,6 +547,9 @@ async function structuredCall<T>(input: { context: ArtifactContext; provider?: V
         }
       } catch (error) {
         if (error instanceof WholeRunDeadlineExceededError || (input.deadlineAt !== undefined && Date.now() >= input.deadlineAt)) throw new Error("WHOLE_RUN_DEADLINE_EXCEEDED", { cause: error });
+        // Capacity retries are owned solely by ProviderCapacityController.
+        // Never multiply its bounded policy with a stage-local retry loop.
+        if (error instanceof ProviderCapacityError) throw error;
         lastError = error;
         const status = (error as { status?: number }).status;
         if (typeof status === "number" && status >= 400 && status < 500 && status !== 429) throw error;
@@ -829,11 +856,12 @@ export async function runGroundedAcquisition(input: { context: ArtifactContext; 
   for (attempts = 1; attempts <= 3; attempts += 1) {
     try {
       if (attempts > 1 && input.supervisor) input.supervisor.assertMayStartRetry("provider:GROUNDING", 90_000);
-      response = await boundedProviderCall(() => provider.generateContent({ model: VERTEX_MODEL, contents: prompt, config: { tools: [{ googleSearch: {} }], temperature: 0, maxOutputTokens: 4_000, abortSignal: deadlineSignal(90_000, input.deadlineAt, input.supervisor) } }), 90_000, input.deadlineAt, input.supervisor, `provider:GROUNDING:${attempts}`);
+      response = await boundedProviderCall(() => provider.generateContent({ model: VERTEX_MODEL, contents: prompt, config: { tools: [{ googleSearch: {} }], temperature: 0, maxOutputTokens: 4_000, abortSignal: deadlineSignal(90_000, input.deadlineAt, input.supervisor) } }, { logicalOperationId: `${input.context.runId}:GROUNDING:${input.query.queryId}`, stage: "GROUNDING", deadlineAt: input.deadlineAt || Date.now() + 90_000 }), 90_000, input.deadlineAt, input.supervisor, `provider:GROUNDING:${attempts}`);
       body = responseText(response);
       break;
     } catch (error) {
       if (error instanceof WholeRunDeadlineExceededError || (input.deadlineAt !== undefined && Date.now() >= input.deadlineAt)) throw new Error("WHOLE_RUN_DEADLINE_EXCEEDED", { cause: error });
+      if (error instanceof ProviderCapacityError) throw error;
       if (attempts === 3) throw error;
     }
   }

@@ -9,12 +9,13 @@ import { contentAddressedId, payloadHash, sha256 } from "./hashing";
 import { performBoundedReconnaissance } from "./reconnaissance";
 import { eventWithinLockedScope, resolveEntityCandidate, resolveEventCandidate } from "./resolution";
 import { V2FirestoreRepository } from "./repositories/firestore";
-import { extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, selectRoutingObligationBatch, StructuredStageError, type V2ModelProvider } from "./vertex";
+import { createCapacityControlledProvider, extractAtomicClaims, generateResearchMap, generateTopicAuthorityProposals, proposeScope, runGroundedAcquisition, selectRoutingObligationBatch, StructuredStageError, type V2ModelProvider } from "./vertex";
 import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion, selectEvidencePacket, selectIndependentCoverageCandidates, selectUsableCoverageCandidates, type DiscoveredSourceCandidate } from "./reliability";
 import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, completeProtectedAvailabilityProposals, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 import { classifyCompletionYield, decideCompletionFallback, sealCompletionAuthorityUniverse, type CompletionAuthorityRequirement } from "./completion-fallback";
+import type { ProviderAttemptTelemetry } from "./provider-capacity";
 
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
 
@@ -86,6 +87,9 @@ export type V2ACertificationMetrics = {
   modelRepairAttempts: number;
   infrastructureRetries: number;
   providerCalls: number;
+  providerCapacityFailures: number;
+  circuitOpenings: number;
+  providerAttemptTelemetry: ProviderAttemptTelemetry[];
   stageLatencyMs: Record<string, number>;
   providerQueries: string[];
   inputTokens: number | null;
@@ -401,6 +405,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const context: ArtifactContext = continuation
     ? continuation.context
     : { corpusId: repository.activeCorpusId(), topicId: expectedTopicId, runId: randomUUID(), generation: 1, createdAt: new Date().toISOString() };
+  // A run owns one real provider adapter. Every Factory V2 generation stage
+  // shares this admission controller; injected providers remain test-only.
+  const { policyVersion: _providerPolicyVersion, ...providerCapacityPolicy } = config.providerCapacityPolicy;
+  const provider = dependencies.provider || createCapacityControlledProvider({ context, policy: providerCapacityPolicy, deadlineAt: configuredDeadlineAt });
   dependencies.onRunStarted?.(context);
   const topicId = context.topicId;
   if (continuation) {
@@ -485,7 +493,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
 
   const scopeResult = continuation
     ? { scope: continuation.scope, executions: [] }
-    : await proposeScope({ context, title: descriptor.title, language: descriptor.language, ongoingAsOf: descriptor.ongoingAsOf, reconnaissance: { classification: "NO_LEGACY_CONTENT_REUSE", existingKnowledgeWillBeInspectedAfterScopeLock: true }, provider: dependencies.provider, deadlineAt, supervisor });
+    : await proposeScope({ context, title: descriptor.title, language: descriptor.language, ongoingAsOf: descriptor.ongoingAsOf, reconnaissance: { classification: "NO_LEGACY_CONTENT_REUSE", existingKnowledgeWillBeInspectedAfterScopeLock: true }, provider, deadlineAt, supervisor });
   modelExecutions.push(...scopeResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of scopeResult.executions) await persist("v2ModelExecutions", execution);
   if (!continuation) {
@@ -501,7 +509,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   assertDeadline();
   const mapResult = continuation
     ? { map: continuation.researchMap, executions: [] }
-    : await generateResearchMap({ context, scope: scopeResult.scope, reconnaissance, provider: dependencies.provider, deadlineAt, supervisor });
+    : await generateResearchMap({ context, scope: scopeResult.scope, reconnaissance, provider, deadlineAt, supervisor });
   modelExecutions.push(...mapResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of mapResult.executions) await persist("v2ModelExecutions", execution);
   await persist("v2ResearchMaps", mapResult.map);
@@ -511,7 +519,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   // .16 deliberately has no pre-acquisition route-selection, batching, or
   // repair phase. The bounded authority set is an acquisition universe, not
   // evidence of perspective sufficiency.
-  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: [], provider: dependencies.provider, deadlineAt, supervisor });
+  const authorityProposalResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers, requiredQuestionIds: requiredAuthorityQuestionIds, routingObligations: [], provider, deadlineAt, supervisor });
   modelExecutions.push(...authorityProposalResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
   for (const execution of authorityProposalResult.executions) await persist("v2ModelExecutions", execution);
   const protectedAvailability = completeProtectedAvailabilityProposals({
@@ -533,7 +541,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       publishers,
       obligations: unresolvedBatch.map((items) => items[0]!).map((candidate) => ({ routingObligationId: candidate.requirementId, researchQuestionId: candidate.researchQuestionId, requirementKind: candidate.requirementKind, label: candidate.requirementLabel, rationale: "Locked protected availability requires selection from the already eligible Registry candidate set." })),
       candidates: unresolvedBatch.flat().map((candidate) => ({ routingObligationId: candidate.requirementId, researchQuestionId: candidate.researchQuestionId, publisherVersionId: candidate.publisherVersionId, eligibleRoles: candidate.eligibleRoles, subjectRelationship: candidate.subjectRelationship, authorityFamily: candidate.authorityFamily, independenceGroupId: publishers.find((publisher) => publisher.publisherVersionId === candidate.publisherVersionId)!.independenceGroupId, specialistCollectionProfileIds: [] })),
-      provider: dependencies.provider,
+      provider,
       deadlineAt,
       supervisor
     });
@@ -611,7 +619,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const queryId = contentAddressedId("authority-escalation-query", { escalationDecisionId: decision.escalationDecisionId, questionId: question.questionId });
     let acquisition: Awaited<ReturnType<typeof runGroundedAcquisition>>;
     try {
-      acquisition = await runGroundedAcquisition({ context, provider: dependencies.provider, deadlineAt, supervisor, query: {
+      acquisition = await runGroundedAcquisition({ context, provider, deadlineAt, supervisor, query: {
         queryId, researchQuestionIds: [question.questionId], role: "AUTHORITY_TARGETED", intendedSourceClass: "PRIMARY_INSTITUTIONAL", aliasesAndTerms: [scopeResult.scope.title], language: descriptor.language,
         geography: question.geography.length > 0 ? question.geography.slice(0, 8) : ["International"], providerQuery: buildRegisteredAuthorityGroundingQuery({ title: scopeResult.scope.title, question: question.text, verifiedDomains: registeredDomains }), providerReportedQueries: [], budgetUnits: 1, resultArtifactIds: []
       } });
@@ -624,7 +632,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const expansionPublishers = registeredGroundingExpansionPublishers({ set: topicAuthoritySet, publishers, researchQuestionId: question.questionId, references: acquisition.chunks });
     if (expansionPublishers.length > 0) {
       try {
-        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], routingObligations: [], maximumRepairs: 0, provider: dependencies.provider, deadlineAt, supervisor });
+        const expansionResult = await generateTopicAuthorityProposals({ context, scope: scopeResult.scope, map: mapResult.map, publishers: expansionPublishers, requiredQuestionIds: [question.questionId], routingObligations: [], maximumRepairs: 0, provider, deadlineAt, supervisor });
         modelExecutions.push(...expansionResult.executions.map((execution) => modelExecutionSchema.parse(execution)));
         for (const execution of expansionResult.executions) await persist("v2ModelExecutions", execution);
         const parentTopicAuthoritySetId = topicAuthoritySet.topicAuthoritySetId;
@@ -989,7 +997,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   const extractOne = async ({ result, question, packet }: typeof standardClaimInputs[number]) => {
     try {
       assertDeadline();
-      return await extractAtomicClaims({ context, scope: scopeResult.scope, sourceSnapshotId: result.snapshot.sourceSnapshotId, segments: packet.segments, question, provider: dependencies.provider, deadlineAt, supervisor });
+      return await extractAtomicClaims({ context, scope: scopeResult.scope, sourceSnapshotId: result.snapshot.sourceSnapshotId, segments: packet.segments, question, provider, deadlineAt, supervisor });
     } catch (error) {
       claimExtractionFailures += 1;
       const message = (error instanceof Error ? error.message : String(error)).slice(0, 1900);
@@ -1378,7 +1386,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     resolvedCanonicalEventCandidates: events.filter((event) => event.semanticClass === "EVENT" && event.canonicalizationState === "RESOLVED").length,
     nonEventKnowledgeItems: events.filter((event) => event.semanticClass !== "EVENT").length, eventDispositionDistribution: distribution(events.map((event) => `${event.semanticClass}:${event.canonicalizationState}`)), eventResolutionDiagnostics: Object.fromEntries([...eventResolutionDiagnostics.entries()].sort()), reusedExistingKnowledge: reconnaissance.reuseClassifications.filter((item) => item.classification === "REUSE_DIRECTLY").length,
     newKnowledge: claims.length + entities.length + events.length, modelRepairAttempts: tokenMetrics.repairs, infrastructureRetries: tokenMetrics.retries,
-    providerCalls: modelExecutions.reduce((total, execution) => total + execution.transportAttempts, 0), stageLatencyMs, providerQueries: controlledOperations.flatMap((operation) => operation.providerInternalQueries),
+    providerCalls: modelExecutions.reduce((total, execution) => total + execution.transportAttempts, 0), providerCapacityFailures: (provider.providerAttemptTelemetry?.() || []).filter((item) => item.classification !== null).length, circuitOpenings: (provider.providerAttemptTelemetry?.() || []).filter((item) => item.circuitState === "OPEN").length, providerAttemptTelemetry: [...(provider.providerAttemptTelemetry?.() || [])], stageLatencyMs, providerQueries: controlledOperations.flatMap((operation) => operation.providerInternalQueries),
     inputTokens: tokenMetrics.input, outputTokens: tokenMetrics.output, monetaryCost: null, monetaryCostMeasurement: "NOT_MEASURABLE", firestoreWrites, cloudStorageWrites,
     finalV2AVerdict: blockingReasons.length === 0 ? "PASS" : "FAIL"
   };
@@ -1500,7 +1508,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       entityCandidates: progress.entityCandidates, resolvedEntities: progress.resolvedEntities, eventCandidates: progress.eventCandidates,
       resolvedCanonicalEventCandidates: progress.resolvedCanonicalEventCandidates, nonEventKnowledgeItems: progress.nonEventKnowledgeItems,
       eventDispositionDistribution: {}, eventResolutionDiagnostics: {}, reusedExistingKnowledge: 0, newKnowledge: progress.claimsExtracted + progress.entityCandidates + progress.eventCandidates,
-      modelRepairAttempts: tokenMetrics.repairs, infrastructureRetries: tokenMetrics.retries, providerCalls: modelExecutions.reduce((total, execution) => total + execution.transportAttempts, 0),
+      modelRepairAttempts: tokenMetrics.repairs, infrastructureRetries: tokenMetrics.retries, providerCalls: modelExecutions.reduce((total, execution) => total + execution.transportAttempts, 0), providerCapacityFailures: (provider.providerAttemptTelemetry?.() || []).filter((item) => item.classification !== null).length, circuitOpenings: (provider.providerAttemptTelemetry?.() || []).filter((item) => item.circuitState === "OPEN").length, providerAttemptTelemetry: [...(provider.providerAttemptTelemetry?.() || [])],
       stageLatencyMs: modelExecutions.reduce<Record<string, number>>((latencies, execution) => { latencies[execution.stage] = (latencies[execution.stage] || 0) + execution.latencyMs; return latencies; }, {}),
       providerQueries: progress.providerQueries, inputTokens: tokenMetrics.input, outputTokens: tokenMetrics.output, monetaryCost: null, monetaryCostMeasurement: "NOT_MEASURABLE",
       firestoreWrites, cloudStorageWrites, finalV2AVerdict: "FAIL"

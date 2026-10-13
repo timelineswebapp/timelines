@@ -6,7 +6,19 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — VERTEX_RESOURCE_EXHAUSTED`
+`PHASE_2_CAPACITY_REMEDIATION_VERIFIED — SUCCESSOR_SEAL_PENDING`
+
+## 2026-10-13 — `.61` Vertex capacity-control successor
+
+The founder-authorized provider-capacity correction is implemented as a general execution-only layer. `factory-v2-a.61` preserves Authority-First `authority-first-research.34`, model family `gemini-2.5-flash`, Vertex location `global`, all historical prompts, Registry rules, research budgets, evidence thresholds, and protected-state policy. The sealed configuration now includes `vertex-capacity-control.1`: a conservative global per-process admission ceiling of one operation per project/model/location, bounded full-jitter exponential retry with Retry-After precedence, deadline-aware retry ceiling, and CLOSED/OPEN/HALF_OPEN circuit behavior.
+
+Every real Factory V2 acquisition-generation call passes through one run-owned capacity adapter. Stage-local loops do not multiply capacity retries; a controller-exhausted capacity result is terminal infrastructure evidence, never a historical insufficiency. The adapter retains logical-operation identity across attempts and emits bounded per-attempt telemetry (run/topic/stage/model/location/project, timestamps, attempt, latency, canonical status, normalized failure class, Retry-After, calculated backoff, circuit state, and cumulative time). Aggregate report telemetry includes capacity failures, circuit openings, and the complete bounded attempt lineage; monetary cost remains `NOT_MEASURABLE` when no measured price is supplied.
+
+The failure taxonomy distinguishes `TRANSIENT_CAPACITY`, `RATE_LIMIT`, `QUOTA_EXHAUSTED`, `REGIONAL_CAPACITY`, `PROVIDER_TIMEOUT`, `PROVIDER_INTERNAL`, `AUTHENTICATION`, `INVALID_REQUEST`, and `UNKNOWN_PROVIDER_FAILURE`; generic Vertex `RESOURCE_EXHAUSTED` is classified conservatively as transient capacity, never asserted to be a quota failure. Authentication and invalid requests are non-retryable. No Provisioned Throughput, quota request, model/region change, provider addition, discovery restart, deployment, or public/institutional mutation occurred.
+
+Regression coverage verifies first-call success, 429 recovery, bounded exhaustion, Retry-After precedence, full-jitter bounds, stable logical identities, global admission sharing, half-open recovery, deadline rejection, and non-retryable authentication/invalid-request handling. Existing protected-state, immutable-artifact, and fail-closed regressions remain green. Complete local verification is green: Functions 330 passed/2 intentional skips, root 249 passed, strict root and Functions typechecks, root lint, Functions and Next production builds, Tier-1 security gate with zero high/critical production findings, `git diff --check`, Firestore emulator 6/6 under JDK 21.0.12.1, and institutional suites 68/7/7/7/8/8.
+
+The next authorized action is a clean `.61` successor seal and preflight. Only after release identity, protected-state baseline, paused discovery, disabled publication/governance, and absence of prior worker processes are verified may one fresh, non-combined four-subject Phase-2 certification begin. A controller-exhausted capacity failure remains an `INFRASTRUCTURE_FAILURE` and requires founder review; it must not trigger a blind retry.
 
 ## 2026-10-13 — `.60` positive party-action normalization successor
 

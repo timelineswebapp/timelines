@@ -72,6 +72,9 @@ function summarize(metrics: V2ACertificationMetrics[]) {
   return {
     rounds: metrics.length,
     providerCalls: sum("providerCalls"),
+    providerCapacityFailures: sum("providerCapacityFailures"),
+    circuitOpenings: sum("circuitOpenings"),
+    providerAttemptTelemetry: metrics.flatMap((item) => item.providerAttemptTelemetry),
     authorityRoutingModelCalls: sum("authorityRoutingModelCalls"),
     controlledResearchOperations: sum("controlledResearchOperations"),
     groundingEscalationCalls: sum("groundingCalls"),
