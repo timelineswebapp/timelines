@@ -362,7 +362,12 @@ export function completeContestedAvailabilityProposals(input: { researchMap: Res
       const existing = proposals.find((proposal) => proposal.publisherVersionId === candidate.publisherVersionId);
       if (existing) {
         if (!existing.researchQuestionIds.includes(question.questionId)) existing.researchQuestionIds.push(question.questionId);
-        if (!existing.roles.some((role) => role !== "ORIENTATION")) existing.roles.push(...candidate.eligibleRoles);
+        // Role eligibility belongs to the Registry-derived candidate, never to
+        // the model proposal.  An existing non-orientation role (for example a
+        // primary-record role on another question) must not suppress the
+        // interpretation/corroboration role that makes this contested binding
+        // independently admissible.
+        existing.roles.push(...candidate.eligibleRoles);
         continue;
       }
       const publisher = publisherByVersion.get(candidate.publisherVersionId)!;

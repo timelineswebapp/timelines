@@ -271,6 +271,19 @@ test("contested Registry completion supplies two independent acquisition opportu
   assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: completed.proposals, contestedAvailabilityDecisions: completed.decisions }));
 });
 
+test("contested Registry completion adds its governed corroboration role to an existing primary-record proposal", () => {
+  const nara = publisher("National Archives and Records Administration");
+  const modelOnly = [proposal("National Aeronautics and Space Administration", {}), proposal("British Library", {
+    researchQuestionIds: ["question-interpretation"], roles: ["INTERPRETATION"], claimTypes: ["INTERPRETATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["Historical collections"]
+  }), proposal("National Archives and Records Administration", {
+    researchQuestionIds: ["question-chronology", "question-interpretation"], roles: ["PRIMARY_RECORD"], claimTypes: ["OCCURRENCE", "DATE", "INTERPRETATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["Federal records"]
+  })];
+  const completed = completeContestedAvailabilityProposals({ researchMap: map, publishers, proposals: modelOnly });
+  const naraProposal = completed.proposals.find((proposal) => proposal.publisherVersionId === nara.publisherVersionId)!;
+  assert.ok(naraProposal.roles.includes("CORROBORATION"));
+  assert.doesNotThrow(() => buildTopicAuthoritySet({ context: TEST_CONTEXT, scope, researchMap: map, publishers, proposals: completed.proposals, contestedAvailabilityDecisions: completed.decisions }));
+});
+
 test("protected representation fails preflight when the bounded authority universe has no eligible family", () => {
   const protectedMap = {
     ...map,
