@@ -8,6 +8,14 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 `PHASE_2_FOUNDER_REVIEW_REQUIRED — ROUTING_COMPLETENESS_RECURRENCE`
 
+## 2026-10-13 — `.65` Phase-2 terminal evidence: governed affected-community capacity unavailable
+
+The clean `.65` release `c9699ceb3fbe7007e9223746289128f528ff5d1dd380a04f214d35b227a6f552` (source `5a0103dea4c1e777b471d95f33978093b12153f0`, `factory-v2-a.65` / `authority-first-research.38`) completed one fresh, non-combined certification at `artifacts/authority-first-acquisition-canary/2026-10-13T07-01-05-753Z/report.json`. San Francisco produced valid CKS `completed-knowledge-set-3f1d30545d934354fa4fad3c717a29a0aba5e0b351a80f34f48e3979d273a42e`, with exact protected-state parity. Two transient Vertex `429` responses recovered through the sealed capacity controller; they are not terminal capacity evidence.
+
+Berlin then failed closed in `INITIAL_ACQUISITION` on `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT` for a locked `AFFECTED_COMMUNITY` requirement. The `.65` policy already admits the governed `COMMUNITY_EVIDENCE_RECORDS_HOLDER` relationship through availability selection, binding validation, immutable diagnostics, and gap obligations. The sealed failure therefore records that no bounded registered capacity matched the locked affected-community requirement; it is not a schema, role-merge, provider-capacity, or protected-state defect. Berlin's protected-state parity is exact. Ada and Printing Press were correctly not executed after the terminal failure, and no worker remains active.
+
+This reaches the affected-community Registry-capacity founder boundary. Do not expand the Registry, alter historical requirement semantics, rerun certification, resume discovery, or perform public/institutional mutation without a new founder decision. `.65` cannot be combined with prior releases.
+
 ## 2026-10-13 — `.61` Phase-2 terminal evidence: capacity corrected; routing recurrence
 
 The clean `.61` release `34a99d8f7abb54c5fed75c98f74216403215dd495aa6c176eec0317a7a989207` (source `281923609a64cfdc2c3504122b2084947c164e0c`, `factory-v2-a.61` / `authority-first-research.34` / `vertex-capacity-control.1`) completed one fresh, non-combined Phase-2 certification at `/private/tmp/tl-tier1-seal-61/artifacts/authority-first-acquisition-canary/2026-10-13T02-10-34-210Z/report.json`.
