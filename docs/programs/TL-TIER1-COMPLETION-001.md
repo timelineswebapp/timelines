@@ -6,7 +6,7 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_SUCCESSOR_PRESEAL — AUTHORITY_FIRST_.34 POSITIVE_PARTY_ACTION_NORMALIZATION`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — VERTEX_RESOURCE_EXHAUSTED`
 
 ## 2026-10-13 — `.60` positive party-action normalization successor
 
@@ -14,7 +14,11 @@ The sealed `.59` run exposed a distinct Research Map implementation defect: afte
 
 The `.60` successor (`factory-v2-a.60` / `authority-first-research.34` / `party-participant-semantics.4`, prompt `.20`, Registry `.4`) makes the existing positive-action rule deterministic at Research Map construction. A model-declared `PARTY_PARTICIPANT` requirement is sealed only when its supplied basis positively matches the direct historical-action contract; a malformed peer is retained in the immutable provider execution observation but is excluded from the sealed map. This neither reclassifies an archive, museum, publisher, or records holder as a party nor suppresses a genuine party that meets the same direct-action contract. Requirements of every other kind remain unchanged. The correction does not expand the Registry, source universe, budgets, provider, retries, deadlines, discovery, or protected-state scope; all existing authority, independence, community, jurisdiction, corroboration, coverage, conflict, security, and final fail-closed checks remain mandatory.
 
-Full repository verification is green: Functions 322 passed/2 intentional skips; root 249 passed; strict root and Functions typechecks; root lint; Functions and Next production builds; Tier-1 security gate with zero high/critical production findings; `git diff --check`; Firestore emulator 6/6 under process-local JDK 21.0.12.1; and institutional suites 68/7/7/7/8/8. A clean release seal and one fresh non-combined four-subject Phase-2 certification are still required. `.59` evidence remains preserved and cannot be combined with `.60`.
+Full repository verification is green: Functions 322 passed/2 intentional skips; root 249 passed; strict root and Functions typechecks; root lint; Functions and Next production builds; Tier-1 security gate with zero high/critical production findings; `git diff --check`; Firestore emulator 6/6 under process-local JDK 21.0.12.1; and institutional suites 68/7/7/7/8/8.
+
+The clean `.60` seal is release `c09a946e557d85f5b8ac190514bf22294865898c72af9cfddbac32942131c142`, source `580caeba4f7bc77dbf91fde1637167d7e4866c25`, and was used for one fresh non-combined certification at `/private/tmp/tl-tier1-seal-60/artifacts/authority-first-acquisition-canary/2026-10-13T01-18-14-093Z/report.json`. San Francisco stopped in `INITIAL_ACQUISITION` after four provider calls with Vertex `429 RESOURCE_EXHAUSTED`; the report records 115,033 input tokens, 4,193 output tokens, and 120,654 ms total latency, with no authority routing, retrieval, evidence, or CKS. Berlin, Ada, and Printing Press were correctly not executed. The model was sealed as `gemini-2.5-flash` in Vertex `global`; canonical capacity handling used at most three transport attempts per call and concurrency three. The provider supplied no quota/rate/shared-capacity subtype, so classification is `RESOURCE_EXHAUSTED_UNKNOWN_CAPACITY_SUBTYPE`; requests did succeed before the terminal 429, and the failure is not subject-specific because it stopped the first subject before historical acquisition. Exact protected-state parity holds. No worker remains active.
+
+This is the same provider-capacity boundary previously reserved for founder decision: a third run, schedule, model, location, concurrency, retry, budget, or capacity-strategy alteration is not authorized. Founder review must select a production-grade capacity strategy and authorize one new, release-governed certification attempt; it must not alter historical, authority, evidence, or protected-state policy. `.59` and `.60` evidence remain preserved and cannot be combined with a successor.
 
 ## 2026-10-13 — `.59` governed affected-community evidence-capacity successor
 
