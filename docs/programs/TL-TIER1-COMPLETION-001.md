@@ -6,7 +6,11 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — ROUTING_COMPLETENESS_RECURRENCE`
+`PHASE_2_FOUNDER_REVIEW_REQUIRED — AFFECTED_COMMUNITY_REGISTRY_CAPACITY`
+
+## Current controlling boundary
+
+The current founder-review boundary is the clean `.65` release `c9699ceb3fbe7007e9223746289128f528ff5d1dd380a04f214d35b227a6f552` (source `5a0103dea4c1e777b471d95f33978093b12153f0`, `factory-v2-a.65`). Berlin failed closed in `INITIAL_ACQUISITION` with `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT` for its mandatory `AFFECTED_COMMUNITY` requirement because no bounded registered capacity matched it. San Francisco produced a valid CKS with exact protected-state parity; Berlin also retained exact protected-state parity; Ada and Printing Press were not executed. No worker remains active; discovery is paused; publication and Governance submission remain disabled. Earlier `.26`, `.58`, `.60`, and `.61` boundaries are preserved as historical evidence and are not current.
 
 ## 2026-10-13 — `.65` Phase-2 terminal evidence: governed affected-community capacity unavailable
 
@@ -242,7 +246,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | Sealed `.26` release `a0371d94…2beb9b`: San Francisco and Berlin valid CKS; Ada fail-closed in bounded gap completion after one retrieved source yielded zero claims; Printing Press not executed. Exact protected-state parity. A further source-admission/completion-policy expansion requires founder direction. |
+| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | Sealed `.65` release `c9699ceb…6f552` (source `5a0103…53f0`): San Francisco valid CKS with exact protected-state parity; Berlin failed closed in `INITIAL_ACQUISITION` with `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT` for mandatory `AFFECTED_COMMUNITY` because no bounded registered capacity matched it; Ada and Printing Press were not executed. Founder direction is required before any Registry-capacity or historical-requirement change. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -256,4 +260,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Founder review is required for the `.26` recurring bounded source-admission/evidence-bearing completion failure. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, perform public publication, or combine evidence across materially different releases.
+Founder review is required for the `.65` governed affected-community Registry-capacity boundary. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not expand the Registry, alter historical requirement semantics, lower evidence, coverage, authority, independence, conflict, or sensitivity standards, rerun certification, resume autonomous discovery, perform public publication, or combine evidence across materially different releases without a new founder decision.
