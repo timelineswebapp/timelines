@@ -335,12 +335,19 @@ async function mapLimit<T, R>(items: readonly T[], concurrency: number, task: (i
 
 /** Merges bounded authority proposals without granting semantic authority to
  * any planned historical perspective. */
-function mergeAuthorityProposals(proposals: readonly TopicAuthorityProposal[]): TopicAuthorityProposal[] {
+/**
+ * Canonically coalesces proposals for the same registered authority while
+ * preserving every independently validated capacity reference.  Capacity IDs
+ * remain scoped by their proposal's question IDs and are validated again
+ * during binding construction; this function neither manufactures nor
+ * reclassifies capacity.
+ */
+export function mergeAuthorityProposals(proposals: readonly TopicAuthorityProposal[]): TopicAuthorityProposal[] {
   const merged = new Map<string, TopicAuthorityProposal>();
   for (const proposal of proposals) {
     const existing = merged.get(proposal.publisherVersionId);
     if (!existing) {
-      merged.set(proposal.publisherVersionId, { ...proposal, researchQuestionIds: [...proposal.researchQuestionIds].sort(), roles: [...proposal.roles].sort(), claimTypes: [...proposal.claimTypes].sort(), perspectiveTags: [...proposal.perspectiveTags].sort(), historicalJurisdictionCapacityIds: [...(proposal.historicalJurisdictionCapacityIds || [])].sort(), routingObligationIds: [] });
+      merged.set(proposal.publisherVersionId, { ...proposal, researchQuestionIds: [...proposal.researchQuestionIds].sort(), roles: [...proposal.roles].sort(), claimTypes: [...proposal.claimTypes].sort(), perspectiveTags: [...proposal.perspectiveTags].sort(), historicalJurisdictionCapacityIds: [...new Set(proposal.historicalJurisdictionCapacityIds || [])].sort(), affectedCommunityEvidenceCapacityIds: [...new Set(proposal.affectedCommunityEvidenceCapacityIds || [])].sort(), routingObligationIds: [] });
       continue;
     }
     merged.set(proposal.publisherVersionId, {
@@ -350,6 +357,7 @@ function mergeAuthorityProposals(proposals: readonly TopicAuthorityProposal[]): 
       claimTypes: [...new Set([...existing.claimTypes, ...proposal.claimTypes])].sort(),
       perspectiveTags: [...new Set([...existing.perspectiveTags, ...proposal.perspectiveTags])].sort(),
       historicalJurisdictionCapacityIds: [...new Set([...(existing.historicalJurisdictionCapacityIds || []), ...(proposal.historicalJurisdictionCapacityIds || [])])].sort(),
+      affectedCommunityEvidenceCapacityIds: [...new Set([...(existing.affectedCommunityEvidenceCapacityIds || []), ...(proposal.affectedCommunityEvidenceCapacityIds || [])])].sort(),
       routingObligationIds: [],
       rationale: existing.rationale
     });

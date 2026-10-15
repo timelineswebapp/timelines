@@ -28,6 +28,7 @@ import {
   unresolvedRoutingObligationIds
 } from "./authority-first";
 import { bootstrapPublisherRegistry } from "./authority";
+import { mergeAuthorityProposals } from "./orchestrator";
 import { buildResearchMap } from "./contracts/builders";
 import type { PublisherAuthorityVersion, SpecialistCollectionProfile, TopicAuthorityProposal } from "./contracts";
 import { TEST_CONTEXT, date, scopeFixture } from "./test-fixtures";
@@ -77,6 +78,53 @@ function validProposals(): TopicAuthorityProposal[] {
     proposal("Encyclopaedia Britannica", { researchQuestionIds: ["question-chronology", "question-interpretation"], roles: ["ORIENTATION"], claimTypes: ["OCCURRENCE", "DATE", "INTERPRETATION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["International"] })
   ];
 }
+
+test("authority proposal merge preserves canonical capacity lineage without cross-publisher migration", () => {
+  const museum = publisher("Museums Tempelhof-Schöneberg");
+  const garf = publisher("State Archive of the Russian Federation");
+  const communityCapacityId = museum.affectedCommunityEvidenceCapacities[0]!.capacityId;
+  const jurisdictionCapacityId = garf.historicalJurisdictionCapacities[0]!.capacityId;
+  const merged = mergeAuthorityProposals([
+    proposal("Museums Tempelhof-Schöneberg", { researchQuestionIds: ["question-chronology"], roles: ["PERSPECTIVE_TESTIMONY"], claimTypes: ["OCCURRENCE"], subjectRelationship: "COMMUNITY_EVIDENCE_RECORDS_HOLDER", perspectiveTags: ["West Berlin Civilians"], affectedCommunityEvidenceCapacityIds: [communityCapacityId, communityCapacityId] }),
+    proposal("Museums Tempelhof-Schöneberg", { researchQuestionIds: ["question-interpretation"], roles: ["PERSPECTIVE_TESTIMONY"], claimTypes: ["INTERPRETATION"], subjectRelationship: "COMMUNITY_EVIDENCE_RECORDS_HOLDER", perspectiveTags: ["West Berlin Civilians"], affectedCommunityEvidenceCapacityIds: [communityCapacityId] }),
+    proposal("State Archive of the Russian Federation", { researchQuestionIds: ["question-chronology"], roles: ["PRIMARY_RECORD"], claimTypes: ["INSTITUTIONAL_ACTION"], subjectRelationship: "INDEPENDENT", perspectiveTags: ["Soviet Union"], historicalJurisdictionCapacityIds: [jurisdictionCapacityId] })
+  ]);
+  assert.equal(merged.length, 2);
+  const mergedMuseum = merged.find((item) => item.publisherVersionId === museum.publisherVersionId)!;
+  const mergedGarf = merged.find((item) => item.publisherVersionId === garf.publisherVersionId)!;
+  assert.deepEqual(mergedMuseum.affectedCommunityEvidenceCapacityIds, [communityCapacityId]);
+  assert.deepEqual(mergedMuseum.historicalJurisdictionCapacityIds, []);
+  assert.deepEqual(mergedMuseum.researchQuestionIds, ["question-chronology", "question-interpretation"]);
+  assert.deepEqual(mergedGarf.historicalJurisdictionCapacityIds, [jurisdictionCapacityId]);
+  assert.deepEqual(mergedGarf.affectedCommunityEvidenceCapacityIds, []);
+});
+
+test("merge cannot erase a completed affected-community capacity from an empty peer proposal", () => {
+  const museum = publisher("Museums Tempelhof-Schöneberg");
+  const capacityId = museum.affectedCommunityEvidenceCapacities[0]!.capacityId;
+  const merged = mergeAuthorityProposals([
+    proposal("Museums Tempelhof-Schöneberg", { researchQuestionIds: ["question-chronology"], roles: ["PERSPECTIVE_TESTIMONY"], claimTypes: ["OCCURRENCE"], subjectRelationship: "COMMUNITY_EVIDENCE_RECORDS_HOLDER", perspectiveTags: ["West Berlin Civilians"], affectedCommunityEvidenceCapacityIds: [capacityId] }),
+    proposal("Museums Tempelhof-Schöneberg", { researchQuestionIds: ["question-chronology"], roles: ["PRIMARY_RECORD"], claimTypes: ["OCCURRENCE"], subjectRelationship: "COMMUNITY_EVIDENCE_RECORDS_HOLDER", perspectiveTags: ["West Berlin Civilians"], affectedCommunityEvidenceCapacityIds: [] })
+  ]);
+  assert.deepEqual(merged[0]!.affectedCommunityEvidenceCapacityIds, [capacityId]);
+});
+
+test("merged selected community capacity reaches binding validation and satisfies protected availability", () => {
+  const berlinScope = scopeFixture({ chronologyStart: date(1948), chronologyEnd: date(1949) });
+  const berlinMap = buildResearchMap({ ...TEST_CONTEXT, topicId: "merge-community-capacity" }, berlinScope, {
+    version: 1,
+    phases: [{ phaseId: "phase-blockade", label: "blockade", temporalRule: "1948 through 1949", required: true, rationale: "The blockade period is required." }],
+    dimensions: [{ dimensionId: "dimension-community", label: "community experience", required: true, rationale: "Affected-community experience is required." }],
+    entities: [],
+    questions: [{ questionId: "question-community", text: "How did West Berlin residents experience the blockade?", phaseIds: ["phase-blockade"], dimensionIds: ["dimension-community"], claimTypesExpected: ["OCCURRENCE"], likelySourceClasses: ["PRIMARY_INSTITUTIONAL"], expectedAuthorities: ["Museums Tempelhof-Schöneberg"], languages: ["en", "de"], geography: ["West Berlin", "Berlin"], historicalPerspectiveRequirements: [{ kind: "AFFECTED_COMMUNITY", label: "West Berlin Residents", rationale: "First-person affected-community testimony is materially required." }], contested: false, dateCritical: false, priority: "CRITICAL", state: "UNRESEARCHED" }],
+    terminology: [], knownUncertainty: []
+  });
+  const completed = completeProtectedAvailabilityProposals({ scope: berlinScope, researchMap: berlinMap, publishers, proposals: [] });
+  const merged = mergeAuthorityProposals([...completed.proposals, proposal("Museums Tempelhof-Schöneberg", { researchQuestionIds: ["question-community"], roles: ["PRIMARY_RECORD"], claimTypes: ["OCCURRENCE"], subjectRelationship: "COMMUNITY_EVIDENCE_RECORDS_HOLDER", perspectiveTags: ["West Berlin Residents"], affectedCommunityEvidenceCapacityIds: [] })]);
+  const set = buildTopicAuthoritySet({ context: TEST_CONTEXT, scope: berlinScope, researchMap: berlinMap, publishers, proposals: merged, protectedAvailabilityDecisions: completed.decisions });
+  assert.deepEqual(set.bindings[0]!.affectedCommunityEvidenceCapacityIds, completed.decisions[0]!.selectedAffectedCommunityEvidenceCapacityIds);
+  assert.equal(set.protectedAvailabilityDecisions[0]!.resolvedCommunityIdentityId, "community-identity-west-berlin-civilians-1948-1949");
+});
 
 function collectionProfile(profileId: string, endpoint: string, contentTypes: string[]): SpecialistCollectionProfile {
   return {

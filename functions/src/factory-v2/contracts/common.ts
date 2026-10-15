@@ -2,11 +2,11 @@ import { z } from "zod";
 
 // a.48 includes every protected historical requirement in the bounded
 // Authority-First availability set before strict admission.
-export const V2_PIPELINE_VERSION = "factory-v2-a.66";
+export const V2_PIPELINE_VERSION = "factory-v2-a.67";
 export const V2_SCHEMA_VERSION = "factory-v2-a.13";
 export const V2_COMPLETED_KNOWLEDGE_SET_SCHEMA_VERSION = "factory-v2-a.13";
 export const V2_LEGACY_SCHEMA_VERSION = "factory-v2-a.3";
-export const V2_POLICY_VERSION = "authority-first-research.39";
+export const V2_POLICY_VERSION = "authority-first-research.40";
 export const V2_PROMPT_VERSION = "factory-v2-a-prompts.20";
 
 export const boundedText = (minimum: number, maximum: number) => z.string().trim().min(minimum).max(maximum);
