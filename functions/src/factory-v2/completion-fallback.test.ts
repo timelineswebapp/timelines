@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyCompletionYield, decideCompletionFallback, sealCompletionAuthorityUniverse } from "./completion-fallback";
+import { classifyCompletionYield, decideCompletionFallback, isSealedCompletionCandidate, sealCompletionAuthorityUniverse } from "./completion-fallback";
 import { semanticArtifactId } from "./contracts/builders";
 
 const classify = (overrides: Partial<Parameters<typeof classifyCompletionYield>[0]> = {}) => classifyCompletionYield({ retrieved: true, securityRejected: false, deadlineExceeded: false, budgetExhausted: false, admissibleGapClaims: 0, rejectedClaims: 0, ...overrides });
@@ -23,6 +23,10 @@ test("completion fallback: first attempt remains represented by its zero-yield r
 test("completion fallback: a completed set can carry attempt identity without changing yield", () => assert.equal(classify({ admissibleGapClaims: 1 }), "QUALIFYING_EVIDENCE"));
 test("completion fallback: terminal exhaustion is explicit", () => assert.equal(decideCompletionFallback({ yield: "RETRIEVAL_FAILED", sealedCandidatesRemaining: 0 }), "STOP_CANDIDATES_EXHAUSTED"));
 test("completion fallback: policy has no subject-specific identity", () => assert.doesNotMatch(`${classifyCompletionYield}\n${decideCompletionFallback}`, /ada lovelace/iu));
+test("completion fallback: question-relevant unsupported evidence does not qualify the obligation", () => {
+  assert.equal(classify({ admissibleGapClaims: 1, gapQualifyingClaims: 0 }), "RELEVANT_NONQUALIFYING");
+  assert.equal(decideCompletionFallback({ yield: "RELEVANT_NONQUALIFYING", sealedCandidatesRemaining: 1 }), "TRY_NEXT_SEALED_CANDIDATE");
+});
 
 const authority = (id: string, overrides: Record<string, unknown> = {}) => ({
   bindingId: `binding-${id}`, publisherVersionId: `publisher-${id}`, researchQuestionIds: ["question-1"], roles: ["CORROBORATION"], subjectRelationship: "INDEPENDENT", independenceGroupId: `group-${id}`, languages: ["en"], geography: ["United Kingdom"], historicalJurisdictionCapacityIds: [], validationStatus: "ELIGIBLE" as const, ...overrides
@@ -45,6 +49,13 @@ test("completion authority universe: registry outsiders cannot enter because onl
   const result = sealCompletionAuthorityUniverse({ bindings: [authority("bound")], requirements: [requirement], candidateCeiling: 4 });
   assert.equal(result.length, 1);
   assert.equal(result[0]!.publisherVersionId, "publisher-bound");
+});
+
+test("completion authority universe: candidate admission requires exact obligation and binding lineage", () => {
+  const sealed = sealCompletionAuthorityUniverse({ bindings: [authority("bound")], requirements: [requirement], candidateCeiling: 4 });
+  assert.equal(isSealedCompletionCandidate({ sealedCandidates: sealed, questionId: "question-1", gapObligationIds: ["gap-1"], authorityBindingId: "binding-bound", publisherVersionId: "publisher-bound" }), true);
+  assert.equal(isSealedCompletionCandidate({ sealedCandidates: sealed, questionId: "question-1", gapObligationIds: ["different-gap"], authorityBindingId: "binding-bound", publisherVersionId: "publisher-bound" }), false);
+  assert.equal(isSealedCompletionCandidate({ sealedCandidates: sealed, questionId: "question-1", gapObligationIds: ["gap-1"], authorityBindingId: "binding-outsider", publisherVersionId: "publisher-outsider" }), false);
 });
 
 test("completion authority universe: sealed pool identity uses a valid bounded content-address namespace", () => {

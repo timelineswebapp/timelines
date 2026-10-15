@@ -172,8 +172,10 @@ export async function buildCompletedKnowledge(input: {
       if (!priorAuthorityValue) throw new Error("EVIDENCE_FIRST_CONTINUATION_AUTHORITY_LINEAGE_MISSING");
       const priorTopicAuthoritySet: TopicAuthoritySet = topicAuthoritySetSchema.parse(stripRepositoryDocumentId(priorAuthorityValue));
       const gapIdsByQuestionId = new Map<string, readonly string[]>();
+      const gapObligationIdsByQuestionId = new Map<string, readonly string[]>();
       for (const task of completionPlan.tasks) for (const questionId of task.questionIds) {
         gapIdsByQuestionId.set(questionId, [...new Set([...(gapIdsByQuestionId.get(questionId) || []), ...task.gapIds])].sort());
+        gapObligationIdsByQuestionId.set(questionId, [...new Set([...(gapObligationIdsByQuestionId.get(questionId) || []), ...(task.gapObligationIds || [])])].sort());
       }
       const completionAuthorityRequirements = completionPlan.tasks.flatMap((task) => task.questionIds.map((questionId) => {
         const obligations = gapObligations.filter((obligation) => task.gapObligationIds?.includes(obligation.gapObligationId));
@@ -188,7 +190,7 @@ export async function buildCompletedKnowledge(input: {
           historicalJurisdictionCapacityIds: []
         };
       }));
-      completionResult = await runV2AShadowFixture(input.descriptor, { ...input.config, budgetBundle: budget }, { ...dependencies, continuation: { context: completionContext, originalKnowledgeRunId: initialResult.context.runId, completionPlanId: completionPlan.completionPlanId, scope: initial.scope, researchMap: completionMap, gapIdsByQuestionId, completionAuthorityRequirements, priorTopicAuthoritySet } });
+      completionResult = await runV2AShadowFixture(input.descriptor, { ...input.config, budgetBundle: budget }, { ...dependencies, continuation: { context: completionContext, originalKnowledgeRunId: initialResult.context.runId, completionPlanId: completionPlan.completionPlanId, scope: initial.scope, researchMap: completionMap, gapIdsByQuestionId, gapObligationIdsByQuestionId, completionAuthorityRequirements, priorTopicAuthoritySet } });
     } catch (error) {
       if (error instanceof V2ARunError) throw new KnowledgeConstructionError(error.message, "GAP_COMPLETION", acquisitionResults, { initialAuditId: initialAudit.coverageAuditId, finalAuditId: null }, [...metrics, error.metrics]);
       throw error;

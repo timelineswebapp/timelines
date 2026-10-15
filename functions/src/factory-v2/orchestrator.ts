@@ -14,7 +14,7 @@ import { claimPropositionKey, isDiscoveryRelevant, rankCoverageSourcesByQuestion
 import { auditPerspective, authorizeEscalation, buildAuthorityResearchPlan, buildConfidenceVector, buildTopicAuthoritySet, completeContestedAvailabilityProposals, completeProtectedAvailabilityProposals, ProtectedRepresentationAvailabilityError, registeredGroundingExpansionPublishers, sealControlledResearchLedger } from "./authority-first";
 import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } from "./institutional-discovery";
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
-import { classifyCompletionYield, decideCompletionFallback, sealCompletionAuthorityUniverse, type CompletionAuthorityRequirement } from "./completion-fallback";
+import { classifyCompletionYield, decideCompletionFallback, isSealedCompletionCandidate, sealCompletionAuthorityUniverse, type CompletionAuthorityRequirement } from "./completion-fallback";
 import type { ProviderAttemptTelemetry } from "./provider-capacity";
 
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
@@ -305,6 +305,7 @@ export type OrchestratorDependencies = {
     scope: ScopeContract;
     researchMap: ResearchMap;
     gapIdsByQuestionId?: ReadonlyMap<string, readonly string[]>;
+    gapObligationIdsByQuestionId?: ReadonlyMap<string, readonly string[]>;
     completionAuthorityRequirements?: readonly CompletionAuthorityRequirement[];
     priorTopicAuthoritySet: TopicAuthoritySet;
   };
@@ -696,7 +697,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     // arbitrary bound URL merely to make the pool non-empty.
     allowBoundAuthorityFallback: !continuation
   });
-  const sourceCandidates = coverageAdmission.retrievalCandidates;
+  let sourceCandidates = coverageAdmission.retrievalCandidates;
   let completionCandidatePoolId: string | null = null;
   let completionAuthorityCandidatePoolId: string | null = null;
   let completionAuthorityPoolCandidates: Array<{ questionId: string; gapObligationIds: string[]; authorityBindingId: string; publisherVersionId: string; candidateRank: number; disposition: "ELIGIBLE" | "EXCLUDED_CEILING"; exclusionReason: "PER_GAP_AUTHORITY_CEILING" | null }> = [];
@@ -726,12 +727,17 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       .map((questionId) => {
         const publisher = publisherForDomain(candidate.domain, publishers);
         const binding = publisher && topicAuthoritySet.bindings.find((item) => item.publisherVersionId === publisher.publisherVersionId && item.researchQuestionIds.includes(questionId));
-        if (!publisher || !binding) throw new Error("COMPLETION_CANDIDATE_OUTSIDE_SEALED_AUTHORITY_POOL");
-        const rank = coverageAdmission.decisions.find((decision) => decision.questionId === questionId && decision.canonicalUrl === candidate.canonicalUrl)?.rank;
-        if (!rank) throw new Error("COMPLETION_CANDIDATE_RANK_MISSING");
-        return { questionId, gapObligationIds: [...(continuation.gapIdsByQuestionId?.get(questionId) || [])].sort(), authorityBindingId: binding.bindingId, publisherVersionId: publisher.publisherVersionId, canonicalUrl: candidate.canonicalUrl, candidateRank: rank };
-      }));
+        const gapObligationIds = [...(continuation.gapObligationIdsByQuestionId?.get(questionId) || [])].sort();
+        if (!publisher || !binding || !isSealedCompletionCandidate({ sealedCandidates: authorityCandidates, questionId, gapObligationIds, authorityBindingId: binding.bindingId, publisherVersionId: publisher.publisherVersionId })) return null;
+        const sealed = authorityCandidates.find((item) => item.disposition === "ELIGIBLE" && item.questionId === questionId && item.authorityBindingId === binding.bindingId && item.publisherVersionId === publisher.publisherVersionId && item.gapObligationIds.join("\u0000") === gapObligationIds.join("\u0000"));
+        if (!sealed) return null;
+        return { questionId, gapObligationIds, authorityBindingId: binding.bindingId, publisherVersionId: publisher.publisherVersionId, canonicalUrl: candidate.canonicalUrl, candidateRank: sealed.candidateRank };
+      }).filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null));
     completionPoolCandidates = candidates.sort((left, right) => left.questionId.localeCompare(right.questionId) || left.candidateRank - right.candidateRank || left.canonicalUrl.localeCompare(right.canonicalUrl));
+    const completionUrls = new Set(completionPoolCandidates.map((candidate) => candidate.canonicalUrl));
+    // This gate applies before both retrieval and cache reuse. A URL admitted
+    // by initial acquisition is not thereby a completion candidate.
+    sourceCandidates = sourceCandidates.filter((candidate) => completionUrls.has(candidate.canonicalUrl));
     const payload = { completionPlanId: continuation.completionPlanId, candidates: completionPoolCandidates };
     completionCandidatePoolId = semanticArtifactId("completion-candidate-pool", context, payload);
     await persist("v2CompletionCandidatePools", parseSealedArtifact(completionCandidatePoolSchema, { ...semanticEnvelope(context, completionCandidatePoolId, continuation.completionPlanId), completionCandidatePoolId, ...payload }));
@@ -1015,8 +1021,9 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
         assertDeadline();
         const group = await extractOne(input);
         attempts.push({ input, group });
-        const yieldResult = classifyCompletionYield({ retrieved: true, securityRejected: false, deadlineExceeded: false, budgetExhausted: false, admissibleGapClaims: group?.claims.filter((claim) => claim.qualifiers.some((qualifier) => qualifier.key === "researchQuestionId" && qualifier.value === question.questionId)).length || 0, rejectedClaims: group?.rejectedClaims.length || (group === null ? 1 : 0) });
-        if (decideCompletionFallback({ yield: yieldResult, sealedCandidatesRemaining: (candidatesByQuestion.get(question.questionId) || []).slice(attempts.length, 2).length }) !== "TRY_NEXT_SEALED_CANDIDATE") break;
+        // Claim extraction alone cannot establish completion success. Evaluate
+        // claim-relative authority and obligation qualification below before
+        // assigning a terminal completion disposition.
       }
       return attempts;
     });
@@ -1030,41 +1037,6 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   for (const group of extractedGroups) {
     modelExecutions.push(...group.executions.map((execution) => modelExecutionSchema.parse(execution)));
     for (const execution of group.executions) await persist("v2ModelExecutions", execution);
-  }
-  if (continuation) for (const attempt of extractedAttemptPairs) {
-    const { input, group } = attempt;
-    const publisher = publisherBySource.get(input.result.source.sourceId);
-    const binding = publisher && topicAuthoritySet.bindings.find((candidate) => candidate.publisherVersionId === publisher.publisherVersionId && candidate.researchQuestionIds.includes(input.question.questionId));
-    if (!publisher || !binding) throw new Error("COMPLETION_CANDIDATE_OUTSIDE_SEALED_AUTHORITY_POOL");
-    const admissible = group?.claims.filter((claim) => claim.qualifiers.some((qualifier) => qualifier.key === "researchQuestionId" && qualifier.value === input.question.questionId)) || [];
-    const rejectedCount = group?.rejectedClaims.length || 0;
-    const yieldResult = classifyCompletionYield({ retrieved: true, securityRejected: false, deadlineExceeded: false, budgetExhausted: false, admissibleGapClaims: admissible.length, rejectedClaims: rejectedCount || (group === null ? 1 : 0) });
-    const terminalReason = yieldResult === "QUALIFYING_EVIDENCE" ? "QUALIFYING_EVIDENCE" as const
-      : yieldResult === "ZERO_CLAIM_YIELD" ? "ZERO_CLAIM_YIELD" as const : "CLAIMS_INADMISSIBLE" as const;
-    const attemptOrder = extractedAttemptPairs.filter((candidate) => candidate.input.question.questionId === input.question.questionId).indexOf(attempt) + 1;
-    const laterCandidateExists = (candidatesByQuestion.get(input.question.questionId) || []).slice(attemptOrder, 2).length > 0;
-    const fallbackDecision = decideCompletionFallback({ yield: yieldResult, sealedCandidatesRemaining: laterCandidateExists ? 1 : 0 });
-    const fallbackDisposition = fallbackDecision;
-    const payload = {
-      completionPlanId: continuation.completionPlanId,
-      gapObligationIds: [...(continuation.gapIdsByQuestionId?.get(input.question.questionId) || [])].sort(),
-      questionId: input.question.questionId,
-      authorityBindingId: binding.bindingId,
-      publisherVersionId: publisher.publisherVersionId,
-      sourceSnapshotId: input.result.snapshot.sourceSnapshotId,
-      canonicalUrl: input.result.source.canonicalUrl,
-      attemptOrder,
-      retrievalOutcome: "RETRIEVED" as const,
-      admissibleAtomicClaimCount: admissible.length,
-      gapRelevantAtomicClaimCount: admissible.length,
-      rejectedAtomicClaimCount: rejectedCount,
-      terminalReason,
-      fallbackDisposition
-    };
-    const completionCandidateAttemptId = executionArtifactId("completion-candidate-attempt", context, payload);
-    const sealed = parseSealedArtifact(completionCandidateAttemptSchema, { ...immutableEnvelope(context, completionCandidateAttemptId), completionCandidateAttemptId, ...payload });
-    await persist("v2CompletionCandidateAttempts", sealed);
-    completionCandidateAttemptIds.push(sealed.completionCandidateAttemptId);
   }
   const extractedClaims = extractedGroups.flatMap((group) => group.claims).slice(0, config.budgetBundle.maximumAtomicClaims);
   const claimContributors = new Map<string, AtomicClaimVersion[]>();
@@ -1145,6 +1117,45 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   progress.conflictsDetected = conflictSets.length;
   progress.conflictsResolved = conflictSets.filter((conflict) => ["RESOLVED", "QUALIFIED"].includes(conflict.state)).length;
   progress.conflictsUnresolved = conflictSets.filter((conflict) => conflict.state === "UNRESOLVED").length;
+
+  if (continuation) for (const attempt of extractedAttemptPairs) {
+    const { input, group } = attempt;
+    const publisher = publisherBySource.get(input.result.source.sourceId);
+    const binding = publisher && topicAuthoritySet.bindings.find((candidate) => candidate.publisherVersionId === publisher.publisherVersionId && candidate.researchQuestionIds.includes(input.question.questionId));
+    const gapObligationIds = [...(continuation.gapObligationIdsByQuestionId?.get(input.question.questionId) || [])].sort();
+    if (!publisher || !binding || !isSealedCompletionCandidate({ sealedCandidates: completionAuthorityPoolCandidates, questionId: input.question.questionId, gapObligationIds, authorityBindingId: binding.bindingId, publisherVersionId: publisher.publisherVersionId })) throw new Error("COMPLETION_CANDIDATE_OUTSIDE_SEALED_AUTHORITY_POOL");
+    const relevant = group?.claims.filter((claim) => claim.qualifiers.some((qualifier) => qualifier.key === "researchQuestionId" && qualifier.value === input.question.questionId)) || [];
+    const supported = relevant.filter((claim) => {
+      const verdict = verdicts.find((item) => item.claimVersionId === claim.claimVersionId);
+      return verdict?.verdict === "SUPPORTED" || verdict?.verdict === "QUALIFIED";
+    });
+    // The sealed binding proves authority eligibility; the verdict proves
+    // claim-relative authority. Both are required before a claim contributes
+    // to the exact immutable obligation.
+    const qualifying = supported.filter((claim) => claim.qualifiers.some((qualifier) => qualifier.key === "researchQuestionId" && qualifier.value === input.question.questionId));
+    const rejectedCount = group?.rejectedClaims.length || 0;
+    const yieldResult = classifyCompletionYield({ retrieved: true, securityRejected: false, deadlineExceeded: false, budgetExhausted: false, admissibleGapClaims: relevant.length, gapQualifyingClaims: qualifying.length, rejectedClaims: rejectedCount || (group === null ? 1 : 0) });
+    const terminalReason = yieldResult === "QUALIFYING_EVIDENCE" ? "QUALIFYING_EVIDENCE" as const
+      : yieldResult === "RELEVANT_NONQUALIFYING" ? "RELEVANT_NONQUALIFYING" as const
+        : yieldResult === "ZERO_CLAIM_YIELD" ? "ZERO_CLAIM_YIELD" as const : "CLAIMS_INADMISSIBLE" as const;
+    const attemptOrder = extractedAttemptPairs.filter((candidate) => candidate.input.question.questionId === input.question.questionId).indexOf(attempt) + 1;
+    const laterCandidateExists = (candidatesByQuestion.get(input.question.questionId) || []).slice(attemptOrder, 2).length > 0;
+    const fallbackDisposition = decideCompletionFallback({ yield: yieldResult, sealedCandidatesRemaining: laterCandidateExists ? 1 : 0 });
+    const qualificationRejectionReasons = qualifying.length > 0 ? [] : supported.length === 0 && relevant.length > 0
+      ? ["CLAIM_RELATIVE_AUTHORITY_MISMATCH" as const] : relevant.length > 0 ? ["QUESTION_RELEVANT_BUT_GAP_NONQUALIFYING" as const] : [];
+    const payload = {
+      completionPlanId: continuation.completionPlanId, gapObligationIds, questionId: input.question.questionId,
+      authorityBindingId: binding.bindingId, publisherVersionId: publisher.publisherVersionId,
+      sourceSnapshotId: input.result.snapshot.sourceSnapshotId, canonicalUrl: input.result.source.canonicalUrl,
+      attemptOrder, retrievalOutcome: "RETRIEVED" as const, admissibleAtomicClaimCount: relevant.length,
+      gapRelevantAtomicClaimCount: relevant.length, gapQualifyingAtomicClaimCount: qualifying.length,
+      rejectedAtomicClaimCount: rejectedCount, qualificationRejectionReasons, terminalReason, fallbackDisposition
+    };
+    const completionCandidateAttemptId = executionArtifactId("completion-candidate-attempt", context, payload);
+    const sealed = parseSealedArtifact(completionCandidateAttemptSchema, { ...immutableEnvelope(context, completionCandidateAttemptId), completionCandidateAttemptId, ...payload });
+    await persist("v2CompletionCandidateAttempts", sealed);
+    completionCandidateAttemptIds.push(sealed.completionCandidateAttemptId);
+  }
 
   currentStage = "A5_RESOLUTION_REUSE";
   await bounded("firestore:set-operation:A5", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: { claims: claims.length, conflicts: conflictSets.length }, finalVerdict: "PENDING" })));

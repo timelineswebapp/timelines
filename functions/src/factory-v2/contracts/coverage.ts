@@ -162,12 +162,14 @@ export const completionCandidateAttemptSchema = z.object({
   admissibleAtomicClaimCount: z.number().int().nonnegative().max(100),
   gapRelevantAtomicClaimCount: z.number().int().nonnegative().max(100),
   rejectedAtomicClaimCount: z.number().int().nonnegative().max(100),
-  terminalReason: z.enum(["QUALIFYING_EVIDENCE", "ZERO_CLAIM_YIELD", "CLAIMS_INADMISSIBLE", "DISCOVERY_NO_URLS", "DISCOVERY_HTTP_403", "DISCOVERY_TIMEOUT", "DISCOVERY_SECURITY_REJECTED", "DISCOVERY_NO_RELEVANT_URL", "RETRIEVAL_FAILED", "SECURITY_REJECTED", "DEADLINE_EXHAUSTED", "BUDGET_EXHAUSTED", "CANDIDATES_EXHAUSTED"]),
+  gapQualifyingAtomicClaimCount: z.number().int().nonnegative().max(100).default(0),
+  qualificationRejectionReasons: z.array(z.enum(["OUT_OF_POOL_SOURCE", "CLAIM_RELATIVE_AUTHORITY_MISMATCH", "MISSING_EVIDENCE", "QUESTION_RELEVANT_BUT_GAP_NONQUALIFYING", "PROTECTED_PERSPECTIVE_NOT_ATTRIBUTABLE"])).max(20).default([]),
+  terminalReason: z.enum(["QUALIFYING_EVIDENCE", "RELEVANT_NONQUALIFYING", "ZERO_CLAIM_YIELD", "CLAIMS_INADMISSIBLE", "DISCOVERY_NO_URLS", "DISCOVERY_HTTP_403", "DISCOVERY_TIMEOUT", "DISCOVERY_SECURITY_REJECTED", "DISCOVERY_NO_RELEVANT_URL", "RETRIEVAL_FAILED", "SECURITY_REJECTED", "DEADLINE_EXHAUSTED", "BUDGET_EXHAUSTED", "CANDIDATES_EXHAUSTED"]),
   fallbackDisposition: z.enum(["STOP_QUALIFYING_EVIDENCE", "STOP_INADMISSIBLE_CLAIMS", "TRY_NEXT_SEALED_CANDIDATE", "STOP_CANDIDATES_EXHAUSTED", "STOP_BUDGET_OR_DEADLINE", "STOP_SECURITY_FAIL_CLOSED"])
 }).strict().superRefine((attempt, context) => {
   if (attempt.retrievalOutcome === "RETRIEVED" && (attempt.sourceSnapshotId === null || attempt.canonicalUrl === null)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceSnapshotId"], message: "Retrieved completion candidate requires a sealed URL and snapshot." });
   if (attempt.terminalReason === "ZERO_CLAIM_YIELD" && (attempt.admissibleAtomicClaimCount !== 0 || attempt.gapRelevantAtomicClaimCount !== 0 || attempt.rejectedAtomicClaimCount !== 0)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["terminalReason"], message: "ZERO_CLAIM_YIELD requires no admissible or rejected atomic claims." });
-  if (attempt.terminalReason === "QUALIFYING_EVIDENCE" && attempt.gapRelevantAtomicClaimCount === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ["terminalReason"], message: "Qualifying evidence requires a gap-relevant admissible claim." });
+  if (attempt.terminalReason === "QUALIFYING_EVIDENCE" && attempt.gapQualifyingAtomicClaimCount === 0) context.addIssue({ code: z.ZodIssueCode.custom, path: ["terminalReason"], message: "Qualifying evidence requires an obligation-qualifying supported claim." });
 });
 
 /** The completion retrieval universe is sealed after normal bounded authority

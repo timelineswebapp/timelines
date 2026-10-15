@@ -1,7 +1,7 @@
 /** Deterministic policy for the single evidence-derived completion round.
  * It never expands a candidate pool: callers supply only sealed, already
  * Registry-bound candidates and invoke it after each attempted candidate. */
-export type CompletionYield = "QUALIFYING_EVIDENCE" | "ZERO_CLAIM_YIELD" | "CLAIMS_INADMISSIBLE" | "RETRIEVAL_FAILED" | "SECURITY_REJECTED" | "BUDGET_EXHAUSTED" | "DEADLINE_EXHAUSTED";
+export type CompletionYield = "QUALIFYING_EVIDENCE" | "RELEVANT_NONQUALIFYING" | "ZERO_CLAIM_YIELD" | "CLAIMS_INADMISSIBLE" | "RETRIEVAL_FAILED" | "SECURITY_REJECTED" | "BUDGET_EXHAUSTED" | "DEADLINE_EXHAUSTED";
 export type CompletionFallbackDecision = "STOP_QUALIFYING_EVIDENCE" | "STOP_INADMISSIBLE_CLAIMS" | "TRY_NEXT_SEALED_CANDIDATE" | "STOP_CANDIDATES_EXHAUSTED" | "STOP_BUDGET_OR_DEADLINE" | "STOP_SECURITY_FAIL_CLOSED";
 
 export type CompletionAuthorityBinding = {
@@ -27,6 +27,27 @@ export type CompletionAuthorityRequirement = {
   geography?: readonly string[];
   historicalJurisdictionCapacityIds?: readonly string[];
 };
+
+export type SealedCompletionAuthorityCandidate = ReturnType<typeof sealCompletionAuthorityUniverse>[number];
+
+/** URL discovery and cache reuse are execution details. They may proceed only
+ * when their exact question, obligation, binding, and publisher tuple was
+ * sealed before completion acquisition began. */
+export function isSealedCompletionCandidate(input: {
+  sealedCandidates: readonly SealedCompletionAuthorityCandidate[];
+  questionId: string;
+  gapObligationIds: readonly string[];
+  authorityBindingId: string;
+  publisherVersionId: string;
+}): boolean {
+  const obligations = [...input.gapObligationIds].sort();
+  return input.sealedCandidates.some((candidate) => candidate.disposition === "ELIGIBLE"
+    && candidate.questionId === input.questionId
+    && candidate.authorityBindingId === input.authorityBindingId
+    && candidate.publisherVersionId === input.publisherVersionId
+    && candidate.gapObligationIds.length === obligations.length
+    && candidate.gapObligationIds.every((id, index) => id === obligations[index]));
+}
 
 /** Computes the only authority universe completion may use.  This deliberately
  * consumes bindings, never discovered URLs; URL discovery is evidence
@@ -79,11 +100,12 @@ export function decideCompletionFallback(input: { yield: CompletionYield; sealed
 
 /** A successful retrieval with no accepted, question-bound atomic claim is a
  * zero-yield outcome; malformed/rejected claims retain their distinct state. */
-export function classifyCompletionYield(input: { retrieved: boolean; securityRejected: boolean; deadlineExceeded: boolean; budgetExhausted: boolean; admissibleGapClaims: number; rejectedClaims: number }): CompletionYield {
+export function classifyCompletionYield(input: { retrieved: boolean; securityRejected: boolean; deadlineExceeded: boolean; budgetExhausted: boolean; admissibleGapClaims: number; gapQualifyingClaims?: number; rejectedClaims: number }): CompletionYield {
   if (input.securityRejected) return "SECURITY_REJECTED";
   if (input.deadlineExceeded) return "DEADLINE_EXHAUSTED";
   if (input.budgetExhausted) return "BUDGET_EXHAUSTED";
   if (!input.retrieved) return "RETRIEVAL_FAILED";
-  if (input.admissibleGapClaims > 0) return "QUALIFYING_EVIDENCE";
+  if ((input.gapQualifyingClaims ?? input.admissibleGapClaims) > 0) return "QUALIFYING_EVIDENCE";
+  if (input.admissibleGapClaims > 0) return "RELEVANT_NONQUALIFYING";
   return input.rejectedClaims > 0 ? "CLAIMS_INADMISSIBLE" : "ZERO_CLAIM_YIELD";
 }
