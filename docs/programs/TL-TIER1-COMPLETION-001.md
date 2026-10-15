@@ -6,11 +6,19 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_CERTIFICATION_PREFLIGHT_BLOCKED — TIIMELiNES_CLOUD_RUN_READ_ACCESS`
+`PHASE_2_CERTIFICATION_FAILED_CLOSED — EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_HISTORICAL_PERSPECTIVE`
 
 ## Current controlling boundary
 
-The current boundary is operational, not historical: clean successor `.67` release `f843e48fa3c9aa3756df193ef9ff558cd9982c0db753b083fcd7c1a84b44f9fe` (source `ca20110ffa26431f9a1b7169347ece7c2c4664ba`, `factory-v2-a.67` / `authority-first-research.40`) passed all local and institutional gates but could not open its fresh certification because the active local gcloud identity `booktown10@gmail.com` lacks `run.services.get` for TiMELiNES Cloud Run preflight. No subject worker or provider call started. The preceding `.66` run is historical evidence: its Berlin failure was an implementation defect in proposal capacity-ID merging, corrected by `.67`; it is not the current capacity or policy boundary. No worker remains active; discovery is paused; publication and Governance submission remain disabled.
+The current boundary is final historical coverage, not authority-capacity propagation or local Cloud Run access. Clean successor `.67` release `f843e48fa3c9aa3756df193ef9ff558cd9982c0db753b083fcd7c1a84b44f9fe` (source `ca20110ffa26431f9a1b7169347ece7c2c4664ba`, `factory-v2-a.67` / `authority-first-research.40`) passed all local and institutional gates and then completed its one fresh, non-combined certification at `/private/tmp/tl-tier1-seal-67.UxMcbO/artifacts/authority-first-acquisition-canary/2026-10-15T16-44-57-979Z/report.json`. San Francisco passed protected availability and stopped fail-closed in `FINAL_COVERAGE` on `EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_HISTORICAL_PERSPECTIVE`; Berlin, Ada, and Printing Press were not executed after that terminal failure. The `.66` Berlin capacity-propagation defect is corrected and historical only. No worker remains active; discovery is paused; publication and Governance submission remain disabled.
+
+## 2026-10-15 — `.67` Phase-2 terminal evidence: final historical perspective coverage insufficient
+
+The clean `.67` release `f843e48fa3c9aa3756df193ef9ff558cd9982c0db753b083fcd7c1a84b44f9fe` (source `ca20110ffa26431f9a1b7169347ece7c2c4664ba`, `factory-v2-a.67` / `authority-first-research.40`) completed the one fresh, non-combined certification authorized after the bounded authority-capacity merge correction. The sealed report is `/private/tmp/tl-tier1-seal-67.UxMcbO/artifacts/authority-first-acquisition-canary/2026-10-15T16-44-57-979Z/report.json`.
+
+San Francisco passed protected availability and progressed through acquisition to `FINAL_COVERAGE`, where it failed closed after two bounded rounds with `EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_HISTORICAL_PERSPECTIVE`. It made 14 provider calls; two transient capacity responses recovered under the sealed controller, with zero circuit openings. The terminal failure is final evidence coverage, not provider capacity. Exact protected-state parity holds. Berlin, Ada, and Printing Press were correctly not executed after the first terminal subject failure, and no worker remains active.
+
+The `.67` general merge correction remains the separately verified successor to the superseded `.66` capacity-propagation defect; this terminal run does not reinstate that defect as the current boundary. It does not weaken or satisfy the independent final historical-perspective requirement. The current founder-review boundary is therefore the sealed final-coverage insufficiency. Do not rerun certification, alter historical coverage, source admission, authority/independence, Registry data, prompts, budgets, providers, discovery, publication, or Governance submission without a new founder decision. `.67` cannot be combined with any earlier release.
 
 ## 2026-10-15 — `.67` successor sealed; Phase-2 certification preflight blocked by local Cloud Run read access
 
@@ -252,7 +260,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | BLOCKED_ON_LOCAL_CLOUD_RUN_READ_ACCESS | Clean `.67` release `f843e48f…f9fe` (source `ca20110…64ba`) passed full local verification but certification preflight could not read TiMELiNES Cloud Run because active local gcloud identity `booktown10@gmail.com` lacks `run.services.get`. No provider call or subject worker started. `.66` Berlin capacity-propagation defect is corrected and remains historical evidence. |
+| 2 — four-subject Authority-First CKS | FAILED_CLOSED_ON_FINAL_HISTORICAL_COVERAGE | Clean `.67` release `f843e48f…f9fe` (source `ca20110…64ba`) completed the authorized fresh certification. San Francisco reached `FINAL_COVERAGE` then failed closed on `EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_HISTORICAL_PERSPECTIVE`; Berlin, Ada, and Printing Press were not executed. Exact protected-state parity holds. The `.66` Berlin capacity-propagation defect is corrected and historical evidence only. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -266,4 +274,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Restore a TiMELiNES-authorized local gcloud identity with read access sufficient for the mandatory Cloud Run preflight, then rerun the one authorized fresh `.67` four-subject Phase-2 certification. Preserve all sealed historical artifacts. Do not expand the Registry, alter historical requirement semantics, lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, enable publication/Governance submission, or combine evidence across materially different releases.
+Stop for founder review of the `.67` final historical-perspective coverage boundary. Preserve all sealed historical artifacts. Do not rerun certification, expand the Registry, alter historical requirement semantics, lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, enable publication/Governance submission, or combine evidence across materially different releases.
