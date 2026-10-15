@@ -6,11 +6,21 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_CERTIFICATION_FAILED_CLOSED — EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_HISTORICAL_PERSPECTIVE`
+`PHASE_2_CERTIFICATION_FAILED_CLOSED — PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:AFFECTED_COMMUNITY`
 
 ## Current controlling boundary
 
-The current boundary is final historical coverage, not authority-capacity propagation or local Cloud Run access. Clean successor `.67` release `f843e48fa3c9aa3756df193ef9ff558cd9982c0db753b083fcd7c1a84b44f9fe` (source `ca20110ffa26431f9a1b7169347ece7c2c4664ba`, `factory-v2-a.67` / `authority-first-research.40`) passed all local and institutional gates and then completed its one fresh, non-combined certification at `/private/tmp/tl-tier1-seal-67.UxMcbO/artifacts/authority-first-acquisition-canary/2026-10-15T16-44-57-979Z/report.json`. San Francisco passed protected availability and stopped fail-closed in `FINAL_COVERAGE` on `EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_HISTORICAL_PERSPECTIVE`; Berlin, Ada, and Printing Press were not executed after that terminal failure. The `.66` Berlin capacity-propagation defect is corrected and historical only. No worker remains active; discovery is paused; publication and Governance submission remain disabled.
+The current boundary is governed affected-community availability, not the `.67` completion-evidence defect. Clean successor `.68` release `09ee35dd199dd50d95a5c169b5fcdf4d292719bbb0ad8de478f218dcf7880095` (source `328352ab133979fcd7a00ec19e8c13e5cccbc37f`, `factory-v2-a.68` / `authority-first-research.41`) completed one fresh, non-combined certification at `artifacts/authority-first-acquisition-canary/2026-10-15T17-12-29-536Z/report.json` (SHA-256 `d3bbf5f0afa5c877ec33fb3c52559eba6e52146f483c43e83e852ee9f9da0679`). San Francisco produced valid CKS `completed-knowledge-set-59c1e218013d6fd302d3a20161801417f6a7495a95d54052c799e9f6be533583`; Berlin then failed closed in `INITIAL_ACQUISITION` on `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT` for mandatory `AFFECTED_COMMUNITY`. Ada and Printing Press were not executed. Exact protected-state parity holds for both executed subjects. No worker remains active; discovery is paused; publication and Governance submission remain disabled.
+
+## 2026-10-15 — `.68` Phase-2 terminal evidence: completion lineage corrected; Berlin affected-community availability insufficient
+
+Checkpoint `328352ab133979fcd7a00ec19e8c13e5cccbc37f` implements the founder-authorized general completion correction. Completion URL and cached-source admission now require the exact sealed authority candidate tuple (question, Gap Obligation, binding, publisher); completion attempts retain actual Gap Obligation IDs; and `QUALIFYING_EVIDENCE` is assigned only after the unchanged claim-relative authority verdict supports a question-relevant claim. Question-linked but unsupported evidence remains `RELEVANT_NONQUALIFYING`; the final historical coverage audit remains the independent sufficiency gate. The correction adds no Registry capacity, identity, requirement, threshold, budget, provider, discovery, publication, Governance, or production change.
+
+Root tests (249), Functions tests (342 passed / 2 intentional skips), strict root and Functions typechecks, root lint, Functions build, Next production build, Tier-1 security gate, `git diff --check`, and all institutional suites (68/7/7/7/8/8) passed. The Firestore emulator gate could not start because the local shell has OpenJDK 17 and no installed JDK 21; this environment prerequisite is not certification evidence and was not bypassed.
+
+The clean `.68` release `09ee35dd199dd50d95a5c169b5fcdf4d292719bbb0ad8de478f218dcf7880095` then ran exactly one fresh four-subject certification. San Francisco produced the valid CKS above with 11 provider calls, zero capacity failures, zero circuit openings, and exact protected-state parity. Berlin stopped before controlled research, retrieval, or completion on `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:question-9e6ce98211dbee9d15108ff5978729e17dfb5aea000890dd7bfd7c84f0fa533c:AFFECTED_COMMUNITY`; it made four provider calls, with zero capacity failures and zero circuit openings, and exact protected-state parity. Ada and Printing Press were correctly not executed after that terminal failure.
+
+This is a genuine current Registry/founder-policy boundary: the locked Berlin affected-community requirement has no eligible governed capacity under the preserved standard. It is not a recurrence of the `.67` completion implementation defect and does not authorize Registry expansion, requirement weakening, a rerun, discovery, publication, Governance submission, or Phase 3. Preserve `.67` and all earlier sealed boundaries as historical evidence.
 
 ## 2026-10-15 — `.67` Phase-2 terminal evidence: final historical perspective coverage insufficient
 
@@ -260,7 +270,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FAILED_CLOSED_ON_FINAL_HISTORICAL_COVERAGE | Clean `.67` release `f843e48f…f9fe` (source `ca20110…64ba`) completed the authorized fresh certification. San Francisco reached `FINAL_COVERAGE` then failed closed on `EVIDENCE_FIRST_COVERAGE_INSUFFICIENT:MISSING_HISTORICAL_PERSPECTIVE`; Berlin, Ada, and Printing Press were not executed. Exact protected-state parity holds. The `.66` Berlin capacity-propagation defect is corrected and historical evidence only. |
+| 2 — four-subject Authority-First CKS | FAILED_CLOSED_ON_AFFECTED_COMMUNITY_AVAILABILITY | Clean `.68` release `09ee35dd…80095` (source `328352a…bc37f`) completed the authorized fresh certification. San Francisco produced valid CKS; Berlin failed closed in `INITIAL_ACQUISITION` on `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:AFFECTED_COMMUNITY`; Ada and Printing Press were not executed. Exact protected-state parity holds. The `.67` completion-lineage defect is corrected and historical evidence only. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -274,4 +284,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Stop for founder review of the `.67` final historical-perspective coverage boundary. Preserve all sealed historical artifacts. Do not rerun certification, expand the Registry, alter historical requirement semantics, lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, enable publication/Governance submission, or combine evidence across materially different releases.
+Stop for founder review of the `.68` Berlin governed `AFFECTED_COMMUNITY` availability boundary. Preserve all sealed historical artifacts. Do not rerun certification, expand the Registry, alter historical requirement semantics, lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, enable publication/Governance submission, begin Phase 3, or combine evidence across materially different releases.
