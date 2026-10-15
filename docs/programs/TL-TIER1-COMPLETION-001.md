@@ -6,11 +6,17 @@ This is the restart index for the autonomous Tier-1 completion program. It recor
 
 ## Current verdict
 
-`PHASE_2_FOUNDER_REVIEW_REQUIRED — AFFECTED_COMMUNITY_REGISTRY_CAPACITY`
+`PHASE_2_CERTIFICATION_PREFLIGHT_BLOCKED — TIIMELiNES_CLOUD_RUN_READ_ACCESS`
 
 ## Current controlling boundary
 
-The current founder-review boundary is the clean `.65` release `c9699ceb3fbe7007e9223746289128f528ff5d1dd380a04f214d35b227a6f552` (source `5a0103dea4c1e777b471d95f33978093b12153f0`, `factory-v2-a.65`). Berlin failed closed in `INITIAL_ACQUISITION` with `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT` for its mandatory `AFFECTED_COMMUNITY` requirement because no bounded registered capacity matched it. San Francisco produced a valid CKS with exact protected-state parity; Berlin also retained exact protected-state parity; Ada and Printing Press were not executed. No worker remains active; discovery is paused; publication and Governance submission remain disabled. Earlier `.26`, `.58`, `.60`, and `.61` boundaries are preserved as historical evidence and are not current.
+The current boundary is operational, not historical: clean successor `.67` release `f843e48fa3c9aa3756df193ef9ff558cd9982c0db753b083fcd7c1a84b44f9fe` (source `ca20110ffa26431f9a1b7169347ece7c2c4664ba`, `factory-v2-a.67` / `authority-first-research.40`) passed all local and institutional gates but could not open its fresh certification because the active local gcloud identity `booktown10@gmail.com` lacks `run.services.get` for TiMELiNES Cloud Run preflight. No subject worker or provider call started. The preceding `.66` run is historical evidence: its Berlin failure was an implementation defect in proposal capacity-ID merging, corrected by `.67`; it is not the current capacity or policy boundary. No worker remains active; discovery is paused; publication and Governance submission remain disabled.
+
+## 2026-10-15 — `.67` successor sealed; Phase-2 certification preflight blocked by local Cloud Run read access
+
+The bounded authority-capacity merge correction is checkpoint `ca20110ffa26431f9a1b7169347ece7c2c4664ba`, sealing `factory-v2-a.67` / `authority-first-research.40` under release `f843e48fa3c9aa3756df193ef9ff558cd9982c0db753b083fcd7c1a84b44f9fe`. The correction preserves all governed affected-community capacity IDs during canonical same-publisher proposal merges, deduplicated and ordered exactly as existing capacity IDs, so binding validation receives the deterministic selected lineage. It neither changes Registry content, community identity equivalence, historical requirements, evidence thresholds, prompts, budgets, provider configuration, capacity controls, source admission, nor production configuration.
+
+Focused merge-lineage, full Functions (340 passed / 2 intentional skips), root (249 passed), strict typechecks, lint, Functions and Next builds, Firestore emulator, Tier-1 security gate, and all institutional suites (68/7/7/7/8/8) passed. The clean successor canary then stopped before any subject, provider, or protected-state snapshot because its mandatory read-only Cloud Run preflight was denied: the active local gcloud account was `booktown10@gmail.com`, without `run.services.get` on `tiimeliines` service `priority-topic-generation`. This is an operational credential/access boundary, not a failed Phase-2 certification and not a new historical/policy defect. No certification result may be combined with `.67`; `.66` and earlier evidence remain preserved.
 
 ## 2026-10-13 — `.65` Phase-2 terminal evidence: governed affected-community capacity unavailable
 
@@ -246,7 +252,7 @@ The founder authorized the general immutable Routing Obligation correction as a 
 | --- | --- | --- |
 | 0 — baseline | COMPLETE | This record, repository and production read checks |
 | 1 — stabilize/security/checkpoint | COMPLETE | Checkpoint `1e4651a`; all local gates passed |
-| 2 — four-subject Authority-First CKS | FOUNDER_REVIEW_REQUIRED | Sealed `.65` release `c9699ceb…6f552` (source `5a0103…53f0`): San Francisco valid CKS with exact protected-state parity; Berlin failed closed in `INITIAL_ACQUISITION` with `PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT` for mandatory `AFFECTED_COMMUNITY` because no bounded registered capacity matched it; Ada and Printing Press were not executed. Founder direction is required before any Registry-capacity or historical-requirement change. |
+| 2 — four-subject Authority-First CKS | BLOCKED_ON_LOCAL_CLOUD_RUN_READ_ACCESS | Clean `.67` release `f843e48f…f9fe` (source `ca20110…64ba`) passed full local verification but certification preflight could not read TiMELiNES Cloud Run because active local gcloud identity `booktown10@gmail.com` lacks `run.services.get`. No provider call or subject worker started. `.66` Berlin capacity-propagation defect is corrected and remains historical evidence. |
 | 3 — long-duration/heterogeneous Authority-First | NOT_STARTED | Requires Phase 2 certification |
 | 4 — full generation/Editorial Excellence | NOT_STARTED | Requires Phase 3 integration certification |
 | 5 — production parity/provenance | BLOCKED_ON_PRODUCTION_IDENTITY | Requires TiMELiNES GCP permissions after prerequisite certification |
@@ -260,4 +266,4 @@ The founder authorized the general immutable Routing Obligation correction as a 
 
 ## Resume instruction
 
-Founder review is required for the `.65` governed affected-community Registry-capacity boundary. Preserve all sealed historical artifacts, including valid prefixes and exact protected-state snapshots. Do not expand the Registry, alter historical requirement semantics, lower evidence, coverage, authority, independence, conflict, or sensitivity standards, rerun certification, resume autonomous discovery, perform public publication, or combine evidence across materially different releases without a new founder decision.
+Restore a TiMELiNES-authorized local gcloud identity with read access sufficient for the mandatory Cloud Run preflight, then rerun the one authorized fresh `.67` four-subject Phase-2 certification. Preserve all sealed historical artifacts. Do not expand the Registry, alter historical requirement semantics, lower evidence, coverage, authority, independence, conflict, or sensitivity standards, resume autonomous discovery, enable publication/Governance submission, or combine evidence across materially different releases.
