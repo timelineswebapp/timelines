@@ -7,7 +7,7 @@ const base = { scopePeriod: { startYear: 1948, endYear: 1949 }, geography: ["Wes
 
 test("governed community registry is versioned, immutable, and contract-valid", () => {
   const identities = governedCommunityIdentities();
-  assert.equal(COMMUNITY_IDENTITY_REGISTRY_VERSION, "community-identity-registry.1");
+  assert.equal(COMMUNITY_IDENTITY_REGISTRY_VERSION, "community-identity-registry.2");
   assert.equal(COMMUNITY_IDENTITY_POLICY_VERSION, "community-identity-resolution.1");
   assert.doesNotThrow(() => communityIdentitySchema.parse(identities[0]));
   assert.equal(communityIdentityFingerprint(identities[0]!), communityIdentityFingerprint(governedCommunityIdentities()[0]!));
@@ -15,12 +15,13 @@ test("governed community registry is versioned, immutable, and contract-valid", 
   assert.equal(governedCommunityIdentities()[0]!.aliases.includes("mutated"), false);
 });
 
-test("exact governed aliases resolve and 32 adversarial labels fail closed", () => {
-  const accepted = ["West Berlin Civilians", "West Berlin Residents", "Civilians of West Berlin", "Residents of West Berlin", "West Berlin Population", "  west   berlin civilians ", "WEST BERLIN CIVILIANS"];
+test("exact governed aliases resolve and broader or unrelated labels fail closed", () => {
+  const accepted = ["West Berlin Civilians", "West Berlin Residents", "Civilians of West Berlin", "Residents of West Berlin", "West Berlin Population", "Citizens of West Berlin", "  west   berlin civilians ", "WEST BERLIN CIVILIANS"];
   const rejected = ["Berlin civilians", "Civilians Berlin West", "West Berlin citizenry", "West Berlin people", "West Berliners", "Berlin residents", "East Berlin Civilians", "West Berlin refugee population", "West Berlin civilian population 1948", "West Berlin Civilians and Residents", "Residents in West Berlin", "People of West Berlin", "West-Berlin Civilians", "Civilian residents of West Berlin", "1948 West Berlin Civilians", "The West Berlin Civilians", "German West Berlin Civilians", "All Berlin Civilians", "West Berlin residents 1948-1949", "San Francisco residents", "Ada Lovelace's contemporaries", "Printing press workers", "Holocaust survivors", "Indigenous communities", "Women in science"];
-  assert.equal(accepted.length + rejected.length, 32);
+  assert.equal(accepted.length + rejected.length, 33);
   for (const label of accepted) assert.equal(resolveGovernedCommunityIdentity({ ...base, rawLabel: label }).communityIdentityId, "community-identity-west-berlin-civilians-1948-1949", label);
   for (const label of rejected) assert.equal(resolveGovernedCommunityIdentity({ ...base, rawLabel: label }).rejectionReason, "UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY", label);
+  assert.equal(resolveGovernedCommunityIdentity({ ...base, rawLabel: "Citizens of Berlin" }).rejectionReason, "UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY");
 });
 
 test("qualifiers are hard eligibility boundaries", () => {

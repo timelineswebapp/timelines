@@ -9,7 +9,7 @@ const canonicalSet = (items: readonly string[]): string[] => [...new Set(items.m
 const WEST_BERLIN_CIVILIANS = communityIdentitySchema.parse({
   communityIdentityId: "community-identity-west-berlin-civilians-1948-1949",
   canonicalLabel: "West Berlin Civilians",
-  aliases: ["West Berlin population", "West Berlin residents", "Civilians of West Berlin", "Residents of West Berlin"],
+  aliases: ["West Berlin population", "West Berlin residents", "Civilians of West Berlin", "Residents of West Berlin", "Citizens of West Berlin"],
   category: "AFFECTED_POPULATION",
   geography: ["West Berlin", "Berlin"],
   period: { startYear: 1948, endYear: 1949 },
@@ -20,7 +20,7 @@ const WEST_BERLIN_CIVILIANS = communityIdentitySchema.parse({
   version: 1
 });
 
-export const COMMUNITY_IDENTITY_REGISTRY_VERSION = "community-identity-registry.1" as const;
+export const COMMUNITY_IDENTITY_REGISTRY_VERSION = "community-identity-registry.2" as const;
 export const COMMUNITY_IDENTITY_POLICY_VERSION = "community-identity-resolution.1" as const;
 
 export function governedCommunityIdentities(): CommunityIdentity[] {
