@@ -64,6 +64,16 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
   const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }>>([]);
+  const [sourceCandidateInspections, setSourceCandidateInspections] = useState<Record<string, {
+    candidateId: string;
+    state: "CANDIDATE";
+    submittedAt: string;
+    validation: { state: "AUTHORITY_ELIGIBLE"; recordedAt: string } | null;
+    retrieval: { state: "RETRIEVED_UNQUALIFIED" | "RETRIEVAL_REJECTED"; recordedAt: string; retrievalDisposition: "NEWLY_RETRIEVED" | "CACHE_REUSED" | "REVALIDATED" | "ACCESS_LIMITED" | "UNAVAILABLE" | null; rejectionCode: string | null } | null;
+    qualifyingEvidence: false;
+    reentryAuthorized: false;
+  } | undefined>>({});
+  const [inspectingCandidateId, setInspectingCandidateId] = useState<string | null>(null);
   const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number }>>([]);
   const [generationRetryHealth, setGenerationRetryHealth] = useState<{ scheduledCount: number; dueCount: number; oldestDueAt: string | null } | null>(null);
   const [generationEnqueueFailures, setGenerationEnqueueFailures] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "FAILED"; failedAt: string; enqueueRetryCount: number; lastErrorPresent: boolean }>>([]);
@@ -138,6 +148,19 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       statusHandlers.setError("The Factory state could not be changed. Refresh Home and try again.");
     } finally {
       setPendingAction(null);
+    }
+  }
+
+  async function inspectSourceCandidate(candidateId: string) {
+    setInspectingCandidateId(candidateId);
+    try {
+      const inspection = await fetchAdmin<NonNullable<typeof sourceCandidateInspections[string]>>(`/api/admin/factory/v2/source-submissions/${encodeURIComponent(candidateId)}`);
+      setSourceCandidateInspections((current) => ({ ...current, [candidateId]: inspection }));
+      statusHandlers.setError("");
+    } catch (error) {
+      statusHandlers.setError(error instanceof Error ? error.message : "The recorded source-candidate status could not be loaded.");
+    } finally {
+      setInspectingCandidateId(null);
     }
   }
   async function mutate(topic: TopicWorkItem, action: string, extra: Record<string, unknown> = {}) {
@@ -365,6 +388,12 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
               <p>Candidate awaiting Factory validation: <a href={candidate.submittedUrl} target="_blank" rel="noreferrer">{candidate.submittedUrl}</a> · submitted {formatOperationalTime(candidate.createdAt)} by {candidate.submittedBy}.</p>
               <p>Recorded rationale: {candidate.rationale}</p>
               <p>Candidate state: {candidate.state}. This is provenance only; it is not evidence, authority, a retrieval instruction, or a re-entry authorization.</p>
+              <div className="admin-action-row"><button className="button secondary" disabled={inspectingCandidateId !== null} onClick={() => void inspectSourceCandidate(candidate.candidateId)}>{inspectingCandidateId === candidate.candidateId ? "Loading recorded status…" : "View recorded Factory status"}</button></div>
+              {sourceCandidateInspections[candidate.candidateId] ? <div className="small muted">
+                <p>Authority validation: {sourceCandidateInspections[candidate.candidateId]!.validation ? `${sourceCandidateInspections[candidate.candidateId]!.validation!.state.replaceAll("_", " ")} · recorded ${formatOperationalTime(sourceCandidateInspections[candidate.candidateId]!.validation!.recordedAt)}` : "not recorded"}.</p>
+                <p>Retrieval outcome: {sourceCandidateInspections[candidate.candidateId]!.retrieval ? `${sourceCandidateInspections[candidate.candidateId]!.retrieval!.state.replaceAll("_", " ")} · ${sourceCandidateInspections[candidate.candidateId]!.retrieval!.retrievalDisposition?.replaceAll("_", " ") || "no disposition"}${sourceCandidateInspections[candidate.candidateId]!.retrieval!.rejectionCode ? ` · ${sourceCandidateInspections[candidate.candidateId]!.retrieval!.rejectionCode}` : ""}` : "not recorded"}.</p>
+                <p>Recorded status is read-only. It does not expose source content, create qualifying evidence, authorize re-entry, or dispatch retrieval.</p>
+              </div> : null}
             </div>)}
           </div>
           <span className="pill">Generation {topic.generation}</span>

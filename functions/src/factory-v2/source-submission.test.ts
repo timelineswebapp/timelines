@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseSealedArtifact, immutableEnvelope } from "./contracts/builders";
 import { v2FailureRecordSchema } from "./contracts/knowledge";
-import { deriveSourceSubmissionCandidate } from "./source-submission";
+import { deriveSourceSubmissionCandidate, inspectSourceSubmissionCandidate } from "./source-submission";
 import { buildSourceSubmissionAuthorityValidation } from "./source-submission-validation";
 import { buildSourceSubmissionRetrieval } from "./source-submission-retrieval";
 
@@ -29,4 +29,32 @@ test("source submission remains an immutable candidate and cannot become a snaps
   assert.throws(() => buildSourceSubmissionRetrieval({ validation, state: "RETRIEVED_UNQUALIFIED", now: "2026-10-16T03:03:00.000Z" }), /Retrieved observations require complete snapshot lineage/);
   assert.throws(() => deriveSourceSubmissionCandidate({ operation: { ...operation, state: "FAILED" }, failure, submittedUrl: "https://example.org/new-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" }), /exact deferred/);
   assert.throws(() => deriveSourceSubmissionCandidate({ operation: { ...operation, autonomousOutcome: { ...outcome, classification: "RESEARCH_BUDGET_EXHAUSTED", reentryState: "REQUIRES_AUTHORIZED_RETRY", publicEvidenceBasis: null } }, failure, submittedUrl: "https://example.org/new-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" }), /only for matching public-evidence/);
+});
+
+test("source submission inspection exposes only sealed operational observations", async () => {
+  const candidate = deriveSourceSubmissionCandidate({ operation, failure, submittedUrl: "https://example.org/recorded-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" });
+  const validation = buildSourceSubmissionAuthorityValidation({ candidate, operation, publisherVersionId: "publisher-version-submission", now: "2026-10-16T03:02:00.000Z" });
+  const retrieval = buildSourceSubmissionRetrieval({ validation, state: "RETRIEVAL_REJECTED", now: "2026-10-16T03:03:00.000Z", source: { sourceId: "source-submission" }, snapshot: { sourceSnapshotId: "snapshot-submission", retrievalDisposition: "ACCESS_LIMITED" }, rejectionCode: "SOURCE_SUBMISSION_INSUFFICIENT_MATERIAL" });
+  const repository = {
+    async getById() { return { id: candidate.sourceSubmissionCandidateId, ...candidate }; },
+    async boundedQuery(name: string) {
+      if (name === "v2SourceSubmissionValidations") return [{ id: validation.sourceSubmissionValidationId, ...validation }];
+      if (name === "v2SourceSubmissionRetrievals") return [{ id: retrieval.sourceSubmissionRetrievalId, ...retrieval }];
+      throw new Error(`Unexpected collection: ${name}`);
+    }
+  } as any;
+
+  const inspection = await inspectSourceSubmissionCandidate(repository, candidate.sourceSubmissionCandidateId);
+
+  assert.deepEqual(inspection, {
+    candidateId: candidate.sourceSubmissionCandidateId,
+    state: "CANDIDATE",
+    submittedAt: "2026-10-16T03:01:00.000Z",
+    validation: { state: "AUTHORITY_ELIGIBLE", recordedAt: "2026-10-16T03:02:00.000Z" },
+    retrieval: { state: "RETRIEVAL_REJECTED", recordedAt: "2026-10-16T03:03:00.000Z", retrievalDisposition: "ACCESS_LIMITED", rejectionCode: "SOURCE_SUBMISSION_INSUFFICIENT_MATERIAL" },
+    qualifyingEvidence: false,
+    reentryAuthorized: false
+  });
+  assert.equal("sourceSnapshotId" in inspection, false);
+  assert.equal("sourceId" in inspection, false);
 });

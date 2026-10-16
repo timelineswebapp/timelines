@@ -9,6 +9,7 @@ import { buildEvidenceSegment, buildAtomicClaimVersion, buildCanonicalEventVersi
 import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion } from "../authority";
 import { buildTopicAuthoritySet } from "../authority-first";
 import { dispatchSourceSubmissionRetrieval } from "../source-submission-dispatch";
+import { inspectSourceSubmissionCandidate } from "../source-submission";
 import { claimAuthorityVerdictSchema, deferredReentryRequestSchema, publisherAuthorityRecordSchema, sourceSnapshotSchema, v2FailureRecordSchema } from "../contracts";
 import { normalizedIdentityText } from "../contracts/builders";
 import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, KNOWLEDGE_COVERAGE_POLICY_VERSION, planGapDirectedCompletion } from "../coverage";
@@ -83,6 +84,12 @@ test("Firestore emulator resolves submitted-source authority and persists a non-
   assert.equal(observation.state, "RETRIEVED_UNQUALIFIED");
   assert.equal(observation.qualifyingEvidence, false);
   assert.equal((await repository.getById("v2SourceSubmissionRetrievals", observation.sourceSubmissionRetrievalId))?.reentryAuthorized, false);
+  const inspection = await inspectSourceSubmissionCandidate(repository, candidate.candidateId);
+  assert.deepEqual(inspection.validation, { state: "AUTHORITY_ELIGIBLE", recordedAt: "2026-10-16T04:02:00.000Z" });
+  assert.deepEqual(inspection.retrieval, { state: "RETRIEVED_UNQUALIFIED", recordedAt: "2026-10-16T04:02:00.000Z", retrievalDisposition: "NEWLY_RETRIEVED", rejectionCode: null });
+  assert.equal(inspection.qualifyingEvidence, false);
+  assert.equal(inspection.reentryAuthorized, false);
+  assert.equal("sourceSnapshotId" in inspection, false);
   assert.equal(fetchCalls, 2);
 });
 

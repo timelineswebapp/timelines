@@ -83,6 +83,16 @@ test("deferred source-candidate UI remains provenance-only", () => {
   const ui = readFileSync("components/admin/AdminFactoryOperations.tsx", "utf8");
   assert.match(ui, /Recorded rationale: \{candidate\.rationale\}/);
   assert.match(ui, /This is provenance only; it is not evidence, authority, a retrieval instruction, or a re-entry authorization\./);
-  const candidateSection = ui.slice(ui.indexOf("Candidate awaiting Factory validation:"), ui.indexOf("</article>)"));
+  const candidateStart = ui.indexOf("Candidate awaiting Factory validation:");
+  const candidateSection = ui.slice(candidateStart, ui.indexOf("</article>)", candidateStart));
+  assert.doesNotMatch(candidateSection, /dispatchSourceSubmissionRetrieval|createDeferredFactoryV2Reentry|Submit Source Candidate/);
+});
+
+test("candidate outcome inspection remains read-only", () => {
+  const ui = readFileSync("components/admin/AdminFactoryOperations.tsx", "utf8");
+  const candidateStart = ui.indexOf("Candidate awaiting Factory validation:");
+  const candidateSection = ui.slice(candidateStart, ui.indexOf("</article>)", candidateStart));
+  assert.match(candidateSection, /View recorded Factory status/u);
+  assert.match(candidateSection, /does not expose source content, create qualifying evidence, authorize re-entry, or dispatch retrieval/u);
   assert.doesNotMatch(candidateSection, /dispatchSourceSubmissionRetrieval|createDeferredFactoryV2Reentry|Submit Source Candidate/);
 });

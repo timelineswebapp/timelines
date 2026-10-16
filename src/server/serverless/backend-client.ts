@@ -116,6 +116,9 @@ export const serverlessBackendClient = {
   listFactoryV2SourceSubmissions<T>(limit = 25) {
     return internalRequest<T[]>(`/internal/factory-v2/source-submissions?${query({ limit })}`).then((result) => result || []);
   },
+  getFactoryV2SourceSubmissionInspection<T>(candidateId: string) {
+    return internalRequest<T>(`/internal/factory-v2/source-submissions/${encodeURIComponent(candidateId)}`);
+  },
   submitTopic<T>(body: unknown, clientIp: string) {
     const secret = requireSharedSecret();
     const timestamp = String(Date.now());

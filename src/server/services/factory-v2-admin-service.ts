@@ -28,6 +28,15 @@ export type DeferredFactoryV2ReentryResult = {
 };
 export type FactoryV2SourceSubmissionResult = { state: "CREATED" | "IDEMPOTENT"; candidateId: string };
 export type FactoryV2SourceSubmission = { candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" };
+export type FactoryV2SourceSubmissionInspection = {
+  candidateId: string;
+  state: "CANDIDATE";
+  submittedAt: string;
+  validation: { state: "AUTHORITY_ELIGIBLE"; recordedAt: string } | null;
+  retrieval: { state: "RETRIEVED_UNQUALIFIED" | "RETRIEVAL_REJECTED"; recordedAt: string; retrievalDisposition: "NEWLY_RETRIEVED" | "CACHE_REUSED" | "REVALIDATED" | "ACCESS_LIMITED" | "UNAVAILABLE" | null; rejectionCode: string | null } | null;
+  qualifyingEvidence: false;
+  reentryAuthorized: false;
+};
 export type GenerationRetryQueueItem = { topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number };
 export type GenerationRetryQueueHealth = { scheduledCount: number; dueCount: number; oldestDueAt: string | null };
 export type GenerationEnqueueFailureItem = { topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "FAILED"; failedAt: string; enqueueRetryCount: number; lastErrorPresent: boolean };
@@ -39,5 +48,6 @@ export const factoryV2AdminService = {
   listGenerationEnqueueFailures: (limit = 25) => serverlessBackendClient.listGenerationEnqueueFailures<GenerationEnqueueFailureItem>(limit),
   createDeferredReentry: (input: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) => serverlessBackendClient.createDeferredFactoryV2Reentry<DeferredFactoryV2ReentryResult>(input),
   createSourceSubmission: (input: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string }) => serverlessBackendClient.createFactoryV2SourceSubmission<FactoryV2SourceSubmissionResult>(input),
-  listSourceSubmissions: (limit = 25) => serverlessBackendClient.listFactoryV2SourceSubmissions<FactoryV2SourceSubmission>(limit)
+  listSourceSubmissions: (limit = 25) => serverlessBackendClient.listFactoryV2SourceSubmissions<FactoryV2SourceSubmission>(limit),
+  getSourceSubmissionInspection: (candidateId: string) => serverlessBackendClient.getFactoryV2SourceSubmissionInspection<FactoryV2SourceSubmissionInspection>(candidateId)
 };
