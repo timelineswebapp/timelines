@@ -55,6 +55,9 @@ Completed for this increment:
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, contract, completion, and orchestration tests: 45/45 passed.
 - Full Functions suite: 346 passed, 0 failed, 2 intentional emulator-only skips.
+- Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
+- Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
+- Functions build and Next optimized production build: passed.
 - No provider call, certification execution, production mutation, or institutional/public write was performed.
 
 ## Founder-only boundaries
