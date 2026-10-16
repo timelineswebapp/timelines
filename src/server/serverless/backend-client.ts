@@ -8,7 +8,7 @@ type BackendEnvelope<T> =
 function baseUrl() {
   const configured = process.env.SERVERLESS_API_BASE_URL?.trim().replace(/\/$/u, "");
   if (configured) return configured;
-  if (process.env.VERCEL_ENV) throw new Error("SERVERLESS_API_BASE_URL is required in deployed environments.");
+  if (process.env.VERCEL_ENV) throw new ApiError(503, "SERVERLESS_BACKEND_UNAVAILABLE", "Serverless backend is unavailable.");
   return null;
 }
 
