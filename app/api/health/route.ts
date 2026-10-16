@@ -72,16 +72,30 @@ function logHealthError(message: string): void {
   );
 }
 
-export async function GET() {
-  const timestamp = new Date().toISOString();
+type HealthDependencies = {
+  now: () => Date;
+  hasRequiredEnvironment: () => boolean;
+  getSql: typeof getSql;
+  logHealthError: (message: string) => void;
+};
+
+const productionHealthDependencies: HealthDependencies = {
+  now: () => new Date(),
+  hasRequiredEnvironment,
+  getSql,
+  logHealthError
+};
+
+export async function getHealthResponse(dependencies: HealthDependencies = productionHealthDependencies) {
+  const timestamp = dependencies.now().toISOString();
 
   try {
-    const envReady = hasRequiredEnvironment();
+    const envReady = dependencies.hasRequiredEnvironment();
     if (!envReady) {
       return failureResponse(timestamp, false, "missing_environment", 503);
     }
 
-    const sql = getSql();
+    const sql = dependencies.getSql();
     if (!sql) {
       return failureResponse(timestamp, true, "database_unavailable", 503);
     }
@@ -89,13 +103,17 @@ export async function GET() {
     try {
       await sql`SELECT 1`;
     } catch (error) {
-      logHealthError(error instanceof Error ? error.message : "Database probe failed.");
+      dependencies.logHealthError(error instanceof Error ? error.message : "Database probe failed.");
       return failureResponse(timestamp, true, "database_unavailable", 503);
     }
 
     return successResponse(timestamp);
   } catch (error) {
-    logHealthError(error instanceof Error ? error.message : "Unexpected healthcheck failure.");
-    return failureResponse(timestamp, hasRequiredEnvironment(), "healthcheck_failed", 500);
+    dependencies.logHealthError(error instanceof Error ? error.message : "Unexpected healthcheck failure.");
+    return failureResponse(timestamp, dependencies.hasRequiredEnvironment(), "healthcheck_failed", 500);
   }
+}
+
+export async function GET() {
+  return getHealthResponse();
 }
