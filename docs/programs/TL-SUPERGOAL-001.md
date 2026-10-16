@@ -88,6 +88,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Public-search navigation increment:** Completed locally on `2026-10-16`. Public search now pages projection-backed results in bounded groups of 20, with a maximum requested page of 500 and accessible previous/next navigation. Query identity, result ranking, and backend limits remain server-owned; no Factory or institutional data enters the reader path.
 
+**Public-search page identity increment:** Completed locally on `2026-10-16`. Each bounded public-search page now emits its own canonical and Open Graph URL, preserving pagination identity for readers and crawlers without broadening result access or changing public content.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary

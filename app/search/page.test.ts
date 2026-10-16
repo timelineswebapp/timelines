@@ -12,6 +12,8 @@ test("public search trims queries and presents an accessible empty-result state"
   assert.match(source, /const MAX_SEARCH_PAGE = 500/u);
   assert.match(source, /contentService\.searchKnowledge\(query, SEARCH_PAGE_SIZE, \(currentPage - 1\) \* SEARCH_PAGE_SIZE\)/u);
   assert.match(source, /aria-label="Search result pages"/u);
+  assert.match(source, /const canonicalPath = query \? searchPageHref\(query, currentPage\) : "\/search"/u);
+  assert.match(source, /url: buildPublicUrl\(canonicalPath\)/u);
   assert.match(source, /query && result\.items\.length === 0/u);
   assert.match(source, /role="status" aria-live="polite"/u);
   assert.match(source, /No matching timelines or milestones/u);

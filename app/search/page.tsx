@@ -73,8 +73,10 @@ export async function generateMetadata({
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
 }): Promise<Metadata> {
-  const { q = "" } = await searchParams;
+  const { q = "", page } = await searchParams;
   const query = normalizePublicSearchQuery(q);
+  const currentPage = normalizeSearchPage(page);
+  const canonicalPath = query ? searchPageHref(query, currentPage) : "/search";
 
   return {
     title: query ? `Search: ${query} | TiMELiNES` : "Search timelines | TiMELiNES",
@@ -82,14 +84,14 @@ export async function generateMetadata({
       ? `Search results for "${query}" across structured timelines and event chronologies.`
       : "Search structured timelines and event chronologies across the TiMELiNES catalog.",
     alternates: {
-      canonical: query ? `/search?q=${encodeURIComponent(query)}` : "/search"
+      canonical: canonicalPath
     },
     openGraph: {
       title: query ? `Search: ${query} | TiMELiNES` : "Search timelines | TiMELiNES",
       description: query
         ? `Search results for "${query}" across structured timelines and event chronologies.`
         : "Search structured timelines and event chronologies across the TiMELiNES catalog.",
-      url: buildPublicUrl(query ? `/search?q=${encodeURIComponent(query)}` : "/search"),
+      url: buildPublicUrl(canonicalPath),
       type: "website"
     },
     twitter: {
