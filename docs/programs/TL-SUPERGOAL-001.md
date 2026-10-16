@@ -174,6 +174,7 @@ Completed for this increment:
 - Root strict typecheck and Founder operations suite: passed (13/13) after the Home visibility correction.
 - Factory retry health interface: added a server-owned, signed internal aggregate for scheduled retry count, due-now count, and the oldest due timestamp. The authenticated Admin queue view consumes this read-only health signal; it exposes no topic diagnostics and provides no retry, dispatch, reprioritization, re-entry, or state-transition control.
 - Functions and root strict typechecks passed; Functions contract suite passed (360/360, 2 intentional emulator skips). A fresh isolated Firestore emulator regression passed, proving aggregate retry health exactly reflects the durable retry records.
+- Full root suite: 257 passed, 0 failed after the retry-backlog health surface. Expected local fixture diagnostics remained non-failing; no production, publication, discovery, or institutional mutation occurred.
 - Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
