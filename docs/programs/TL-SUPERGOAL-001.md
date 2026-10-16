@@ -118,6 +118,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Public-topic-status direct-request bound increment:** Completed locally on `2026-10-16`. The serverless public topic-status API now trims and requires a nonempty query of at most 120 characters before topic normalization and ledger lookup. This aligns status lookups with timeline-request identity bounds and prevents unbounded direct input from reaching the hashing or database path; it does not alter state visibility or generation behavior.
 
+**Homepage pagination input integrity increment:** Completed locally on `2026-10-16`. The public homepage pagination route now accepts only canonical nonnegative integer offsets up to 10,000 and positive limits from 1 through 24. Malformed partial numbers, decimals, unsafe integers, oversized offsets, and zero or oversized limits fail with a validation response before content-service access, preserving bounded public read-model work.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -152,6 +154,7 @@ Completed for this increment:
 - Full root suite: 251 passed, 0 failed after the public-search deep-page correction; expected fixture warnings remained non-failing and no production mutation occurred.
 - Functions and root strict typechecks plus public API contract regression: passed after the direct-request query bound.
 - Functions strict typecheck and public API contract regression: passed after the direct topic-status bound.
+- Root strict typecheck and direct homepage-route regression: passed after homepage pagination input integrity hardening.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.

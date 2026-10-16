@@ -4,13 +4,17 @@ import { contentService } from "@/src/server/services/content-service";
 
 export const dynamic = "force-dynamic";
 
-function parsePositiveInteger(value: string | null, fallback: number) {
+function parseBoundedInteger(value: string | null, fallback: number, minimum: number, maximum: number) {
   if (!value) {
     return fallback;
   }
 
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) {
+  if (!/^\d+$/u.test(value)) {
+    throw new ApiError(400, "VALIDATION_FAILED", "Invalid pagination parameters.");
+  }
+
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
     throw new ApiError(400, "VALIDATION_FAILED", "Invalid pagination parameters.");
   }
 
@@ -20,8 +24,8 @@ function parsePositiveInteger(value: string | null, fallback: number) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const offset = parsePositiveInteger(searchParams.get("offset"), 0);
-    const limit = parsePositiveInteger(searchParams.get("limit"), 12);
+    const offset = parseBoundedInteger(searchParams.get("offset"), 0, 0, 10_000);
+    const limit = parseBoundedInteger(searchParams.get("limit"), 12, 1, 24);
     const snapshotDate = searchParams.get("snapshotDate") || undefined;
     const data = await contentService.getHomepageSnapshotSlice(offset, limit, snapshotDate);
 
