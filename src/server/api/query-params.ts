@@ -53,8 +53,13 @@ export function parseOptionalIsoDateQueryParameter(value: string | null) {
 }
 
 /** Validates canonical public route slugs before repository access. */
+export function isCanonicalPublicSlug(value: string) {
+  return /^[a-z0-9]+(?:-[a-z0-9]+){0,31}$/u.test(value) && value.length <= 160;
+}
+
+/** Validates canonical public route slugs before repository access. */
 export function parseCanonicalPublicSlug(value: string) {
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+){0,31}$/u.test(value) || value.length > 160) {
+  if (!isCanonicalPublicSlug(value)) {
     throw new ApiError(400, "VALIDATION_FAILED", "Invalid public slug.");
   }
   return value;

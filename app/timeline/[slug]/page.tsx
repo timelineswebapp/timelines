@@ -7,6 +7,7 @@ import { buildTimelinePageMetadata, resolveTimelineShareEvent } from "@/src/lib/
 import { slugify } from "@/src/lib/utils";
 import { adsService } from "@/src/server/services/ads-service";
 import { contentService } from "@/src/server/services/content-service";
+import { isCanonicalPublicSlug } from "@/src/server/api/query-params";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const { event } = await searchParams;
+  if (!isCanonicalPublicSlug(slug)) {
+    return { title: "Timeline not found", alternates: { canonical: `/timeline/${slug}` } };
+  }
   const resolution = await contentService.resolveTimelineRoute(slug);
   if (!resolution.timeline) {
     return {
@@ -42,6 +46,9 @@ export default async function TimelinePage({
 }) {
   const { slug } = await params;
   const { event } = await searchParams;
+  if (!isCanonicalPublicSlug(slug)) {
+    notFound();
+  }
   const selectedEventId = parseEventIdParam(event);
   const [resolution, adAssignments] = await Promise.all([
     contentService.resolveTimelineRoute(slug),

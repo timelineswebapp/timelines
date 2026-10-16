@@ -126,6 +126,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Public detail-slug integrity increment:** Completed locally on `2026-10-16`. Timeline and tag detail APIs now validate canonical public slugs before invoking the projection-backed content service, while the serverless read-model and taxonomy routes enforce the matching contract before document or fallback lookup. Malformed, noncanonical, and oversized slugs fail validation rather than reaching repository reads.
 
+**Public dynamic-page slug integrity increment:** Completed locally on `2026-10-16`. Timeline, tag, category, and historical-object App Router loaders now apply the same canonical slug gate before any content-service read and return standard public not-found behavior for invalid paths. The direct API/page-loader regression, root strict typecheck, and full mandatory root suite passed (272/272).
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary

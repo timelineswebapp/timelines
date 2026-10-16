@@ -5,6 +5,7 @@ import { GlassPanel } from "@/components/ui/GlassPanel";
 import { buildPublicUrl } from "@/src/lib/public-site";
 import { buildCategoryJsonLd, sanitizeJsonLd } from "@/src/lib/timeline-jsonld";
 import { contentService } from "@/src/server/services/content-service";
+import { isCanonicalPublicSlug } from "@/src/server/api/query-params";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,9 @@ function getCategoryIntro(slug: string, categoryName: string) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  if (!isCanonicalPublicSlug(slug)) {
+    return { title: "Category not found | TiMELiNES", alternates: { canonical: `/category/${slug}` } };
+  }
   const detail = await contentService.getCategoryDetail(slug);
 
   if (!detail) {
@@ -56,6 +60,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  if (!isCanonicalPublicSlug(slug)) {
+    notFound();
+  }
   const detail = await contentService.getCategoryDetail(slug);
   if (!detail) {
     notFound();

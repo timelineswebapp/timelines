@@ -3,11 +3,15 @@ import { notFound } from "next/navigation";
 import { GlassPanel } from "@/components/ui/GlassPanel";
 import { TimelineSummaryCard } from "@/components/timeline/TimelineSummaryCard";
 import { contentService } from "@/src/server/services/content-service";
+import { isCanonicalPublicSlug } from "@/src/server/api/query-params";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+  if (!isCanonicalPublicSlug(slug)) {
+    return { title: "Tag not found | TiMELiNES", alternates: { canonical: `/tag/${slug}` } };
+  }
   const detail = await contentService.getTagDetail(slug);
 
   if (!detail) {
@@ -30,6 +34,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function TagPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  if (!isCanonicalPublicSlug(slug)) {
+    notFound();
+  }
   const detail = await contentService.getTagDetail(slug);
   if (!detail) {
     notFound();

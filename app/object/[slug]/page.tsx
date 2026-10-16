@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { buildMilestonePath, buildTimelinePath } from "@/src/lib/share";
 import { formatDisplayDate } from "@/src/lib/utils";
 import { contentService } from "@/src/server/services/content-service";
+import { isCanonicalPublicSlug } from "@/src/server/api/query-params";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,9 @@ const typeLabels = {
 
 export default async function HistoricalObjectPage({ params }: { params: Promise<HistoricalObjectPageParams> }) {
   const { slug } = await params;
+  if (!isCanonicalPublicSlug(slug)) {
+    notFound();
+  }
   const detail = await contentService.getHistoricalObjectBySlug(slug);
   if (!detail) {
     notFound();
