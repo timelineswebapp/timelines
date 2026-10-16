@@ -10,6 +10,7 @@ import { trustedClientIp } from "@/src/server/api/client-ip";
 import { ApiError } from "@/src/server/api/responses";
 import { parseCanonicalPositiveIntegerPathParameter, parseOptionalEnumQueryParameter, parseOptionalSingleQueryParameter } from "@/src/server/api/query-params";
 import { adminService } from "@/src/server/services/admin-service";
+import { factoryV2AdminService } from "@/src/server/services/factory-v2-admin-service";
 import { setAdminSecurityAuditStoreForTests } from "@/src/server/security/admin-identity";
 
 test("operational enum filters accept only one declared value", () => {
@@ -45,6 +46,21 @@ test("production rate identities use only the platform-trusted forwarding header
     assert.equal(trustedClientIp(new Request("https://timelines.example", { headers: { "x-forwarded-for": "not-an-ip" } })), "127.0.0.1");
   } finally {
     config.isProduction = previousIsProduction;
+  }
+});
+
+test("unavailable serverless Factory reads do not masquerade as empty operational queues", async () => {
+  const previousBaseUrl = process.env.SERVERLESS_API_BASE_URL;
+  const previousVercelEnvironment = process.env.VERCEL_ENV;
+  delete process.env.SERVERLESS_API_BASE_URL;
+  delete process.env.VERCEL_ENV;
+  try {
+    await assert.rejects(factoryV2AdminService.listDeferredTopics(), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
+  } finally {
+    if (previousBaseUrl === undefined) delete process.env.SERVERLESS_API_BASE_URL;
+    else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
+    if (previousVercelEnvironment === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousVercelEnvironment;
   }
 });
 
