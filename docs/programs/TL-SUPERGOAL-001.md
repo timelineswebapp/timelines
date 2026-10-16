@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `b1ba6e2` — `docs: record terminal alert regression` (following `2994fe4` terminal-enqueue observability) |
+| Current local engineering checkpoint | `6851c0f` — paired deferred re-entry creation contract coverage; full root suite 273/273, root strict typecheck, optimized Next build, lint, and Tier-1 security gate verified across the current successor chain. |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | `.70` release `dd9737a1742a68c726aa3d41fd4549430c6d68098cf48fb13c6fd38ee6f7ed16`; its fresh non-combined run produced one valid San Francisco CKS before Berlin failed closed on the protected affected-community identity boundary. |
 | Phase 2 | **BLOCKED — FOUNDER-GOVERNED HISTORICAL IDENTITY/CAPACITY; UNCERTIFIED.** The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
