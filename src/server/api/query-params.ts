@@ -39,6 +39,42 @@ export function parseBoundedAdminListLimit(
   return Number.isSafeInteger(parsed) ? Math.max(minimum, Math.min(maximum, parsed)) : fallback;
 }
 
+/**
+ * Reads an optional, single-valued enum filter for authenticated operational
+ * lists.  HTTP parameter pollution and unknown values are rejected before a
+ * filter can reach a service or repository boundary.
+ */
+export function parseOptionalEnumQueryParameter<T extends readonly string[]>(
+  searchParams: URLSearchParams,
+  name: string,
+  values: T
+): T[number] | undefined {
+  const matches = searchParams.getAll(name);
+  if (matches.length === 0) return undefined;
+  if (matches.length !== 1) {
+    throw new ApiError(400, "VALIDATION_FAILED", `Query parameter ${name} must appear at most once.`);
+  }
+
+  if (matches[0] === "") return undefined;
+
+  const value = matches[0]!;
+  if (!values.includes(value)) {
+    throw new ApiError(400, "VALIDATION_FAILED", `Invalid query parameter ${name}.`);
+  }
+  return value as T[number];
+}
+
+/** Reads an optional unstructured control while still rejecting duplicate keys. */
+export function parseOptionalSingleQueryParameter(searchParams: URLSearchParams, name: string): string | undefined {
+  const matches = searchParams.getAll(name);
+  if (matches.length === 0) return undefined;
+  if (matches.length !== 1) {
+    throw new ApiError(400, "VALIDATION_FAILED", `Query parameter ${name} must appear at most once.`);
+  }
+  if (matches[0] === "") return undefined;
+  return matches[0];
+}
+
 /** Parses an optional canonical ISO calendar date without accepting reflected arbitrary text. */
 export function parseOptionalIsoDateQueryParameter(value: string | null) {
   if (!value) return undefined;
