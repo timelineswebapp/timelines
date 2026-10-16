@@ -47,3 +47,29 @@ test("health endpoint reports database unavailability without exposing probe det
   });
   assert.deepEqual(logged, []);
 });
+
+test("health endpoint sanitizes a database probe failure", async () => {
+  const logged: string[] = [];
+  const databaseProbe = async () => {
+    throw new Error("postgres://operator:secret@database.internal/timelines");
+  };
+
+  const response = await getHealthResponse({
+    now: () => new Date("2026-10-16T12:00:00.000Z"),
+    hasRequiredEnvironment: () => true,
+    getSql: (() => databaseProbe) as unknown as typeof import("@/src/server/db/client").getSql,
+    logHealthError: (message) => logged.push(message)
+  });
+  const payload = await response.json() as Record<string, unknown>;
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(payload, {
+    ok: false,
+    db: false,
+    env: true,
+    error: "database_unavailable",
+    timestamp: "2026-10-16T12:00:00.000Z"
+  });
+  assert.deepEqual(logged, ["Database probe failed."]);
+  assert.equal(JSON.stringify({ payload, logged }).includes("secret"), false);
+});

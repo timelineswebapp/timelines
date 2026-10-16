@@ -102,8 +102,10 @@ export async function getHealthResponse(dependencies: HealthDependencies = produ
 
     try {
       await sql`SELECT 1`;
-    } catch (error) {
-      dependencies.logHealthError(error instanceof Error ? error.message : "Database probe failed.");
+    } catch {
+      // Driver errors can include connection metadata. The health endpoint only
+      // needs to record the availability class, never provider diagnostics.
+      dependencies.logHealthError("Database probe failed.");
       return failureResponse(timestamp, true, "database_unavailable", 503);
     }
 
