@@ -271,6 +271,7 @@ export class V2FirestoreRepository {
   /** Persists an acquisition observation only; it never creates evidence, claims, or a re-entry request. */
   async persistSourceSubmissionRetrieval(input: { result: Record<string, unknown> } & SourceSubmissionRetrievalArtifacts): Promise<void> {
     const result = sourceSubmissionRetrievalSchema.parse(input.result);
+    if (!verifyPayloadHash(result)) throw new Error("Source-submission retrieval observation hash is invalid.");
     if (input.source || input.snapshot || input.evidenceSegments) {
       if (!input.source || !input.snapshot || !input.evidenceSegments) throw new Error("Source-submission retrieval persistence requires complete acquisition artifacts.");
       const source = sourceDocumentSchema.parse(input.source);
