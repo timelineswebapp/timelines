@@ -16,6 +16,28 @@ export function parseBoundedIntegerQueryParameter(
   return parsed;
 }
 
+/**
+ * Normalizes an authenticated operational list limit while rejecting HTTP
+ * parameter pollution. Invalid single values retain the established safe
+ * default; valid values are clamped to the server-owned range.
+ */
+export function parseBoundedAdminListLimit(
+  searchParams: URLSearchParams,
+  fallback = 25,
+  minimum = 1,
+  maximum = 100
+) {
+  const values = searchParams.getAll("limit");
+  if (values.length > 1) {
+    throw new ApiError(400, "VALIDATION_FAILED", "Query parameter limit must appear at most once.");
+  }
+
+  const value = values[0];
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? Math.max(minimum, Math.min(maximum, parsed)) : fallback;
+}
+
 /** Parses an optional canonical ISO calendar date without accepting reflected arbitrary text. */
 export function parseOptionalIsoDateQueryParameter(value: string | null) {
   if (!value) return undefined;

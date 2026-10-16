@@ -22,6 +22,15 @@ test("scheduled retry visibility requires a factory operator and keeps its list 
     assert.equal(denied.status, 401);
     assert.deepEqual(requestedLimits, []);
 
+    const duplicate = await GET(
+      new Request("https://timelines.example/api/admin/factory/v2/generation-retries?limit=1&limit=100", {
+        headers: { authorization: "Bearer factory-secret" }
+      }),
+      {}
+    );
+    assert.equal(duplicate.status, 400);
+    assert.deepEqual(requestedLimits, []);
+
     const response = await GET(
       new Request("https://timelines.example/api/admin/factory/v2/generation-retries?limit=1000", {
         headers: { authorization: "Bearer factory-secret" }
