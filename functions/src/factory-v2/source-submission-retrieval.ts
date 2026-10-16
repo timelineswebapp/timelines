@@ -66,6 +66,8 @@ export async function retrieveSubmittedSourceCandidate(input: {
   const prepared = await input.repository.prepareSourceSubmissionRetrieval(input.candidateId, now().toISOString());
   const candidate = sourceSubmissionCandidateSchema.parse(prepared.candidate);
   const publisher = prepared.publisher;
+  let result: SourceSubmissionRetrieval;
+  let artifacts: SourceSubmissionRetrievalArtifacts | undefined;
   try {
     const acquired = await retrieveSource({
       context: { corpusId: candidate.corpusId, topicId: candidate.topicId, runId: candidate.runId, generation: candidate.generation, createdAt: now().toISOString() },
@@ -75,14 +77,16 @@ export async function retrieveSubmittedSourceCandidate(input: {
     const authorityMatches = sourceSubmissionUrlMatchesAuthority({ submittedUrl: acquired.source.canonicalUrl, boundPublisherVersionIds: [publisher.publisherVersionId], publisherVersionId: publisher.publisherVersionId, knownDomains: publisher.knownDomains });
     const usable = authorityMatches && acquired.snapshot.retrievalDisposition === "NEWLY_RETRIEVED" && acquired.snapshot.accessLimitations.length === 0 && acquired.evidenceSegments.length > 0;
     const source = sourceDocumentSchema.parse({ ...acquired.source, publisherId: publisher.publisherId, sourceClass: provisionalSourceClass(publisher), primarySecondaryRole: publisher.primarySecondaryTendency, authorityDomains: publisher.authorityDomains });
-    const result = buildSourceSubmissionRetrieval({ validation: prepared.validation, state: usable ? "RETRIEVED_UNQUALIFIED" : "RETRIEVAL_REJECTED", now: now().toISOString(), source, snapshot: acquired.snapshot, rejectionCode: usable ? null : authorityMatches ? "SOURCE_SUBMISSION_INSUFFICIENT_MATERIAL" : "SOURCE_SUBMISSION_REDIRECT_OUTSIDE_AUTHORITY" });
-    await input.repository.persistSourceSubmissionRetrieval({ result, source, snapshot: acquired.snapshot, evidenceSegments: acquired.evidenceSegments });
-    return result;
+    result = buildSourceSubmissionRetrieval({ validation: prepared.validation, state: usable ? "RETRIEVED_UNQUALIFIED" : "RETRIEVAL_REJECTED", now: now().toISOString(), source, snapshot: acquired.snapshot, rejectionCode: usable ? null : authorityMatches ? "SOURCE_SUBMISSION_INSUFFICIENT_MATERIAL" : "SOURCE_SUBMISSION_REDIRECT_OUTSIDE_AUTHORITY" });
+    artifacts = { source, snapshot: acquired.snapshot, evidenceSegments: acquired.evidenceSegments };
   } catch (error) {
-    const result = buildSourceSubmissionRetrieval({ validation: prepared.validation, state: "RETRIEVAL_REJECTED", now: now().toISOString(), rejectionCode: rejectionCode(error) });
-    await input.repository.persistSourceSubmissionRetrieval({ result });
-    return result;
+    result = buildSourceSubmissionRetrieval({ validation: prepared.validation, state: "RETRIEVAL_REJECTED", now: now().toISOString(), rejectionCode: rejectionCode(error) });
   }
+  // A persistence failure is an infrastructure failure, not a source
+  // retrieval outcome. Propagate it so callers cannot silently convert a
+  // durable-write defect into a historical-evidence limitation.
+  await input.repository.persistSourceSubmissionRetrieval({ result, ...artifacts });
+  return result;
 }
 
 export type SourceSubmissionRetrievalArtifacts = { source?: SourceDocument; snapshot?: SourceSnapshot; evidenceSegments?: EvidenceSegment[] };
