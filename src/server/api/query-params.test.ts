@@ -243,3 +243,12 @@ test("public request entry points use a sanitized envelope parser", () => {
   assert.match(parser, /Topic intake is temporarily unavailable/);
   assert.doesNotMatch(parser, /payload\?\.error\?\.message/);
 });
+
+test("Factory V2 Admin service validates signed bridge DTOs before UI routes consume them", () => {
+  const service = readFileSync("src/server/services/factory-v2-admin-service.ts", "utf8");
+  assert.match(service, /function parseBridgeDto/);
+  assert.match(service, /SERVERLESS_BACKEND_INVALID_RESPONSE/);
+  assert.match(service, /z\.array\(deferredTopicSchema\)\.max\(100\)/);
+  assert.match(service, /sourceSubmissionInspectionSchema/);
+  assert.match(service, /generationRetryQueueHealthSchema/);
+});
