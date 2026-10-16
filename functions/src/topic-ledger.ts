@@ -349,10 +349,11 @@ export async function retryDeferredEnqueuesWithDependencies(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const nextRetryAt = Timestamp.fromMillis(Date.now() + ENQUEUE_RETRY_DELAY_MS);
+      let terminalExhausted = false;
       try {
-        await db.runTransaction(async (transaction) => {
+        const persisted = await db.runTransaction(async (transaction) => {
           const current = await transaction.get(document.ref);
-          if (current.data()?.state !== "RETRY_SCHEDULED" || current.data()?.activeJobId !== data.activeJobId) return;
+          if (current.data()?.state !== "RETRY_SCHEDULED" || current.data()?.activeJobId !== data.activeJobId) return null;
           const enqueueRetryCount = Number.isInteger(current.data()?.enqueueRetryCount) ? Number(current.data()?.enqueueRetryCount) : 0;
           const exhausted = enqueueRetryCount + 1 >= MAX_ENQUEUE_RETRIES;
           const jobRef = typeof data.activeJobId === "string" ? corpusCollection("generationJobs").doc(data.activeJobId) : null;
@@ -371,11 +372,26 @@ export async function retryDeferredEnqueuesWithDependencies(
             enqueueRetryCount: enqueueRetryCount + 1,
             createdAt: Timestamp.now()
           });
+          return { exhausted, enqueueRetryCount: enqueueRetryCount + 1 };
         });
+        if (persisted?.exhausted) {
+          terminalExhausted = true;
+          console.error(JSON.stringify({
+            severity: "ERROR",
+            component: "deferred_enqueue_retry",
+            action: "enqueue_retry_exhausted",
+            topicId: document.id,
+            jobId: data.activeJobId,
+            enqueueRetryCount: persisted.enqueueRetryCount,
+            diagnosticPresent: true
+          }));
+        }
       } catch (persistenceError) {
         console.error(JSON.stringify({ severity: "ERROR", component: "deferred_enqueue_retry", action: "retry_failure_persistence_failed", topicId: document.id, message: persistenceError instanceof Error ? persistenceError.message : String(persistenceError) }));
       }
-      console.warn(JSON.stringify({ severity: "WARNING", component: "deferred_enqueue_retry", action: "retry_deferred_without_blocking_batch", topicId: document.id, message: message.slice(0, 2000) }));
+      if (!terminalExhausted) {
+        console.warn(JSON.stringify({ severity: "WARNING", component: "deferred_enqueue_retry", action: "retry_deferred_without_blocking_batch", topicId: document.id, message: message.slice(0, 2000) }));
+      }
     }
   }
   return requeued;

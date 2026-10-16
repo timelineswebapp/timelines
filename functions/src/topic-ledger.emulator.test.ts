@@ -57,9 +57,16 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
     ledger.doc(failedTopicId).update({ enqueueRetryCount: 4, nextRetryAt: Timestamp.fromMillis(Date.now() - 1_000) }),
     jobs.doc(failedJobId).update({ enqueueRetryCount: 4, nextRetryAt: Timestamp.fromMillis(Date.now() - 1_000) })
   ]);
-  assert.equal(await retryDeferredEnqueuesWithDependencies(2, {
-    enqueueGenerationTask: async () => { throw new Error("Cloud Tasks remains unavailable."); }
-  }), 0);
+  const terminalErrors: string[] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => { terminalErrors.push(args.map(String).join(" ")); };
+  try {
+    assert.equal(await retryDeferredEnqueuesWithDependencies(2, {
+      enqueueGenerationTask: async () => { throw new Error("Cloud Tasks remains unavailable."); }
+    }), 0);
+  } finally {
+    console.error = originalConsoleError;
+  }
   const [exhaustedLedger, exhaustedJob, terminalFailures] = await Promise.all([
     ledger.doc(failedTopicId).get(),
     jobs.doc(failedJobId).get(),
@@ -70,6 +77,15 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   assert.equal(exhaustedLedger.data()?.enqueueRetryCount, 5);
   assert.equal(exhaustedJob.data()?.state, "FAILED");
   assert.equal(terminalFailures.docs.some((document) => document.data().stage === "enqueue_retry_exhausted" && document.data().retryable === false), true);
+  assert.deepEqual(terminalErrors.map((entry) => JSON.parse(entry)), [{
+    severity: "ERROR",
+    component: "deferred_enqueue_retry",
+    action: "enqueue_retry_exhausted",
+    topicId: failedTopicId,
+    jobId: failedJobId,
+    enqueueRetryCount: 5,
+    diagnosticPresent: true
+  }]);
   const failureSummary = (await listGenerationEnqueueFailureSummaries(25)).find((item) => item.topicId === failedTopicId);
   assert.deepEqual(failureSummary && {
     topicId: failureSummary.topicId,
