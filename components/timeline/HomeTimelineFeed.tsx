@@ -173,7 +173,7 @@ export function HomeTimelineFeed({
           </Fragment>
         ))}
       </section>
-      {continuationError ? <div className="admin-action-row" role="status" aria-live="polite"><p className="muted small">More timelines could not be loaded right now. Please try again shortly.</p><button type="button" className="button secondary" onClick={() => window.location.reload()}>Try again</button></div> : null}
+      {continuationError ? <div className="admin-action-row"><p className="muted small" role="status" aria-live="polite">More timelines could not be loaded right now. Please try again shortly.</p><button type="button" className="button secondary" onClick={() => window.location.reload()}>Try again</button></div> : null}
       <button
         type="button"
         aria-label="Back to top"
