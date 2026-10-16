@@ -264,7 +264,8 @@ export class V2FirestoreRepository {
     const { id: _operationDocumentId, ...operationProjection } = operation;
     const validation = buildSourceSubmissionAuthorityValidation({ candidate: candidateArtifact, operation: operationProjection, publisherVersionId: authority.publisherVersionId, now });
     await this.createImmutable("v2SourceSubmissionValidations", validation);
-    return { candidate: sourceSubmissionCandidateSchema.parse(candidate), validation: sourceSubmissionValidationSchema.parse(validation), publisher: publisherAuthorityVersionSchema.parse(publisher) };
+    const { id: _publisherDocumentId, ...publisherArtifact } = publisher;
+    return { candidate: sourceSubmissionCandidateSchema.parse(candidateArtifact), validation: sourceSubmissionValidationSchema.parse(validation), publisher: publisherAuthorityVersionSchema.parse(publisherArtifact) };
   }
 
   /** Persists an acquisition observation only; it never creates evidence, claims, or a re-entry request. */
