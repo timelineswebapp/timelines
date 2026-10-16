@@ -13,6 +13,10 @@ Does not backfill all historical decisions.
 ## Verified Implementation
 No formal ADR set exists in this directory before this documentation foundation.
 
+## Records
+
+- `TL-AUTONOMY-001.md` — Founder-approved Autonomous Public Evidence Doctrine. This is an operating-principle record; it does not authorize runtime, Registry, certification, or production changes.
+
 ## Future Architecture
 Use concise decision records for schema, registry, factory, provenance, auth, and publication lifecycle changes.
 

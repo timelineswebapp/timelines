@@ -119,6 +119,25 @@ No implementation, release, provider call, certification, production mutation, o
 
 Certification must remain fail-closed. The current Phase-2 status remains uncertified; no result short of the locked four-subject sealed run can declare otherwise. A future autonomous-publication capability certification, if founded and authorized, must be additive and must prove the new failure/deferment behavior without weakening research integrity.
 
+## Recommended minimum implementation sequence
+
+This sequence is a recommendation only; each implementation step requires the authorization below before work begins.
+
+1. Define a versioned, server-owned outcome and deferment contract that preserves the existing terminal reason, immutable diagnostics, obligation IDs, budget ledger, and policy version.
+2. Add the additive deferred-topic persistence/read model and a re-entry command that requires a typed, auditable relevant-change reason and enforces the approved bounded retry policy.
+3. Update Factory terminal aggregation to classify only the five approved top-level outcomes, with `PUBLIC_EVIDENCE_LIMITATION` rejected unless its policy-defined multi-candidate evidentiary basis is present.
+4. Add the read-only deferred/provenance/access diagnostic view, then the role-checked Founder/Admin submission, proposal, approval, rejection, and reprocessing controls. Each submitted item remains a candidate until the existing validation, Governance, and admission path accepts it.
+5. Add deterministic fixtures for all access, protected-obligation, no-loop, re-entry, lineage, and no-publication invariants; verify repository/schema compatibility and Factory-to-Governance-to-Library isolation.
+6. Submit the implementation evidence for a separate founder decision on any additive autonomous-publication capability certification. Do not run it, modify the locked Phase-2 benchmark, or activate a production path under this sequence.
+
+## Exact next founder authorization required
+
+Before any runtime change, the Founder must explicitly authorize the following bounded package:
+
+> Authorize a non-production, documentation-and-implementation package for TL-AUTONOMY-001 that adds only versioned Factory Production Memory outcome/deferment and bounded re-entry contracts, their immutable diagnostics and server-side Admin read models/actions, and deterministic local tests. Preserve the existing Authority Registry, Community Identity controls, discovery provider set, research budgets, Factory-to-Governance-to-Historical-Library publication boundary, Phase-2 acceptance criterion, and all production flags. Do not invoke providers, resume discovery, run certification, alter a LOCK/canonical document, deploy, or write institutional/public state.
+
+This authorization must be separate from, and precede, any authorization for a provider-backed run, a certification run, a Registry or Community Identity proposal decision, production activation, or deployment.
+
 ## Unresolved founder decisions
 
 1. Approve or decline a future scoped implementation package for the additive outcome/deferment contracts and Admin integrations.

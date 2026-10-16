@@ -16,6 +16,7 @@ import { executeInstitutionalDiscovery, type InstitutionalDiscoveryTransport } f
 import { AuthorityFirstExecutionSupervisor, WholeRunDeadlineExceededError } from "./execution-supervisor";
 import { classifyCompletionYield, decideCompletionFallback, isSealedCompletionCandidate, sealCompletionAuthorityUniverse, type CompletionAuthorityRequirement } from "./completion-fallback";
 import type { ProviderAttemptTelemetry } from "./provider-capacity";
+import { classifyAutonomousFailure, type AutonomousTerminalOutcome, validCompletedKnowledgeSetOutcome } from "./autonomous-outcomes";
 
 export type ShadowFixtureDescriptor = { title: string; language: string; ongoingAsOf: string };
 
@@ -388,8 +389,8 @@ function provisionalSourceClass(publisher: PublisherAuthorityVersion | undefined
   return "OTHER";
 }
 
-function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL" }) {
-  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: V2_PIPELINE_VERSION, executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, updatedAt: new Date().toISOString() });
+function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "DEFERRED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL"; autonomousOutcome?: AutonomousTerminalOutcome | null }) {
+  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: V2_PIPELINE_VERSION, executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, autonomousOutcome: input.autonomousOutcome ?? null, updatedAt: new Date().toISOString() });
 }
 
 export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, config: FactoryV2Config, dependencies: OrchestratorDependencies = {}): Promise<V2AShadowResult> {
@@ -1388,7 +1389,8 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     finalV2AVerdict: blockingReasons.length === 0 ? "PASS" : "FAIL"
   };
   currentStage = metrics.finalV2AVerdict === "PASS" ? "COMPLETE" : "A5_RESOLUTION_REUSE";
-  await bounded("firestore:set-operation:terminal", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: metrics.finalV2AVerdict === "PASS" ? "COMPLETED" : "FAILED", stage: currentStage, startedAt, blockingReason: blockingReasons.join(", ") || null, counts: { sources: metrics.sourceDocumentsSnapshotted, claims: metrics.claimsExtracted, supportedClaims: metrics.claimsSupported, conflicts: metrics.conflictsDetected, entities: metrics.entityCandidates, events: metrics.eventCandidates }, finalVerdict: metrics.finalV2AVerdict })));
+  const terminalOutcome = metrics.finalV2AVerdict === "PASS" ? validCompletedKnowledgeSetOutcome() : classifyAutonomousFailure({ failureClass: "FAILED_UNCLASSIFIED", protectedRepresentationUnavailable: false });
+  await bounded("firestore:set-operation:terminal", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: metrics.finalV2AVerdict === "PASS" ? "COMPLETED" : "FAILED", stage: currentStage, startedAt, blockingReason: blockingReasons.join(", ") || null, counts: { sources: metrics.sourceDocumentsSnapshotted, claims: metrics.claimsExtracted, supportedClaims: metrics.claimsSupported, conflicts: metrics.conflictsDetected, entities: metrics.entityCandidates, events: metrics.eventCandidates }, finalVerdict: metrics.finalV2AVerdict, autonomousOutcome: terminalOutcome })));
   supervisor.close();
   return {
     context,
@@ -1430,6 +1432,10 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
     const protectedRepresentationDiagnostics = error instanceof ProtectedRepresentationAvailabilityError
       ? { ...error.diagnostic, releaseIdentity: /^[a-f0-9]{64}$/u.test(process.env.TIMELINES_GENERATION_RELEASE_ID || "") ? process.env.TIMELINES_GENERATION_RELEASE_ID! : null }
       : null;
+    const autonomousOutcome = classifyAutonomousFailure({
+      failureClass,
+      protectedRepresentationUnavailable: protectedRepresentationDiagnostics !== null
+    });
     const failurePayload = {
       stage: currentStage,
       failureClass,
@@ -1439,7 +1445,8 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       protectedRepresentationDiagnostics,
       blockingArtifactIds: [],
       attemptsConsumed: modelExecutions.length,
-      budgetConsumed: { firestoreWrites, cloudStorageWrites }
+      budgetConsumed: { firestoreWrites, cloudStorageWrites },
+      autonomousOutcome
     };
     const failureRecordId = executionArtifactId("failure", context, failurePayload);
     const failure = parseSealedArtifact(v2FailureRecordSchema, {
@@ -1485,7 +1492,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       try { await persist("v2FailureRecords", failure); } catch { /* Preserve the originating failure. */ }
     }
     try {
-      const write = () => repository.setOperation(context.runId, operationProjection({ context, state: "FAILED", stage: currentStage, startedAt, blockingReason: deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED" : message.slice(0, 1000), counts: {}, finalVerdict: "FAIL" }));
+      const write = () => repository.setOperation(context.runId, operationProjection({ context, state: autonomousOutcome.disposition === "DEFERRED" ? "DEFERRED" : "FAILED", stage: currentStage, startedAt, blockingReason: deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED" : message.slice(0, 1000), counts: {}, finalVerdict: "FAIL", autonomousOutcome }));
       if (deadlineExceeded) await terminalWrite(write);
       else await bounded("firestore:set-operation:failed", 30_000, write);
     } catch { /* Preserve the originating failure. */ }
