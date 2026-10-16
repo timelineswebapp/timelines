@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `ee59007` — `feat: expose bounded generation retry queue` (following `d01ede8` nonblocking retry recovery) |
+| Prior program checkpoint | `9b7e7f3` — `fix: audit exhausted enqueue recovery` (following `ee59007` bounded retry visibility and `d01ede8` nonblocking retry recovery) |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | `.70` release `dd9737a1742a68c726aa3d41fd4549430c6d68098cf48fb13c6fd38ee6f7ed16`; its fresh non-combined run produced one valid San Francisco CKS before Berlin failed closed on the protected affected-community identity boundary. |
 | Phase 2 | **BLOCKED — FOUNDER-GOVERNED HISTORICAL IDENTITY/CAPACITY; UNCERTIFIED.** The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -82,6 +82,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Generation-retry operational visibility increment:** Completed locally on `2026-10-16`. The authenticated `factory_operator` interface now has a bounded, read-only view of retry-scheduled generation work through the existing signed server bridge. It exposes only topic/job lineage, origin, generation, retry time, update time, and a boolean diagnostic-presence signal; raw failure text stays server-side. The interface supplies no retry, dispatch, reprioritization, re-entry, discovery, or publication control.
 
+**Generation-retry attempt visibility increment:** Completed locally on `2026-10-16`. The same bounded read model and Admin interface now expose the persisted enqueue-delivery retry count. The value is derived server-side from the retry-scheduled ledger document, rejects invalid values to zero, and is covered by the Firestore retry regression. It remains diagnostic-only: the interface exposes neither the retry ceiling nor a control that can modify, dispatch, reprioritize, consume re-entry, or alter protected historical state.
+
 **Bounded enqueue-recovery increment:** Completed locally on `2026-10-16`. Persistent Cloud Tasks delivery failures now consume a separate, capped enqueue-retry counter and terminate the affected legacy generation item after five retry deliveries rather than looping indefinitely. The retry ceiling is operational only; it does not create or consume a V2 deferred re-entry request, alter historical evidence, or activate any production path.
 
 The Firestore emulator regression verifies both nonblocking recovery of a later ready topic and the fifth failed delivery’s terminal `FAILED` ledger/job state with no future retry time.
@@ -111,6 +113,8 @@ Local and shadow verification may be executed only within existing budgets and s
 Completed for this increment:
 
 - Functions strict typecheck: passed.
+- Root strict typecheck: passed after the generation-retry attempt visibility increment.
+- Focused Firestore emulator retry regression: passed after the generation-retry attempt visibility increment, including the persisted retry-count summary and terminal exhaustion behavior.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.

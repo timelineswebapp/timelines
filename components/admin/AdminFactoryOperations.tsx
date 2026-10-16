@@ -64,7 +64,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
   const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }>>([]);
-  const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean }>>([]);
+  const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number }>>([]);
   const load = useCallback(async () => {
     if (!token) return;
     try {
@@ -316,7 +316,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       <p className="muted">This is a bounded, scheduler-owned view. Operators cannot dispatch, reprioritize, or alter retry work here.</p>
       <div className="stack">
         {generationRetries.length === 0 ? <p className="muted">No generation retries are currently scheduled.</p> : generationRetries.map((retry) => <article className="fos-list-card" key={retry.jobId}>
-          <div><strong>{retry.origin === "user" ? "Visitor-requested topic" : "Autonomous topic"}</strong><p className="small muted">Generation {retry.generation} · next retry {formatOperationalTime(retry.nextRetryAt)} · updated {formatOperationalTime(retry.updatedAt)}</p><p className="small muted">Last delivery issue recorded: {retry.lastErrorPresent ? "yes" : "no"}. Diagnostic content is retained server-side.</p></div>
+          <div><strong>{retry.origin === "user" ? "Visitor-requested topic" : "Autonomous topic"}</strong><p className="small muted">Generation {retry.generation} · delivery retries {retry.enqueueRetryCount} · next retry {formatOperationalTime(retry.nextRetryAt)} · updated {formatOperationalTime(retry.updatedAt)}</p><p className="small muted">Last delivery issue recorded: {retry.lastErrorPresent ? "yes" : "no"}. Diagnostic content is retained server-side.</p></div>
           <span className="pill">Retry scheduled</span>
         </article>)}
       </div>

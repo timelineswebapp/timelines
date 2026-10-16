@@ -49,8 +49,8 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   assert.equal(failedJob.data()?.state, "RETRY_SCHEDULED");
   assert.equal(successfulJob.data()?.state, "QUEUED");
   const summary = (await listGenerationRetryQueueSummaries(25)).find((item) => item.topicId === failedTopicId);
-  assert.deepEqual(summary && { topicId: summary.topicId, jobId: summary.jobId, generation: summary.generation, origin: summary.origin, state: summary.state, lastErrorPresent: summary.lastErrorPresent }, {
-    topicId: failedTopicId, jobId: failedJobId, generation: 1, origin: "user", state: "RETRY_SCHEDULED", lastErrorPresent: true
+  assert.deepEqual(summary && { topicId: summary.topicId, jobId: summary.jobId, generation: summary.generation, origin: summary.origin, state: summary.state, lastErrorPresent: summary.lastErrorPresent, enqueueRetryCount: summary.enqueueRetryCount }, {
+    topicId: failedTopicId, jobId: failedJobId, generation: 1, origin: "user", state: "RETRY_SCHEDULED", lastErrorPresent: true, enqueueRetryCount: 1
   });
 
   await Promise.all([

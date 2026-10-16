@@ -28,7 +28,7 @@ export type DeferredFactoryV2ReentryResult = {
 };
 export type FactoryV2SourceSubmissionResult = { state: "CREATED" | "IDEMPOTENT"; candidateId: string };
 export type FactoryV2SourceSubmission = { candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" };
-export type GenerationRetryQueueItem = { topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean };
+export type GenerationRetryQueueItem = { topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number };
 
 export const factoryV2AdminService = {
   listDeferredTopics: (limit = 25) => serverlessBackendClient.listDeferredFactoryV2Topics<DeferredFactoryV2Topic>(limit),

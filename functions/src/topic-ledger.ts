@@ -34,6 +34,7 @@ export type GenerationRetryQueueSummary = {
   nextRetryAt: string;
   updatedAt: string;
   lastErrorPresent: boolean;
+  enqueueRetryCount: number;
 };
 
 function requireIpSalt() {
@@ -394,7 +395,8 @@ export async function listGenerationRetryQueueSummaries(limit: number): Promise<
       state: "RETRY_SCHEDULED" as const,
       nextRetryAt: data.nextRetryAt.toDate().toISOString(),
       updatedAt: data.updatedAt.toDate().toISOString(),
-      lastErrorPresent: typeof data.lastError === "string" && data.lastError.length > 0
+      lastErrorPresent: typeof data.lastError === "string" && data.lastError.length > 0,
+      enqueueRetryCount: Number.isInteger(data.enqueueRetryCount) && data.enqueueRetryCount > 0 ? data.enqueueRetryCount : 0
     }];
   });
 }
