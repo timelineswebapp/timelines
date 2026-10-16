@@ -31,7 +31,7 @@ export const deferredReentryCommandSchema = z.object({
   if (!command.authorizationReason) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorizationReason"], message: "An authorized retry requires a reason." });
   if (command.relevantChangeArtifactId !== null && command.relevantChangeArtifactId !== undefined) context.addIssue({ code: z.ZodIssueCode.custom, path: ["relevantChangeArtifactId"], message: "An authorized retry cannot carry an evidence artifact." });
 });
-const sourceSubmissionCommandSchema = z.object({
+export const sourceSubmissionCommandSchema = z.object({
   operationId: idSchema,
   submittedUrl: z.string().url().max(4096),
   rationale: z.string().trim().min(10).max(1_000),

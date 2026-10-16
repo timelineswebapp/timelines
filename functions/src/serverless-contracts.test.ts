@@ -4,7 +4,7 @@ import test from "node:test";
 import { normalizeTopic } from "./normalization";
 import { evidenceFirstTaskPayloadSchema, generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
-import { boundedInteger, deferredReentryCommandSchema, scalarQueryString } from "./public-api";
+import { boundedInteger, deferredReentryCommandSchema, scalarQueryString, sourceSubmissionCommandSchema } from "./public-api";
 
 function event(sortYear: number, title: string) {
   return {
@@ -202,6 +202,18 @@ test("public Functions search and topic-status controls require a single scalar 
   for (const value of [undefined, ["printing", "press"], { q: "printing press" }, 12]) {
     assert.equal(scalarQueryString(value), null, String(value));
   }
+});
+
+test("signed source submission preserves the credential-free HTTPS boundary", () => {
+  const valid = {
+    operationId: "operation-001",
+    submittedUrl: "https://archives.example.org/record",
+    rationale: "This authority-bound public record may address the deferred evidence obligation.",
+    submittedBy: "operator-001"
+  };
+  assert.equal(sourceSubmissionCommandSchema.safeParse(valid).success, true);
+  assert.equal(sourceSubmissionCommandSchema.safeParse({ ...valid, submittedUrl: "http://archives.example.org/record" }).success, false);
+  assert.equal(sourceSubmissionCommandSchema.safeParse({ ...valid, submittedUrl: "https://operator:secret@archives.example.org/record" }).success, false);
 });
 
 test("generation retry queue isolates individual enqueue failures without activating deferred re-entry", () => {
