@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `9e39a4b` — `test: exercise governed source dispatch retrieval` |
+| Prior program checkpoint | `8f898b2` — `test: preserve source dispatch persistence failures` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -70,6 +70,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Controlled dispatch retrieval verification increment:** Completed locally on `2026-10-16`. The same internal-only worker path now retrieves fixture material through public-DNS and robots controls from a registered authority, persists its source, immutable snapshot, and extracted segments, and records `RETRIEVED_UNQUALIFIED`. Even a successful authority-bound retrieval remains `qualifyingEvidence: false` and `reentryAuthorized: false`; it cannot create evidence, reopen an operation, or activate discovery.
 
+**Dispatch persistence-failure verification increment:** Completed locally on `2026-10-16`. The internal dispatcher now has direct regression coverage proving that a durable retrieval-observation write failure propagates unchanged as an infrastructure error, even when source retrieval itself fails. It cannot be relabeled as a public-evidence limitation or silently converted into an ordinary rejected observation.
+
 **Governed retrieval-lineage verification increment:** Completed locally on `2026-10-16`. The Firestore emulator now persists a registered publisher authority version, validated Topic Authority Set, deferred terminal operation, and governed submitted-source candidate, then proves that authority resolution creates a strict immutable validation artifact and that a retrieval observation remains explicitly non-evidentiary. The test also exposed and corrected repository hydration so Firestore document IDs never enter strict artifact contracts.
 
 ## Certification and verification state
@@ -80,7 +82,7 @@ Completed for this increment:
 
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
-- Full Functions suite: 357 passed, 0 failed, 2 intentional emulator-only skips.
+- Full Functions suite: 358 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator repository suite: 7 passed, 0 failed, including concurrent deferred re-entry request creation and consumption plus submitted-source authority/retrieval lineage.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
@@ -97,4 +99,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Add dispatch-path regression coverage proving durable retrieval-persistence failures propagate as infrastructure failures. Keep the dispatcher unactivated; do not add an Admin retrieval control or enable autonomous discovery.
+Extend the Firestore emulator retrieval-lineage test through the strict internal dispatcher, preserving the unactivated worker-only boundary and no autonomous discovery.
