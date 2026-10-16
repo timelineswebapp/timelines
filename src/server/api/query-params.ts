@@ -34,6 +34,7 @@ export function parseBoundedAdminListLimit(
 
   const value = values[0];
   if (!value) return fallback;
+  if (!/^\d+$/u.test(value)) return fallback;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? Math.max(minimum, Math.min(maximum, parsed)) : fallback;
 }

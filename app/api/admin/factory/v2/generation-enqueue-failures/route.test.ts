@@ -22,7 +22,7 @@ test("terminal enqueue failures require a factory operator and normalize the bou
     assert.equal(denied.status, 401);
     assert.deepEqual(requestedLimits, []);
 
-    for (const [rawLimit, expectedLimit] of [["1000", 100], ["0", 1], ["not-a-number", 25]] as const) {
+    for (const [rawLimit, expectedLimit] of [["1000", 100], ["0", 1], ["not-a-number", 25], ["1e2", 25]] as const) {
       const response = await GET(
         new Request(`https://timelines.example/api/admin/factory/v2/generation-enqueue-failures?limit=${rawLimit}`, {
           headers: { authorization: "Bearer factory-secret" }
