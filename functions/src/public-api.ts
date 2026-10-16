@@ -10,6 +10,15 @@ import { captureVisitorRequest, intakeTopic } from "./topic-ledger";
 import { validInternalRequest } from "./internal-auth";
 import { listDeferredTopicAdminSummaries } from "./factory-v2/admin-read-model";
 import { V2FirestoreRepository } from "./factory-v2/repositories/firestore";
+import { idSchema } from "./factory-v2/contracts/common";
+
+const deferredReentryCommandSchema = z.object({
+  operationId: idSchema,
+  trigger: z.enum(["RELEVANT_EVIDENCE_CHANGE", "AUTHORIZED_RETRY"]),
+  relevantChangeArtifactId: idSchema.nullable().optional(),
+  authorizedBy: z.string().trim().min(2).max(240).nullable().optional(),
+  authorizationReason: z.string().trim().min(3).max(1_000).nullable().optional()
+}).strict();
 
 const readModelTypes = new Set(["timeline", "milestone", "historical_object", "relationship", "search", "sitemap"]);
 
@@ -191,6 +200,22 @@ async function internalFactoryV2DeferredTopics(request: Request, response: Respo
   return success(response, await listDeferredTopicAdminSummaries(new V2FirestoreRepository(), limit));
 }
 
+async function createInternalFactoryV2DeferredReentry(request: Request, response: Response) {
+  const serializedBody = JSON.stringify(request.body);
+  const authorized = validInternalRequest({
+    secret: process.env.BACKEND_SHARED_SECRET,
+    timestamp: request.header("x-timelines-internal-timestamp") || undefined,
+    signature: request.header("x-timelines-internal-signature") || undefined,
+    method: request.method,
+    path: request.path,
+    serializedBody
+  });
+  if (!authorized) return failure(response, 401, "UNAUTHORIZED", "Signed internal request required.");
+  const command = deferredReentryCommandSchema.parse(request.body);
+  const result = await new V2FirestoreRepository().createDeferredReentryRequest(command);
+  return success(response, result, result.state === "CREATED" ? 201 : 200);
+}
+
 export async function handlePublicApi(request: Request, response: Response) {
   response.set("Cache-Control", "no-store");
   try {
@@ -208,6 +233,7 @@ export async function handlePublicApi(request: Request, response: Response) {
     if (request.method === "GET" && request.path === "/sitemap") return await listSitemap(response);
     if (request.method === "GET" && request.path === "/relationships") return await relationships(request, response);
     if (request.method === "GET" && request.path === "/internal/factory-v2/deferred") return await internalFactoryV2DeferredTopics(request, response);
+    if (request.method === "POST" && request.path === "/internal/factory-v2/deferred-reentry") return await createInternalFactoryV2DeferredReentry(request, response);
     if (request.method === "GET" && request.path === "/continuity") return await continuity(request, response);
     if (request.method === "GET" && request.path === "/topic-status") {
       const query = String(request.query.q || "");

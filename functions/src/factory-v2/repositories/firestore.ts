@@ -2,11 +2,11 @@ import type { CollectionReference, DocumentData, DocumentReference, Firestore } 
 import { ACTIVE_CORPUS_ID } from "../../config";
 import { db } from "../../firestore";
 import { V2_CORPUS_COLLECTIONS, v2CorpusCollection, type V2CorpusCollectionName } from "../../corpus";
-import { verifyPayloadHash } from "../hashing";
-import { contentAddressedId } from "../hashing";
+import { contentAddressedId, payloadHash, verifyPayloadHash } from "../hashing";
 import { parseSealedArtifact } from "../contracts/builders";
 import { deferredReentryDispatchReceiptSchema, deferredReentryRequestSchema } from "../contracts/reentry";
 import { planDeferredReentryDispatch } from "../reentry-dispatch";
+import { deriveDeferredReentryRequest } from "../reentry-request";
 
 export type V2RepositoryDependencies = {
   firestore?: Firestore;
@@ -132,6 +132,65 @@ export class V2FirestoreRepository {
   async setOperation(operationId: string, operation: Record<string, unknown>): Promise<void> {
     if (operation.corpusId !== this.corpusId || operation.executionMode !== "SHADOW") throw new Error("Invalid V2 shadow operation projection.");
     await this.collection("v2TopicOperations").doc(operationId).set(operation);
+  }
+
+  async createDeferredReentryRequest(input: {
+    operationId: string;
+    trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY";
+    relevantChangeArtifactId?: string | null;
+    authorizedBy?: string | null;
+    authorizationReason?: string | null;
+    now?: string;
+  }): Promise<{ state: "CREATED" | "IDEMPOTENT"; requestId: string }> {
+    if (!input.operationId || input.operationId.length > 160) throw new Error("Deferred re-entry operation ID must be explicitly bounded.");
+    const operationRef = this.collection("v2TopicOperations").doc(input.operationId);
+    const now = input.now || new Date().toISOString();
+    return this.firestore.runTransaction(async (transaction) => {
+      const operationSnapshot = await transaction.get(operationRef);
+      if (!operationSnapshot.exists) throw new Error("Deferred re-entry operation does not exist.");
+      const operation = operationSnapshot.data()!;
+      if (operation.operationId !== input.operationId) throw new Error("Deferred operation document identity does not match its payload.");
+      const failureRecordId = operation.terminalFailureRecordId;
+      if (typeof failureRecordId !== "string") throw new Error("Deferred operation has no terminal failure lineage.");
+      const failureRef = this.collection("v2FailureRecords").doc(failureRecordId);
+      const sourceSnapshotRef = input.trigger === "RELEVANT_EVIDENCE_CHANGE" && input.relevantChangeArtifactId
+        ? this.collection("v2SourceSnapshots").doc(input.relevantChangeArtifactId)
+        : null;
+      const initialSnapshots = await transaction.getAll(failureRef, ...(sourceSnapshotRef ? [sourceSnapshotRef] : []));
+      const failureSnapshot = initialSnapshots[0]!;
+      if (!failureSnapshot.exists) throw new Error("Deferred re-entry failure lineage does not exist.");
+      const sourceSnapshot = sourceSnapshotRef ? initialSnapshots[1] : null;
+      if (sourceSnapshotRef && !sourceSnapshot?.exists) throw new Error("Relevant source-change artifact does not exist.");
+      const sourceDocumentRef = sourceSnapshot ? this.collection("v2SourceDocuments").doc(String(sourceSnapshot.data()?.sourceId || "")) : null;
+      const sourceDocumentSnapshot = sourceDocumentRef ? await transaction.get(sourceDocumentRef) : null;
+      if (sourceDocumentRef && !sourceDocumentSnapshot?.exists) throw new Error("Relevant source-change document does not exist.");
+      const request = deriveDeferredReentryRequest({
+        operation,
+        failure: failureSnapshot.data(),
+        trigger: input.trigger,
+        relevantChangeArtifactId: input.relevantChangeArtifactId,
+        authorizedBy: input.authorizedBy,
+        authorizationReason: input.authorizationReason,
+        relevantSourceDocument: sourceDocumentSnapshot?.data(),
+        relevantSourceSnapshot: sourceSnapshot?.data(),
+        now
+      });
+      const requestRef = this.collection("v2DeferredReentryRequests").doc(request.deferredReentryRequestId);
+      const existing = await transaction.get(requestRef);
+      if (existing.exists) {
+        const persisted = deferredReentryRequestSchema.parse(existing.data());
+        if (persisted.payloadHash !== request.payloadHash) {
+          // createdAt is deliberately excluded from the request identity; all
+          // semantic lineage must nevertheless remain exactly identical.
+          const { createdAt: _persistedCreatedAt, payloadHash: _persistedHash, ...persistedMeaning } = persisted;
+          const { createdAt: _requestCreatedAt, payloadHash: _requestHash, ...requestMeaning } = request;
+          if (payloadHash(persistedMeaning) !== payloadHash(requestMeaning)) throw new Error("Deferred re-entry request identity collision.");
+        }
+        return { state: "IDEMPOTENT" as const, requestId: request.deferredReentryRequestId };
+      }
+      transaction.create(requestRef, request);
+      return { state: "CREATED" as const, requestId: request.deferredReentryRequestId };
+    });
   }
 
   async consumeDeferredReentryRequest(requestId: string, now = new Date().toISOString()): Promise<"CONSUMED" | "IDEMPOTENT"> {

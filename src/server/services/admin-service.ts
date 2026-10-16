@@ -34,6 +34,7 @@ export const adminService = {
   getFounderInbox: factoryOperationsService.getFounderInbox,
   getFactoryTopicDetail: factoryOperationsService.getTopicDetail,
   listDeferredFactoryV2Topics: factoryV2AdminService.listDeferredTopics,
+  createDeferredFactoryV2Reentry: factoryV2AdminService.createDeferredReentry,
   addFactoryOperationsTopic: factoryOperationsService.addTopic,
   controlFactoryOperations: factoryOperationsService.control.bind(factoryOperationsService),
   mutateFactoryOperationsTopic: factoryOperationsService.mutateTopic.bind(factoryOperationsService),

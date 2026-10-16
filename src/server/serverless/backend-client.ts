@@ -46,17 +46,22 @@ function internalSignature(secret: string, timestamp: string, method: string, pa
   return createHmac("sha256", secret).update(`${timestamp}.${method.toUpperCase()}.${path}.${serializedBody}`).digest("hex");
 }
 
-async function internalRequest<T>(path: string): Promise<T[]> {
-  if (!baseUrl()) return [];
+async function internalRequest<T>(path: string, input: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<T | null> {
+  if (!baseUrl()) return null;
   const secret = requireSharedSecret();
   const timestamp = String(Date.now());
-  const signature = internalSignature(secret, timestamp, "GET", path.split("?")[0] || path);
-  return (await request<T[]>(path, {
+  const method = input.method || "GET";
+  const serializedBody = input.body === undefined ? "" : JSON.stringify(input.body);
+  const signature = internalSignature(secret, timestamp, method, path.split("?")[0] || path, serializedBody);
+  return request<T>(path, {
+    method,
     headers: {
+      ...(input.body === undefined ? {} : { "content-type": "application/json" }),
       "x-timelines-internal-timestamp": timestamp,
       "x-timelines-internal-signature": signature
-    }
-  })) || [];
+    },
+    ...(input.body === undefined ? {} : { body: serializedBody })
+  });
 }
 
 export const serverlessBackendClient = {
@@ -91,7 +96,10 @@ export const serverlessBackendClient = {
     return request<T>(`/continuity?${query({ sourcePublishedSnapshotId })}`);
   },
   listDeferredFactoryV2Topics<T>(limit = 25) {
-    return internalRequest<T>(`/internal/factory-v2/deferred?${query({ limit })}`);
+    return internalRequest<T[]>(`/internal/factory-v2/deferred?${query({ limit })}`).then((result) => result || []);
+  },
+  createDeferredFactoryV2Reentry<T>(body: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) {
+    return internalRequest<T>("/internal/factory-v2/deferred-reentry", { method: "POST", body });
   },
   submitTopic<T>(body: unknown, clientIp: string) {
     const secret = requireSharedSecret();

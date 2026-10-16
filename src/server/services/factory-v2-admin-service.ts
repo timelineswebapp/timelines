@@ -14,6 +14,12 @@ export type DeferredFactoryV2Topic = {
   };
 };
 
+export type DeferredFactoryV2ReentryResult = {
+  state: "CREATED" | "IDEMPOTENT";
+  requestId: string;
+};
+
 export const factoryV2AdminService = {
-  listDeferredTopics: (limit = 25) => serverlessBackendClient.listDeferredFactoryV2Topics<DeferredFactoryV2Topic>(limit)
+  listDeferredTopics: (limit = 25) => serverlessBackendClient.listDeferredFactoryV2Topics<DeferredFactoryV2Topic>(limit),
+  createDeferredReentry: (input: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) => serverlessBackendClient.createDeferredFactoryV2Reentry<DeferredFactoryV2ReentryResult>(input)
 };

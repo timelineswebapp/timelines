@@ -9,7 +9,7 @@ const base = {
   deferredReentryRequestId: "reentry-request-001", originalFailureRecordId: "failure-record-001", originalOperationId: "operation-001", originalRunId: "run-original-001", originalGeneration: 1, nextRunId: "run-reentry-002", nextGeneration: 2,
   originalRelease: { pipelineVersion: "factory-v2-a.70", schemaVersion: "factory-v2-a.15", policyVersion: "authority-first-research.43", promptVersion: "factory-v2-a-prompts.21" },
   outcome: { policyVersion: "autonomous-public-evidence.1", classification: "PUBLIC_EVIDENCE_LIMITATION" as const, disposition: "DEFERRED" as const, reentryState: "REQUIRES_RELEVANT_CHANGE" as const, detailedReason: "FAILED_UNCLASSIFIED", publicEvidenceBasis: "GOVERNED_CAPACITY_EXHAUSTED" },
-  trigger: "RELEVANT_EVIDENCE_CHANGE" as const, relevantChangeArtifactId: "governed-change-001", authorizedBy: null, state: "REQUESTED" as const
+  trigger: "RELEVANT_EVIDENCE_CHANGE" as const, relevantChangeArtifactId: "governed-change-001", authorizedBy: null, authorizationReason: null, state: "REQUESTED" as const
 };
 
 test("deferred re-entry is immutable, one-generation, and condition-bound", () => {
@@ -17,6 +17,6 @@ test("deferred re-entry is immutable, one-generation, and condition-bound", () =
   assert.equal(deferredReentryRequestSchema.safeParse({ ...base, nextGeneration: 3, generation: 3 }).success, false);
   assert.equal(deferredReentryRequestSchema.safeParse({ ...base, originalRelease: { ...base.originalRelease, policyVersion: "authority-first-research.42" } }).success, false);
   assert.equal(deferredReentryRequestSchema.safeParse({ ...base, trigger: "AUTHORIZED_RETRY", relevantChangeArtifactId: null, authorizedBy: "operator-001" }).success, false);
-  const budgetRetry = { ...base, outcome: { ...base.outcome, classification: "RESEARCH_BUDGET_EXHAUSTED" as const, reentryState: "REQUIRES_AUTHORIZED_RETRY" as const, publicEvidenceBasis: null }, trigger: "AUTHORIZED_RETRY" as const, relevantChangeArtifactId: null, authorizedBy: "operator-001" };
+  const budgetRetry = { ...base, outcome: { ...base.outcome, classification: "RESEARCH_BUDGET_EXHAUSTED" as const, reentryState: "REQUIRES_AUTHORIZED_RETRY" as const, publicEvidenceBasis: null }, trigger: "AUTHORIZED_RETRY" as const, relevantChangeArtifactId: null, authorizedBy: "operator-001", authorizationReason: "A bounded retry is authorized after a verified provider recovery." };
   assert.equal(parseSealedArtifact(deferredReentryRequestSchema, budgetRetry).trigger, "AUTHORIZED_RETRY");
 });

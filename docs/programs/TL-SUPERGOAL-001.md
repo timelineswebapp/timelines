@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `24ec164` — `docs: record supergoal verification status` |
+| Prior program checkpoint | `9eab334` — `test: verify atomic deferred re-entry consumption` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -48,7 +48,9 @@ The repository contains untracked historical artifacts and local working materia
 
 **Admin read increment:** Completed locally on `2026-10-16`. The existing authenticated `factory_operator` Admin surface now reads a bounded deferred-topic projection through a server-owned, HMAC-authenticated Functions bridge. The projection carries only operation lineage and the recorded autonomous outcome; it is read-only, fails closed on an invalid signature, and filters malformed persisted records. It deliberately does not expose a re-entry control because release-pinned re-entry requires a separate immutable request and caller contract.
 
-**Re-entry contract increment:** Completed locally on `2026-10-16`. Factory V2 now defines an immutable deferred re-entry request with the originating failure and operation lineage, exact original release identity, a new run identity, and exactly one generation advance. Public-evidence limitations require a governed relevant-change artifact; budget exhaustion requires a separately attributable authorization. Its repository-only consumer reads request, operation, failure, receipt, and next-run identity in one transaction, then atomically creates an immutable consumption receipt and a queued next-generation operation. It is idempotent only for the matching prior receipt and rejects stale or occupied lineage.
+**Re-entry contract increment:** Completed locally on `2026-10-16`. Factory V2 now defines an immutable deferred re-entry request with the originating failure and operation lineage, exact original release identity, a new run identity, and exactly one generation advance. Public-evidence limitations require a governed relevant-change artifact; budget exhaustion requires a separately attributable authorization and immutable reason. Its repository-only consumer reads request, operation, failure, receipt, and next-run identity in one transaction, then atomically creates an immutable consumption receipt and a queued next-generation operation. It is idempotent only for the matching prior receipt and rejects stale or occupied lineage.
+
+**Server-owned request-creation increment:** Completed locally on `2026-10-16`. The new repository transaction derives every re-entry lineage field from the persisted deferred operation and immutable failure record; the caller cannot supply a run, generation, release, outcome, or failure identity. For public-evidence limitations it accepts only a post-terminal, open, complete, immutable `NEWLY_RETRIEVED` or `REVALIDATED` source snapshot whose current source document is attributable to a publisher. For budget exhaustion it requires an authenticated Factory operator identity and bounded authorization reason. A signed internal Functions endpoint and CSRF/RBAC-protected `factory_operator` Admin route carry only the permitted trigger inputs. No route mutates evidence, the Registry, Governance, Historical Library, or Published Memory.
 
 ## Certification and verification state
 
@@ -58,8 +60,8 @@ Completed for this increment:
 
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
-- Full Functions suite: 350 passed, 0 failed, 2 intentional emulator-only skips.
-- Isolated Firestore emulator suites: 11 passed, 0 failed, including private V2-memory denial, full V2-A shadow orchestration, and concurrent deferred re-entry consumption.
+- Full Functions suite: 351 passed, 0 failed, 2 intentional emulator-only skips.
+- Isolated Firestore emulator repository suite: 6 passed, 0 failed, including concurrent deferred re-entry request creation and consumption.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
@@ -75,4 +77,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Implement the server-owned immutable deferred re-entry request-creation workflow. It must derive all original lineage from persisted records, permit only the contract’s governed relevant-change or attributable retry condition, use a bounded authenticated path, and must not expose direct Admin evidence, Registry, Governance, or Published Memory mutation.
+Implement the next TL-AUTONOMY-001 operational-feasibility signal as a bounded, non-authoritative read model. It must remain separate from topic significance and historical obligations, derive only from immutable terminal outcomes and attempt lineage, and must not change selection, evidence, Registry, Governance, publication, or certification behavior.
