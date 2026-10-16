@@ -345,8 +345,9 @@ test("protected representation fails preflight when the bounded authority univer
     (error: unknown) => {
       assert.ok(error instanceof ProtectedRepresentationAvailabilityError);
       assert.equal(error.diagnostic.communityIdentityResolution?.rejectionReason, "UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY");
+      assert.equal(error.diagnostic.communityAvailabilityState, "IDENTITY_UNRESOLVED");
       assert.ok(error.diagnostic.communityCapacityEvaluations?.every((item) => item.accepted === false && item.rejectionReason === "UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY"));
-      return /PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:question-chronology:AFFECTED_COMMUNITY/.test(error.message);
+      return /UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY:question-chronology:AFFECTED_COMMUNITY/.test(error.message);
     }
   );
 });
@@ -492,7 +493,7 @@ test("supporting historical perspectives do not require predictive route proof b
       roles: ["PERSPECTIVE_TESTIMONY"],
       affectedCommunityEvidenceCapacityIds: ["affected-community-evidence-capacity-supporting-test"]
     })]
-  }), /PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT/);
+  }), /UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY/);
 });
 
 test("initial authority planning includes contested questions but does not promote a supporting perspective to predictive routing", () => {

@@ -208,7 +208,7 @@ export const completionAuthorityCandidatePoolSchema = z.object({
 
 const legacyKnowledgeCompletionResultSchema = z.object({
   ...immutableEnvelopeFields,
-  schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, V2_SCHEMA_VERSION]),
+  schemaVersion: z.enum([V2_LEGACY_SCHEMA_VERSION, "factory-v2-a.14", V2_SCHEMA_VERSION]),
   completionResultId: idSchema,
   completionPlanId: idSchema,
   initialCoverageAuditId: idSchema,

@@ -60,6 +60,7 @@ export type ProtectedRepresentationDiagnostic = {
   registryVersion: string;
   policyVersion: string;
   releaseIdentity: string | null;
+  communityAvailabilityState: "NOT_APPLICABLE" | "IDENTITY_UNRESOLVED" | "IDENTITY_RESOLVED_CAPACITY_UNAVAILABLE" | "IDENTITY_RESOLVED_CAPACITY_AVAILABLE";
   communityIdentityResolution?: {
     rawLabel: string;
     normalizedLabel: string;
@@ -125,7 +126,10 @@ export class ProtectedRepresentationAvailabilityError extends Error {
   readonly diagnostic: ProtectedRepresentationDiagnostic;
 
   constructor(diagnostic: ProtectedRepresentationDiagnostic) {
-    super(`PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT:${diagnostic.researchQuestionId}:${diagnostic.requirementKind}`);
+    const code = diagnostic.communityAvailabilityState === "IDENTITY_UNRESOLVED"
+      ? "UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY"
+      : "PROTECTED_REPRESENTATION_AVAILABILITY_INSUFFICIENT";
+    super(`${code}:${diagnostic.researchQuestionId}:${diagnostic.requirementKind}`);
     this.name = "ProtectedRepresentationAvailabilityError";
     this.diagnostic = diagnostic;
   }
@@ -764,6 +768,7 @@ function representationDiagnostic(scope: ScopeContract, map: ResearchMap, questi
     : ["INDEPENDENT", "STATE_PARTY", "PARTICIPANT", "COMMUNITY_CUSTODIAN"];
   const endYear = scope.chronologyEnd?.latestYear ?? scope.chronologyEnd?.year ?? scope.chronologyStart.latestYear ?? scope.chronologyStart.year;
   const communityIdentityResolution = requirement.kind === "AFFECTED_COMMUNITY" ? resolveGovernedCommunityIdentity({ rawLabel: requirement.label, scopePeriod: { startYear: scope.chronologyStart.earliestYear ?? scope.chronologyStart.year, endYear }, geography: question.geography, languages: question.languages, category: "AFFECTED_POPULATION" }) : null;
+  const evaluatedCommunityCapacities = communityIdentityResolution ? communityCapacityEvaluations(scope, question, publishers, communityIdentityResolution) : [];
   return {
     requirementId: requirementId(map, question.questionId, requirement), requirementKind: requirement.kind, canonicalLabel: requirement.label.normalize("NFKC").trim(), researchMapId: map.researchMapId, researchQuestionId: question.questionId,
     phaseIds: [...question.phaseIds], dimensionIds: [...question.dimensionIds], requiredRoles, permittedSubjectRelationships,
@@ -774,8 +779,9 @@ function representationDiagnostic(scope: ScopeContract, map: ResearchMap, questi
       ? (binding.historicalJurisdictionCapacities || []).length === 0 ? "NO_SELECTED_HISTORICAL_JURISDICTION_CAPACITY" : "NO_SELECTED_CAPACITY_MATCHES_REQUIRED_HISTORICAL_JURISDICTION"
       : "RELATIONSHIP_OR_FAMILY_CONSTRAINT_NOT_MET" })).sort((left, right) => left.publisherVersionId.localeCompare(right.publisherVersionId)),
     registryVersion: AUTHORITY_REGISTRY_VERSION, policyVersion: AUTHORITY_FIRST_POLICY_VERSION, releaseIdentity: null,
+    communityAvailabilityState: requirement.kind !== "AFFECTED_COMMUNITY" ? "NOT_APPLICABLE" : communityIdentityResolution?.communityIdentityId === null ? "IDENTITY_UNRESOLVED" : evaluatedCommunityCapacities.some((evaluation) => evaluation.accepted) ? "IDENTITY_RESOLVED_CAPACITY_AVAILABLE" : "IDENTITY_RESOLVED_CAPACITY_UNAVAILABLE",
     communityIdentityResolution,
-    communityCapacityEvaluations: communityIdentityResolution ? communityCapacityEvaluations(scope, question, publishers, communityIdentityResolution) : []
+    communityCapacityEvaluations: evaluatedCommunityCapacities
   };
 }
 

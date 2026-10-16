@@ -556,6 +556,7 @@ export const v2FailureRecordSchema = z.object({
     registryVersion: boundedText(2, 120),
     policyVersion: boundedText(2, 120),
     releaseIdentity: hashSchema.nullable(),
+    communityAvailabilityState: z.enum(["NOT_APPLICABLE", "IDENTITY_UNRESOLVED", "IDENTITY_RESOLVED_CAPACITY_UNAVAILABLE", "IDENTITY_RESOLVED_CAPACITY_AVAILABLE"]).default("NOT_APPLICABLE"),
     communityIdentityResolution: z.object({
       rawLabel: boundedText(2, 160), normalizedLabel: boundedText(2, 160), communityIdentityId: idSchema.nullable(), canonicalLabel: boundedText(2, 160).nullable(), aliasOrRule: boundedText(2, 120).nullable(),
       qualifierComparison: z.object({ period: z.enum(["MATCH", "OUT_OF_RANGE"]), geography: z.enum(["MATCH", "MISMATCH"]), language: z.enum(["MATCH", "MISMATCH"]), category: z.enum(["MATCH", "MISMATCH"]) }).strict(),

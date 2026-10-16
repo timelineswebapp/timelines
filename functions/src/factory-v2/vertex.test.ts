@@ -98,6 +98,29 @@ test("Research Map and Query Plan structured stages bind exact locked scope and 
   assert.equal(planResult.plan.scopeContractId, scope.scopeContractId);
 });
 
+test("Research Map preserves materially distinct affected-community requirements as separate sealed obligations", async () => {
+  const scope = scopeFixture();
+  const proposal = {
+    questions: [{
+      text: "How did launch-site residents and mission workforce members experience the program differently?",
+      phaseLabels: ["launch"], dimensionLabels: ["operational"], expectedAuthorities: ["NASA"], languages: ["en"], geography: ["United States"], contested: true, dateCritical: false, priority: "CRITICAL",
+      historicalPerspectiveRequirements: [
+        { kind: "AFFECTED_COMMUNITY", label: "Launch-site residents", rationale: "Residents experienced local displacement, disruption, and exposure at the launch site.", historicalActionBasis: null },
+        { kind: "AFFECTED_COMMUNITY", label: "Mission workforce members", rationale: "Workforce members experienced the program through distinct employment and operational conditions.", historicalActionBasis: null }
+      ]
+    }]
+  };
+  const requests: V2GenerateRequest[] = [];
+  const result = await generateResearchMap({ context: TEST_CONTEXT, scope, reconnaissance: {}, provider: providerFrom([JSON.stringify(proposal)], requests) });
+  const question = result.map.questions.find((item) => item.text === proposal.questions[0]!.text)!;
+  assert.deepEqual(question.historicalPerspectiveRequirements?.map((requirement) => `${requirement.kind}:${requirement.label}`), [
+    "AFFECTED_COMMUNITY:Launch-site residents",
+    "AFFECTED_COMMUNITY:Mission workforce members"
+  ]);
+  assert.match(requests[0]!.contents, /materially concerns populations with different political status, exposure, circumstances, or evidence provenance/u);
+  assert.match(requests[0]!.contents, /unavailable governed identity or capacity does not make the historical population disappear/u);
+});
+
 test("Research Map deterministically bounds an unbounded critical-question set to the controlled completion capacity", async () => {
   const scope = scopeFixture();
   const overCritical = {
