@@ -12,6 +12,19 @@ function artifactPayload(record: Record<string, unknown>) {
   return payload;
 }
 
+function parseInspectionArtifact<T extends { artifactId: string }>(input: {
+  record: Record<string, unknown>;
+  schema: { parse: (value: unknown) => T };
+  identityLabel: string;
+}): T {
+  const documentId = input.record.id;
+  const artifact = input.schema.parse(artifactPayload(input.record));
+  if (typeof documentId === "string" && documentId !== artifact.artifactId) {
+    throw new Error(`${input.identityLabel} document identity does not match its payload.`);
+  }
+  return artifact;
+}
+
 export function deriveSourceSubmissionCandidate(input: { operation: unknown; failure: unknown; submittedUrl: string; rationale: string; submittedBy: string; now: string }): SourceSubmissionCandidate {
   const operation = topicOperationSchema.parse(input.operation);
   const failure = v2FailureRecordSchema.parse(input.failure);
@@ -51,8 +64,17 @@ export async function inspectSourceSubmissionCandidate(repository: V2FirestoreRe
     repository.boundedQuery("v2SourceSubmissionRetrievals", [{ field: "sourceSubmissionCandidateId", op: "==", value: candidateId }], 2)
   ]);
   if (validationRecords.length > 1 || retrievalRecords.length > 1) throw new Error("Source submission inspection found ambiguous immutable observations.");
-  const validation = validationRecords.length === 0 ? null : sourceSubmissionValidationSchema.parse(artifactPayload(validationRecords[0]!));
-  const retrieval = retrievalRecords.length === 0 ? null : sourceSubmissionRetrievalSchema.parse(artifactPayload(retrievalRecords[0]!));
+  const validation = validationRecords.length === 0 ? null : parseInspectionArtifact({
+    record: validationRecords[0]!,
+    schema: sourceSubmissionValidationSchema,
+    identityLabel: "Source submission validation"
+  });
+  const retrieval = retrievalRecords.length === 0 ? null : parseInspectionArtifact({
+    record: retrievalRecords[0]!,
+    schema: sourceSubmissionRetrievalSchema,
+    identityLabel: "Source submission retrieval"
+  });
+  if (retrieval && !validation) throw new Error("Source submission retrieval has no matching authority validation observation.");
   if (validation && (validation.sourceSubmissionCandidateId !== candidateId || validation.originalOperationId !== candidate.originalOperationId || validation.originalFailureRecordId !== candidate.originalFailureRecordId)) {
     throw new Error("Source submission validation lineage does not match its candidate.");
   }

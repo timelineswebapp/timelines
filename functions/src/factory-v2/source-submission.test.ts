@@ -58,3 +58,30 @@ test("source submission inspection exposes only sealed operational observations"
   assert.equal("sourceSnapshotId" in inspection, false);
   assert.equal("sourceId" in inspection, false);
 });
+
+test("source submission inspection fails closed on unsealed observation lineage", async () => {
+  const candidate = deriveSourceSubmissionCandidate({ operation, failure, submittedUrl: "https://example.org/recorded-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" });
+  const validation = buildSourceSubmissionAuthorityValidation({ candidate, operation, publisherVersionId: "publisher-version-submission", now: "2026-10-16T03:02:00.000Z" });
+  const retrieval = buildSourceSubmissionRetrieval({ validation, state: "RETRIEVAL_REJECTED", now: "2026-10-16T03:03:00.000Z", rejectionCode: "SOURCE_SUBMISSION_INSUFFICIENT_MATERIAL" });
+  const candidateRecord = { id: candidate.sourceSubmissionCandidateId, ...candidate };
+
+  const repositoryWithoutValidation = {
+    async getById() { return candidateRecord; },
+    async boundedQuery(name: string) {
+      if (name === "v2SourceSubmissionValidations") return [];
+      if (name === "v2SourceSubmissionRetrievals") return [{ id: retrieval.sourceSubmissionRetrievalId, ...retrieval }];
+      throw new Error(`Unexpected collection: ${name}`);
+    }
+  } as any;
+  await assert.rejects(inspectSourceSubmissionCandidate(repositoryWithoutValidation, candidate.sourceSubmissionCandidateId), /no matching authority validation/);
+
+  const repositoryWithMismatchedObservationDocument = {
+    async getById() { return candidateRecord; },
+    async boundedQuery(name: string) {
+      if (name === "v2SourceSubmissionValidations") return [{ id: "validation-document-mismatch", ...validation }];
+      if (name === "v2SourceSubmissionRetrievals") return [];
+      throw new Error(`Unexpected collection: ${name}`);
+    }
+  } as any;
+  await assert.rejects(inspectSourceSubmissionCandidate(repositoryWithMismatchedObservationDocument, candidate.sourceSubmissionCandidateId), /validation document identity/);
+});
