@@ -72,7 +72,7 @@ Completed for this increment:
 
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
-- Full Functions suite: 354 passed, 0 failed, 2 intentional emulator-only skips.
+- Full Functions suite: 355 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator repository suite: 6 passed, 0 failed, including concurrent deferred re-entry request creation and consumption. This verifies existing repository transaction behavior; dedicated submitted-source authority/retrieval emulator fixtures remain the next coverage increment.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
@@ -89,4 +89,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Add emulator-backed repository coverage for authority resolution and the sealed retrieval handoff, then assess an internal bounded worker-dispatch contract without enabling autonomous discovery or an Admin retrieval control.
+Add emulator-backed repository coverage for submitted-source authority resolution and sealed retrieval persistence. Keep the internal dispatch contract unactivated; do not add an Admin retrieval control or enable autonomous discovery.
