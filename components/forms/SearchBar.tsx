@@ -64,6 +64,7 @@ export function SearchBar({
           type="search"
           name="q"
           value={value}
+          maxLength={120}
           onChange={(event) => setValue(event.target.value)}
           placeholder={placeholder}
         />

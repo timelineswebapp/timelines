@@ -12,6 +12,11 @@ import { adsService } from "@/src/server/services/ads-service";
 import { contentService } from "@/src/server/services/content-service";
 
 export const dynamic = "force-dynamic";
+const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120;
+
+function normalizePublicSearchQuery(value: string) {
+  return value.trim().slice(0, MAX_PUBLIC_SEARCH_QUERY_LENGTH);
+}
 
 function MilestoneSearchCard({ milestone }: { milestone: MilestoneSearchSummary }) {
   const displayDate = formatDisplayDate(milestone.date, milestone.datePrecision, {
@@ -56,7 +61,7 @@ export async function generateMetadata({
   searchParams: Promise<{ q?: string }>;
 }): Promise<Metadata> {
   const { q = "" } = await searchParams;
-  const query = q.trim();
+  const query = normalizePublicSearchQuery(q);
 
   return {
     title: query ? `Search: ${query} | TiMELiNES` : "Search timelines | TiMELiNES",
@@ -90,7 +95,7 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
-  const query = q.trim();
+  const query = normalizePublicSearchQuery(q);
   const [result, [searchBottomAd]] = await Promise.all([
     query ? contentService.searchKnowledge(query, 20) : Promise.resolve({ query: "", total: 0, items: [] }),
     adsService.getPublicAssignments(["search_bottom"])
