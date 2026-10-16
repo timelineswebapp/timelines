@@ -70,8 +70,12 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     if (!token) return;
     try {
       if (view === "home") {
-        const briefing = await fetchAdmin<FounderHomeReadModel>("/api/admin/founder/home");
+        const [briefing, enqueueFailures] = await Promise.all([
+          fetchAdmin<FounderHomeReadModel>("/api/admin/founder/home"),
+          fetchAdmin<typeof generationEnqueueFailures>("/api/admin/factory/v2/generation-enqueue-failures")
+        ]);
         setHome(briefing);
+        setGenerationEnqueueFailures(enqueueFailures);
         onFounderStatus({
           institution: briefing.summary.institutionStatus,
           factory: briefing.summary.processing > 0 ? "Processing" : briefing.summary.factoryStatus,

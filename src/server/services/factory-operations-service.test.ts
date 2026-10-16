@@ -215,6 +215,7 @@ test("FOS-002A uses one Home read model and preserves certified workflow service
     readFile("app/api/admin/founder/visitor-requests/approve/route.ts", "utf8")
   ]);
   assert.match(ui, /fetchAdmin<FounderHomeReadModel>\(\"\/api\/admin\/founder\/home\"\)/);
+  assert.match(ui, /fetchAdmin<typeof generationEnqueueFailures>\(\"\/api\/admin\/factory\/v2\/generation-enqueue-failures\"\)/);
   assert.match(service, /factoryOperationsService\.mutateTopic/);
   assert.match(service, /getTopicBySourceReference\("public_request", sourceReference\)/);
   assert.match(service, /if \(stage === "extraction"\) return "Extraction in progress"/);
