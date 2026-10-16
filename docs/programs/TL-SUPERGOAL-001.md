@@ -120,6 +120,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Homepage pagination input integrity increment:** Completed locally on `2026-10-16`. The public homepage pagination route now accepts only canonical nonnegative integer offsets up to 10,000 and positive limits from 1 through 24. Malformed partial numbers, decimals, unsafe integers, oversized offsets, and zero or oversized limits fail with a validation response before content-service access, preserving bounded public read-model work.
 
+**Public catalog pagination integrity increment:** Completed locally on `2026-10-16`. The homepage and catalog routes now share one server-side canonical bounded-integer parser. The catalog accepts limits only from 1 through 50, rejecting fractional, mixed-text, unsafe, zero, and oversized values before the projection-backed content service. Direct route regressions cover both consumers.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -155,6 +157,7 @@ Completed for this increment:
 - Functions and root strict typechecks plus public API contract regression: passed after the direct-request query bound.
 - Functions strict typecheck and public API contract regression: passed after the direct topic-status bound.
 - Root strict typecheck and direct homepage-route regression: passed after homepage pagination input integrity hardening.
+- Root strict typecheck and direct homepage/catalog route regressions: passed after shared public pagination validation.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
