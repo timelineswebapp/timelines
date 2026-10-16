@@ -5,6 +5,7 @@ import { v2FailureRecordSchema } from "./contracts/knowledge";
 import { deriveSourceSubmissionCandidate, inspectSourceSubmissionCandidate, listSourceSubmissionCandidates } from "./source-submission";
 import { buildSourceSubmissionAuthorityValidation } from "./source-submission-validation";
 import { buildSourceSubmissionRetrieval } from "./source-submission-retrieval";
+import { sourceSubmissionRetrievalSchema } from "./contracts/source-submission-retrieval";
 
 const context = { corpusId: "submission-corpus", topicId: "submission-topic", runId: "submission-run", generation: 1, createdAt: "2026-10-16T03:00:00.000Z" };
 const outcome = { policyVersion: "autonomous-public-evidence.1" as const, classification: "PUBLIC_EVIDENCE_LIMITATION" as const, disposition: "DEFERRED" as const, reentryState: "REQUIRES_RELEVANT_CHANGE" as const, detailedReason: "FAILED_UNCLASSIFIED", publicEvidenceBasis: "GOVERNED_CAPACITY_EXHAUSTED" as const };
@@ -27,6 +28,8 @@ test("source submission remains an immutable candidate and cannot become a snaps
   assert.equal(rejectedRetrieval.qualifyingEvidence, false);
   assert.equal(rejectedRetrieval.reentryAuthorized, false);
   assert.throws(() => buildSourceSubmissionRetrieval({ validation, state: "RETRIEVED_UNQUALIFIED", now: "2026-10-16T03:03:00.000Z" }), /Retrieved observations require complete snapshot lineage/);
+  assert.equal(sourceSubmissionRetrievalSchema.safeParse({ ...rejectedRetrieval, sourceId: null, sourceSnapshotId: null, retrievalDisposition: "ACCESS_LIMITED" }).success, false);
+  assert.equal(sourceSubmissionRetrievalSchema.safeParse({ ...rejectedRetrieval, retrievalDisposition: null }).success, false);
   assert.throws(() => deriveSourceSubmissionCandidate({ operation: { ...operation, state: "FAILED" }, failure, submittedUrl: "https://example.org/new-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" }), /exact deferred/);
   assert.throws(() => deriveSourceSubmissionCandidate({ operation: { ...operation, autonomousOutcome: { ...outcome, classification: "RESEARCH_BUDGET_EXHAUSTED", reentryState: "REQUIRES_AUTHORIZED_RETRY", publicEvidenceBasis: null } }, failure, submittedUrl: "https://example.org/new-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" }), /only for matching public-evidence/);
 });
