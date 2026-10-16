@@ -5,6 +5,38 @@ type BackendEnvelope<T> =
   | { ok: true; data: T; apiVersion?: string }
   | { ok: false; error: { code: string; message: string; details?: unknown }; apiVersion?: string };
 
+const MAX_BACKEND_RESPONSE_BYTES = 1_000_000;
+
+async function readBoundedJson(response: Response): Promise<unknown> {
+  const contentLength = response.headers.get("content-length");
+  if (contentLength && (!/^\d+$/u.test(contentLength) || Number(contentLength) > MAX_BACKEND_RESPONSE_BYTES)) throw new Error("Backend response exceeds the configured bound.");
+  if (!response.body) throw new Error("Backend response body is missing.");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) break;
+      size += next.value.byteLength;
+      if (size > MAX_BACKEND_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new Error("Backend response exceeds the configured bound.");
+      }
+      chunks.push(next.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const merged = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(merged)) as unknown;
+}
+
 function parseBackendEnvelope<T>(decoded: unknown): BackendEnvelope<T> {
   if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) throw new Error("Invalid backend envelope.");
   const candidate = decoded as Record<string, unknown>;
@@ -51,7 +83,7 @@ async function request<T>(path: string, init?: RequestInit, allowNotFound = fals
   try {
     const contentType = response.headers.get("content-type") || "";
     if (!/^application\/json(?:\s*;|$)/iu.test(contentType)) throw new Error("Invalid backend content type.");
-    payload = parseBackendEnvelope<T>(await response.json());
+    payload = parseBackendEnvelope<T>(await readBoundedJson(response));
   } catch {
     throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Serverless backend returned an invalid response.");
   }
