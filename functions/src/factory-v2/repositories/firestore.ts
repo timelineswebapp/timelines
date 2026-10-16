@@ -301,6 +301,7 @@ export class V2FirestoreRepository {
           } else transaction.create(item.reference, item.artifact);
         }
       });
+      return;
     } else if (result.sourceId !== null || result.sourceSnapshotId !== null) {
       throw new Error("Source-submission retrieval result requires its referenced acquisition artifacts.");
     }
