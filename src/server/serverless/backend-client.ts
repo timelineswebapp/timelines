@@ -23,7 +23,9 @@ async function request<T>(path: string, init?: RequestInit, allowNotFound = fals
   });
   let payload: BackendEnvelope<T>;
   try {
-    payload = (await response.json()) as BackendEnvelope<T>;
+    const decoded: unknown = await response.json();
+    if (!decoded || typeof decoded !== "object" || typeof (decoded as { ok?: unknown }).ok !== "boolean") throw new Error("Invalid backend envelope.");
+    payload = decoded as BackendEnvelope<T>;
   } catch {
     throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Serverless backend returned an invalid response.");
   }
