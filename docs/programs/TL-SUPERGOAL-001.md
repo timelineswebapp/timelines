@@ -183,6 +183,7 @@ Completed for this increment:
 - Public homepage continuation recovery: the availability state now supplies an explicit reader-initiated reload action. Root strict typecheck and focused public UI regression passed (5/5).
 - Public homepage accessibility correction: the live status text is now separate from the adjacent recovery control, preserving correct status-region semantics. Root strict typecheck and focused public UI regression passed (5/5).
 - Public search API integrity: duplicate scalar `q`, `limit`, or `offset` controls now fail closed with the standard 400 validation response before any content read. Root strict typecheck and direct API regression passed.
+- Public search API regression integration: the duplicate-scalar-control route regression is now part of the mandatory root `npm test` command, preventing this fail-closed behavior from being omitted from routine release verification. Full root suite passed: 262 passed, 0 failed; root strict typecheck passed.
 - Public catalog API integrity: duplicate `limit` controls now fail closed with the standard 400 validation response before any content read. Root strict typecheck and direct route regressions passed (2/2).
 - Public homepage API integrity: duplicate `offset`, `limit`, or `snapshotDate` controls now fail closed with the standard 400 validation response before any projection read. Root strict typecheck and direct route regressions passed (2/2).
 - Optimized Next production build: passed after the public route and homepage resilience increments; all public and authenticated Admin route modules compiled successfully without activating deployment, discovery, publication, or Governance submission.
@@ -208,4 +209,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Continue independent Factory reliability and public-reader verification work. The next implementation target is safe retry-backlog health coverage and operational behavior under bounded query results. No deployment, publication, discovery, re-entry dispatch, or historical-policy change is authorized. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.
+Continue independent Factory reliability and public-reader verification work. The next implementation target is bounded, reader-initiated recovery for interrupted homepage continuation requests without changing the server-owned pagination contract. No deployment, publication, discovery, re-entry dispatch, or historical-policy change is authorized. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.
