@@ -686,7 +686,7 @@ export const factoryObjectSchema = z.object({
   title: trimmedString(2, 200),
   payload: z.record(z.unknown()),
   provenance: provenanceSchema,
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
@@ -698,7 +698,7 @@ export const factoryArtifactSchema = z.object({
   authoritySafe: z.boolean().default(false),
   modelProvider: z.string().trim().max(120).nullable().optional().transform((value) => value || null),
   modelName: z.string().trim().max(120).nullable().optional().transform((value) => value || null),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
@@ -726,24 +726,24 @@ export const factoryPackageDraftSchema = z.object({
     publicationBlockers: []
   }),
   supersedesPackageId: z.string().trim().uuid().nullable().optional(),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryObjectTransitionSchema = z.object({
   lifecycle: factoryObjectLifecycleSchema,
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryPackageDraftTransitionSchema = z.object({
   lifecycle: factoryPackageDraftLifecycleSchema,
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryPackageVersionSchema = z.object({
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
@@ -757,27 +757,27 @@ export const factoryGovernanceSubmissionSchema = z.object({
 export const factoryFeedbackIntakeSchema = z.object({
   feedbackPackageId: z.string().trim().uuid(),
   affectedFactoryObjectIds: z.array(z.string().trim().uuid()).max(100).default([]),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryFeedbackTransitionSchema = z.object({
   lifecycle: factoryFeedbackLifecycleSchema,
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryRevisionPlanSchema = z.object({
   planSummary: trimmedString(10, 2000),
   plannedActions: z.array(trimmedString(3, 1000)).min(1).max(100),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryResubmissionPreparationSchema = z.object({
   title: trimmedString(2, 200),
   description: trimmedString(10, 2000),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
