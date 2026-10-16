@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Readable } from "node:stream";
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { V2FirestoreRepository } from "./firestore";
@@ -7,7 +8,7 @@ import { date, scopeFixture, TEST_CONTEXT } from "../test-fixtures";
 import { buildEvidenceSegment, buildAtomicClaimVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, buildResearchMap, immutableEnvelope, parseSealedArtifact, sealArtifact, semanticArtifactId, semanticEnvelope } from "../contracts/builders";
 import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion } from "../authority";
 import { buildTopicAuthoritySet } from "../authority-first";
-import { buildSourceSubmissionRetrieval } from "../source-submission-retrieval";
+import { dispatchSourceSubmissionRetrieval } from "../source-submission-dispatch";
 import { claimAuthorityVerdictSchema, deferredReentryRequestSchema, publisherAuthorityRecordSchema, sourceSnapshotSchema, v2FailureRecordSchema } from "../contracts";
 import { normalizedIdentityText } from "../contracts/builders";
 import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, KNOWLEDGE_COVERAGE_POLICY_VERSION, planGapDirectedCompletion } from "../coverage";
@@ -70,11 +71,19 @@ test("Firestore emulator resolves submitted-source authority and persists a non-
   const operation = { operationId: "operation-source-submission", corpusId: context.corpusId, topicId: context.topicId, runId: context.runId, generation: 1, pipelineVersion: "factory-v2-a.70", executionMode: "SHADOW", state: "DEFERRED", stage: "A2_SCOPE_ACQUISITION", scopeState: "LOCKED", researchMapState: "VALID", currentBlockingReason: "capacity", counts: {}, budgetsConsumed: {}, elapsedMs: 1, finalVerdict: "FAIL", terminalFailureRecordId: failure.failureRecordId, topicAuthoritySetId: authoritySet.topicAuthoritySetId, autonomousOutcome: outcome, updatedAt: context.createdAt };
   await repository.createImmutable("v2PublisherAuthorityVersions", publisher); await repository.createImmutable("v2TopicAuthoritySets", authoritySet); await repository.createImmutable("v2FailureRecords", failure); await repository.setOperation(operation.operationId, operation);
   const candidate = await repository.createSourceSubmissionCandidate({ operationId: operation.operationId, submittedUrl: "https://www.bl.uk/submitted-source", rationale: "A registered authority URL may address the unresolved obligation.", submittedBy: "operator-submission", now: "2026-10-16T04:01:00.000Z" });
-  const prepared = await repository.prepareSourceSubmissionRetrieval(candidate.candidateId, "2026-10-16T04:02:00.000Z");
-  assert.equal(prepared.publisher.publisherVersionId, publisher.publisherVersionId);
-  const observation = buildSourceSubmissionRetrieval({ validation: prepared.validation, state: "RETRIEVAL_REJECTED", now: "2026-10-16T04:03:00.000Z", rejectionCode: "SOURCE_SUBMISSION_INSUFFICIENT_MATERIAL" });
-  await repository.persistSourceSubmissionRetrieval({ result: observation });
-  assert.equal((await repository.getById("v2SourceSubmissionRetrievals", observation.sourceSubmissionRetrievalId))?.qualifyingEvidence, false);
+  let fetchCalls = 0;
+  const observation = await dispatchSourceSubmissionRetrieval({ candidateId: candidate.candidateId, dispatchedAt: "2026-10-16T04:02:00.000Z" }, repository, {
+    dnsLookup: (async () => [{ address: "93.184.216.34", family: 4 }]) as never,
+    fetch: async () => {
+      fetchCalls += 1;
+      const body = fetchCalls === 1 ? "User-agent: *\nAllow: /" : "Registered British Library source fixture material.";
+      return { status: 200, headers: { get: (name: string) => name.toLocaleLowerCase("en-US") === "content-type" ? "text/plain" : null }, body: Readable.from([new TextEncoder().encode(body)]) as unknown as AsyncIterable<Uint8Array> };
+    }
+  });
+  assert.equal(observation.state, "RETRIEVED_UNQUALIFIED");
+  assert.equal(observation.qualifyingEvidence, false);
+  assert.equal((await repository.getById("v2SourceSubmissionRetrievals", observation.sourceSubmissionRetrievalId))?.reentryAuthorized, false);
+  assert.equal(fetchCalls, 2);
 });
 
 test("Firestore emulator enforces corpus paths, immutable idempotency, heads, and edge integrity", { skip: !enabled }, async () => {
