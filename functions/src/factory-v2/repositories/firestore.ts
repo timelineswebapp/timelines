@@ -10,7 +10,7 @@ import { sourceSubmissionCandidateSchema } from "../contracts/source-submission"
 import { sourceSubmissionValidationSchema } from "../contracts/source-submission-validation";
 import { sourceSubmissionRetrievalSchema } from "../contracts/source-submission-retrieval";
 import { topicAuthoritySetSchema } from "../contracts/authority-first";
-import { evidenceSegmentSchema, publisherAuthorityVersionSchema, sourceDocumentSchema, sourceSnapshotSchema } from "../contracts/knowledge";
+import { evidenceSegmentSchema, publisherAuthorityVersionSchema, sourceDocumentSchema, sourceSnapshotSchema, v2FailureRecordSchema } from "../contracts/knowledge";
 import { sourceSubmissionUrlMatchesAuthority } from "../source-submission-eligibility";
 import { planDeferredReentryDispatch } from "../reentry-dispatch";
 import { deriveDeferredReentryRequest } from "../reentry-request";
@@ -159,7 +159,8 @@ export class V2FirestoreRepository {
       const operationSnapshot = await transaction.get(operationRef);
       if (!operationSnapshot.exists) throw new Error("Deferred re-entry operation does not exist.");
       const operation = operationSnapshot.data()!;
-      if (operation.operationId !== input.operationId) throw new Error("Deferred operation document identity does not match its payload.");
+      const parsedOperation = topicOperationSchema.parse(operation);
+      if (operationSnapshot.id !== parsedOperation.operationId || parsedOperation.operationId !== input.operationId || parsedOperation.corpusId !== this.corpusId) throw new Error("Deferred operation document identity does not match its payload.");
       const failureRecordId = operation.terminalFailureRecordId;
       if (typeof failureRecordId !== "string") throw new Error("Deferred operation has no terminal failure lineage.");
       const failureRef = this.collection("v2FailureRecords").doc(failureRecordId);
@@ -171,18 +172,24 @@ export class V2FirestoreRepository {
       if (!failureSnapshot.exists) throw new Error("Deferred re-entry failure lineage does not exist.");
       const sourceSnapshot = sourceSnapshotRef ? initialSnapshots[1] : null;
       if (sourceSnapshotRef && !sourceSnapshot?.exists) throw new Error("Relevant source-change artifact does not exist.");
-      const sourceDocumentRef = sourceSnapshot ? this.collection("v2SourceDocuments").doc(String(sourceSnapshot.data()?.sourceId || "")) : null;
+      const failure = v2FailureRecordSchema.parse(failureSnapshot.data());
+      if (failureSnapshot.id !== failure.failureRecordId || failure.corpusId !== this.corpusId || !verifyPayloadHash(failure)) throw new Error("Deferred re-entry failure integrity is invalid.");
+      const parsedSourceSnapshot = sourceSnapshot ? sourceSnapshotSchema.parse(sourceSnapshot.data()) : null;
+      if (sourceSnapshot && (!parsedSourceSnapshot || sourceSnapshot.id !== parsedSourceSnapshot.sourceSnapshotId || parsedSourceSnapshot.corpusId !== this.corpusId || !verifyPayloadHash(parsedSourceSnapshot))) throw new Error("Relevant source-change artifact integrity is invalid.");
+      const sourceDocumentRef = parsedSourceSnapshot ? this.collection("v2SourceDocuments").doc(parsedSourceSnapshot.sourceId) : null;
       const sourceDocumentSnapshot = sourceDocumentRef ? await transaction.get(sourceDocumentRef) : null;
       if (sourceDocumentRef && !sourceDocumentSnapshot?.exists) throw new Error("Relevant source-change document does not exist.");
+      const parsedSourceDocument = sourceDocumentSnapshot ? sourceDocumentSchema.parse(sourceDocumentSnapshot.data()) : null;
+      if (sourceDocumentSnapshot && (sourceDocumentSnapshot.id !== parsedSourceDocument!.sourceId || parsedSourceDocument!.corpusId !== this.corpusId)) throw new Error("Relevant source-change document integrity is invalid.");
       const request = deriveDeferredReentryRequest({
-        operation,
-        failure: failureSnapshot.data(),
+        operation: parsedOperation,
+        failure,
         trigger: input.trigger,
         relevantChangeArtifactId: input.relevantChangeArtifactId,
         authorizedBy: input.authorizedBy,
         authorizationReason: input.authorizationReason,
-        relevantSourceDocument: sourceDocumentSnapshot?.data(),
-        relevantSourceSnapshot: sourceSnapshot?.data(),
+        relevantSourceDocument: parsedSourceDocument,
+        relevantSourceSnapshot: parsedSourceSnapshot,
         now
       });
       const requestRef = this.collection("v2DeferredReentryRequests").doc(request.deferredReentryRequestId);
