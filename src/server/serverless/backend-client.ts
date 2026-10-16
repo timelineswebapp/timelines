@@ -104,6 +104,9 @@ export const serverlessBackendClient = {
   createFactoryV2SourceSubmission<T>(body: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string }) {
     return internalRequest<T>("/internal/factory-v2/source-submissions", { method: "POST", body });
   },
+  listFactoryV2SourceSubmissions<T>(limit = 25) {
+    return internalRequest<T[]>(`/internal/factory-v2/source-submissions?${query({ limit })}`).then((result) => result || []);
+  },
   submitTopic<T>(body: unknown, clientIp: string) {
     const secret = requireSharedSecret();
     const timestamp = String(Date.now());

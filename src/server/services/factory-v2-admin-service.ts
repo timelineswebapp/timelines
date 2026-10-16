@@ -27,9 +27,11 @@ export type DeferredFactoryV2ReentryResult = {
   requestId: string;
 };
 export type FactoryV2SourceSubmissionResult = { state: "CREATED" | "IDEMPOTENT"; candidateId: string };
+export type FactoryV2SourceSubmission = { candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" };
 
 export const factoryV2AdminService = {
   listDeferredTopics: (limit = 25) => serverlessBackendClient.listDeferredFactoryV2Topics<DeferredFactoryV2Topic>(limit),
   createDeferredReentry: (input: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) => serverlessBackendClient.createDeferredFactoryV2Reentry<DeferredFactoryV2ReentryResult>(input),
-  createSourceSubmission: (input: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string }) => serverlessBackendClient.createFactoryV2SourceSubmission<FactoryV2SourceSubmissionResult>(input)
+  createSourceSubmission: (input: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string }) => serverlessBackendClient.createFactoryV2SourceSubmission<FactoryV2SourceSubmissionResult>(input),
+  listSourceSubmissions: (limit = 25) => serverlessBackendClient.listFactoryV2SourceSubmissions<FactoryV2SourceSubmission>(limit)
 };

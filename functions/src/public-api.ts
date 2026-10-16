@@ -10,6 +10,7 @@ import { captureVisitorRequest, intakeTopic } from "./topic-ledger";
 import { validInternalRequest } from "./internal-auth";
 import { listDeferredTopicAdminSummaries } from "./factory-v2/admin-read-model";
 import { V2FirestoreRepository } from "./factory-v2/repositories/firestore";
+import { listSourceSubmissionCandidates } from "./factory-v2/source-submission";
 import { idSchema } from "./factory-v2/contracts/common";
 
 const deferredReentryCommandSchema = z.object({
@@ -236,6 +237,12 @@ async function createInternalFactoryV2SourceSubmission(request: Request, respons
   return success(response, result, result.state === "CREATED" ? 201 : 200);
 }
 
+async function internalFactoryV2SourceSubmissions(request: Request, response: Response) {
+  const authorized = validInternalRequest({ secret: process.env.BACKEND_SHARED_SECRET, timestamp: request.header("x-timelines-internal-timestamp") || undefined, signature: request.header("x-timelines-internal-signature") || undefined, method: request.method, path: request.path });
+  if (!authorized) return failure(response, 401, "UNAUTHORIZED", "Signed internal request required.");
+  return success(response, await listSourceSubmissionCandidates(new V2FirestoreRepository(), Math.max(1, boundedInteger(request.query.limit, 25, 100))));
+}
+
 export async function handlePublicApi(request: Request, response: Response) {
   response.set("Cache-Control", "no-store");
   try {
@@ -255,6 +262,7 @@ export async function handlePublicApi(request: Request, response: Response) {
     if (request.method === "GET" && request.path === "/internal/factory-v2/deferred") return await internalFactoryV2DeferredTopics(request, response);
     if (request.method === "POST" && request.path === "/internal/factory-v2/deferred-reentry") return await createInternalFactoryV2DeferredReentry(request, response);
     if (request.method === "POST" && request.path === "/internal/factory-v2/source-submissions") return await createInternalFactoryV2SourceSubmission(request, response);
+    if (request.method === "GET" && request.path === "/internal/factory-v2/source-submissions") return await internalFactoryV2SourceSubmissions(request, response);
     if (request.method === "GET" && request.path === "/continuity") return await continuity(request, response);
     if (request.method === "GET" && request.path === "/topic-status") {
       const query = String(request.query.q || "");

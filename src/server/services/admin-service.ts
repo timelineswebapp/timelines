@@ -36,6 +36,7 @@ export const adminService = {
   listDeferredFactoryV2Topics: factoryV2AdminService.listDeferredTopics,
   createDeferredFactoryV2Reentry: factoryV2AdminService.createDeferredReentry,
   createFactoryV2SourceSubmission: factoryV2AdminService.createSourceSubmission,
+  listFactoryV2SourceSubmissions: factoryV2AdminService.listSourceSubmissions,
   addFactoryOperationsTopic: factoryOperationsService.addTopic,
   controlFactoryOperations: factoryOperationsService.control.bind(factoryOperationsService),
   mutateFactoryOperationsTopic: factoryOperationsService.mutateTopic.bind(factoryOperationsService),
