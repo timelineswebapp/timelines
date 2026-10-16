@@ -10,7 +10,7 @@ import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion } from "../a
 import { buildTopicAuthoritySet } from "../authority-first";
 import { dispatchSourceSubmissionRetrieval } from "../source-submission-dispatch";
 import { inspectSourceSubmissionCandidate } from "../source-submission";
-import { claimAuthorityVerdictSchema, deferredReentryRequestSchema, publisherAuthorityRecordSchema, sourceSnapshotSchema, v2FailureRecordSchema } from "../contracts";
+import { claimAuthorityVerdictSchema, deferredReentryRequestSchema, evidenceSegmentSchema, publisherAuthorityRecordSchema, sourceDocumentSchema, sourceSnapshotSchema, sourceSubmissionRetrievalSchema, v2FailureRecordSchema } from "../contracts";
 import { normalizedIdentityText } from "../contracts/builders";
 import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, KNOWLEDGE_COVERAGE_POLICY_VERSION, planGapDirectedCompletion } from "../coverage";
 import { reconstructCompletedKnowledgeSetForB1 } from "../completed-knowledge-set";
@@ -91,6 +91,20 @@ test("Firestore emulator resolves submitted-source authority and persists a non-
   assert.equal(inspection.reentryAuthorized, false);
   assert.equal("sourceSnapshotId" in inspection, false);
   assert.equal(fetchCalls, 2);
+
+  const sourceRecord = await repository.getById("v2SourceDocuments", observation.sourceId!);
+  const snapshotRecord = await repository.getById("v2SourceSnapshots", observation.sourceSnapshotId!);
+  const segmentRecords = await repository.boundedQuery("v2EvidenceSegments", [{ field: "sourceSnapshotId", op: "==", value: observation.sourceSnapshotId }], 200);
+  assert.ok(sourceRecord && snapshotRecord);
+  const { id: _sourceDocumentId, ...sourceRaw } = sourceRecord;
+  const { id: _snapshotDocumentId, ...snapshotRaw } = snapshotRecord;
+  const source = sourceDocumentSchema.parse(sourceRaw);
+  const snapshot = parseSealedArtifact(sourceSnapshotSchema, snapshotRaw);
+  const evidenceSegments = segmentRecords.map(({ id: _segmentDocumentId, ...segment }) => parseSealedArtifact(evidenceSegmentSchema, segment));
+  const collision = parseSealedArtifact(sourceSubmissionRetrievalSchema, { ...observation, createdAt: "2026-10-16T04:02:01.000Z" });
+  await assert.rejects(repository.persistSourceSubmissionRetrieval({ result: collision, source, snapshot, evidenceSegments }), /collision/);
+  assert.equal((await repository.getById("v2SourceSubmissionRetrievals", observation.sourceSubmissionRetrievalId))?.createdAt, observation.createdAt);
+  assert.equal((await repository.getById("v2SourceDocuments", observation.sourceId!))?.currentSnapshotId, observation.sourceSnapshotId);
 });
 
 test("Firestore emulator enforces corpus paths, immutable idempotency, heads, and edge integrity", { skip: !enabled }, async () => {
