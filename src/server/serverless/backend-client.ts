@@ -46,6 +46,11 @@ function internalSignature(secret: string, timestamp: string, method: string, pa
   return createHmac("sha256", secret).update(`${timestamp}.${method.toUpperCase()}.${path}.${serializedBody}`).digest("hex");
 }
 
+function requireInternalReadResult<T>(result: T | null): T {
+  if (result === null) throw new ApiError(503, "SERVERLESS_BACKEND_UNAVAILABLE", "Factory operational data is unavailable.");
+  return result;
+}
+
 async function internalRequest<T>(path: string, input: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<T | null> {
   if (!baseUrl()) return null;
   const secret = requireSharedSecret();
@@ -96,16 +101,16 @@ export const serverlessBackendClient = {
     return request<T>(`/continuity?${query({ sourcePublishedSnapshotId })}`);
   },
   listDeferredFactoryV2Topics<T>(limit = 25) {
-    return internalRequest<T[]>(`/internal/factory-v2/deferred?${query({ limit })}`).then((result) => result || []);
+    return internalRequest<T[]>(`/internal/factory-v2/deferred?${query({ limit })}`).then(requireInternalReadResult);
   },
   listGenerationRetryQueue<T>(limit = 25) {
-    return internalRequest<T[]>(`/internal/factory-v2/generation-retries?${query({ limit })}`).then((result) => result || []);
+    return internalRequest<T[]>(`/internal/factory-v2/generation-retries?${query({ limit })}`).then(requireInternalReadResult);
   },
   getGenerationRetryQueueHealth<T>() {
     return internalRequest<T>("/internal/factory-v2/generation-retry-health");
   },
   listGenerationEnqueueFailures<T>(limit = 25) {
-    return internalRequest<T[]>(`/internal/factory-v2/generation-enqueue-failures?${query({ limit })}`).then((result) => result || []);
+    return internalRequest<T[]>(`/internal/factory-v2/generation-enqueue-failures?${query({ limit })}`).then(requireInternalReadResult);
   },
   createDeferredFactoryV2Reentry<T>(body: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) {
     return internalRequest<T>("/internal/factory-v2/deferred-reentry", { method: "POST", body });
@@ -114,7 +119,7 @@ export const serverlessBackendClient = {
     return internalRequest<T>("/internal/factory-v2/source-submissions", { method: "POST", body });
   },
   listFactoryV2SourceSubmissions<T>(limit = 25) {
-    return internalRequest<T[]>(`/internal/factory-v2/source-submissions?${query({ limit })}`).then((result) => result || []);
+    return internalRequest<T[]>(`/internal/factory-v2/source-submissions?${query({ limit })}`).then(requireInternalReadResult);
   },
   getFactoryV2SourceSubmissionInspection<T>(candidateId: string) {
     return internalRequest<T>(`/internal/factory-v2/source-submissions/${encodeURIComponent(candidateId)}`);
