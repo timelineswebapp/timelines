@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Current local engineering checkpoint | `00b6d4c` — malformed external URI normalization resilience; full root suite 277/277, Functions suite 367/367 (2 intentional emulator-only skips), root and Functions strict typechecks, optimized Next build, lint, and Tier-1 security gate verified across the current successor chain. |
+| Current local engineering checkpoint | `728e36d` — authenticated operational query-filter integrity; full root suite 278/278, root strict typecheck, lint, and Tier-1 security gate passed. Functions suite 367/367 (2 intentional emulator-only skips) and Functions strict typecheck remain verified on the unchanged Functions successor chain. |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | `.70` release `dd9737a1742a68c726aa3d41fd4549430c6d68098cf48fb13c6fd38ee6f7ed16`; its fresh non-combined run produced one valid San Francisco CKS before Berlin failed closed on the protected affected-community identity boundary. |
 | Phase 2 | **BLOCKED — FOUNDER-GOVERNED HISTORICAL IDENTITY/CAPACITY; UNCERTIFIED.** The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -75,6 +75,8 @@ The repository contains untracked historical artifacts and local working materia
 **Admin CSRF cookie ambiguity correction:** Completed locally on `2026-10-16`. The authoritative CSRF verifier now treats malformed or duplicate-name cookie values as absent, so unsafe requests fail closed rather than selecting an ambiguous first cookie; response cookie construction follows the same safe parsing rule. Root strict typecheck and full mandatory root suite passed (276/276).
 
 **External URI normalization resilience increment:** Completed locally on `2026-10-16`. Corpus metadata normalization now preserves malformed percent-encoded provider URI fragments rather than throwing during decode, allowing bounded import processing to continue without treating invalid remote identifiers as trusted data. Root strict typecheck and full mandatory root suite passed (277/277).
+
+**Authenticated operational query-filter integrity increment:** Completed locally on `2026-10-16` at `728e36d`. Shared server-owned parsing now rejects duplicated or undeclared enum filters for authenticated Factory runtime, pipeline, and governance-handoff lists, rejects ambiguous analytics modes, and requires a single valid UUID for a runtime-execution filter. The editorial-review action likewise rejects duplicate review identities. No client-provided filter is cast into a service type. Direct regression coverage verifies declared-only enum and single-control behavior; root strict typecheck, full mandatory root suite (278/278), lint, and Tier-1 security gate passed.
 
 **Operational-feasibility increment:** Completed locally on `2026-10-16`. The deferred Admin read model now derives a bounded, read-only re-entry feasibility signal from the exact deferred operation and immutable terminal failure record: required condition, terminal time, consumed attempts and budget, and detailed failure class. It has no historical-significance, priority, coverage, selection, evidence, Registry, Governance, or publication field; it cannot reorder or modify any research work. The Admin surface presents it solely as an operational condition.
 
