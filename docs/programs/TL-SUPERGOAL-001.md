@@ -161,6 +161,7 @@ Completed for this increment:
 - Root strict typecheck and direct homepage-route regression: passed after homepage pagination input integrity hardening.
 - Root strict typecheck and direct homepage/catalog route regressions: passed after shared public pagination validation.
 - Root strict typecheck and direct homepage-route regression: passed after snapshot-date validation.
+- Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
