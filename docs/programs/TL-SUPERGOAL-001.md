@@ -126,6 +126,7 @@ Completed for this increment:
 - Functions build and optimized Next production build: passed after terminal enqueue-failure visibility; the new route remains dynamically server-owned and Admin-authenticated.
 - Production-hardening validator: passed all dashboard, alert, PITR, retention, deployment-workflow, and incident checks; monitoring validator passed all 27 declared metrics and 15 alerts.
 - Tier-1 security gate and root lint: passed after terminal enqueue-failure visibility. Production runtime audits remain zero high/critical; the recorded lint-tooling-only advisory remains accepted solely under its existing constraints.
+- Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips after terminal enqueue observability.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
