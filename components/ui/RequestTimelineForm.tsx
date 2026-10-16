@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CloseIcon, SendIcon } from "@/components/ui/Icons";
+import { readPublicRequestResponse } from "@/src/lib/public-request-client";
 
 export function RequestTimelineForm({
   triggerLabel = "MISSING A TOPIC?",
@@ -32,17 +33,10 @@ export function RequestTimelineForm({
         })
       });
 
-      const payload = (await response.json()) as {
-        ok: boolean;
-        data?: { status?: "AVAILABLE" | "QUEUED" | "PROCESSING" | "FAILED"; route?: string };
-        error?: { message?: string };
-      };
-      if (!response.ok || !payload.ok) {
-        throw new Error(payload.error?.message || "Unable to submit request.");
-      }
+      const payload = await readPublicRequestResponse<{ status?: "AVAILABLE" | "QUEUED" | "PROCESSING" | "FAILED"; route?: string }>(response);
 
-      if (payload.data?.status === "AVAILABLE" && payload.data.route) {
-        window.location.assign(payload.data.route);
+      if (payload.status === "AVAILABLE" && payload.route) {
+        window.location.assign(payload.route);
         return;
       }
       const statusMessages = {
@@ -51,7 +45,7 @@ export function RequestTimelineForm({
         PROCESSING: "This topic is already being researched.",
         FAILED: "Research could not be completed. The request is available for editorial review."
       } as const;
-      setMessage(payload.data?.status ? statusMessages[payload.data.status as keyof typeof statusMessages] : "Topic queued for research.");
+      setMessage(payload.status ? statusMessages[payload.status] : "Topic queued for research.");
       if (variant === "modal") {
         window.setTimeout(() => {
           setIsOpen(false);

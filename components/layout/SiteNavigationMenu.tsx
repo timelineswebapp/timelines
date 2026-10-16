@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { TIMELINES_LOGO_PUBLIC_PATH } from "@/src/lib/brand";
+import { readPublicRequestResponse } from "@/src/lib/public-request-client";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -60,10 +61,7 @@ async function submitTimelineRequest(payload: DrawerRequestPayload): Promise<voi
     body: JSON.stringify(payload)
   });
 
-  const responsePayload = (await response.json()) as { ok: boolean; error?: { message?: string } };
-  if (!response.ok || !responsePayload.ok) {
-    throw new Error(responsePayload.error?.message || "Unable to submit request.");
-  }
+  await readPublicRequestResponse<Record<string, never>>(response);
 }
 
 export function SiteNavigationMenu() {

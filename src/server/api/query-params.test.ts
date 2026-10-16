@@ -231,3 +231,15 @@ test("Factory core operations remain visible during typed V2 operational-read un
   assert.match(ui, /Generation retry records are temporarily unavailable/);
   assert.doesNotMatch(ui, /deferred-reentry\/(?:consume|dispatch)/);
 });
+
+test("public request entry points use a sanitized envelope parser", () => {
+  const form = readFileSync("components/ui/RequestTimelineForm.tsx", "utf8");
+  const navigation = readFileSync("components/layout/SiteNavigationMenu.tsx", "utf8");
+  const parser = readFileSync("src/lib/public-request-client.ts", "utf8");
+  assert.match(form, /readPublicRequestResponse/);
+  assert.match(navigation, /readPublicRequestResponse/);
+  assert.match(parser, /response\.json\(\)/);
+  assert.match(parser, /status === 502 \|\| status === 503/);
+  assert.match(parser, /Topic intake is temporarily unavailable/);
+  assert.doesNotMatch(parser, /payload\?\.error\?\.message/);
+});
