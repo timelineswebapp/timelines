@@ -4,6 +4,9 @@ import { db } from "../../firestore";
 import { V2_CORPUS_COLLECTIONS, v2CorpusCollection, type V2CorpusCollectionName } from "../../corpus";
 import { verifyPayloadHash } from "../hashing";
 import { contentAddressedId } from "../hashing";
+import { parseSealedArtifact } from "../contracts/builders";
+import { deferredReentryDispatchReceiptSchema, deferredReentryRequestSchema } from "../contracts/reentry";
+import { planDeferredReentryDispatch } from "../reentry-dispatch";
 
 export type V2RepositoryDependencies = {
   firestore?: Firestore;
@@ -129,6 +132,39 @@ export class V2FirestoreRepository {
   async setOperation(operationId: string, operation: Record<string, unknown>): Promise<void> {
     if (operation.corpusId !== this.corpusId || operation.executionMode !== "SHADOW") throw new Error("Invalid V2 shadow operation projection.");
     await this.collection("v2TopicOperations").doc(operationId).set(operation);
+  }
+
+  async consumeDeferredReentryRequest(requestId: string, now = new Date().toISOString()): Promise<"CONSUMED" | "IDEMPOTENT"> {
+    if (!requestId || requestId.length > 160) throw new Error("Deferred re-entry request ID must be explicitly bounded.");
+    const requestRef = this.collection("v2DeferredReentryRequests").doc(requestId);
+    const receiptRef = this.collection("v2DeferredReentryDispatchReceipts").doc(requestId);
+    return this.firestore.runTransaction(async (transaction) => {
+      const requestSnapshot = await transaction.get(requestRef);
+      if (!requestSnapshot.exists) throw new Error("Deferred re-entry request does not exist.");
+      const request = deferredReentryRequestSchema.parse(requestSnapshot.data());
+      const [receiptSnapshot, operationSnapshot, failureSnapshot, nextOperationSnapshot] = await transaction.getAll(
+        receiptRef,
+        this.collection("v2TopicOperations").doc(request.originalOperationId),
+        this.collection("v2FailureRecords").doc(request.originalFailureRecordId),
+        this.collection("v2TopicOperations").doc(request.nextRunId)
+      );
+      if (receiptSnapshot!.exists) {
+        const receipt = deferredReentryDispatchReceiptSchema.parse(receiptSnapshot!.data());
+        if (receipt.deferredReentryRequestId !== requestId || receipt.queuedOperationId !== request.nextRunId) throw new Error("Deferred re-entry receipt collision.");
+        return "IDEMPOTENT" as const;
+      }
+      if (!operationSnapshot!.exists || !failureSnapshot!.exists) throw new Error("Deferred re-entry lineage is incomplete.");
+      if (nextOperationSnapshot!.exists) throw new Error("Deferred re-entry next-run identity is already occupied.");
+      const queued = planDeferredReentryDispatch({ request, operation: operationSnapshot!.data(), failure: failureSnapshot!.data(), now });
+      const receipt = parseSealedArtifact(deferredReentryDispatchReceiptSchema, {
+        artifactId: requestId, schemaVersion: request.schemaVersion, policyVersion: request.policyVersion, promptVersion: request.promptVersion, modelExecutionRef: null, parentArtifactId: requestId,
+        createdAt: now, corpusId: request.corpusId, topicId: request.topicId, runId: request.nextRunId, generation: request.nextGeneration, executionMode: "SHADOW", publicationEligible: false, governanceSubmissionAllowed: false, immutable: true,
+        deferredReentryDispatchReceiptId: requestId, deferredReentryRequestId: requestId, queuedOperationId: request.nextRunId, consumedAt: now, state: "CONSUMED"
+      });
+      transaction.create(receiptRef, receipt);
+      transaction.create(this.collection("v2TopicOperations").doc(request.nextRunId), queued);
+      return "CONSUMED" as const;
+    });
   }
 
   async createEdgeWithReferences(input: {

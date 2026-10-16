@@ -37,3 +37,12 @@ export const deferredReentryRequestSchema = z.object({
 });
 
 export type DeferredReentryRequest = z.infer<typeof deferredReentryRequestSchema>;
+
+export const deferredReentryDispatchReceiptSchema = z.object({
+  ...executionEnvelopeFields,
+  deferredReentryDispatchReceiptId: idSchema,
+  deferredReentryRequestId: idSchema,
+  queuedOperationId: idSchema,
+  consumedAt: z.string().datetime(),
+  state: z.literal("CONSUMED")
+}).strict();
