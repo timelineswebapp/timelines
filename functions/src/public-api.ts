@@ -55,6 +55,10 @@ export function boundedInteger(value: unknown, fallback: number, max: number) {
   return Math.max(0, Math.min(max, parsed));
 }
 
+export function scalarQueryString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
 function jsonValue(value: unknown): unknown {
   if (value instanceof Timestamp) return value.toDate().toISOString();
   if (Array.isArray(value)) return value.map(jsonValue);
@@ -139,7 +143,9 @@ function searchTokens(query: string) {
 }
 
 async function search(request: Request, response: Response) {
-  const rawQuery = String(request.query.q || "").trim();
+  const queryValue = scalarQueryString(request.query.q);
+  if (queryValue === null) return failure(response, 400, "VALIDATION_FAILED", "Search query must appear at most once.");
+  const rawQuery = queryValue.trim();
   if (rawQuery.length > MAX_PUBLIC_SEARCH_QUERY_LENGTH) {
     return failure(response, 400, "VALIDATION_FAILED", `Search queries must not exceed ${MAX_PUBLIC_SEARCH_QUERY_LENGTH} characters.`);
   }
@@ -323,7 +329,9 @@ export async function handlePublicApi(request: Request, response: Response) {
     if (request.method === "GET" && request.path === "/internal/factory-v2/source-submissions") return await internalFactoryV2SourceSubmissions(request, response);
     if (request.method === "GET" && request.path === "/continuity") return await continuity(request, response);
     if (request.method === "GET" && request.path === "/topic-status") {
-      const query = String(request.query.q || "").trim();
+      const queryValue = scalarQueryString(request.query.q);
+      if (queryValue === null) return failure(response, 400, "VALIDATION_FAILED", "Topic status query must appear at most once.");
+      const query = queryValue.trim();
       if (!query || query.length > MAX_PUBLIC_TOPIC_QUERY_LENGTH) {
         return failure(response, 400, "VALIDATION_FAILED", `Topic status queries must contain 1 to ${MAX_PUBLIC_TOPIC_QUERY_LENGTH} characters.`);
       }

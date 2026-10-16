@@ -4,7 +4,7 @@ import test from "node:test";
 import { normalizeTopic } from "./normalization";
 import { evidenceFirstTaskPayloadSchema, generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
-import { boundedInteger, deferredReentryCommandSchema } from "./public-api";
+import { boundedInteger, deferredReentryCommandSchema, scalarQueryString } from "./public-api";
 
 function event(sortYear: number, title: string) {
   return {
@@ -194,6 +194,13 @@ test("public Functions pagination accepts only canonical decimal controls", () =
   assert.equal(boundedInteger("1000", 5, 100), 100);
   for (const value of ["12junk", "1e2", " 12", "12 ", "1.5", "-1", "9007199254740992", ["12"], 12]) {
     assert.equal(boundedInteger(value, 5, 100), 5, String(value));
+  }
+});
+
+test("public Functions search and topic-status controls require a single scalar query", () => {
+  assert.equal(scalarQueryString("printing press"), "printing press");
+  for (const value of [undefined, ["printing", "press"], { q: "printing press" }, 12]) {
+    assert.equal(scalarQueryString(value), null, String(value));
   }
 });
 
