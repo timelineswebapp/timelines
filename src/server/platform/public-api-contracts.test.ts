@@ -99,6 +99,13 @@ test("serverless topic-status bounds direct input before topic normalization", (
   assert.ok(source.indexOf("query.length > MAX_PUBLIC_TOPIC_QUERY_LENGTH") < source.indexOf("normalizeTopic(query, \"en\", ACTIVE_CORPUS_ID)"));
 });
 
+test("serverless read-model and taxonomy routes validate canonical public slugs", () => {
+  const source = readFileSync("functions/src/public-api.ts", "utf8");
+  assert.match(source, /canonicalPublicSlugPattern/u);
+  assert.match(source, /Invalid read-model slug/u);
+  assert.match(source, /Invalid taxonomy slug/u);
+});
+
 test("homepage pagination contract remains bounded and continuation-based", () => {
   const limit = 24;
   const offset = 48;

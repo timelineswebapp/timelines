@@ -35,6 +35,7 @@ const sourceSubmissionCommandSchema = z.object({
 const readModelTypes = new Set(["timeline", "milestone", "historical_object", "relationship", "search", "sitemap"]);
 const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120;
 const MAX_PUBLIC_TOPIC_QUERY_LENGTH = 120;
+const canonicalPublicSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+){0,31}$/u;
 
 function boundedInteger(value: unknown, fallback: number, max: number) {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number(value);
@@ -108,6 +109,7 @@ async function getReadModel(request: Request, response: Response) {
   const slug = String(request.query.slug || "");
   const id = boundedInteger(request.query.id, 0, Number.MAX_SAFE_INTEGER);
   if (!readModelTypes.has(type)) return failure(response, 400, "VALIDATION_FAILED", "Invalid read-model type.");
+  if (slug && (!canonicalPublicSlugPattern.test(slug) || slug.length > 160)) return failure(response, 400, "VALIDATION_FAILED", "Invalid read-model slug.");
   const documentId = type === "milestone" && id > 0 ? `milestone--${id}` : slug ? `${type.replace("historical_object", "historical-object")}--${slug}` : "";
   if (!documentId) return failure(response, 400, "VALIDATION_FAILED", "A slug or numeric milestone ID is required.");
   let snapshot = await corpusCollection("platformReadModels").doc(documentId).get();
@@ -156,7 +158,7 @@ async function listTaxonomy(request: Request, response: Response, kind: "categor
 
 async function taxonomyDetail(request: Request, response: Response, kind: "category" | "tag") {
   const slug = String(request.query.slug || "");
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug)) return failure(response, 400, "VALIDATION_FAILED", "Invalid taxonomy slug.");
+  if (!canonicalPublicSlugPattern.test(slug) || slug.length > 160) return failure(response, 400, "VALIDATION_FAILED", "Invalid taxonomy slug.");
   const collection = kind === "category" ? "categoryDocuments" : "tagDocuments";
   const taxonomy = await corpusCollection(collection).doc(slug).get();
   if (!taxonomy.exists) return failure(response, 404, "NOT_FOUND", `${kind} not found.`);

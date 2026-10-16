@@ -124,6 +124,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Homepage snapshot-date integrity increment:** Completed locally on `2026-10-16`. The optional public snapshot cursor now accepts only a real canonical `YYYY-MM-DD` ISO calendar date. Impossible, noncanonical, and arbitrary values fail validation before they can be reflected in a response or reach the content service; homepage content and snapshot semantics are otherwise unchanged.
 
+**Public detail-slug integrity increment:** Completed locally on `2026-10-16`. Timeline and tag detail APIs now validate canonical public slugs before invoking the projection-backed content service, while the serverless read-model and taxonomy routes enforce the matching contract before document or fallback lookup. Malformed, noncanonical, and oversized slugs fail validation rather than reaching repository reads.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -161,6 +163,7 @@ Completed for this increment:
 - Root strict typecheck and direct homepage-route regression: passed after homepage pagination input integrity hardening.
 - Root strict typecheck and direct homepage/catalog route regressions: passed after shared public pagination validation.
 - Root strict typecheck and direct homepage-route regression: passed after snapshot-date validation.
+- Root and Functions strict typechecks plus public detail-route/API contract regressions: passed after canonical slug validation.
 - Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
