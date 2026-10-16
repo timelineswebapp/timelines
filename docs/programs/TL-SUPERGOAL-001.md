@@ -191,6 +191,7 @@ Completed for this increment:
 - Public homepage API integrity: duplicate `offset`, `limit`, or `snapshotDate` controls now fail closed with the standard 400 validation response before any projection read. Root strict typecheck and direct route regressions passed (2/2).
 - Optimized Next production build: passed after the public route and homepage resilience increments; all public and authenticated Admin route modules compiled successfully without activating deployment, discovery, publication, or Governance submission.
 - Tier-1 security gate: passed after the public route and homepage resilience increments with zero high/critical runtime findings in both root and Functions production audits. The sole accepted advisory remains build-tooling-only under its recorded constraints.
+- Tier-1 security gate: passed after the in-place public continuation retry and protected Admin-boundary increments. Root and Functions production audits remain zero high/critical; `GHSA-vfj7-8cjw-p6xm` remains accepted only as the existing non-runtime, repository-owned lint-tooling exception subject to its recorded release-review conditions.
 - Root lint: passed after the public route and homepage resilience increments.
 - Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Optimized Next production build: passed after the in-place public continuation retry and protected Admin retry-health/terminal-failure boundary regressions. All public, Factory V2, and authenticated Admin route modules compiled without deployment, discovery, publication, or Governance submission.
@@ -213,4 +214,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Continue independent Factory reliability and public-reader verification work. The next implementation target is the Tier-1 security gate after the public continuation and protected Admin-boundary increments, followed by the next unmet operational resilience requirement in the durable execution index. No deployment, publication, discovery, re-entry dispatch, or historical-policy change is authorized. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.
+Continue independent Factory reliability and public-reader verification work. The next implementation target is the next unmet operational resilience requirement in the durable execution index. No deployment, publication, discovery, re-entry dispatch, or historical-policy change is authorized. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.
