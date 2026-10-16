@@ -48,6 +48,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Admin read increment:** Completed locally on `2026-10-16`. The existing authenticated `factory_operator` Admin surface now reads a bounded deferred-topic projection through a server-owned, HMAC-authenticated Functions bridge. The projection carries only operation lineage and the recorded autonomous outcome; it is read-only, fails closed on an invalid signature, and filters malformed persisted records. It deliberately does not expose a re-entry control because release-pinned re-entry requires a separate immutable request and caller contract.
 
+**Re-entry contract increment:** Completed locally on `2026-10-16`. Factory V2 now defines an immutable deferred re-entry request with the originating failure and operation lineage, exact original release identity, a new run identity, and exactly one generation advance. Public-evidence limitations require a governed relevant-change artifact; budget exhaustion requires a separately attributable authorization. The request is not itself executable work: a later atomic dispatcher consumer must validate and consume it before any new research task can be scheduled.
+
 ## Certification and verification state
 
 Local and shadow verification may be executed only within existing budgets and safety controls. No result becomes Phase-2 certification unless it is a fresh four-subject run from one materially equivalent sealed release and produces four valid CKS records. Provider-backed certification is not part of the current implementation increment.
@@ -56,7 +58,7 @@ Completed for this increment:
 
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
-- Full Functions suite: 348 passed, 0 failed, 2 intentional emulator-only skips.
+- Full Functions suite: 349 passed, 0 failed, 2 intentional emulator-only skips.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
@@ -72,4 +74,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Define and implement the release-pinned, immutable bounded re-entry request contract for a deferred topic. It must bind the original failure lineage, reject unrestricted retries, preserve no-direct-mutation boundaries for evidence, Registry, Governance, and Published Memory, and be independently testable before any Admin action is exposed.
+Implement the atomic, server-owned dispatcher consumer for immutable deferred re-entry requests. It must validate the original deferred operation and failure lineage transactionally, consume a request exactly once, and schedule only the release-pinned next run; it must not introduce an Admin-to-evidence, Registry, Governance, or Published Memory mutation path.
