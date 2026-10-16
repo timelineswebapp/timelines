@@ -328,6 +328,9 @@ export class V2FirestoreRepository {
       const requestSnapshot = await transaction.get(requestRef);
       if (!requestSnapshot.exists) throw new Error("Deferred re-entry request does not exist.");
       const request = deferredReentryRequestSchema.parse(requestSnapshot.data());
+      if (requestSnapshot.id !== request.deferredReentryRequestId || request.deferredReentryRequestId !== requestId || request.corpusId !== this.corpusId || !verifyPayloadHash(request)) {
+        throw new Error("Deferred re-entry request integrity is invalid.");
+      }
       const [receiptSnapshot, operationSnapshot, failureSnapshot, nextOperationSnapshot] = await transaction.getAll(
         receiptRef,
         this.collection("v2TopicOperations").doc(request.originalOperationId),
@@ -336,7 +339,7 @@ export class V2FirestoreRepository {
       );
       if (receiptSnapshot!.exists) {
         const receipt = deferredReentryDispatchReceiptSchema.parse(receiptSnapshot!.data());
-        if (receipt.deferredReentryRequestId !== requestId || receipt.queuedOperationId !== request.nextRunId) throw new Error("Deferred re-entry receipt collision.");
+        if (receiptSnapshot!.id !== receipt.deferredReentryDispatchReceiptId || receipt.deferredReentryDispatchReceiptId !== requestId || receipt.corpusId !== this.corpusId || !verifyPayloadHash(receipt) || receipt.deferredReentryRequestId !== requestId || receipt.queuedOperationId !== request.nextRunId) throw new Error("Deferred re-entry receipt collision.");
         return "IDEMPOTENT" as const;
       }
       if (!operationSnapshot!.exists || !failureSnapshot!.exists) throw new Error("Deferred re-entry lineage is incomplete.");
