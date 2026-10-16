@@ -12,3 +12,9 @@ test("timeline catalog rejects noncanonical and out-of-range limits before conte
     });
   }
 });
+
+test("timeline catalog rejects duplicate limit controls before content reads", async () => {
+  const response = await GET(new Request("https://timelines.example/api/timelines?limit=12&limit=24"));
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error.code, "VALIDATION_FAILED");
+});
