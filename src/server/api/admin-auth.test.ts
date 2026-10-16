@@ -191,7 +191,8 @@ test("admin rate limiting bounds distinct client keys without scanning on every 
   resetAdminRateLimitStoreForTests();
   try {
     for (let index = 0; index < 4_096; index += 1) {
-      const request = new Request("https://timelines.example/api/admin/analytics", { headers: { "x-forwarded-for": `198.51.100.${index}` } });
+      const clientIp = `198.51.${Math.floor(index / 256)}.${index % 256}`;
+      const request = new Request("https://timelines.example/api/admin/analytics", { headers: { "x-forwarded-for": clientIp } });
       assert.deepEqual(checkAdminRateLimit(request), { allowed: true });
     }
     const overflow = new Request("https://timelines.example/api/admin/analytics", { headers: { "x-forwarded-for": "203.0.113.250" } });

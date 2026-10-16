@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { fail, fromError } from "@/src/server/api/responses";
+import { trustedClientIp } from "@/src/server/api/client-ip";
 import { config } from "@/src/lib/config";
 import {
   auditAdminSecurityEvent,
@@ -22,15 +23,6 @@ type RateLimitEntry = {
 const rateLimitStore = new Map<string, RateLimitEntry>();
 let lastRateLimitPruneAt = 0;
 
-function getClientIp(request: Request): string {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0]?.trim() || "unknown";
-  }
-
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
-}
-
 function pruneExpiredRateLimits(now: number, force = false): void {
   if (!force && now - lastRateLimitPruneAt < 1_000) return;
   for (const [candidateKey, value] of rateLimitStore.entries()) {
@@ -46,7 +38,7 @@ export function resetAdminRateLimitStoreForTests(): void {
 
 export function checkAdminRateLimit(request: Request): { allowed: true } | { allowed: false; retryAfter: number } {
   const now = Date.now();
-  const key = getClientIp(request);
+  const key = trustedClientIp(request);
   pruneExpiredRateLimits(now);
 
   const current = rateLimitStore.get(key);

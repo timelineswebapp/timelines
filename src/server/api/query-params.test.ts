@@ -5,6 +5,7 @@ import { DELETE as deleteEvent } from "@/app/api/admin/events/[id]/route";
 import { DELETE as deleteTag } from "@/app/api/admin/tags/[id]/route";
 import { DELETE as deleteTimeline } from "@/app/api/admin/timelines/[id]/route";
 import { config } from "@/src/lib/config";
+import { trustedClientIp } from "@/src/server/api/client-ip";
 import { ApiError } from "@/src/server/api/responses";
 import { parseCanonicalPositiveIntegerPathParameter, parseOptionalEnumQueryParameter, parseOptionalSingleQueryParameter } from "@/src/server/api/query-params";
 import { adminService } from "@/src/server/services/admin-service";
@@ -29,6 +30,20 @@ test("numeric operational path identifiers remain canonical and bounded", () => 
   assert.equal(parseCanonicalPositiveIntegerPathParameter("42", "report id"), 42);
   for (const value of ["", "0", "01", "1.0", "1e2", "-1", "9007199254740992"]) {
     assert.throws(() => parseCanonicalPositiveIntegerPathParameter(value, "report id"), ApiError);
+  }
+});
+
+test("production rate identities use only the platform-trusted forwarding header", () => {
+  const previousIsProduction = config.isProduction;
+  try {
+    config.isProduction = true;
+    assert.equal(trustedClientIp(new Request("https://timelines.example", { headers: { "x-forwarded-for": "198.51.100.9", "x-vercel-forwarded-for": "203.0.113.4" } })), "203.0.113.4");
+    assert.equal(trustedClientIp(new Request("https://timelines.example", { headers: { "x-forwarded-for": "198.51.100.9" } })), "unknown");
+    config.isProduction = false;
+    assert.equal(trustedClientIp(new Request("https://timelines.example", { headers: { "x-forwarded-for": "198.51.100.9, 10.0.0.1" } })), "198.51.100.9");
+    assert.equal(trustedClientIp(new Request("https://timelines.example", { headers: { "x-forwarded-for": "not-an-ip" } })), "127.0.0.1");
+  } finally {
+    config.isProduction = previousIsProduction;
   }
 });
 
