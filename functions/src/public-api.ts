@@ -48,10 +48,11 @@ const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120;
 const MAX_PUBLIC_TOPIC_QUERY_LENGTH = 120;
 const canonicalPublicSlugPattern = /^[a-z0-9]+(?:-[a-z0-9]+){0,31}$/u;
 
-function boundedInteger(value: unknown, fallback: number, max: number) {
-  const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.max(0, Math.min(max, Math.trunc(parsed)));
+export function boundedInteger(value: unknown, fallback: number, max: number) {
+  if (typeof value !== "string" || !/^\d+$/u.test(value)) return fallback;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) return fallback;
+  return Math.max(0, Math.min(max, parsed));
 }
 
 function jsonValue(value: unknown): unknown {

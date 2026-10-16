@@ -4,7 +4,7 @@ import test from "node:test";
 import { normalizeTopic } from "./normalization";
 import { evidenceFirstTaskPayloadSchema, generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
-import { deferredReentryCommandSchema } from "./public-api";
+import { boundedInteger, deferredReentryCommandSchema } from "./public-api";
 
 function event(sortYear: number, title: string) {
   return {
@@ -187,6 +187,14 @@ test("signed deferred re-entry creation accepts only trigger-compatible server l
   assert.equal(deferredReentryCommandSchema.safeParse({ ...evidenceChange, authorizationReason: "Forged authorization." }).success, false);
   assert.equal(deferredReentryCommandSchema.safeParse({ ...authorizedRetry, authorizedBy: null }).success, false);
   assert.equal(deferredReentryCommandSchema.safeParse({ ...authorizedRetry, relevantChangeArtifactId: "snapshot-001" }).success, false);
+});
+
+test("public Functions pagination accepts only canonical decimal controls", () => {
+  assert.equal(boundedInteger("12", 5, 100), 12);
+  assert.equal(boundedInteger("1000", 5, 100), 100);
+  for (const value of ["12junk", "1e2", " 12", "12 ", "1.5", "-1", "9007199254740992", ["12"], 12]) {
+    assert.equal(boundedInteger(value, 5, 100), 5, String(value));
+  }
 });
 
 test("generation retry queue isolates individual enqueue failures without activating deferred re-entry", () => {
