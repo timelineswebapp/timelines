@@ -444,6 +444,7 @@ export async function listGenerationEnqueueFailureSummaries(limit: number): Prom
   const snapshot = await corpusCollection("topicLedgers")
     .where("state", "==", "FAILED")
     .where("currentStage", "==", "enqueue_failed")
+    .where("enqueueRetryCount", "==", MAX_ENQUEUE_RETRIES)
     .orderBy("updatedAt", "desc")
     .limit(boundedLimit)
     .get();

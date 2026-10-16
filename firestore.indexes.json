@@ -72,6 +72,7 @@
       "fields": [
         { "fieldPath": "state", "order": "ASCENDING" },
         { "fieldPath": "currentStage", "order": "ASCENDING" },
+        { "fieldPath": "enqueueRetryCount", "order": "ASCENDING" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
     },
