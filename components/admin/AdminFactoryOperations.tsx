@@ -63,6 +63,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   }>>([]);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
+  const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }>>([]);
   const load = useCallback(async () => {
     if (!token) return;
     try {
@@ -79,16 +80,18 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         statusHandlers.setError("");
         return;
       }
-      const [operations, notifications, reliabilityDashboard, deferredTopics] = await Promise.all([
+      const [operations, notifications, reliabilityDashboard, deferredTopics, candidates] = await Promise.all([
         fetchAdmin<OperationsSnapshot>("/api/admin/factory/operations"),
         fetchAdmin<OperationalNotification[]>("/api/admin/factory/operations/inbox"),
         fetchAdmin<typeof reliability>("/api/admin/operations/reliability"),
-        fetchAdmin<typeof deferredV2Topics>("/api/admin/factory/v2/deferred")
+        fetchAdmin<typeof deferredV2Topics>("/api/admin/factory/v2/deferred"),
+        fetchAdmin<typeof sourceCandidates>("/api/admin/factory/v2/source-submissions")
       ]);
       setSnapshot(operations);
       setInbox(notifications);
       setReliability(reliabilityDashboard);
       setDeferredV2Topics(deferredTopics);
+      setSourceCandidates(candidates);
       statusHandlers.onLoaded();
       statusHandlers.setError("");
     } catch (error) { statusHandlers.setError(error instanceof Error ? error.message : "Operations load failed."); }
@@ -322,6 +325,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
               <div className="admin-action-row"><button className="button" disabled={pendingAction !== null || sourceSubmission.url.trim().length < 8 || sourceSubmission.rationale.trim().length < 10} onClick={() => void submitSourceCandidate()}>Preserve Candidate</button><button className="button secondary" disabled={pendingAction !== null} onClick={() => setSourceSubmission(null)}>Cancel</button></div>
               <p className="small muted">This creates a candidate for Factory validation. It does not create evidence, change authority, or retry research.</p>
             </div> : null}
+            {sourceCandidates.filter((candidate) => candidate.operationId === topic.runId).map((candidate) => <p className="small muted" key={candidate.candidateId}>Candidate awaiting Factory validation: <a href={candidate.submittedUrl} target="_blank" rel="noreferrer">{candidate.submittedUrl}</a> · submitted {formatOperationalTime(candidate.createdAt)}.</p>)}
           </div>
           <span className="pill">Generation {topic.generation}</span>
         </article>)}
