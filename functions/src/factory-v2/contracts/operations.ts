@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { boundedText, executionEnvelopeFields, hashSchema, httpsUrlSchema, idSchema, immutableEnvelopeFields, V2_PIPELINE_VERSION } from "./common";
 import { researchBudgetSchema } from "./knowledge";
-import { AUTONOMOUS_OUTCOME_POLICY_VERSION, autonomousOutcomeDispositions, autonomousReentryStates, autonomousTerminalOutcomeClasses } from "../autonomous-outcomes";
+import { autonomousTerminalOutcomeSchema } from "../autonomous-outcomes";
 
 const unique = <T>(values: T[]) => new Set(values).size === values.length;
 
@@ -81,14 +81,7 @@ export const topicOperationSchema = z.object({
   budgetsConsumed: z.record(z.number().nonnegative()).refine((value) => Object.keys(value).length <= 20),
   elapsedMs: z.number().int().nonnegative().max(86_400_000),
   finalVerdict: z.enum(["PENDING", "PASS", "FAIL"]),
-  autonomousOutcome: z.object({
-    policyVersion: z.literal(AUTONOMOUS_OUTCOME_POLICY_VERSION),
-    classification: z.enum(autonomousTerminalOutcomeClasses),
-    disposition: z.enum(autonomousOutcomeDispositions),
-    reentryState: z.enum(autonomousReentryStates),
-    detailedReason: boundedText(2, 160),
-    publicEvidenceBasis: z.enum(["GOVERNED_CAPACITY_EXHAUSTED"]).nullable()
-  }).strict().nullable().default(null),
+  autonomousOutcome: autonomousTerminalOutcomeSchema.nullable().default(null),
   updatedAt: z.string().datetime()
 }).strict();
 

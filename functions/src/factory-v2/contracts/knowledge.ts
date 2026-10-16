@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AUTONOMOUS_OUTCOME_POLICY_VERSION, autonomousOutcomeDispositions, autonomousReentryStates, autonomousTerminalOutcomeClasses } from "../autonomous-outcomes";
+import { autonomousTerminalOutcomeSchema } from "../autonomous-outcomes";
 import {
   boundedText,
   executionEnvelopeFields,
@@ -568,14 +568,7 @@ export const v2FailureRecordSchema = z.object({
   blockingArtifactIds: z.array(idSchema).max(50).refine(unique),
   attemptsConsumed: z.number().int().nonnegative().max(100),
   budgetConsumed: z.record(z.number().nonnegative()).refine((value) => Object.keys(value).length <= 20),
-  autonomousOutcome: z.object({
-    policyVersion: z.literal(AUTONOMOUS_OUTCOME_POLICY_VERSION),
-    classification: z.enum(autonomousTerminalOutcomeClasses),
-    disposition: z.enum(autonomousOutcomeDispositions),
-    reentryState: z.enum(autonomousReentryStates),
-    detailedReason: boundedText(2, 160),
-    publicEvidenceBasis: z.enum(["GOVERNED_CAPACITY_EXHAUSTED"]).nullable()
-  }).strict().nullable().default(null)
+  autonomousOutcome: autonomousTerminalOutcomeSchema.nullable().default(null)
 }).strict();
 
 export type ScopeContract = z.infer<typeof scopeContractSchema>;

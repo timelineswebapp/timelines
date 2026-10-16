@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { classifyAutonomousFailure, validCompletedKnowledgeSetOutcome } from "./autonomous-outcomes";
+import { autonomousTerminalOutcomeSchema, classifyAutonomousFailure, validCompletedKnowledgeSetOutcome } from "./autonomous-outcomes";
 
 test("protected governed-capacity exhaustion is the only public-evidence limitation path", () => {
   const outcome = classifyAutonomousFailure({ failureClass: "FAILED_UNCLASSIFIED", protectedRepresentationUnavailable: true });
@@ -26,4 +26,12 @@ test("completed knowledge is the sole success outcome", () => {
   const outcome = validCompletedKnowledgeSetOutcome();
   assert.equal(outcome.classification, "VALID_COMPLETED_KNOWLEDGE_SET");
   assert.equal(outcome.disposition, "COMPLETED");
+});
+
+test("terminal summary invariants reject unproven evidence limitations and unsafe re-entry", () => {
+  const publicLimitation = classifyAutonomousFailure({ failureClass: "FAILED_UNCLASSIFIED", protectedRepresentationUnavailable: true });
+  assert.equal(autonomousTerminalOutcomeSchema.safeParse({ ...publicLimitation, publicEvidenceBasis: null }).success, false);
+  assert.equal(autonomousTerminalOutcomeSchema.safeParse({ ...publicLimitation, reentryState: "REQUIRES_AUTHORIZED_RETRY" }).success, false);
+  const completed = validCompletedKnowledgeSetOutcome();
+  assert.equal(autonomousTerminalOutcomeSchema.safeParse({ ...completed, disposition: "DEFERRED" }).success, false);
 });

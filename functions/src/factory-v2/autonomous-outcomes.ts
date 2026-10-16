@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * TL-AUTONOMY-001 terminal summaries are deliberately additive.  Existing
  * failure classes remain the forensic record; this module supplies the
@@ -21,16 +23,39 @@ export type AutonomousOutcomeDisposition = (typeof autonomousOutcomeDispositions
 export const autonomousReentryStates = ["NOT_APPLICABLE", "REQUIRES_RELEVANT_CHANGE", "REQUIRES_AUTHORIZED_RETRY"] as const;
 export type AutonomousReentryState = (typeof autonomousReentryStates)[number];
 
-export type AutonomousTerminalOutcome = {
-  policyVersion: typeof AUTONOMOUS_OUTCOME_POLICY_VERSION;
-  classification: AutonomousTerminalOutcomeClass;
-  disposition: AutonomousOutcomeDisposition;
-  reentryState: AutonomousReentryState;
+export const autonomousTerminalOutcomeSchema = z.object({
+  policyVersion: z.literal(AUTONOMOUS_OUTCOME_POLICY_VERSION),
+  classification: z.enum(autonomousTerminalOutcomeClasses),
+  disposition: z.enum(autonomousOutcomeDispositions),
+  reentryState: z.enum(autonomousReentryStates),
   /** A precise, existing failure class or the validated CKS terminal state. */
-  detailedReason: string;
+  detailedReason: z.string().min(2).max(160),
   /** Present only when the bounded evidence process established the required basis. */
-  publicEvidenceBasis: "GOVERNED_CAPACITY_EXHAUSTED" | null;
-};
+  publicEvidenceBasis: z.enum(["GOVERNED_CAPACITY_EXHAUSTED"]).nullable()
+}).strict().superRefine((outcome, context) => {
+  const invalid = (field: keyof typeof outcome, message: string) => context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message });
+  if (outcome.classification === "PUBLIC_EVIDENCE_LIMITATION") {
+    if (outcome.publicEvidenceBasis === null) invalid("publicEvidenceBasis", "Public evidence limitation requires a bounded evidence basis.");
+    if (outcome.disposition !== "DEFERRED") invalid("disposition", "Public evidence limitation must defer rather than fail or complete.");
+    if (outcome.reentryState !== "REQUIRES_RELEVANT_CHANGE") invalid("reentryState", "Public evidence limitation requires a relevant-change re-entry gate.");
+    return;
+  }
+  if (outcome.publicEvidenceBasis !== null) invalid("publicEvidenceBasis", "Only public evidence limitation may carry a public evidence basis.");
+  if (outcome.classification === "RESEARCH_BUDGET_EXHAUSTED") {
+    if (outcome.disposition !== "DEFERRED") invalid("disposition", "Research budget exhaustion must defer.");
+    if (outcome.reentryState !== "REQUIRES_AUTHORIZED_RETRY") invalid("reentryState", "Research budget exhaustion requires an authorized retry.");
+    return;
+  }
+  if (outcome.classification === "VALID_COMPLETED_KNOWLEDGE_SET") {
+    if (outcome.disposition !== "COMPLETED") invalid("disposition", "A valid Completed Knowledge Set is the only completed autonomous outcome.");
+    if (outcome.reentryState !== "NOT_APPLICABLE") invalid("reentryState", "Completed knowledge has no re-entry state.");
+    return;
+  }
+  if (outcome.disposition !== "FAILED") invalid("disposition", "Implementation and provider infrastructure failures must fail rather than defer.");
+  if (outcome.reentryState !== "NOT_APPLICABLE") invalid("reentryState", "Implementation and provider infrastructure failures use their existing retry controls.");
+});
+
+export type AutonomousTerminalOutcome = z.infer<typeof autonomousTerminalOutcomeSchema>;
 
 export function classifyAutonomousFailure(input: {
   failureClass: string;
