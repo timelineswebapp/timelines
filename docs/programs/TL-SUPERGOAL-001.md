@@ -82,6 +82,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Generation-retry operational visibility increment:** Completed locally on `2026-10-16`. The authenticated `factory_operator` interface now has a bounded, read-only view of retry-scheduled generation work through the existing signed server bridge. It exposes only topic/job lineage, origin, generation, retry time, update time, and a boolean diagnostic-presence signal; raw failure text stays server-side. The interface supplies no retry, dispatch, reprioritization, re-entry, discovery, or publication control.
 
+**Bounded enqueue-recovery increment:** Completed locally on `2026-10-16`. Persistent Cloud Tasks delivery failures now consume a separate, capped enqueue-retry counter and terminate the affected legacy generation item after five retry deliveries rather than looping indefinitely. The retry ceiling is operational only; it does not create or consume a V2 deferred re-entry request, alter historical evidence, or activate any production path.
+
 **Public-search accessibility increment:** Completed locally on `2026-10-16`. The public search page now trims whitespace before invoking the server-owned bounded search service and presents a semantic, polite live-region empty-result state with useful reader guidance. It does not alter ranking, result contracts, persistence, Factory access, or publication behavior.
 
 **Public-search input-bound increment:** Completed locally on `2026-10-16`. Public search now applies the API-compatible 120-character query cap in both its browser form and server-rendered route, so direct oversized URLs cannot inflate metadata or downstream search work. Search semantics remain server-owned and the existing result cap is unchanged.

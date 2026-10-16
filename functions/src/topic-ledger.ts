@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Timestamp } from "firebase-admin/firestore";
 import { db } from "./firestore";
-import { ACTIVE_CORPUS_ID, MAX_REQUESTS_PER_IP_PER_DAY, MAX_TOPIC_ATTEMPTS } from "./config";
+import { ACTIVE_CORPUS_ID, MAX_ENQUEUE_RETRIES, MAX_REQUESTS_PER_IP_PER_DAY, MAX_TOPIC_ATTEMPTS } from "./config";
 import { corpusCollection, corpusRecord } from "./corpus";
 import { hashValue, normalizeTopic } from "./normalization";
 import { evidenceFirstTaskPayloadSchema, taskPayloadSchema, type TopicRequestInput, type TaskPayload } from "./schemas";
@@ -341,10 +341,15 @@ export async function retryDeferredEnqueuesWithDependencies(
         await db.runTransaction(async (transaction) => {
           const current = await transaction.get(document.ref);
           if (current.data()?.state !== "RETRY_SCHEDULED" || current.data()?.activeJobId !== data.activeJobId) return;
+          const enqueueRetryCount = Number.isInteger(current.data()?.enqueueRetryCount) ? Number(current.data()?.enqueueRetryCount) : 0;
+          const exhausted = enqueueRetryCount + 1 >= MAX_ENQUEUE_RETRIES;
           const jobRef = typeof data.activeJobId === "string" ? corpusCollection("generationJobs").doc(data.activeJobId) : null;
           const job = jobRef ? await transaction.get(jobRef) : null;
-          transaction.update(document.ref, { nextRetryAt, lastError: message.slice(0, 2000), updatedAt: Timestamp.now() });
-          if (jobRef && job?.exists) transaction.update(jobRef, { state: "RETRY_SCHEDULED", nextRetryAt, lastError: message.slice(0, 2000), updatedAt: Timestamp.now() });
+          const update = exhausted
+            ? { state: "FAILED", currentStage: "enqueue_failed", enqueueRetryCount: enqueueRetryCount + 1, nextRetryAt: null, lastError: message.slice(0, 2000), updatedAt: Timestamp.now() }
+            : { state: "RETRY_SCHEDULED", enqueueRetryCount: enqueueRetryCount + 1, nextRetryAt, lastError: message.slice(0, 2000), updatedAt: Timestamp.now() };
+          transaction.update(document.ref, update);
+          if (jobRef && job?.exists) transaction.update(jobRef, update);
         });
       } catch (persistenceError) {
         console.error(JSON.stringify({ severity: "ERROR", component: "deferred_enqueue_retry", action: "retry_failure_persistence_failed", topicId: document.id, message: persistenceError instanceof Error ? persistenceError.message : String(persistenceError) }));

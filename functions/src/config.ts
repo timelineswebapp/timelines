@@ -40,6 +40,7 @@ export const TASK_INVOKER_EMAIL =
   process.env.TASK_INVOKER_EMAIL || `timelines-tasks-invoker@${PROJECT_ID}.iam.gserviceaccount.com`;
 
 export const MAX_TOPIC_ATTEMPTS = 5;
+export const MAX_ENQUEUE_RETRIES = 5;
 export const LEASE_DURATION_MS = 15 * 60 * 1000;
 export const MAX_DISCOVERY_CANDIDATES = 10;
 export const MAX_DISCOVERY_PROMOTIONS = 3;

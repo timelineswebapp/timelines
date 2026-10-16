@@ -16,7 +16,7 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   const ledger = corpusCollection("topicLedgers");
   const jobs = corpusCollection("generationJobs");
   await Promise.all([
-    ledger.doc(failedTopicId).set({ corpusId: process.env.ACTIVE_CORPUS_ID, state: "RETRY_SCHEDULED", activeJobId: failedJobId, generation: 1, origin: "user", nextRetryAt: dueAt, lastError: "prior failure", updatedAt: dueAt }),
+    ledger.doc(failedTopicId).set({ corpusId: process.env.ACTIVE_CORPUS_ID, state: "RETRY_SCHEDULED", activeJobId: failedJobId, generation: 1, origin: "user", enqueueRetryCount: 0, nextRetryAt: dueAt, lastError: "prior failure", updatedAt: dueAt }),
     ledger.doc(successfulTopicId).set({ corpusId: process.env.ACTIVE_CORPUS_ID, state: "RETRY_SCHEDULED", activeJobId: successfulJobId, generation: 1, origin: "user", nextRetryAt: dueAt, lastError: "prior failure", updatedAt: dueAt }),
     jobs.doc(failedJobId).set({ corpusId: process.env.ACTIVE_CORPUS_ID, state: "RETRY_SCHEDULED", nextRetryAt: dueAt }),
     jobs.doc(successfulJobId).set({ corpusId: process.env.ACTIVE_CORPUS_ID, state: "RETRY_SCHEDULED", nextRetryAt: dueAt })
@@ -42,6 +42,7 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   ]);
   assert.equal(failed.data()?.state, "RETRY_SCHEDULED");
   assert.match(String(failed.data()?.lastError), /Cloud Tasks unavailable/u);
+  assert.equal(failed.data()?.enqueueRetryCount, 1);
   assert.ok((failed.data()?.nextRetryAt as Timestamp).toMillis() >= beforeRetry + 59_000);
   assert.equal(successful.data()?.state, "QUEUED");
   assert.equal(successful.data()?.nextRetryAt, null);
