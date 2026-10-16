@@ -5,7 +5,11 @@ import { V2_CORPUS_COLLECTIONS, v2CorpusCollection, type V2CorpusCollectionName 
 import { contentAddressedId, payloadHash, verifyPayloadHash } from "../hashing";
 import { parseSealedArtifact } from "../contracts/builders";
 import { deferredReentryDispatchReceiptSchema, deferredReentryRequestSchema } from "../contracts/reentry";
+import { topicOperationSchema } from "../contracts/operations";
 import { sourceSubmissionCandidateSchema } from "../contracts/source-submission";
+import { topicAuthoritySetSchema } from "../contracts/authority-first";
+import { publisherAuthorityVersionSchema } from "../contracts/knowledge";
+import { sourceSubmissionUrlMatchesAuthority } from "../source-submission-eligibility";
 import { planDeferredReentryDispatch } from "../reentry-dispatch";
 import { deriveDeferredReentryRequest } from "../reentry-request";
 import { deriveSourceSubmissionCandidate } from "../source-submission";
@@ -215,6 +219,32 @@ export class V2FirestoreRepository {
       transaction.create(ref, candidate);
       return { state: "CREATED" as const, candidateId: candidate.sourceSubmissionCandidateId };
     });
+  }
+
+  /** Resolves only the registered authority eligible to assess a candidate; it performs no retrieval or admission. */
+  async resolveSourceSubmissionAuthority(candidateId: string): Promise<{ candidateId: string; operationId: string; publisherVersionId: string }> {
+    if (!candidateId || candidateId.length > 160) throw new Error("Source-submission candidate ID must be explicitly bounded.");
+    const candidateSnapshot = await this.collection("v2SourceSubmissionCandidates").doc(candidateId).get();
+    if (!candidateSnapshot.exists) throw new Error("Source-submission candidate does not exist.");
+    const candidate = sourceSubmissionCandidateSchema.parse(candidateSnapshot.data());
+    const operationSnapshot = await this.collection("v2TopicOperations").doc(candidate.originalOperationId).get();
+    if (!operationSnapshot.exists) throw new Error("Source-submission operation does not exist.");
+    const operation = topicOperationSchema.parse(operationSnapshot.data());
+    if (operation.state !== "DEFERRED" || operation.operationId !== candidate.originalOperationId || operation.terminalFailureRecordId !== candidate.originalFailureRecordId || operation.topicAuthoritySetId === null) throw new Error("Source-submission operation has no eligible deferred authority lineage.");
+    const setSnapshot = await this.collection("v2TopicAuthoritySets").doc(operation.topicAuthoritySetId).get();
+    if (!setSnapshot.exists) throw new Error("Source-submission Topic Authority Set does not exist.");
+    const authoritySet = topicAuthoritySetSchema.parse(setSnapshot.data());
+    if (authoritySet.topicId !== operation.topicId || authoritySet.validationStatus !== "VALIDATED") throw new Error("Source-submission Topic Authority Set is invalid for the deferred topic.");
+    const publisherRefs = authoritySet.bindings.map((binding) => this.collection("v2PublisherAuthorityVersions").doc(binding.publisherVersionId));
+    const publishers = await this.firestore.getAll(...publisherRefs);
+    for (const publisherSnapshot of publishers) {
+      if (!publisherSnapshot.exists) continue;
+      const publisher = publisherAuthorityVersionSchema.parse(publisherSnapshot.data());
+      if (sourceSubmissionUrlMatchesAuthority({ submittedUrl: candidate.submittedUrl, boundPublisherVersionIds: authoritySet.bindings.map((binding) => binding.publisherVersionId), publisherVersionId: publisher.publisherVersionId, knownDomains: publisher.knownDomains })) {
+        return { candidateId, operationId: operation.operationId, publisherVersionId: publisher.publisherVersionId };
+      }
+    }
+    throw new Error("Source-submission URL is not bound to the deferred Topic Authority Set.");
   }
 
   async consumeDeferredReentryRequest(requestId: string, now = new Date().toISOString()): Promise<"CONSUMED" | "IDEMPOTENT"> {
