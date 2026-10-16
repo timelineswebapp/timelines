@@ -80,6 +80,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Nonblocking generation-retry increment:** Completed locally on `2026-10-16`. The bounded legacy generation retry drain now isolates each Cloud Tasks enqueue failure. A failed or malformed ready entry remains `RETRY_SCHEDULED` with a bounded next-attempt time and structured diagnostic, while later ready entries continue. On a successful enqueue, the ledger and its generation-job projection advance together to `QUEUED`. This applies only to existing generation queue recovery; it neither consumes deferred V2 re-entry requests nor activates discovery, retrieval dispatch, publication, Governance submission, deployment, or any historical workflow.
 
+**Generation-retry operational visibility increment:** Completed locally on `2026-10-16`. The authenticated `factory_operator` interface now has a bounded, read-only view of retry-scheduled generation work through the existing signed server bridge. It exposes only topic/job lineage, origin, generation, retry time, update time, and a boolean diagnostic-presence signal; raw failure text stays server-side. The interface supplies no retry, dispatch, reprioritization, re-entry, discovery, or publication control.
+
 ## Phase-2 certification boundary
 
 The `.70` sealed release and immutable report are preserved. The fresh prescribed certification run established one valid Completed Knowledge Set for **The 1906 San Francisco Earthquake** with exact protected-state parity. **The Berlin Blockade and Airlift** then failed closed before research or retrieval on `UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY` for a locked affected-community requirement, also with exact parity. **Ada Lovelace: Life and Work** and **The Development of the Printing Press** were not executed after the failure.
@@ -111,4 +113,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Continue independent `TL-AUTONOMY-001` and operational-interface work. The next implementation target is bounded, server-owned operational visibility for the generation retry queue and its failure state, with no queue-control endpoint and no activation of deferred V2 re-entry dispatch. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.
+Continue independent Factory reliability and public-reader verification work. The next implementation target is a bounded, non-destructive production-readiness check for configured runtime dependencies and operational observability, with no deployment, publication, discovery, re-entry dispatch, or historical-policy change. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.

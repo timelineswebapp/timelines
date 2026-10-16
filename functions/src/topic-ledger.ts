@@ -25,6 +25,17 @@ type RetryDeferredEnqueueDependencies = {
   enqueueGenerationTask: typeof enqueueGenerationTask;
 };
 
+export type GenerationRetryQueueSummary = {
+  topicId: string;
+  jobId: string;
+  generation: number;
+  origin: "user" | "autonomous";
+  state: "RETRY_SCHEDULED";
+  nextRetryAt: string;
+  updatedAt: string;
+  lastErrorPresent: boolean;
+};
+
 function requireIpSalt() {
   const salt = process.env.IP_HASH_SALT;
   if (!salt || salt.length < 32) throw new Error("IP_HASH_SALT is not configured securely.");
@@ -342,4 +353,34 @@ export async function retryDeferredEnqueuesWithDependencies(
     }
   }
   return requeued;
+}
+
+/** Read-only, bounded operational visibility for retry-scheduled generation work. */
+export async function listGenerationRetryQueueSummaries(limit: number): Promise<GenerationRetryQueueSummary[]> {
+  const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const snapshot = await corpusCollection("topicLedgers")
+    .where("state", "==", "RETRY_SCHEDULED")
+    .orderBy("nextRetryAt", "asc")
+    .limit(boundedLimit)
+    .get();
+  return snapshot.docs.flatMap((document) => {
+    const data = document.data();
+    if (
+      typeof data.activeJobId !== "string" ||
+      !Number.isInteger(data.generation) || data.generation < 1 ||
+      (data.origin !== "user" && data.origin !== "autonomous") ||
+      !(data.nextRetryAt instanceof Timestamp) ||
+      !(data.updatedAt instanceof Timestamp)
+    ) return [];
+    return [{
+      topicId: document.id,
+      jobId: data.activeJobId,
+      generation: data.generation,
+      origin: data.origin,
+      state: "RETRY_SCHEDULED" as const,
+      nextRetryAt: data.nextRetryAt.toDate().toISOString(),
+      updatedAt: data.updatedAt.toDate().toISOString(),
+      lastErrorPresent: typeof data.lastError === "string" && data.lastError.length > 0
+    }];
+  });
 }

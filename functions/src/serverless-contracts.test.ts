@@ -169,9 +169,11 @@ test("generation retry queue isolates individual enqueue failures without activa
   const ledger = readFileSync("src/topic-ledger.ts", "utf8");
   assert.match(ledger, /retryDeferredEnqueuesWithDependencies/u);
   assert.match(ledger, /retry_deferred_without_blocking_batch/u);
+  assert.match(ledger, /listGenerationRetryQueueSummaries/u);
   assert.match(ledger, /state: "RETRY_SCHEDULED", nextRetryAt/u);
   assert.match(ledger, /state: "QUEUED", currentStage: "queued", nextRetryAt: null/u);
   assert.doesNotMatch(ledger, /consumeDeferredReentryRequest/u);
+  assert.doesNotMatch(ledger, /generation-retries\/(?:dispatch|consume)/u);
 });
 
 test("generation schema rejects evidence that merely repeats public copy", () => {

@@ -98,6 +98,9 @@ export const serverlessBackendClient = {
   listDeferredFactoryV2Topics<T>(limit = 25) {
     return internalRequest<T[]>(`/internal/factory-v2/deferred?${query({ limit })}`).then((result) => result || []);
   },
+  listGenerationRetryQueue<T>(limit = 25) {
+    return internalRequest<T[]>(`/internal/factory-v2/generation-retries?${query({ limit })}`).then((result) => result || []);
+  },
   createDeferredFactoryV2Reentry<T>(body: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) {
     return internalRequest<T>("/internal/factory-v2/deferred-reentry", { method: "POST", body });
   },

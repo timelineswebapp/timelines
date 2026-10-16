@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Timestamp } from "firebase-admin/firestore";
 import { corpusCollection } from "./corpus";
-import { retryDeferredEnqueuesWithDependencies } from "./topic-ledger";
+import { listGenerationRetryQueueSummaries, retryDeferredEnqueuesWithDependencies } from "./topic-ledger";
 
 const enabled = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 
 test("Firestore retry queue isolates a failed enqueue and drains later ready work", { skip: !enabled }, async () => {
-  const suffix = Date.now().toString(36);
-  const failedTopicId = `a${"0".repeat(38)}${suffix.slice(-1)}`;
-  const successfulTopicId = `b${"0".repeat(38)}${suffix.slice(-1)}`;
+  const suffix = (Date.now() % 16).toString(16);
+  const failedTopicId = `a${"0".repeat(38)}${suffix}`;
+  const successfulTopicId = `b${"0".repeat(38)}${suffix}`;
   const failedJobId = "4af86d2f-1596-4b8c-a927-42e9e25b646d";
   const successfulJobId = "5af86d2f-1596-4b8c-a927-42e9e25b646d";
   const dueAt = Timestamp.fromMillis(Date.now() - 1_000);
@@ -47,4 +47,8 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   assert.equal(successful.data()?.nextRetryAt, null);
   assert.equal(failedJob.data()?.state, "RETRY_SCHEDULED");
   assert.equal(successfulJob.data()?.state, "QUEUED");
+  const summary = (await listGenerationRetryQueueSummaries(25)).find((item) => item.topicId === failedTopicId);
+  assert.deepEqual(summary && { topicId: summary.topicId, jobId: summary.jobId, generation: summary.generation, origin: summary.origin, state: summary.state, lastErrorPresent: summary.lastErrorPresent }, {
+    topicId: failedTopicId, jobId: failedJobId, generation: 1, origin: "user", state: "RETRY_SCHEDULED", lastErrorPresent: true
+  });
 });

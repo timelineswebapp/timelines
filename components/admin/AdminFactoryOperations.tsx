@@ -64,6 +64,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
   const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }>>([]);
+  const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean }>>([]);
   const load = useCallback(async () => {
     if (!token) return;
     try {
@@ -80,18 +81,20 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         statusHandlers.setError("");
         return;
       }
-      const [operations, notifications, reliabilityDashboard, deferredTopics, candidates] = await Promise.all([
+      const [operations, notifications, reliabilityDashboard, deferredTopics, candidates, retries] = await Promise.all([
         fetchAdmin<OperationsSnapshot>("/api/admin/factory/operations"),
         fetchAdmin<OperationalNotification[]>("/api/admin/factory/operations/inbox"),
         fetchAdmin<typeof reliability>("/api/admin/operations/reliability"),
         fetchAdmin<typeof deferredV2Topics>("/api/admin/factory/v2/deferred"),
-        fetchAdmin<typeof sourceCandidates>("/api/admin/factory/v2/source-submissions")
+        fetchAdmin<typeof sourceCandidates>("/api/admin/factory/v2/source-submissions"),
+        fetchAdmin<typeof generationRetries>("/api/admin/factory/v2/generation-retries")
       ]);
       setSnapshot(operations);
       setInbox(notifications);
       setReliability(reliabilityDashboard);
       setDeferredV2Topics(deferredTopics);
       setSourceCandidates(candidates);
+      setGenerationRetries(retries);
       statusHandlers.onLoaded();
       statusHandlers.setError("");
     } catch (error) { statusHandlers.setError(error instanceof Error ? error.message : "Operations load failed."); }
@@ -304,6 +307,17 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
             <button className="button secondary" onClick={() => void mutate(topic, "reprioritize", { priority: Math.min(1000, topic.priority + 10) })}>Raise Priority</button>
             {!["completed", "cancelled"].includes(topic.status) ? <button className="button secondary" onClick={() => void mutate(topic, "cancel")}>Cancel</button> : null}
           </div>
+        </article>)}
+      </div>
+    </section>
+    <section className="glass section-card">
+      <span className="eyebrow">Generation Retry Queue</span>
+      <h2>Ready work recovering from delivery failure</h2>
+      <p className="muted">This is a bounded, scheduler-owned view. Operators cannot dispatch, reprioritize, or alter retry work here.</p>
+      <div className="stack">
+        {generationRetries.length === 0 ? <p className="muted">No generation retries are currently scheduled.</p> : generationRetries.map((retry) => <article className="fos-list-card" key={retry.jobId}>
+          <div><strong>{retry.origin === "user" ? "Visitor-requested topic" : "Autonomous topic"}</strong><p className="small muted">Generation {retry.generation} · next retry {formatOperationalTime(retry.nextRetryAt)} · updated {formatOperationalTime(retry.updatedAt)}</p><p className="small muted">Last delivery issue recorded: {retry.lastErrorPresent ? "yes" : "no"}. Diagnostic content is retained server-side.</p></div>
+          <span className="pill">Retry scheduled</span>
         </article>)}
       </div>
     </section>

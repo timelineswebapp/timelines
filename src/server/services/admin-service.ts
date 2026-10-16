@@ -34,6 +34,7 @@ export const adminService = {
   getFounderInbox: factoryOperationsService.getFounderInbox,
   getFactoryTopicDetail: factoryOperationsService.getTopicDetail,
   listDeferredFactoryV2Topics: factoryV2AdminService.listDeferredTopics,
+  listGenerationRetryQueue: factoryV2AdminService.listGenerationRetryQueue,
   createDeferredFactoryV2Reentry: factoryV2AdminService.createDeferredReentry,
   createFactoryV2SourceSubmission: factoryV2AdminService.createSourceSubmission,
   listFactoryV2SourceSubmissions: factoryV2AdminService.listSourceSubmissions,
