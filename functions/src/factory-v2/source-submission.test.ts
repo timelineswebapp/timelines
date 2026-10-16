@@ -21,8 +21,10 @@ test("source submission remains an immutable candidate and cannot become a snaps
   assert.equal(validation.qualifyingEvidence, false);
   assert.equal(validation.sourceSnapshotId, null);
   const retrieval = buildSourceSubmissionRetrieval({ validation, state: "RETRIEVED_UNQUALIFIED", now: "2026-10-16T03:03:00.000Z", source: { sourceId: "source-submission" }, snapshot: { sourceSnapshotId: "snapshot-submission", retrievalDisposition: "NEWLY_RETRIEVED" } });
+  const laterRetrieval = buildSourceSubmissionRetrieval({ validation, state: "RETRIEVED_UNQUALIFIED", now: "2026-10-16T03:03:01.000Z", source: { sourceId: "source-submission" }, snapshot: { sourceSnapshotId: "snapshot-submission", retrievalDisposition: "NEWLY_RETRIEVED" } });
   assert.equal(retrieval.qualifyingEvidence, false);
   assert.equal(retrieval.reentryAuthorized, false);
+  assert.notEqual(laterRetrieval.sourceSubmissionRetrievalId, retrieval.sourceSubmissionRetrievalId);
   const rejectedRetrieval = buildSourceSubmissionRetrieval({ validation, state: "RETRIEVAL_REJECTED", now: "2026-10-16T03:04:00.000Z", source: { sourceId: "source-submission" }, snapshot: { sourceSnapshotId: "snapshot-submission", retrievalDisposition: "ACCESS_LIMITED" }, rejectionCode: "SOURCE_SUBMISSION_INSUFFICIENT_MATERIAL" });
   assert.equal(rejectedRetrieval.sourceSnapshotId, "snapshot-submission");
   assert.equal(rejectedRetrieval.qualifyingEvidence, false);

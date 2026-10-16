@@ -35,6 +35,7 @@ export function buildSourceSubmissionRetrieval(input: {
   const snapshot = input.snapshot || null;
   const sourceSubmissionRetrievalId = contentAddressedId("source-submission-retrieval", {
     validationId: validation.sourceSubmissionValidationId,
+    createdAt: input.now,
     state: input.state,
     sourceId: source?.sourceId || null,
     sourceSnapshotId: snapshot?.sourceSnapshotId || null,
