@@ -86,6 +86,8 @@ The repository contains untracked historical artifacts and local working materia
 
 The Firestore emulator regression verifies both nonblocking recovery of a later ready topic and the fifth failed delivery’s terminal `FAILED` ledger/job state with no future retry time.
 
+Terminal enqueue exhaustion also creates a durable non-retryable failure record with the job, bounded attempt count, and preserved diagnostic.
+
 **Public-search accessibility increment:** Completed locally on `2026-10-16`. The public search page now trims whitespace before invoking the server-owned bounded search service and presents a semantic, polite live-region empty-result state with useful reader guidance. It does not alter ranking, result contracts, persistence, Factory access, or publication behavior.
 
 **Public-search input-bound increment:** Completed locally on `2026-10-16`. Public search now applies the API-compatible 120-character query cap in both its browser form and server-rendered route, so direct oversized URLs cannot inflate metadata or downstream search work. Search semantics remain server-owned and the existing result cap is unchanged.

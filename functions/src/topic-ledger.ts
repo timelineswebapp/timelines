@@ -350,6 +350,15 @@ export async function retryDeferredEnqueuesWithDependencies(
             : { state: "RETRY_SCHEDULED", enqueueRetryCount: enqueueRetryCount + 1, nextRetryAt, lastError: message.slice(0, 2000), updatedAt: Timestamp.now() };
           transaction.update(document.ref, update);
           if (jobRef && job?.exists) transaction.update(jobRef, update);
+          if (exhausted) transaction.create(corpusCollection("failureRecords").doc(randomUUID()), {
+            topicId: document.id,
+            jobId: data.activeJobId,
+            stage: "enqueue_retry_exhausted",
+            retryable: false,
+            message: message.slice(0, 2000),
+            enqueueRetryCount: enqueueRetryCount + 1,
+            createdAt: Timestamp.now()
+          });
         });
       } catch (persistenceError) {
         console.error(JSON.stringify({ severity: "ERROR", component: "deferred_enqueue_retry", action: "retry_failure_persistence_failed", topicId: document.id, message: persistenceError instanceof Error ? persistenceError.message : String(persistenceError) }));

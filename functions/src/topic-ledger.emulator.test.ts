@@ -60,9 +60,14 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   assert.equal(await retryDeferredEnqueuesWithDependencies(2, {
     enqueueGenerationTask: async () => { throw new Error("Cloud Tasks remains unavailable."); }
   }), 0);
-  const [exhaustedLedger, exhaustedJob] = await Promise.all([ledger.doc(failedTopicId).get(), jobs.doc(failedJobId).get()]);
+  const [exhaustedLedger, exhaustedJob, terminalFailures] = await Promise.all([
+    ledger.doc(failedTopicId).get(),
+    jobs.doc(failedJobId).get(),
+    corpusCollection("failureRecords").where("jobId", "==", failedJobId).get()
+  ]);
   assert.equal(exhaustedLedger.data()?.state, "FAILED");
   assert.equal(exhaustedLedger.data()?.nextRetryAt, null);
   assert.equal(exhaustedLedger.data()?.enqueueRetryCount, 5);
   assert.equal(exhaustedJob.data()?.state, "FAILED");
+  assert.equal(terminalFailures.docs.some((document) => document.data().stage === "enqueue_retry_exhausted" && document.data().retryable === false), true);
 });
