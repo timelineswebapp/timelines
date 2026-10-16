@@ -48,7 +48,7 @@ The repository contains untracked historical artifacts and local working materia
 
 **Admin read increment:** Completed locally on `2026-10-16`. The existing authenticated `factory_operator` Admin surface now reads a bounded deferred-topic projection through a server-owned, HMAC-authenticated Functions bridge. The projection carries only operation lineage and the recorded autonomous outcome; it is read-only, fails closed on an invalid signature, and filters malformed persisted records. It deliberately does not expose a re-entry control because release-pinned re-entry requires a separate immutable request and caller contract.
 
-**Re-entry contract increment:** Completed locally on `2026-10-16`. Factory V2 now defines an immutable deferred re-entry request with the originating failure and operation lineage, exact original release identity, a new run identity, and exactly one generation advance. Public-evidence limitations require a governed relevant-change artifact; budget exhaustion requires a separately attributable authorization. The request is not itself executable work: a later atomic dispatcher consumer must validate and consume it before any new research task can be scheduled.
+**Re-entry contract increment:** Completed locally on `2026-10-16`. Factory V2 now defines an immutable deferred re-entry request with the originating failure and operation lineage, exact original release identity, a new run identity, and exactly one generation advance. Public-evidence limitations require a governed relevant-change artifact; budget exhaustion requires a separately attributable authorization. Its repository-only consumer reads request, operation, failure, receipt, and next-run identity in one transaction, then atomically creates an immutable consumption receipt and a queued next-generation operation. It is idempotent only for the matching prior receipt and rejects stale or occupied lineage.
 
 ## Certification and verification state
 
@@ -74,4 +74,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Implement the atomic, server-owned dispatcher consumer for immutable deferred re-entry requests. It must validate the original deferred operation and failure lineage transactionally, consume a request exactly once, and schedule only the release-pinned next run; it must not introduce an Admin-to-evidence, Registry, Governance, or Published Memory mutation path.
+Add emulator-backed transaction coverage for deferred re-entry consumption, including concurrent consumption, stale lineage, and next-run collision cases. Only after that coverage passes may a separate server-owned request-creation workflow be considered; it must not expose direct Admin evidence, Registry, Governance, or Published Memory mutation.
