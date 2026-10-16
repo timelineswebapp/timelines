@@ -184,6 +184,7 @@ Completed for this increment:
 - Public homepage accessibility correction: the live status text is now separate from the adjacent recovery control, preserving correct status-region semantics. Root strict typecheck and focused public UI regression passed (5/5).
 - Public search API integrity: duplicate scalar `q`, `limit`, or `offset` controls now fail closed with the standard 400 validation response before any content read. Root strict typecheck and direct API regression passed.
 - Public catalog API integrity: duplicate `limit` controls now fail closed with the standard 400 validation response before any content read. Root strict typecheck and direct route regressions passed (2/2).
+- Public homepage API integrity: duplicate `offset`, `limit`, or `snapshotDate` controls now fail closed with the standard 400 validation response before any projection read. Root strict typecheck and direct route regressions passed (2/2).
 - Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.

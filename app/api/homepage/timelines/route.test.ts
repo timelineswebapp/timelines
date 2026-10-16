@@ -12,3 +12,9 @@ test("homepage pagination and snapshot date reject invalid input before content 
     assert.equal(payload.error.code, "VALIDATION_FAILED");
   }
 });
+
+test("homepage pagination rejects duplicate scalar controls before content reads", async () => {
+  const response = await GET(new NextRequest("https://timelines.example/api/homepage/timelines?limit=12&limit=24"));
+  assert.equal(response.status, 400);
+  assert.equal((await response.json() as { error: { code: string } }).error.code, "VALIDATION_FAILED");
+});
