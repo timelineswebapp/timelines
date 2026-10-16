@@ -11,6 +11,7 @@ import { ApiError } from "@/src/server/api/responses";
 import { parseCanonicalPositiveIntegerPathParameter, parseOptionalEnumQueryParameter, parseOptionalSingleQueryParameter } from "@/src/server/api/query-params";
 import { adminService } from "@/src/server/services/admin-service";
 import { factoryV2AdminService } from "@/src/server/services/factory-v2-admin-service";
+import { requestService } from "@/src/server/services/request-service";
 import { serverlessBackendClient } from "@/src/server/serverless/backend-client";
 import { setAdminSecurityAuditStoreForTests } from "@/src/server/security/admin-identity";
 
@@ -53,8 +54,10 @@ test("production rate identities use only the platform-trusted forwarding header
 test("unavailable serverless Factory reads do not masquerade as empty operational queues", async () => {
   const previousBaseUrl = process.env.SERVERLESS_API_BASE_URL;
   const previousVercelEnvironment = process.env.VERCEL_ENV;
+  const previousSharedSecret = process.env.BACKEND_SHARED_SECRET;
   delete process.env.SERVERLESS_API_BASE_URL;
   delete process.env.VERCEL_ENV;
+  process.env.BACKEND_SHARED_SECRET = "a".repeat(32);
   try {
     await assert.rejects(factoryV2AdminService.listDeferredTopics(), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
     await assert.rejects(factoryV2AdminService.getGenerationRetryQueueHealth(), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
@@ -66,6 +69,8 @@ test("unavailable serverless Factory reads do not masquerade as empty operationa
     else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
     if (previousVercelEnvironment === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = previousVercelEnvironment;
+    if (previousSharedSecret === undefined) delete process.env.BACKEND_SHARED_SECRET;
+    else process.env.BACKEND_SHARED_SECRET = previousSharedSecret;
   }
 });
 
@@ -82,6 +87,25 @@ test("malformed serverless responses surface a typed backend failure", async () 
     globalThis.fetch = originalFetch;
     if (previousBaseUrl === undefined) delete process.env.SERVERLESS_API_BASE_URL;
     else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
+  }
+});
+
+test("unavailable public topic intake surfaces a typed availability error", async () => {
+  const previousBaseUrl = process.env.SERVERLESS_API_BASE_URL;
+  const previousVercelEnvironment = process.env.VERCEL_ENV;
+  const previousSharedSecret = process.env.BACKEND_SHARED_SECRET;
+  delete process.env.SERVERLESS_API_BASE_URL;
+  delete process.env.VERCEL_ENV;
+  process.env.BACKEND_SHARED_SECRET = "a".repeat(32);
+  try {
+    await assert.rejects(requestService.createTimelineRequest({ query: "A bounded public request", language: "en", ip: "203.0.113.10" }), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
+  } finally {
+    if (previousBaseUrl === undefined) delete process.env.SERVERLESS_API_BASE_URL;
+    else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
+    if (previousVercelEnvironment === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previousVercelEnvironment;
+    if (previousSharedSecret === undefined) delete process.env.BACKEND_SHARED_SECRET;
+    else process.env.BACKEND_SHARED_SECRET = previousSharedSecret;
   }
 });
 

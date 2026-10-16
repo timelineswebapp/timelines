@@ -1,4 +1,5 @@
 import type { TimelineRequestSubmission, TimelineRequestType } from "@/src/lib/types";
+import { ApiError } from "@/src/server/api/responses";
 import { serverlessBackendClient } from "@/src/server/serverless/backend-client";
 
 export type PublicRequestInput = {
@@ -25,7 +26,7 @@ export const requestService = {
       sourcesScope: input.sourcesScope,
       metadata: input.metadata
     }, input.ip);
-    if (!result) throw new Error("Serverless topic intake is unavailable in this environment.");
+    if (!result) throw new ApiError(503, "SERVERLESS_BACKEND_UNAVAILABLE", "Topic intake is temporarily unavailable.");
     return result;
   }
 };
