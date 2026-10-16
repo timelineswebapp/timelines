@@ -22,6 +22,14 @@ function founderErrorMessage(error: unknown, action: FounderAction | "approve") 
     : "The action could not be completed. Refresh Home and try again.";
 }
 
+function operationsLoadErrorMessage(error: unknown) {
+  const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+  if (code === "SERVERLESS_BACKEND_UNAVAILABLE" || code === "SERVERLESS_BACKEND_INVALID_RESPONSE") {
+    return "Factory operational data is temporarily unavailable. Existing work has not been changed; refresh Home to try again.";
+  }
+  return error instanceof Error ? error.message : "Operations load failed.";
+}
+
 function formatOperationalTime(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
@@ -117,7 +125,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       setGenerationEnqueueFailures(enqueueFailures);
       statusHandlers.onLoaded();
       statusHandlers.setError("");
-    } catch (error) { statusHandlers.setError(error instanceof Error ? error.message : "Operations load failed."); }
+    } catch (error) { statusHandlers.setError(operationsLoadErrorMessage(error)); }
   }, [fetchAdmin, onFounderStatus, statusHandlers, token, view]);
   useEffect(() => {
     let cancelled = false;

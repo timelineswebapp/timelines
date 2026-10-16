@@ -129,3 +129,9 @@ test("candidate outcome inspection remains read-only", () => {
   assert.match(candidateSection, /does not expose source content, create qualifying evidence, authorize re-entry, or dispatch retrieval/u);
   assert.doesNotMatch(candidateSection, /dispatchSourceSubmissionRetrieval|createDeferredFactoryV2Reentry|Submit Source Candidate/);
 });
+
+test("Factory operations explains typed backend unavailability without implying a state change", () => {
+  const ui = readFileSync("components/admin/AdminFactoryOperations.tsx", "utf8");
+  assert.match(ui, /SERVERLESS_BACKEND_UNAVAILABLE/);
+  assert.match(ui, /Factory operational data is temporarily unavailable\. Existing work has not been changed;/);
+});
