@@ -361,7 +361,11 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
               <div className="admin-action-row"><button className="button" disabled={pendingAction !== null || sourceSubmission.url.trim().length < 8 || sourceSubmission.rationale.trim().length < 10} onClick={() => void submitSourceCandidate()}>Preserve Candidate</button><button className="button secondary" disabled={pendingAction !== null} onClick={() => setSourceSubmission(null)}>Cancel</button></div>
               <p className="small muted">This creates a candidate for Factory validation. It does not create evidence, change authority, or retry research.</p>
             </div> : null}
-            {sourceCandidates.filter((candidate) => candidate.operationId === topic.runId).map((candidate) => <p className="small muted" key={candidate.candidateId}>Candidate awaiting Factory validation: <a href={candidate.submittedUrl} target="_blank" rel="noreferrer">{candidate.submittedUrl}</a> · submitted {formatOperationalTime(candidate.createdAt)}.</p>)}
+            {sourceCandidates.filter((candidate) => candidate.operationId === topic.runId).map((candidate) => <div className="small muted stack" key={candidate.candidateId}>
+              <p>Candidate awaiting Factory validation: <a href={candidate.submittedUrl} target="_blank" rel="noreferrer">{candidate.submittedUrl}</a> · submitted {formatOperationalTime(candidate.createdAt)} by {candidate.submittedBy}.</p>
+              <p>Recorded rationale: {candidate.rationale}</p>
+              <p>Candidate state: {candidate.state}. This is provenance only; it is not evidence, authority, a retrieval instruction, or a re-entry authorization.</p>
+            </div>)}
           </div>
           <span className="pill">Generation {topic.generation}</span>
         </article>)}
