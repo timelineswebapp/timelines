@@ -164,6 +164,10 @@ Completed for this increment:
 - Root strict typecheck and direct homepage/catalog route regressions: passed after shared public pagination validation.
 - Root strict typecheck and direct homepage-route regression: passed after snapshot-date validation.
 - Root and Functions strict typechecks plus public detail-route/API contract regressions: passed after canonical slug validation.
+- Full root suite: 257 passed, 0 failed after canonical public-detail slug validation; expected fixture warnings remained non-failing and no production mutation occurred.
+- Functions strict typecheck and contract suite: passed after bounded retry-batch `scanned` telemetry. The retry completion event now distinguishes an empty queue from a bounded no-op scan without exposing ledger data or changing enqueue behavior.
+- Isolated Firestore emulator suite: 10 passed, 0 failed after retry-batch telemetry. It includes atomic deferred re-entry lineage tests and verifies retry queue recovery, terminal exhaustion, and `scanned` batch telemetry.
+- Emulator runner repair: `functions` now executes the standard Firestore command from the repository root where `firebase.json` is authoritative. This host required its already-installed JDK 21 and reuse of an existing isolated Firestore listener on port 8080; no user process, production state, or Firebase project was changed.
 - Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
@@ -184,4 +188,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Continue independent Factory reliability and public-reader verification work. The next implementation target is bounded operational latency/availability evidence for the existing server-owned interfaces, with no deployment, publication, discovery, re-entry dispatch, or historical-policy change. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.
+Continue independent Factory reliability and public-reader verification work. The next implementation target is bounded operational latency/availability evidence for the existing server-owned interfaces, beginning with deterministic retry-batch observability and continuing with safe backlog-health coverage. No deployment, publication, discovery, re-entry dispatch, or historical-policy change is authorized. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.

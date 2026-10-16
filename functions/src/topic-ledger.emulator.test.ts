@@ -43,6 +43,7 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   assert.equal(batchLog.component, "deferred_enqueue_retry");
   assert.equal(batchLog.action, "retry_batch_completed");
   assert.equal(batchLog.requestedLimit, 2);
+  assert.equal(batchLog.scanned, 2);
   assert.equal(batchLog.requeued, 1);
   assert.equal(batchLog.terminalFailures, 0);
   assert.equal(typeof batchLog.durationMs, "number");
@@ -106,6 +107,7 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   assert.equal(terminalBatchLog.component, "deferred_enqueue_retry");
   assert.equal(terminalBatchLog.action, "retry_batch_completed");
   assert.equal(terminalBatchLog.requestedLimit, 2);
+  assert.equal(terminalBatchLog.scanned, 1);
   assert.equal(terminalBatchLog.requeued, 0);
   assert.equal(terminalBatchLog.terminalFailures, 1);
   assert.equal(typeof terminalBatchLog.durationMs, "number");

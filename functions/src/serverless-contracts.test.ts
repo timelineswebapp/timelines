@@ -177,6 +177,7 @@ test("generation retry queue isolates individual enqueue failures without activa
   assert.match(ledger, /action: "enqueue_retry_exhausted"/u);
   assert.match(ledger, /diagnosticPresent: true/u);
   assert.match(ledger, /action: "retry_batch_completed"/u);
+  assert.match(ledger, /scanned: snapshot\.size/u);
   assert.match(ledger, /terminalFailures/u);
   assert.match(ledger, /data\.enqueueRetryCount !== MAX_ENQUEUE_RETRIES/u);
   assert.match(ledger, /\.where\("enqueueRetryCount", "==", MAX_ENQUEUE_RETRIES\)/u);

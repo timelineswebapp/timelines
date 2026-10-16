@@ -403,6 +403,7 @@ export async function retryDeferredEnqueuesWithDependencies(
     component: "deferred_enqueue_retry",
     action: "retry_batch_completed",
     requestedLimit: boundedLimit,
+    scanned: snapshot.size,
     requeued,
     terminalFailures,
     durationMs: Math.max(0, Date.now() - startedAt)
