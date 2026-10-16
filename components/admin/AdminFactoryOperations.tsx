@@ -74,12 +74,12 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     outcome: { classification: "PUBLIC_EVIDENCE_LIMITATION" | "RESEARCH_BUDGET_EXHAUSTED"; reentryState: "REQUIRES_RELEVANT_CHANGE" | "REQUIRES_AUTHORIZED_RETRY"; detailedReason: string };
     operationalFeasibility: { state: "REENTRY_CONDITION_REQUIRED"; requiredCondition: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; terminalAt: string; attemptsConsumed: number; budgetConsumed: Record<string, number>; failureClass: string };
     reentryRequests: Array<{ requestId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; requestedAt: string; state: "REQUESTED" | "CONSUMED"; consumedAt: string | null; queuedRunId: string | null }>;
-  }>>([]);
+  }> | null>([]);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
   const [authorizedRetry, setAuthorizedRetry] = useState<{ operationId: string; reason: string } | null>(null);
   const [deferredReentryRequests, setDeferredReentryRequests] = useState<Record<string, { state: "CREATED" | "IDEMPOTENT"; requestId: string } | undefined>>({});
-  const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }>>([]);
+  const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }> | null>([]);
   const [sourceCandidateInspections, setSourceCandidateInspections] = useState<Record<string, {
     candidateId: string;
     state: "CANDIDATE";
@@ -90,7 +90,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     reentryAuthorized: false;
   } | undefined>>({});
   const [inspectingCandidateId, setInspectingCandidateId] = useState<string | null>(null);
-  const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number }>>([]);
+  const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number }> | null>([]);
   const [generationRetryHealth, setGenerationRetryHealth] = useState<{ scheduledCount: number; dueCount: number; oldestDueAt: string | null } | null>(null);
   const [generationEnqueueFailures, setGenerationEnqueueFailures] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "FAILED"; failedAt: string; enqueueRetryCount: number; lastErrorPresent: boolean }> | null>(null);
   const [factoryOperationalAvailability, setFactoryOperationalAvailability] = useState<string | null>(null);
@@ -125,27 +125,41 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         statusHandlers.setError(availabilityMessage);
         return;
       }
-      const [operations, notifications, reliabilityDashboard, deferredTopics, candidates, retries, retryHealth, enqueueFailures] = await Promise.all([
+      const [operations, notifications, reliabilityDashboard] = await Promise.all([
         fetchAdmin<OperationsSnapshot>("/api/admin/factory/operations"),
         fetchAdmin<OperationalNotification[]>("/api/admin/factory/operations/inbox"),
-        fetchAdmin<typeof reliability>("/api/admin/operations/reliability"),
-        fetchAdmin<typeof deferredV2Topics>("/api/admin/factory/v2/deferred"),
-        fetchAdmin<typeof sourceCandidates>("/api/admin/factory/v2/source-submissions"),
-        fetchAdmin<typeof generationRetries>("/api/admin/factory/v2/generation-retries"),
-        fetchAdmin<typeof generationRetryHealth>("/api/admin/factory/v2/generation-retry-health"),
-        fetchAdmin<typeof generationEnqueueFailures>("/api/admin/factory/v2/generation-enqueue-failures")
+        fetchAdmin<typeof reliability>("/api/admin/operations/reliability")
       ]);
       setSnapshot(operations);
       setInbox(notifications);
       setReliability(reliabilityDashboard);
-      setDeferredV2Topics(deferredTopics);
-      setSourceCandidates(candidates);
-      setGenerationRetries(retries);
-      setGenerationRetryHealth(retryHealth);
-      setGenerationEnqueueFailures(enqueueFailures);
-      setFactoryOperationalAvailability(null);
       statusHandlers.onLoaded();
-      statusHandlers.setError("");
+      try {
+        const [deferredTopics, candidates, retries, retryHealth, enqueueFailures] = await Promise.all([
+          fetchAdmin<NonNullable<typeof deferredV2Topics>>("/api/admin/factory/v2/deferred"),
+          fetchAdmin<NonNullable<typeof sourceCandidates>>("/api/admin/factory/v2/source-submissions"),
+          fetchAdmin<NonNullable<typeof generationRetries>>("/api/admin/factory/v2/generation-retries"),
+          fetchAdmin<typeof generationRetryHealth>("/api/admin/factory/v2/generation-retry-health"),
+          fetchAdmin<NonNullable<typeof generationEnqueueFailures>>("/api/admin/factory/v2/generation-enqueue-failures")
+        ]);
+        setDeferredV2Topics(deferredTopics);
+        setSourceCandidates(candidates);
+        setGenerationRetries(retries);
+        setGenerationRetryHealth(retryHealth);
+        setGenerationEnqueueFailures(enqueueFailures);
+        setFactoryOperationalAvailability(null);
+        statusHandlers.setError("");
+      } catch (error) {
+        const availabilityMessage = factoryOperationalAvailabilityMessage(error);
+        if (!availabilityMessage) throw error;
+        setDeferredV2Topics(null);
+        setSourceCandidates(null);
+        setGenerationRetries(null);
+        setGenerationRetryHealth(null);
+        setGenerationEnqueueFailures(null);
+        setFactoryOperationalAvailability(availabilityMessage);
+        statusHandlers.setError(availabilityMessage);
+      }
     } catch (error) { statusHandlers.setError(operationsLoadErrorMessage(error)); }
   }, [fetchAdmin, onFounderStatus, statusHandlers, token, view]);
   useEffect(() => {
@@ -362,6 +376,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   </div>;
 
   return <div className="stack">
+    {factoryOperationalAvailability ? <section className="glass section-card fos-empty-state" role="status" aria-live="polite"><strong>Factory V2 operational records are temporarily unavailable.</strong><p className="muted">{factoryOperationalAvailability} Core Factory controls and their current state remain available. No V2 work was changed.</p><button className="button secondary" type="button" disabled={pendingAction !== null} onClick={() => void load()}>Retry operational read</button></section> : null}
     <section className="glass section-card">
       <span className="eyebrow">Operational Health</span>
       <h2>Institution Health</h2>
@@ -410,7 +425,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       <p className="muted">This is a bounded, scheduler-owned view. Operators cannot dispatch, reprioritize, or alter retry work here.</p>
       <p className="small muted">Scheduled: {generationRetryHealth?.scheduledCount ?? "—"} · due now: {generationRetryHealth?.dueCount ?? "—"}{generationRetryHealth?.oldestDueAt ? ` · oldest due ${formatOperationalTime(generationRetryHealth.oldestDueAt)}` : ""}</p>
       <div className="stack">
-        {generationRetries.length === 0 ? <p className="muted">No generation retries are currently scheduled.</p> : generationRetries.map((retry) => <article className="fos-list-card" key={retry.jobId}>
+        {generationRetries === null ? <p className="muted">Generation retry records are temporarily unavailable.</p> : generationRetries.length === 0 ? <p className="muted">No generation retries are currently scheduled.</p> : generationRetries.map((retry) => <article className="fos-list-card" key={retry.jobId}>
           <div><strong>{retry.origin === "user" ? "Visitor-requested topic" : "Autonomous topic"}</strong><p className="small muted">Generation {retry.generation} · delivery retries {retry.enqueueRetryCount} · next retry {formatOperationalTime(retry.nextRetryAt)} · updated {formatOperationalTime(retry.updatedAt)}</p><p className="small muted">Last delivery issue recorded: {retry.lastErrorPresent ? "yes" : "no"}. Diagnostic content is retained server-side.</p></div>
           <span className="pill">Retry scheduled</span>
         </article>)}
@@ -421,7 +436,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       <h2>Topics awaiting a governed change</h2>
       <p className="muted">Deferred research preserves its evidence boundary and does not retry until the recorded condition changes.</p>
       <div className="stack">
-        {deferredV2Topics.length === 0 ? <p className="muted">No Authority-First topics are currently deferred.</p> : deferredV2Topics.map((topic) => <article className="fos-list-card" key={topic.runId}>
+        {deferredV2Topics === null ? <p className="muted">Deferred-work records are temporarily unavailable.</p> : deferredV2Topics.length === 0 ? <p className="muted">No Authority-First topics are currently deferred.</p> : deferredV2Topics.map((topic) => <article className="fos-list-card" key={topic.runId}>
           <div>
             <strong>{topic.outcome.classification.replaceAll("_", " ")}</strong>
             <p className="small muted">Stage {topic.stage.replaceAll("_", " ")} · {topic.outcome.detailedReason.replaceAll("_", " ")} · updated {formatOperationalTime(topic.updatedAt)}</p>
@@ -443,7 +458,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
               <div className="admin-action-row"><button className="button" disabled={pendingAction !== null || sourceSubmission.url.trim().length < 8 || sourceSubmission.rationale.trim().length < 10} onClick={() => void submitSourceCandidate()}>Preserve Candidate</button><button className="button secondary" disabled={pendingAction !== null} onClick={() => setSourceSubmission(null)}>Cancel</button></div>
               <p className="small muted">This creates a candidate for Factory validation. It does not create evidence, change authority, or retry research.</p>
             </div> : null}
-            {sourceCandidates.filter((candidate) => candidate.operationId === topic.runId).map((candidate) => <div className="small muted stack" key={candidate.candidateId}>
+            {(sourceCandidates || []).filter((candidate) => candidate.operationId === topic.runId).map((candidate) => <div className="small muted stack" key={candidate.candidateId}>
               <p>Candidate awaiting Factory validation: <a href={candidate.submittedUrl} target="_blank" rel="noreferrer">{candidate.submittedUrl}</a> · submitted {formatOperationalTime(candidate.createdAt)} by {candidate.submittedBy}.</p>
               <p>Recorded rationale: {candidate.rationale}</p>
               <p>Candidate state: {candidate.state}. This is provenance only; it is not evidence, authority, a retrieval instruction, or a re-entry authorization.</p>

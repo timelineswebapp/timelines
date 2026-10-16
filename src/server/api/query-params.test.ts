@@ -219,3 +219,15 @@ test("Factory operations explains typed backend unavailability without implying 
   assert.match(ui, /Operational record temporarily unavailable\./);
   assert.match(ui, /Retry operational read/);
 });
+
+test("Factory core operations remain visible during typed V2 operational-read unavailability", () => {
+  const ui = readFileSync("components/admin/AdminFactoryOperations.tsx", "utf8");
+  assert.match(ui, /fetchAdmin<OperationsSnapshot>\("\/api\/admin\/factory\/operations"\)/);
+  assert.match(ui, /fetchAdmin<OperationalNotification\[]>\("\/api\/admin\/factory\/operations\/inbox"\)/);
+  assert.match(ui, /Factory V2 operational records are temporarily unavailable/);
+  assert.match(ui, /Core Factory controls and their current state remain available\. No V2 work was changed\./);
+  assert.match(ui, /setDeferredV2Topics\(null\)/);
+  assert.match(ui, /Deferred-work records are temporarily unavailable/);
+  assert.match(ui, /Generation retry records are temporarily unavailable/);
+  assert.doesNotMatch(ui, /deferred-reentry\/(?:consume|dispatch)/);
+});
