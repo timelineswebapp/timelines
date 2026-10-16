@@ -119,6 +119,9 @@ Completed for this increment:
 - Focused Firestore emulator retry regression: passed after the generation-retry attempt visibility increment, including the persisted retry-count summary and terminal exhaustion behavior.
 - Functions contract suite: 13 passed, 0 failed after the terminal enqueue-failure visibility increment.
 - Focused Firestore emulator retry regression: passed after terminal enqueue-failure visibility, proving the indexed terminal failure summary reports the persisted fifth-attempt failure without exposing diagnostics.
+- Full root suite: 250 passed, 0 failed after terminal enqueue-failure visibility; expected fixture warnings remained non-failing and no production mutation occurred.
+- Functions build and optimized Next production build: passed after terminal enqueue-failure visibility; the new route remains dynamically server-owned and Admin-authenticated.
+- Production-hardening validator: passed all dashboard, alert, PITR, retention, deployment-workflow, and incident checks; monitoring validator passed all 27 declared metrics and 15 alerts.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
