@@ -11,6 +11,7 @@ import {
 
 const ADMIN_RATE_LIMIT_WINDOW_MS = 60_000;
 const ADMIN_RATE_LIMIT_MAX_REQUESTS = 60;
+const ADMIN_RATE_LIMIT_MAX_KEYS = 4_096;
 const ADMIN_CSRF_MAX_AGE_SECONDS = 8 * 60 * 60;
 
 type RateLimitEntry = {
@@ -19,6 +20,7 @@ type RateLimitEntry = {
 };
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
+let lastRateLimitPruneAt = 0;
 
 function getClientIp(request: Request): string {
   const forwardedFor = request.headers.get("x-forwarded-for");
@@ -29,19 +31,31 @@ function getClientIp(request: Request): string {
   return request.headers.get("x-real-ip")?.trim() || "unknown";
 }
 
-function checkRateLimit(request: Request): { allowed: true } | { allowed: false; retryAfter: number } {
+function pruneExpiredRateLimits(now: number, force = false): void {
+  if (!force && now - lastRateLimitPruneAt < 1_000) return;
+  for (const [candidateKey, value] of rateLimitStore.entries()) {
+    if (value.resetAt <= now) rateLimitStore.delete(candidateKey);
+  }
+  lastRateLimitPruneAt = now;
+}
+
+export function resetAdminRateLimitStoreForTests(): void {
+  rateLimitStore.clear();
+  lastRateLimitPruneAt = 0;
+}
+
+export function checkAdminRateLimit(request: Request): { allowed: true } | { allowed: false; retryAfter: number } {
   const now = Date.now();
   const key = getClientIp(request);
-
-  for (const [candidateKey, value] of rateLimitStore.entries()) {
-    if (value.resetAt <= now) {
-      rateLimitStore.delete(candidateKey);
-    }
-  }
+  pruneExpiredRateLimits(now);
 
   const current = rateLimitStore.get(key);
 
   if (!current || current.resetAt <= now) {
+    if (rateLimitStore.size >= ADMIN_RATE_LIMIT_MAX_KEYS) {
+      pruneExpiredRateLimits(now, true);
+      if (rateLimitStore.size >= ADMIN_RATE_LIMIT_MAX_KEYS) return { allowed: false, retryAfter: 1 };
+    }
     rateLimitStore.set(key, {
       count: 1,
       resetAt: now + ADMIN_RATE_LIMIT_WINDOW_MS
@@ -99,7 +113,7 @@ type AdminAuthOptions = {
 
 export function withAdminAuth<TContext = unknown>(handler: AdminHandler<TContext>, options: AdminAuthOptions = {}) {
   return async (request: Request, context: TContext): Promise<Response> => {
-    const rateLimit = checkRateLimit(request);
+    const rateLimit = checkAdminRateLimit(request);
     if (!rateLimit.allowed) {
       return fail(
         429,

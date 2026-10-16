@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { config } from "@/src/lib/config";
-import { withAdminAuth } from "@/src/server/api/admin-auth";
+import { checkAdminRateLimit, resetAdminRateLimitStoreForTests, withAdminAuth } from "@/src/server/api/admin-auth";
 import { setAdminSecurityAuditStoreForTests } from "@/src/server/security/admin-identity";
 
 test("withAdminAuth rejects operators without required role", async () => {
@@ -137,4 +137,18 @@ test("AdminDashboard propagates CSRF token through shared unsafe admin fetches",
   assert.match(dashboard, /readCookieValue\(ADMIN_CSRF_COOKIE_NAME\)/);
   assert.match(dashboard, /"x-csrf-token"/);
   assert.match(dashboard, /\.\.\.csrfHeadersFor\(init\)/);
+});
+
+test("admin rate limiting bounds distinct client keys without scanning on every request", () => {
+  resetAdminRateLimitStoreForTests();
+  try {
+    for (let index = 0; index < 4_096; index += 1) {
+      const request = new Request("https://timelines.example/api/admin/analytics", { headers: { "x-forwarded-for": `198.51.100.${index}` } });
+      assert.deepEqual(checkAdminRateLimit(request), { allowed: true });
+    }
+    const overflow = new Request("https://timelines.example/api/admin/analytics", { headers: { "x-forwarded-for": "203.0.113.250" } });
+    assert.deepEqual(checkAdminRateLimit(overflow), { allowed: false, retryAfter: 1 });
+  } finally {
+    resetAdminRateLimitStoreForTests();
+  }
 });
