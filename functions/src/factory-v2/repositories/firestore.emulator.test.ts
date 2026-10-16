@@ -6,6 +6,8 @@ import { V2FirestoreRepository } from "./firestore";
 import { date, scopeFixture, TEST_CONTEXT } from "../test-fixtures";
 import { buildEvidenceSegment, buildAtomicClaimVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, buildResearchMap, immutableEnvelope, parseSealedArtifact, sealArtifact, semanticArtifactId, semanticEnvelope } from "../contracts/builders";
 import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion } from "../authority";
+import { buildTopicAuthoritySet } from "../authority-first";
+import { buildSourceSubmissionRetrieval } from "../source-submission-retrieval";
 import { claimAuthorityVerdictSchema, deferredReentryRequestSchema, publisherAuthorityRecordSchema, sourceSnapshotSchema, v2FailureRecordSchema } from "../contracts";
 import { normalizedIdentityText } from "../contracts/builders";
 import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, KNOWLEDGE_COVERAGE_POLICY_VERSION, planGapDirectedCompletion } from "../coverage";
@@ -52,6 +54,27 @@ test("Firestore emulator derives and creates a deferred re-entry request exactly
   assert.equal(created[0]!.requestId, created[1]!.requestId);
   assert.equal((await repository.getById("v2DeferredReentryRequests", created[0]!.requestId))?.originalOperationId, operation.operationId);
   await assert.rejects(repository.createDeferredReentryRequest({ ...input, relevantChangeArtifactId: "missing-change" }), /does not exist/);
+});
+
+test("Firestore emulator resolves submitted-source authority and persists a non-evidentiary retrieval observation", { skip: !enabled }, async () => {
+  const app = getApps()[0] || initializeApp({ projectId: "tiimeliines" });
+  const firestore = getFirestore(app);
+  const context = { corpusId: "source-submission-emulator-corpus", topicId: "topic-source-submission", runId: "run-source-submission", generation: 1, createdAt: "2026-10-16T04:00:00.000Z" };
+  const repository = new V2FirestoreRepository({ firestore, corpusId: context.corpusId });
+  const scope = scopeFixture({ title: "Submitted source authority fixture" }, context);
+  const map = buildResearchMap(context, scope, { version: 1, phases: [{ phaseId: "phase-submission", label: "material chronology", temporalRule: "The material chronology must be evidenced.", required: true, rationale: "The required chronology is materially relevant." }], dimensions: [{ dimensionId: "dimension-submission", label: "historical development", required: true, rationale: "Historical development is materially relevant." }], entities: [], questions: [{ questionId: "question-submission", text: "What registered evidence establishes the submitted-source fixture?", phaseIds: ["phase-submission"], dimensionIds: ["dimension-submission"], claimTypesExpected: ["OCCURRENCE"], likelySourceClasses: ["PRIMARY_INSTITUTIONAL"], expectedAuthorities: ["British Library"], languages: ["en"], geography: ["United Kingdom"], contested: false, dateCritical: true, priority: "CRITICAL", state: "UNRESEARCHED" }], terminology: [], knownUncertainty: [] });
+  const publisher = bootstrapPublisherRegistry(context).find((item) => item.canonicalName === "British Library")!;
+  const authoritySet = buildTopicAuthoritySet({ context, scope, researchMap: map, publishers: [publisher], proposals: [{ publisherVersionId: publisher.publisherVersionId, researchQuestionIds: ["question-submission"], roles: ["PRIMARY_RECORD"], claimTypes: ["OCCURRENCE"], subjectRelationship: "INDEPENDENT", perspectiveTags: [], routingObligationIds: [], rationale: "Registered British Library authority for the bounded fixture." }] });
+  const outcome = { policyVersion: "autonomous-public-evidence.1", classification: "PUBLIC_EVIDENCE_LIMITATION" as const, disposition: "DEFERRED" as const, reentryState: "REQUIRES_RELEVANT_CHANGE" as const, detailedReason: "FAILED_UNCLASSIFIED", publicEvidenceBasis: "GOVERNED_CAPACITY_EXHAUSTED" as const };
+  const failure = parseSealedArtifact(v2FailureRecordSchema, { ...immutableEnvelope(context, "failure-source-submission"), failureRecordId: "failure-source-submission", stage: "A2_SCOPE_ACQUISITION", failureClass: "FAILED_UNCLASSIFIED", severity: "HIGH", retryable: false, message: "Public evidence is unavailable.", protectedRepresentationDiagnostics: null, blockingArtifactIds: [], attemptsConsumed: 1, budgetConsumed: {}, autonomousOutcome: outcome });
+  const operation = { operationId: "operation-source-submission", corpusId: context.corpusId, topicId: context.topicId, runId: context.runId, generation: 1, pipelineVersion: "factory-v2-a.70", executionMode: "SHADOW", state: "DEFERRED", stage: "A2_SCOPE_ACQUISITION", scopeState: "LOCKED", researchMapState: "VALID", currentBlockingReason: "capacity", counts: {}, budgetsConsumed: {}, elapsedMs: 1, finalVerdict: "FAIL", terminalFailureRecordId: failure.failureRecordId, topicAuthoritySetId: authoritySet.topicAuthoritySetId, autonomousOutcome: outcome, updatedAt: context.createdAt };
+  await repository.createImmutable("v2PublisherAuthorityVersions", publisher); await repository.createImmutable("v2TopicAuthoritySets", authoritySet); await repository.createImmutable("v2FailureRecords", failure); await repository.setOperation(operation.operationId, operation);
+  const candidate = await repository.createSourceSubmissionCandidate({ operationId: operation.operationId, submittedUrl: "https://www.bl.uk/submitted-source", rationale: "A registered authority URL may address the unresolved obligation.", submittedBy: "operator-submission", now: "2026-10-16T04:01:00.000Z" });
+  const prepared = await repository.prepareSourceSubmissionRetrieval(candidate.candidateId, "2026-10-16T04:02:00.000Z");
+  assert.equal(prepared.publisher.publisherVersionId, publisher.publisherVersionId);
+  const observation = buildSourceSubmissionRetrieval({ validation: prepared.validation, state: "RETRIEVAL_REJECTED", now: "2026-10-16T04:03:00.000Z", rejectionCode: "SOURCE_SUBMISSION_INSUFFICIENT_MATERIAL" });
+  await repository.persistSourceSubmissionRetrieval({ result: observation });
+  assert.equal((await repository.getById("v2SourceSubmissionRetrievals", observation.sourceSubmissionRetrievalId))?.qualifyingEvidence, false);
 });
 
 test("Firestore emulator enforces corpus paths, immutable idempotency, heads, and edge integrity", { skip: !enabled }, async () => {

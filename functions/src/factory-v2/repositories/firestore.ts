@@ -260,7 +260,9 @@ export class V2FirestoreRepository {
       this.getById("v2PublisherAuthorityVersions", authority.publisherVersionId)
     ]);
     if (!candidate || !operation || !publisher) throw new Error("Source-submission retrieval authority lineage disappeared.");
-    const validation = buildSourceSubmissionAuthorityValidation({ candidate, operation, publisherVersionId: authority.publisherVersionId, now });
+    const { id: _candidateDocumentId, ...candidateArtifact } = candidate;
+    const { id: _operationDocumentId, ...operationProjection } = operation;
+    const validation = buildSourceSubmissionAuthorityValidation({ candidate: candidateArtifact, operation: operationProjection, publisherVersionId: authority.publisherVersionId, now });
     await this.createImmutable("v2SourceSubmissionValidations", validation);
     return { candidate: sourceSubmissionCandidateSchema.parse(candidate), validation: sourceSubmissionValidationSchema.parse(validation), publisher: publisherAuthorityVersionSchema.parse(publisher) };
   }
