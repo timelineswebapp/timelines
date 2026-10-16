@@ -5,6 +5,19 @@ type BackendEnvelope<T> =
   | { ok: true; data: T; apiVersion?: string }
   | { ok: false; error: { code: string; message: string; details?: unknown }; apiVersion?: string };
 
+function parseBackendEnvelope<T>(decoded: unknown): BackendEnvelope<T> {
+  if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) throw new Error("Invalid backend envelope.");
+  const candidate = decoded as Record<string, unknown>;
+  if (candidate.ok === true && Object.prototype.hasOwnProperty.call(candidate, "data")) return { ok: true, data: candidate.data as T };
+  if (candidate.ok === false && candidate.error && typeof candidate.error === "object" && !Array.isArray(candidate.error)) {
+    const error = candidate.error as Record<string, unknown>;
+    if (typeof error.code === "string" && /^[A-Z][A-Z0-9_]{1,79}$/u.test(error.code) && typeof error.message === "string" && error.message.length > 0 && error.message.length <= 2_000) {
+      return { ok: false, error: { code: error.code, message: error.message, ...(Object.prototype.hasOwnProperty.call(error, "details") ? { details: error.details } : {}) } };
+    }
+  }
+  throw new Error("Invalid backend envelope.");
+}
+
 function baseUrl() {
   const configured = process.env.SERVERLESS_API_BASE_URL?.trim().replace(/\/$/u, "");
   if (configured) return configured;
@@ -36,17 +49,16 @@ async function request<T>(path: string, init?: RequestInit, allowNotFound = fals
   }
   let payload: BackendEnvelope<T>;
   try {
-    const decoded: unknown = await response.json();
-    if (!decoded || typeof decoded !== "object" || typeof (decoded as { ok?: unknown }).ok !== "boolean") throw new Error("Invalid backend envelope.");
-    payload = decoded as BackendEnvelope<T>;
+    payload = parseBackendEnvelope<T>(await response.json());
   } catch {
     throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Serverless backend returned an invalid response.");
   }
   if (allowNotFound && response.status === 404) return null;
-  if (!response.ok || !payload.ok) {
-    const error = payload.ok ? null : payload.error;
-    throw new ApiError(response.status, error?.code || "SERVERLESS_BACKEND_ERROR", error?.message || "Serverless backend request failed.", error?.details);
+  if (!response.ok) {
+    if (payload.ok) throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Serverless backend returned an invalid response.");
+    throw new ApiError(response.status, payload.error.code, payload.error.message, payload.error.details);
   }
+  if (!payload.ok) throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Serverless backend returned an invalid response.");
   return payload.data;
 }
 

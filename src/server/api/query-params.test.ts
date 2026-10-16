@@ -85,6 +85,10 @@ test("malformed serverless responses surface a typed backend failure", async () 
     await assert.rejects(serverlessBackendClient.listReadModels("timeline", 1), (error: unknown) => error instanceof ApiError && error.status === 502 && error.code === "SERVERLESS_BACKEND_INVALID_RESPONSE");
     globalThis.fetch = async () => Response.json({ unexpected: true }, { status: 200 });
     await assert.rejects(serverlessBackendClient.listReadModels("timeline", 1), (error: unknown) => error instanceof ApiError && error.status === 502 && error.code === "SERVERLESS_BACKEND_INVALID_RESPONSE");
+    globalThis.fetch = async () => Response.json({ ok: false, error: { code: 42, message: ["untrusted"] } }, { status: 500 });
+    await assert.rejects(serverlessBackendClient.listReadModels("timeline", 1), (error: unknown) => error instanceof ApiError && error.status === 502 && error.code === "SERVERLESS_BACKEND_INVALID_RESPONSE");
+    globalThis.fetch = async () => Response.json({ ok: true }, { status: 200 });
+    await assert.rejects(serverlessBackendClient.listReadModels("timeline", 1), (error: unknown) => error instanceof ApiError && error.status === 502 && error.code === "SERVERLESS_BACKEND_INVALID_RESPONSE");
   } finally {
     globalThis.fetch = originalFetch;
     if (previousBaseUrl === undefined) delete process.env.SERVERLESS_API_BASE_URL;
