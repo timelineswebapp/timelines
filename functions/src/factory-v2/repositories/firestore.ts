@@ -10,7 +10,7 @@ import { sourceSubmissionCandidateSchema } from "../contracts/source-submission"
 import { sourceSubmissionValidationSchema } from "../contracts/source-submission-validation";
 import { sourceSubmissionRetrievalSchema } from "../contracts/source-submission-retrieval";
 import { topicAuthoritySetSchema } from "../contracts/authority-first";
-import { publisherAuthorityVersionSchema } from "../contracts/knowledge";
+import { evidenceSegmentSchema, publisherAuthorityVersionSchema, sourceDocumentSchema, sourceSnapshotSchema } from "../contracts/knowledge";
 import { sourceSubmissionUrlMatchesAuthority } from "../source-submission-eligibility";
 import { planDeferredReentryDispatch } from "../reentry-dispatch";
 import { deriveDeferredReentryRequest } from "../reentry-request";
@@ -273,10 +273,15 @@ export class V2FirestoreRepository {
     const result = sourceSubmissionRetrievalSchema.parse(input.result);
     if (input.source || input.snapshot || input.evidenceSegments) {
       if (!input.source || !input.snapshot || !input.evidenceSegments) throw new Error("Source-submission retrieval persistence requires complete acquisition artifacts.");
-      if (result.sourceId !== input.source.sourceId || result.sourceSnapshotId !== input.snapshot.sourceSnapshotId) throw new Error("Source-submission retrieval result lineage does not match acquisition artifacts.");
-      await this.upsertSourceDocument(input.source);
-      await this.createImmutable("v2SourceSnapshots", input.snapshot);
-      if (input.evidenceSegments.length > 0) await this.createImmutableBatch("v2EvidenceSegments", input.evidenceSegments);
+      const source = sourceDocumentSchema.parse(input.source);
+      const snapshot = sourceSnapshotSchema.parse(input.snapshot);
+      const evidenceSegments = input.evidenceSegments.map((segment) => evidenceSegmentSchema.parse(segment));
+      if (!verifyPayloadHash(snapshot) || evidenceSegments.some((segment) => !verifyPayloadHash(segment))) throw new Error("Source-submission retrieval acquisition artifact hash is invalid.");
+      if (snapshot.sourceId !== source.sourceId || evidenceSegments.some((segment) => segment.sourceSnapshotId !== snapshot.sourceSnapshotId)) throw new Error("Source-submission retrieval acquisition artifact lineage is invalid.");
+      if (result.sourceId !== source.sourceId || result.sourceSnapshotId !== snapshot.sourceSnapshotId) throw new Error("Source-submission retrieval result lineage does not match acquisition artifacts.");
+      await this.upsertSourceDocument(source);
+      await this.createImmutable("v2SourceSnapshots", snapshot);
+      if (evidenceSegments.length > 0) await this.createImmutableBatch("v2EvidenceSegments", evidenceSegments);
     } else if (result.sourceId !== null || result.sourceSnapshotId !== null) {
       throw new Error("Source-submission retrieval result requires its referenced acquisition artifacts.");
     }
