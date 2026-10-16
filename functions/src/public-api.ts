@@ -33,6 +33,7 @@ const sourceSubmissionCommandSchema = z.object({
 });
 
 const readModelTypes = new Set(["timeline", "milestone", "historical_object", "relationship", "search", "sitemap"]);
+const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120;
 
 function boundedInteger(value: unknown, fallback: number, max: number) {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number(value);
@@ -124,6 +125,9 @@ function searchTokens(query: string) {
 
 async function search(request: Request, response: Response) {
   const rawQuery = String(request.query.q || "").trim();
+  if (rawQuery.length > MAX_PUBLIC_SEARCH_QUERY_LENGTH) {
+    return failure(response, 400, "VALIDATION_FAILED", `Search queries must not exceed ${MAX_PUBLIC_SEARCH_QUERY_LENGTH} characters.`);
+  }
   const tokens = searchTokens(rawQuery);
   if (!rawQuery || tokens.length === 0) return success(response, { query: "", total: 0, items: [] });
   const limit = Math.max(1, boundedInteger(request.query.limit, 12, 50));

@@ -84,6 +84,14 @@ test("public search DTO retains its discriminated result union and numeric ident
   assert.equal(Number.isSafeInteger(result.items[1]!.id), true);
 });
 
+test("serverless public search rejects oversized direct requests before tokenization", () => {
+  const source = readFileSync("functions/src/public-api.ts", "utf8");
+  assert.match(source, /const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120/u);
+  assert.match(source, /rawQuery\.length > MAX_PUBLIC_SEARCH_QUERY_LENGTH/u);
+  assert.match(source, /Search queries must not exceed \$\{MAX_PUBLIC_SEARCH_QUERY_LENGTH\} characters\./u);
+  assert.ok(source.indexOf("rawQuery.length > MAX_PUBLIC_SEARCH_QUERY_LENGTH") < source.indexOf("const tokens = searchTokens(rawQuery)"));
+});
+
 test("homepage pagination contract remains bounded and continuation-based", () => {
   const limit = 24;
   const offset = 48;

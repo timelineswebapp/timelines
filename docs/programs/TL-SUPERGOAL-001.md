@@ -108,6 +108,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Public-search deep-page correction increment:** Completed locally on `2026-10-16`. The projection repository now retains the server-reported result total even when a bounded requested page contains no rows. The reader route uses that total to redirect an in-range-but-out-of-range page request to the final actual page, preventing misleading empty pages and invalid page-count text. Search remains projection-backed, bounded, and server-owned; no Factory or institutional data enters the public path.
 
+**Public-search direct-request bound increment:** Completed locally on `2026-10-16`. The serverless public search API now rejects a trimmed query longer than 120 characters before Unicode normalization or tokenization. This aligns direct API traffic with the existing browser and reader-route cap, preserving bounded CPU work and stable result contracts without changing ranking, projections, or public-content access.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -137,6 +139,7 @@ Completed for this increment:
 - Public-search pagination regression and root strict typecheck: passed after strict page-parameter normalization.
 - Public-search deep-page regression and root strict typecheck: passed after total-preservation and final-page redirect correction.
 - Full root suite: 251 passed, 0 failed after the public-search deep-page correction; expected fixture warnings remained non-failing and no production mutation occurred.
+- Functions and root strict typechecks plus public API contract regression: passed after the direct-request query bound.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
