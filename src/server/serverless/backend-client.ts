@@ -72,7 +72,7 @@ function query(params: Record<string, string | number | undefined>) {
 
 function requireSharedSecret() {
   const secret = process.env.BACKEND_SHARED_SECRET;
-  if (!secret || secret.length < 32) throw new Error("BACKEND_SHARED_SECRET is required for serverless internal requests.");
+  if (!secret || secret.length < 32) throw new ApiError(503, "SERVERLESS_BACKEND_UNAVAILABLE", "Factory operational data is unavailable.");
   return secret;
 }
 

@@ -98,6 +98,21 @@ test("malformed serverless responses surface a typed backend failure", async () 
   }
 });
 
+test("missing serverless signing configuration fails closed as operational unavailability", async () => {
+  const previousBaseUrl = process.env.SERVERLESS_API_BASE_URL;
+  const previousSecret = process.env.BACKEND_SHARED_SECRET;
+  process.env.SERVERLESS_API_BASE_URL = "https://serverless.invalid";
+  delete process.env.BACKEND_SHARED_SECRET;
+  try {
+    await assert.rejects(serverlessBackendClient.listDeferredFactoryV2Topics(1), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
+  } finally {
+    if (previousBaseUrl === undefined) delete process.env.SERVERLESS_API_BASE_URL;
+    else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
+    if (previousSecret === undefined) delete process.env.BACKEND_SHARED_SECRET;
+    else process.env.BACKEND_SHARED_SECRET = previousSecret;
+  }
+});
+
 test("serverless transport failures fail closed for public intake and Factory operations without logging query data", async () => {
   const previousBaseUrl = process.env.SERVERLESS_API_BASE_URL;
   const previousSharedSecret = process.env.BACKEND_SHARED_SECRET;
