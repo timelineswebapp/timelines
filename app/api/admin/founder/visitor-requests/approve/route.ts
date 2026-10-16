@@ -3,7 +3,7 @@ import { withAdminAuth } from "@/src/server/api/admin-auth";
 import { adminService } from "@/src/server/services/admin-service";
 import { founderVisitorApprovalSchema } from "@/src/server/validation/schemas";
 
-export const POST = withAdminAuth(async (request: Request) => {
+export const POST = withAdminAuth(async (request: Request, _context, identity) => {
   const input = founderVisitorApprovalSchema.parse(await request.json());
-  return ok(await adminService.approveFounderVisitorRequest(input.requestId, input.actor));
+  return ok(await adminService.approveFounderVisitorRequest(input.requestId, identity.operatorId));
 }, { roles: ["admin"] });

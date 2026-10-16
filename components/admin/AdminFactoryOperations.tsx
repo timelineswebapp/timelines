@@ -183,7 +183,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   async function command(action: string) {
     setPendingAction(`factory:${action}`);
     try {
-      await fetchAdmin("/api/admin/factory/operations/control", { method: "POST", body: JSON.stringify({ action, actor: "founder" }) });
+      await fetchAdmin("/api/admin/factory/operations/control", { method: "POST", body: JSON.stringify({ action }) });
       statusHandlers.setStatus("Operational session active");
       statusHandlers.setError("");
       await load();
@@ -207,13 +207,13 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     }
   }
   async function mutate(topic: TopicWorkItem, action: string, extra: Record<string, unknown> = {}) {
-    await fetchAdmin(`/api/admin/factory/operations/topics/${topic.id}`, { method: "PATCH", body: JSON.stringify({ action, actor: "founder", ...extra }) });
+    await fetchAdmin(`/api/admin/factory/operations/topics/${topic.id}`, { method: "PATCH", body: JSON.stringify({ action, ...extra }) });
     await load();
   }
   async function addTopic() {
     const topics = [...new Set(title.split(/[,\n]+/).map((item) => item.trim()).filter((item) => item.length >= 3))].slice(0, 50);
     if (!topics.length) return;
-    await Promise.all(topics.map((topic) => fetchAdmin("/api/admin/factory/operations", { method: "POST", body: JSON.stringify({ title: topic, source: "founder", priority: 100, maxRetries: 3, actor: "founder" }) })));
+    await Promise.all(topics.map((topic) => fetchAdmin("/api/admin/factory/operations", { method: "POST", body: JSON.stringify({ title: topic, source: "founder", priority: 100, maxRetries: 3 }) })));
     setTitle("");
     statusHandlers.setStatus(`${topics.length} ${topics.length === 1 ? "topic" : "topics"} queued.`);
     await load();
@@ -222,14 +222,14 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     setDetail(await fetchAdmin<TopicOperationsDetail>(`/api/admin/factory/operations/topics/${topicId}`));
   }
   async function transitionAlert(id: string, action: "acknowledge" | "resolve") {
-    await fetchAdmin(`/api/admin/operations/alerts/${id}`, { method: "PATCH", body: JSON.stringify({ action, actor: "founder" }) });
+    await fetchAdmin(`/api/admin/operations/alerts/${id}`, { method: "PATCH", body: JSON.stringify({ action }) });
     await load();
   }
   async function inboxAction(notificationId: string, topicId: string, action: FounderAction) {
     setPendingAction(`${notificationId}:${action}`);
     try {
       await fetchAdmin("/api/admin/founder/inbox", {
-        method: "POST", body: JSON.stringify({ notificationId, topicId, action, actor: "founder" })
+        method: "POST", body: JSON.stringify({ notificationId, topicId, action })
       });
       statusHandlers.setStatus(action === "return_for_revision" ? "Revision requested." : `${action.charAt(0).toUpperCase()}${action.slice(1)} completed.`);
       statusHandlers.setError("");
@@ -244,7 +244,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     setPendingAction(`visitor:${requestId}`);
     try {
       await fetchAdmin("/api/admin/founder/visitor-requests/approve", {
-        method: "POST", body: JSON.stringify({ requestId, actor: "founder" })
+        method: "POST", body: JSON.stringify({ requestId })
       });
       statusHandlers.setStatus("Visitor Topic approved and queued.");
       statusHandlers.setError("");

@@ -973,7 +973,7 @@ export const factoryOperationsTopicSchema = z.object({
   sourceReference: z.string().trim().max(240).nullish().transform((value) => value || null),
   priority: z.coerce.number().int().min(0).max(1000).default(100),
   maxRetries: z.coerce.number().int().min(0).max(20).default(3),
-  actor: actorSchema
+  actor: actorSchema.optional()
 }).superRefine((value, ctx) => {
   if (value.source === "public_request" && !value.sourceReference) {
     ctx.addIssue({ code: "custom", path: ["sourceReference"], message: "Public request topics require a source reference." });
@@ -984,7 +984,7 @@ export const factoryOperationsControlSchema = z.object({
   action: z.enum(["start", "stop", "pause_after_current", "resume", "run_one_cycle", "configure"]),
   concurrency: z.coerce.number().int().min(1).max(16).optional(),
   pollIntervalMs: z.coerce.number().int().min(250).max(60000).optional(),
-  actor: actorSchema
+  actor: actorSchema.optional()
 }).superRefine((value, ctx) => {
   if (value.action === "configure" && (!value.concurrency || !value.pollIntervalMs)) {
     ctx.addIssue({ code: "custom", message: "Configure requires concurrency and pollIntervalMs." });
@@ -995,17 +995,17 @@ export const factoryOperationsMutationSchema = z.object({
   action: z.enum(["remove", "reprioritize", "retry", "cancel", "pause", "resume", "replay"]),
   priority: z.coerce.number().int().min(0).max(1000).optional(),
   replayStage: z.enum(["queued", "research", "extraction", "publication_candidate", "founder_review", "governance", "library_admission", "published", "completed"]).optional(),
-  actor: actorSchema
+  actor: actorSchema.optional()
 });
 
 export const founderInboxActionSchema = z.object({
   notificationId: uuidParamSchema,
   topicId: uuidParamSchema,
   action: z.enum(["approve", "return_for_revision", "reject", "retry", "dismiss"]),
-  actor: actorSchema
+  actor: actorSchema.optional()
 });
 
 export const founderVisitorApprovalSchema = z.object({
   requestId: z.coerce.number().int().positive(),
-  actor: actorSchema
+  actor: actorSchema.optional()
 });
