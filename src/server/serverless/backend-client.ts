@@ -15,12 +15,25 @@ function baseUrl() {
 async function request<T>(path: string, init?: RequestInit, allowNotFound = false): Promise<T | null> {
   const base = baseUrl();
   if (!base) return null;
-  const response = await fetch(`${base}${path}`, {
-    ...init,
-    headers: { accept: "application/json", ...(init?.headers || {}) },
-    signal: AbortSignal.timeout(10_000),
-    cache: "no-store"
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${base}${path}`, {
+      ...init,
+      headers: { accept: "application/json", ...(init?.headers || {}) },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store"
+    });
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      component: "serverless-backend-client",
+      event: "serverless_backend_transport_unavailable",
+      method: init?.method || "GET",
+      path: path.split("?")[0] || "/",
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    }));
+    throw new ApiError(503, "SERVERLESS_BACKEND_UNAVAILABLE", "Serverless backend is unavailable.");
+  }
   let payload: BackendEnvelope<T>;
   try {
     const decoded: unknown = await response.json();

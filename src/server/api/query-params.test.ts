@@ -92,6 +92,42 @@ test("malformed serverless responses surface a typed backend failure", async () 
   }
 });
 
+test("serverless transport failures fail closed for public intake and Factory operations without logging query data", async () => {
+  const previousBaseUrl = process.env.SERVERLESS_API_BASE_URL;
+  const previousSharedSecret = process.env.BACKEND_SHARED_SECRET;
+  const originalFetch = globalThis.fetch;
+  const originalConsoleError = console.error;
+  const diagnostics: string[] = [];
+  process.env.SERVERLESS_API_BASE_URL = "https://serverless.invalid";
+  process.env.BACKEND_SHARED_SECRET = "a".repeat(32);
+  globalThis.fetch = async () => { throw new TypeError("network connection refused"); };
+  console.error = (message?: unknown) => { diagnostics.push(String(message)); };
+  try {
+    await assert.rejects(factoryV2AdminService.listDeferredTopics(), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
+    await assert.rejects(requestService.createTimelineRequest({ query: "A bounded public request", language: "en", ip: "203.0.113.10" }), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
+    await assert.rejects(serverlessBackendClient.search("sensitive reader query", 1, 0), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
+    assert.equal(diagnostics.length, 3);
+    for (const diagnostic of diagnostics) {
+      const parsed = JSON.parse(diagnostic) as { level?: string; component?: string; event?: string; method?: string; path?: string; errorName?: string };
+      assert.equal(parsed.level, "error");
+      assert.equal(parsed.component, "serverless-backend-client");
+      assert.equal(parsed.event, "serverless_backend_transport_unavailable");
+      assert.equal(parsed.errorName, "TypeError");
+      assert.ok(typeof parsed.method === "string");
+      assert.ok(typeof parsed.path === "string");
+      assert.doesNotMatch(diagnostic, /network connection refused/);
+      assert.doesNotMatch(diagnostic, /sensitive reader query/);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    console.error = originalConsoleError;
+    if (previousBaseUrl === undefined) delete process.env.SERVERLESS_API_BASE_URL;
+    else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
+    if (previousSharedSecret === undefined) delete process.env.BACKEND_SHARED_SECRET;
+    else process.env.BACKEND_SHARED_SECRET = previousSharedSecret;
+  }
+});
+
 test("unavailable public topic intake surfaces a typed availability error", async () => {
   const previousBaseUrl = process.env.SERVERLESS_API_BASE_URL;
   const previousVercelEnvironment = process.env.VERCEL_ENV;
