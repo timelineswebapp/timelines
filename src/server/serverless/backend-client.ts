@@ -114,7 +114,7 @@ export const serverlessBackendClient = {
     return internalRequest<T[]>(`/internal/factory-v2/generation-retries?${query({ limit })}`).then(requireInternalReadResult);
   },
   getGenerationRetryQueueHealth<T>() {
-    return internalRequest<T>("/internal/factory-v2/generation-retry-health");
+    return internalRequest<T>("/internal/factory-v2/generation-retry-health").then(requireInternalReadResult);
   },
   listGenerationEnqueueFailures<T>(limit = 25) {
     return internalRequest<T[]>(`/internal/factory-v2/generation-enqueue-failures?${query({ limit })}`).then(requireInternalReadResult);
