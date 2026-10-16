@@ -101,6 +101,9 @@ export const serverlessBackendClient = {
   createDeferredFactoryV2Reentry<T>(body: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) {
     return internalRequest<T>("/internal/factory-v2/deferred-reentry", { method: "POST", body });
   },
+  createFactoryV2SourceSubmission<T>(body: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string }) {
+    return internalRequest<T>("/internal/factory-v2/source-submissions", { method: "POST", body });
+  },
   submitTopic<T>(body: unknown, clientIp: string) {
     const secret = requireSharedSecret();
     const timestamp = String(Date.now());
