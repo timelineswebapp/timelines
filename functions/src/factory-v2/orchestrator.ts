@@ -389,8 +389,8 @@ function provisionalSourceClass(publisher: PublisherAuthorityVersion | undefined
   return "OTHER";
 }
 
-function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "DEFERRED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL"; terminalFailureRecordId?: string | null; autonomousOutcome?: AutonomousTerminalOutcome | null }) {
-  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: V2_PIPELINE_VERSION, executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, terminalFailureRecordId: input.terminalFailureRecordId ?? null, autonomousOutcome: input.autonomousOutcome ?? null, updatedAt: new Date().toISOString() });
+function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "DEFERRED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL"; terminalFailureRecordId?: string | null; topicAuthoritySetId?: string | null; autonomousOutcome?: AutonomousTerminalOutcome | null }) {
+  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: V2_PIPELINE_VERSION, executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, terminalFailureRecordId: input.terminalFailureRecordId ?? null, topicAuthoritySetId: input.topicAuthoritySetId ?? null, autonomousOutcome: input.autonomousOutcome ?? null, updatedAt: new Date().toISOString() });
 }
 
 export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, config: FactoryV2Config, dependencies: OrchestratorDependencies = {}): Promise<V2AShadowResult> {
@@ -557,7 +557,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   progress.perspectiveAuditId = perspectiveAudit.perspectiveAuditId;
 
   currentStage = "A2_SCOPE_ACQUISITION";
-  await bounded("firestore:set-operation:A2", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING" })));
+  await bounded("firestore:set-operation:A2", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: "RUNNING", stage: currentStage, startedAt, blockingReason: null, counts: {}, finalVerdict: "PENDING", topicAuthoritySetId: topicAuthoritySet.topicAuthoritySetId })));
   assertDeadline();
   const bindingById = new Map(topicAuthoritySet.bindings.map((binding) => [binding.bindingId, binding]));
   const groundingAttributionByUrl = new Map<string, { publisherDomain: string; title: string; discoveryText: string }>();
@@ -1390,7 +1390,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
   };
   currentStage = metrics.finalV2AVerdict === "PASS" ? "COMPLETE" : "A5_RESOLUTION_REUSE";
   const terminalOutcome = metrics.finalV2AVerdict === "PASS" ? validCompletedKnowledgeSetOutcome() : classifyAutonomousFailure({ failureClass: "FAILED_UNCLASSIFIED", protectedRepresentationUnavailable: false });
-  await bounded("firestore:set-operation:terminal", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: metrics.finalV2AVerdict === "PASS" ? "COMPLETED" : "FAILED", stage: currentStage, startedAt, blockingReason: blockingReasons.join(", ") || null, counts: { sources: metrics.sourceDocumentsSnapshotted, claims: metrics.claimsExtracted, supportedClaims: metrics.claimsSupported, conflicts: metrics.conflictsDetected, entities: metrics.entityCandidates, events: metrics.eventCandidates }, finalVerdict: metrics.finalV2AVerdict, autonomousOutcome: terminalOutcome })));
+  await bounded("firestore:set-operation:terminal", 30_000, () => repository.setOperation(context.runId, operationProjection({ context, state: metrics.finalV2AVerdict === "PASS" ? "COMPLETED" : "FAILED", stage: currentStage, startedAt, blockingReason: blockingReasons.join(", ") || null, counts: { sources: metrics.sourceDocumentsSnapshotted, claims: metrics.claimsExtracted, supportedClaims: metrics.claimsSupported, conflicts: metrics.conflictsDetected, entities: metrics.entityCandidates, events: metrics.eventCandidates }, finalVerdict: metrics.finalV2AVerdict, topicAuthoritySetId: topicAuthoritySet.topicAuthoritySetId, autonomousOutcome: terminalOutcome })));
   supervisor.close();
   return {
     context,
@@ -1492,7 +1492,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       try { await persist("v2FailureRecords", failure); } catch { /* Preserve the originating failure. */ }
     }
     try {
-      const write = () => repository.setOperation(context.runId, operationProjection({ context, state: autonomousOutcome.disposition === "DEFERRED" ? "DEFERRED" : "FAILED", stage: currentStage, startedAt, blockingReason: deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED" : message.slice(0, 1000), counts: {}, finalVerdict: "FAIL", terminalFailureRecordId: failureRecordId, autonomousOutcome }));
+      const write = () => repository.setOperation(context.runId, operationProjection({ context, state: autonomousOutcome.disposition === "DEFERRED" ? "DEFERRED" : "FAILED", stage: currentStage, startedAt, blockingReason: deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED" : message.slice(0, 1000), counts: {}, finalVerdict: "FAIL", terminalFailureRecordId: failureRecordId, topicAuthoritySetId: progress.topicAuthoritySetId, autonomousOutcome }));
       if (deadlineExceeded) await terminalWrite(write);
       else await bounded("firestore:set-operation:failed", 30_000, write);
     } catch { /* Preserve the originating failure. */ }
