@@ -73,6 +73,7 @@ export const V2_CORPUS_COLLECTIONS = [
   "v2EventRelations",
   "v2ModelExecutions",
   "v2FailureRecords",
+  "v2SourceSubmissionCandidates",
   "v2DeferredReentryRequests",
   "v2DeferredReentryDispatchReceipts",
   "v2DeadlineTerminalRecords",

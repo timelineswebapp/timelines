@@ -5,8 +5,10 @@ import { V2_CORPUS_COLLECTIONS, v2CorpusCollection, type V2CorpusCollectionName 
 import { contentAddressedId, payloadHash, verifyPayloadHash } from "../hashing";
 import { parseSealedArtifact } from "../contracts/builders";
 import { deferredReentryDispatchReceiptSchema, deferredReentryRequestSchema } from "../contracts/reentry";
+import { sourceSubmissionCandidateSchema } from "../contracts/source-submission";
 import { planDeferredReentryDispatch } from "../reentry-dispatch";
 import { deriveDeferredReentryRequest } from "../reentry-request";
+import { deriveSourceSubmissionCandidate } from "../source-submission";
 
 export type V2RepositoryDependencies = {
   firestore?: Firestore;
@@ -190,6 +192,28 @@ export class V2FirestoreRepository {
       }
       transaction.create(requestRef, request);
       return { state: "CREATED" as const, requestId: request.deferredReentryRequestId };
+    });
+  }
+
+  async createSourceSubmissionCandidate(input: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string; now?: string }): Promise<{ state: "CREATED" | "IDEMPOTENT"; candidateId: string }> {
+    if (!input.operationId || input.operationId.length > 160) throw new Error("Source-submission operation ID must be explicitly bounded.");
+    return this.firestore.runTransaction(async (transaction) => {
+      const operationSnapshot = await transaction.get(this.collection("v2TopicOperations").doc(input.operationId));
+      if (!operationSnapshot.exists || operationSnapshot.data()?.operationId !== input.operationId) throw new Error("Source-submission operation does not exist or has invalid identity.");
+      const failureRecordId = operationSnapshot.data()?.terminalFailureRecordId;
+      if (typeof failureRecordId !== "string") throw new Error("Source-submission operation has no terminal failure lineage.");
+      const failureSnapshot = await transaction.get(this.collection("v2FailureRecords").doc(failureRecordId));
+      if (!failureSnapshot.exists) throw new Error("Source-submission failure lineage does not exist.");
+      const candidate = deriveSourceSubmissionCandidate({ operation: operationSnapshot.data(), failure: failureSnapshot.data(), submittedUrl: input.submittedUrl, rationale: input.rationale, submittedBy: input.submittedBy, now: input.now || new Date().toISOString() });
+      const ref = this.collection("v2SourceSubmissionCandidates").doc(candidate.sourceSubmissionCandidateId);
+      const existing = await transaction.get(ref);
+      if (existing.exists) {
+        const current = sourceSubmissionCandidateSchema.parse(existing.data());
+        if (current.payloadHash !== candidate.payloadHash) throw new Error("Source-submission candidate identity collision.");
+        return { state: "IDEMPOTENT" as const, candidateId: candidate.sourceSubmissionCandidateId };
+      }
+      transaction.create(ref, candidate);
+      return { state: "CREATED" as const, candidateId: candidate.sourceSubmissionCandidateId };
     });
   }
 
