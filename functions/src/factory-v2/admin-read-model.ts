@@ -1,4 +1,5 @@
-import { topicOperationSchema } from "./contracts";
+import { topicOperationSchema, v2FailureRecordSchema } from "./contracts";
+import { verifyPayloadHash } from "./hashing";
 import { V2FirestoreRepository } from "./repositories/firestore";
 import { deriveDeferredOperationalFeasibility, type DeferredOperationalFeasibility } from "./operational-feasibility";
 
@@ -21,34 +22,32 @@ export async function listDeferredTopicAdminSummaries(repository: V2FirestoreRep
     boundedLimit,
     { field: "updatedAt", direction: "desc" }
   );
-  const operations = records
-    // Firestore repository reads include the document id as transport metadata;
-    // operationSchema is intentionally strict and validates persisted fields only.
-    .flatMap(({ id: _documentId, ...record }) => {
-      const parsed = topicOperationSchema.safeParse(record);
-      return parsed.success && parsed.data.autonomousOutcome !== null ? [{
-        operation: record,
+  const operations = records.map(({ id: documentId, ...record }) => {
+      const operation = topicOperationSchema.parse(record);
+      if (documentId !== operation.operationId) throw new Error("Deferred operation document identity does not match its payload.");
+      if (operation.autonomousOutcome === null) throw new Error("Deferred operation has no autonomous outcome.");
+      return {
+        operation,
         summary: {
-          topicId: parsed.data.topicId,
-          runId: parsed.data.runId,
-          generation: parsed.data.generation,
-          stage: parsed.data.stage,
-          updatedAt: parsed.data.updatedAt,
-          terminalFailureRecordId: parsed.data.terminalFailureRecordId,
-          outcome: parsed.data.autonomousOutcome
+          topicId: operation.topicId,
+          runId: operation.runId,
+          generation: operation.generation,
+          stage: operation.stage,
+          updatedAt: operation.updatedAt,
+          terminalFailureRecordId: operation.terminalFailureRecordId,
+          outcome: operation.autonomousOutcome
         }
-      }] : [];
+      };
     });
   const summaries = await Promise.all(operations.map(async ({ operation, summary }) => {
-    if (summary.terminalFailureRecordId === null) return null;
+    if (summary.terminalFailureRecordId === null) throw new Error("Deferred operation has no terminal failure lineage.");
     const failure = await repository.getById("v2FailureRecords", summary.terminalFailureRecordId);
-    if (failure === null) return null;
-    try {
-      return { ...summary, operationalFeasibility: deriveDeferredOperationalFeasibility({ operation, failure: (() => { const { id: _failureDocumentId, ...failureRecord } = failure; return failureRecord; })() }) };
-    } catch {
-      return null;
-    }
+    if (failure === null) throw new Error("Deferred operation terminal failure is unavailable.");
+    const { id: failureDocumentId, ...failureRecord } = failure;
+    const parsedFailure = v2FailureRecordSchema.parse(failureRecord);
+    if (failureDocumentId !== parsedFailure.failureRecordId || !verifyPayloadHash(parsedFailure)) throw new Error("Deferred operation terminal failure integrity is invalid.");
+    return { ...summary, operationalFeasibility: deriveDeferredOperationalFeasibility({ operation, failure: parsedFailure }) };
   }));
-  return summaries.flatMap((summary) => summary === null ? [] : [summary])
+  return summaries
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }

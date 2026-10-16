@@ -40,8 +40,7 @@ test("deferred-topic read model exposes only valid deferred lineage", async () =
     boundedQuery: async (...args: unknown[]) => {
       queryCalls.push(args);
       return [
-      { id: "topic-operation-deferred-001", ...deferredOperation },
-      { id: "topic-operation-invalid-001", ...deferredOperation, operationId: "run-invalid-001", autonomousOutcome: null }
+      { id: deferredOperation.operationId, ...deferredOperation }
       ];
     },
     getById: async () => ({ id: failure.failureRecordId, ...failure })
@@ -58,4 +57,18 @@ test("deferred-topic read model exposes only valid deferred lineage", async () =
     outcome: deferredOperation.autonomousOutcome,
     operationalFeasibility: { state: "REENTRY_CONDITION_REQUIRED", requiredCondition: "RELEVANT_EVIDENCE_CHANGE", terminalAt: deferredOperation.updatedAt, attemptsConsumed: 2, budgetConsumed: { providerQueries: 10 }, failureClass: "FAILED_UNCLASSIFIED" }
   }]);
+});
+
+test("deferred-topic read model fails closed on corrupt persisted operation or terminal failure", async () => {
+  const malformedOperationRepository = {
+    boundedQuery: async () => [{ id: "operation-document-mismatch", ...deferredOperation }],
+    getById: async () => null
+  };
+  await assert.rejects(listDeferredTopicAdminSummaries(malformedOperationRepository as never, 25), /operation document identity/);
+
+  const invalidFailureRepository = {
+    boundedQuery: async () => [{ id: deferredOperation.operationId, ...deferredOperation }],
+    getById: async () => ({ id: deferredOperation.terminalFailureRecordId, payloadHash: "0".repeat(64) })
+  };
+  await assert.rejects(listDeferredTopicAdminSummaries(invalidFailureRepository as never, 25));
 });
