@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdSlot } from "@/components/timeline/AdSlot";
 import { TimelineSummaryCard } from "@/components/timeline/TimelineSummaryCard";
 import { ArrowLeftIcon } from "@/components/ui/Icons";
@@ -48,11 +48,58 @@ export function HomeTimelineFeed({
   const [sentinelNode, setSentinelNode] = useState<Element | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [continuationError, setContinuationError] = useState(false);
+  const [isLoadingContinuation, setIsLoadingContinuation] = useState(false);
   const fetchInFlightRef = useRef(false);
 
   const visibleItems = useMemo(() => items, [items]);
   const sentinelIndex = visibleItems.length >= 3 ? visibleItems.length - 3 : visibleItems.length - 1;
   const appendedStartIndex = visibleItems.length > initialItems.length ? initialItems.length : null;
+
+  const loadContinuation = useCallback(() => {
+    if (!hasMore || nextOffset === null || fetchInFlightRef.current) {
+      return;
+    }
+
+    fetchInFlightRef.current = true;
+    setIsLoadingContinuation(true);
+    setContinuationError(false);
+
+    void fetch(
+      `/api/homepage/timelines?offset=${nextOffset}&limit=12&snapshotDate=${encodeURIComponent(snapshotDate)}`,
+      {
+        method: "GET",
+        cache: "no-store"
+      }
+    )
+      .then(async (response) => {
+        const payload = (await response.json()) as ApiSuccess<HomepageSnapshotResponse> | ApiFailure;
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.ok ? "Failed to load timelines." : payload.error?.message || "Failed to load timelines.");
+        }
+
+        setItems((current) => {
+          const seen = new Set(current.map((timeline) => timeline.slug));
+          const appended = payload.data.items.filter((timeline) => !seen.has(timeline.slug));
+          return appended.length > 0 ? [...current, ...appended] : current;
+        });
+        setNextOffset(payload.data.nextOffset);
+        setHasMore(payload.data.hasMore);
+      })
+      .catch((error) => {
+        setContinuationError(true);
+        console.error(
+          JSON.stringify({
+            level: "error",
+            component: "home_timeline_feed",
+            message: error instanceof Error ? error.message : "Failed to load homepage continuation"
+          })
+        );
+      })
+      .finally(() => {
+        fetchInFlightRef.current = false;
+        setIsLoadingContinuation(false);
+      });
+  }, [hasMore, nextOffset, snapshotDate]);
 
   useEffect(() => {
     if (!hasMore || nextOffset === null || !sentinelNode) {
@@ -62,47 +109,11 @@ export function HomeTimelineFeed({
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0];
-        if (!entry?.isIntersecting || fetchInFlightRef.current) {
+        if (!entry?.isIntersecting) {
           return;
         }
 
-        fetchInFlightRef.current = true;
-
-        void fetch(
-          `/api/homepage/timelines?offset=${nextOffset}&limit=12&snapshotDate=${encodeURIComponent(snapshotDate)}`,
-          {
-            method: "GET",
-            cache: "no-store"
-          }
-        )
-          .then(async (response) => {
-            const payload = (await response.json()) as ApiSuccess<HomepageSnapshotResponse> | ApiFailure;
-            if (!response.ok || !payload.ok) {
-              throw new Error(payload.ok ? "Failed to load timelines." : payload.error?.message || "Failed to load timelines.");
-            }
-
-            setItems((current) => {
-              const seen = new Set(current.map((timeline) => timeline.slug));
-              const appended = payload.data.items.filter((timeline) => !seen.has(timeline.slug));
-              return appended.length > 0 ? [...current, ...appended] : current;
-            });
-            setNextOffset(payload.data.nextOffset);
-            setHasMore(payload.data.hasMore);
-            setContinuationError(false);
-          })
-          .catch((error) => {
-            setContinuationError(true);
-            console.error(
-              JSON.stringify({
-                level: "error",
-                component: "home_timeline_feed",
-                message: error instanceof Error ? error.message : "Failed to load homepage continuation"
-              })
-            );
-          })
-          .finally(() => {
-            fetchInFlightRef.current = false;
-          });
+        loadContinuation();
       },
       {
         rootMargin: "0px 0px 240px 0px",
@@ -115,7 +126,7 @@ export function HomeTimelineFeed({
     return () => {
       observer.disconnect();
     };
-  }, [hasMore, nextOffset, sentinelNode, snapshotDate]);
+  }, [hasMore, loadContinuation, nextOffset, sentinelNode]);
 
   useEffect(() => {
     let frame = 0;
@@ -173,7 +184,7 @@ export function HomeTimelineFeed({
           </Fragment>
         ))}
       </section>
-      {continuationError ? <div className="admin-action-row"><p className="muted small" role="status" aria-live="polite">More timelines could not be loaded right now. Please try again shortly.</p><button type="button" className="button secondary" onClick={() => window.location.reload()}>Try again</button></div> : null}
+      {continuationError ? <div className="admin-action-row"><p className="muted small" role="status" aria-live="polite">More timelines could not be loaded right now. Please try again shortly.</p><button type="button" className="button secondary" onClick={loadContinuation} disabled={isLoadingContinuation}>{isLoadingContinuation ? "Retrying…" : "Try again"}</button></div> : null}
       <button
         type="button"
         aria-label="Back to top"
