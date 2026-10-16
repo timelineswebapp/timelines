@@ -75,6 +75,18 @@ export function parseOptionalSingleQueryParameter(searchParams: URLSearchParams,
   return matches[0];
 }
 
+/** Validates a canonical positive integer path segment before service access. */
+export function parseCanonicalPositiveIntegerPathParameter(value: string, name: string): number {
+  if (!/^[1-9]\d*$/u.test(value)) {
+    throw new ApiError(400, "VALIDATION_FAILED", `Invalid ${name}.`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new ApiError(400, "VALIDATION_FAILED", `Invalid ${name}.`);
+  }
+  return parsed;
+}
+
 /** Parses an optional canonical ISO calendar date without accepting reflected arbitrary text. */
 export function parseOptionalIsoDateQueryParameter(value: string | null) {
   if (!value) return undefined;

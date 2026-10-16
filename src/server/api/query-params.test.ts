@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ApiError } from "@/src/server/api/responses";
-import { parseOptionalEnumQueryParameter, parseOptionalSingleQueryParameter } from "@/src/server/api/query-params";
+import { parseCanonicalPositiveIntegerPathParameter, parseOptionalEnumQueryParameter, parseOptionalSingleQueryParameter } from "@/src/server/api/query-params";
 
 test("operational enum filters accept only one declared value", () => {
   const options = ["queued", "running", "completed"] as const;
@@ -16,4 +16,11 @@ test("single operational controls reject parameter pollution without coercion", 
   assert.equal(parseOptionalSingleQueryParameter(new URLSearchParams("jobId=abc"), "jobId"), "abc");
   assert.equal(parseOptionalSingleQueryParameter(new URLSearchParams(), "jobId"), undefined);
   assert.throws(() => parseOptionalSingleQueryParameter(new URLSearchParams("jobId=a&jobId=b"), "jobId"), ApiError);
+});
+
+test("numeric operational path identifiers remain canonical and bounded", () => {
+  assert.equal(parseCanonicalPositiveIntegerPathParameter("42", "report id"), 42);
+  for (const value of ["", "0", "01", "1.0", "1e2", "-1", "9007199254740992"]) {
+    assert.throws(() => parseCanonicalPositiveIntegerPathParameter(value, "report id"), ApiError);
+  }
 });
