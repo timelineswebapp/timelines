@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Current local engineering checkpoint | `f4ed099` — fail-closed Admin CSRF duplicate/malformed-cookie handling; full root suite 276/276, Functions suite 367/367 (2 intentional emulator-only skips), root and Functions strict typechecks, optimized Next build, lint, and Tier-1 security gate verified across the current successor chain. |
+| Current local engineering checkpoint | `00b6d4c` — malformed external URI normalization resilience; full root suite 277/277, Functions suite 367/367 (2 intentional emulator-only skips), root and Functions strict typechecks, optimized Next build, lint, and Tier-1 security gate verified across the current successor chain. |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | `.70` release `dd9737a1742a68c726aa3d41fd4549430c6d68098cf48fb13c6fd38ee6f7ed16`; its fresh non-combined run produced one valid San Francisco CKS before Berlin failed closed on the protected affected-community identity boundary. |
 | Phase 2 | **BLOCKED — FOUNDER-GOVERNED HISTORICAL IDENTITY/CAPACITY; UNCERTIFIED.** The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
