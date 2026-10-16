@@ -11,6 +11,7 @@ import { ApiError } from "@/src/server/api/responses";
 import { parseCanonicalPositiveIntegerPathParameter, parseOptionalEnumQueryParameter, parseOptionalSingleQueryParameter } from "@/src/server/api/query-params";
 import { adminService } from "@/src/server/services/admin-service";
 import { factoryV2AdminService } from "@/src/server/services/factory-v2-admin-service";
+import { serverlessBackendClient } from "@/src/server/serverless/backend-client";
 import { setAdminSecurityAuditStoreForTests } from "@/src/server/security/admin-identity";
 
 test("operational enum filters accept only one declared value", () => {
@@ -61,6 +62,20 @@ test("unavailable serverless Factory reads do not masquerade as empty operationa
     else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
     if (previousVercelEnvironment === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = previousVercelEnvironment;
+  }
+});
+
+test("malformed serverless responses surface a typed backend failure", async () => {
+  const previousBaseUrl = process.env.SERVERLESS_API_BASE_URL;
+  const originalFetch = globalThis.fetch;
+  process.env.SERVERLESS_API_BASE_URL = "https://serverless.invalid";
+  globalThis.fetch = async () => new Response("not-json", { status: 502, headers: { "content-type": "text/plain" } });
+  try {
+    await assert.rejects(serverlessBackendClient.listReadModels("timeline", 1), (error: unknown) => error instanceof ApiError && error.status === 502 && error.code === "SERVERLESS_BACKEND_INVALID_RESPONSE");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousBaseUrl === undefined) delete process.env.SERVERLESS_API_BASE_URL;
+    else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
   }
 });
 

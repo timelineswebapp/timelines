@@ -21,7 +21,12 @@ async function request<T>(path: string, init?: RequestInit, allowNotFound = fals
     signal: AbortSignal.timeout(10_000),
     cache: "no-store"
   });
-  const payload = (await response.json()) as BackendEnvelope<T>;
+  let payload: BackendEnvelope<T>;
+  try {
+    payload = (await response.json()) as BackendEnvelope<T>;
+  } catch {
+    throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Serverless backend returned an invalid response.");
+  }
   if (allowNotFound && response.status === 404) return null;
   if (!response.ok || !payload.ok) {
     const error = payload.ok ? null : payload.error;
