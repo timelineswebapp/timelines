@@ -15,7 +15,12 @@ export type DeferredTopicAdminSummary = {
 
 export async function listDeferredTopicAdminSummaries(repository: V2FirestoreRepository, limit: number): Promise<DeferredTopicAdminSummary[]> {
   const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
-  const records = await repository.boundedQuery("v2TopicOperations", [{ field: "state", op: "==", value: "DEFERRED" }], boundedLimit);
+  const records = await repository.boundedQuery(
+    "v2TopicOperations",
+    [{ field: "state", op: "==", value: "DEFERRED" }],
+    boundedLimit,
+    { field: "updatedAt", direction: "desc" }
+  );
   const operations = records
     // Firestore repository reads include the document id as transport metadata;
     // operationSchema is intentionally strict and validates persisted fields only.

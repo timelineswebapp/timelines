@@ -35,14 +35,19 @@ const deferredOperation = {
 
 test("deferred-topic read model exposes only valid deferred lineage", async () => {
   const failure = parseSealedArtifact(v2FailureRecordSchema, { ...immutableEnvelope({ corpusId: deferredOperation.corpusId, topicId: deferredOperation.topicId, runId: deferredOperation.runId, generation: deferredOperation.generation, createdAt: deferredOperation.updatedAt }, deferredOperation.terminalFailureRecordId!), failureRecordId: deferredOperation.terminalFailureRecordId, stage: deferredOperation.stage, failureClass: "FAILED_UNCLASSIFIED", severity: "HIGH", retryable: false, message: "Governed public evidence capacity is exhausted.", protectedRepresentationDiagnostics: null, blockingArtifactIds: [], attemptsConsumed: 2, budgetConsumed: { providerQueries: 10 }, autonomousOutcome: deferredOperation.autonomousOutcome });
+  const queryCalls: unknown[][] = [];
   const repository = {
-    boundedQuery: async () => [
+    boundedQuery: async (...args: unknown[]) => {
+      queryCalls.push(args);
+      return [
       { id: "topic-operation-deferred-001", ...deferredOperation },
       { id: "topic-operation-invalid-001", ...deferredOperation, operationId: "run-invalid-001", autonomousOutcome: null }
-    ],
+      ];
+    },
     getById: async () => ({ id: failure.failureRecordId, ...failure })
   };
   const results = await listDeferredTopicAdminSummaries(repository as never, 25);
+  assert.deepEqual(queryCalls, [["v2TopicOperations", [{ field: "state", op: "==", value: "DEFERRED" }], 25, { field: "updatedAt", direction: "desc" }]]);
   assert.deepEqual(results, [{
     topicId: "topic-deferred-001",
     runId: "run-deferred-001",
