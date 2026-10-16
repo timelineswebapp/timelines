@@ -177,6 +177,7 @@ Completed for this increment:
 - Full root suite: 257 passed, 0 failed after the retry-backlog health surface. Expected local fixture diagnostics remained non-failing; no production, publication, discovery, or institutional mutation occurred.
 - Public-reader query integrity: repeated timeline `event` selectors now fail closed instead of treating an array-valued query parameter as a string. Timeline-event and milestone identifiers accept only a single positive safe integer; the route types match the App Router query shape.
 - Root strict typecheck and full root suite passed after the reader-route hardening: 258 passed, 0 failed.
+- Public search query integrity: repeated `q` or `page` selectors now fail closed before normalization, preserving deterministic search rendering and canonical metadata. Root strict typecheck and full root suite passed: 258 passed, 0 failed.
 - Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.

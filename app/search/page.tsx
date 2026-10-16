@@ -17,11 +17,15 @@ const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120;
 const SEARCH_PAGE_SIZE = 20;
 const MAX_SEARCH_PAGE = 500;
 
-function normalizePublicSearchQuery(value: string) {
+type SearchPageParams = { q?: string | string[]; page?: string | string[] };
+
+function normalizePublicSearchQuery(value: string | readonly string[] | undefined) {
+  if (typeof value !== "string") return "";
   return value.trim().slice(0, MAX_PUBLIC_SEARCH_QUERY_LENGTH);
 }
 
-function normalizeSearchPage(value: string | undefined) {
+function normalizeSearchPage(value: string | readonly string[] | undefined) {
+  if (typeof value !== "string") return 1;
   if (!value || !/^[1-9]\d*$/u.test(value)) return 1;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? Math.min(MAX_SEARCH_PAGE, parsed) : 1;
@@ -73,7 +77,7 @@ function SearchResultCard({ item }: { item: SearchResultItem }) {
 export async function generateMetadata({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<SearchPageParams>;
 }): Promise<Metadata> {
   const { q = "", page } = await searchParams;
   const query = normalizePublicSearchQuery(q);
@@ -109,7 +113,7 @@ export async function generateMetadata({
 export default async function SearchPage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<SearchPageParams>;
 }) {
   const { q = "", page } = await searchParams;
   const query = normalizePublicSearchQuery(q);
