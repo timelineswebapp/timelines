@@ -38,8 +38,16 @@ function cleanText(value: unknown): string | null {
   return cleaned || null;
 }
 
+export function decodeUriComponentSafely(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function propertyName(uri: string): string {
-  const value = decodeURIComponent(uri.split(/[\/#]/).pop() || uri);
+  const value = decodeUriComponentSafely(uri.split(/[\/#]/).pop() || uri);
   return value.replace(/[_-]+/g, " ").trim();
 }
 

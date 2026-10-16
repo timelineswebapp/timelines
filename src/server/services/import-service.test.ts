@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { normalizeImportTags } from "@/src/server/services/import-service";
+import { decodeUriComponentSafely } from "@/src/server/services/corpus-generation-service";
 
 describe("normalizeImportTags", () => {
   it("splits semicolon-delimited tags", () => {
@@ -25,5 +26,12 @@ describe("normalizeImportTags", () => {
 
   it("ignores empty values", () => {
     assert.deepEqual(normalizeImportTags("Rome;; Politics, |Military|"), ["Rome", "Politics", "Military"]);
+  });
+});
+
+describe("decodeUriComponentSafely", () => {
+  it("preserves malformed provider URI fragments without throwing", () => {
+    assert.equal(decodeUriComponentSafely("Printing%20Press"), "Printing Press");
+    assert.equal(decodeUriComponentSafely("malformed%ZZidentifier"), "malformed%ZZidentifier");
   });
 });
