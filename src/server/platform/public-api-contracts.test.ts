@@ -92,6 +92,13 @@ test("serverless public search rejects oversized direct requests before tokeniza
   assert.ok(source.indexOf("rawQuery.length > MAX_PUBLIC_SEARCH_QUERY_LENGTH") < source.indexOf("const tokens = searchTokens(rawQuery)"));
 });
 
+test("serverless topic-status bounds direct input before topic normalization", () => {
+  const source = readFileSync("functions/src/public-api.ts", "utf8");
+  assert.match(source, /const MAX_PUBLIC_TOPIC_QUERY_LENGTH = 120/u);
+  assert.match(source, /!query \|\| query\.length > MAX_PUBLIC_TOPIC_QUERY_LENGTH/u);
+  assert.ok(source.indexOf("query.length > MAX_PUBLIC_TOPIC_QUERY_LENGTH") < source.indexOf("normalizeTopic(query, \"en\", ACTIVE_CORPUS_ID)"));
+});
+
 test("homepage pagination contract remains bounded and continuation-based", () => {
   const limit = 24;
   const offset = 48;

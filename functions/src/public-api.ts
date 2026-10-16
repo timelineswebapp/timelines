@@ -34,6 +34,7 @@ const sourceSubmissionCommandSchema = z.object({
 
 const readModelTypes = new Set(["timeline", "milestone", "historical_object", "relationship", "search", "sitemap"]);
 const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120;
+const MAX_PUBLIC_TOPIC_QUERY_LENGTH = 120;
 
 function boundedInteger(value: unknown, fallback: number, max: number) {
   const parsed = typeof value === "string" ? Number.parseInt(value, 10) : Number(value);
@@ -295,7 +296,10 @@ export async function handlePublicApi(request: Request, response: Response) {
     if (request.method === "GET" && request.path === "/internal/factory-v2/source-submissions") return await internalFactoryV2SourceSubmissions(request, response);
     if (request.method === "GET" && request.path === "/continuity") return await continuity(request, response);
     if (request.method === "GET" && request.path === "/topic-status") {
-      const query = String(request.query.q || "");
+      const query = String(request.query.q || "").trim();
+      if (!query || query.length > MAX_PUBLIC_TOPIC_QUERY_LENGTH) {
+        return failure(response, 400, "VALIDATION_FAILED", `Topic status queries must contain 1 to ${MAX_PUBLIC_TOPIC_QUERY_LENGTH} characters.`);
+      }
       const topic = normalizeTopic(query, "en", ACTIVE_CORPUS_ID);
       const ledger = await corpusCollection("topicLedgers").doc(topic.topicId).get();
       if (!ledger.exists) return failure(response, 404, "NOT_FOUND", "Topic not found.");

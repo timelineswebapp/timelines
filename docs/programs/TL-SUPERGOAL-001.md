@@ -110,6 +110,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Public-search direct-request bound increment:** Completed locally on `2026-10-16`. The serverless public search API now rejects a trimmed query longer than 120 characters before Unicode normalization or tokenization. This aligns direct API traffic with the existing browser and reader-route cap, preserving bounded CPU work and stable result contracts without changing ranking, projections, or public-content access.
 
+**Public-topic-status direct-request bound increment:** Completed locally on `2026-10-16`. The serverless public topic-status API now trims and requires a nonempty query of at most 120 characters before topic normalization and ledger lookup. This aligns status lookups with timeline-request identity bounds and prevents unbounded direct input from reaching the hashing or database path; it does not alter state visibility or generation behavior.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -140,6 +142,7 @@ Completed for this increment:
 - Public-search deep-page regression and root strict typecheck: passed after total-preservation and final-page redirect correction.
 - Full root suite: 251 passed, 0 failed after the public-search deep-page correction; expected fixture warnings remained non-failing and no production mutation occurred.
 - Functions and root strict typechecks plus public API contract regression: passed after the direct-request query bound.
+- Functions strict typecheck and public API contract regression: passed after the direct topic-status bound.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
