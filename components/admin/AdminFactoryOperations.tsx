@@ -29,6 +29,12 @@ function operationsLoadErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Operations load failed.";
 }
 
+function deferredReentryErrorMessage(error: unknown) {
+  const availabilityMessage = factoryOperationalAvailabilityMessage(error);
+  if (availabilityMessage) return availabilityMessage;
+  return "The bounded retry request could not be recorded. Existing deferred work has not changed.";
+}
+
 function formatOperationalTime(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
@@ -70,6 +76,8 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   }>>([]);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
+  const [authorizedRetry, setAuthorizedRetry] = useState<{ operationId: string; reason: string } | null>(null);
+  const [deferredReentryRequests, setDeferredReentryRequests] = useState<Record<string, { state: "CREATED" | "IDEMPOTENT"; requestId: string } | undefined>>({});
   const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }>>([]);
   const [sourceCandidateInspections, setSourceCandidateInspections] = useState<Record<string, {
     candidateId: string;
@@ -245,6 +253,27 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       statusHandlers.setError(error instanceof Error ? error.message : "The source candidate could not be submitted.");
     } finally { setPendingAction(null); }
   }
+  async function requestAuthorizedRetry() {
+    if (!authorizedRetry) return;
+    const operationId = authorizedRetry.operationId;
+    setPendingAction(`reentry:${operationId}`);
+    try {
+      const result = await fetchAdmin<{ state: "CREATED" | "IDEMPOTENT"; requestId: string }>("/api/admin/factory/v2/deferred-reentry", {
+        method: "POST",
+        body: JSON.stringify({
+          operationId,
+          trigger: "AUTHORIZED_RETRY",
+          authorizationReason: authorizedRetry.reason
+        })
+      });
+      setDeferredReentryRequests((current) => ({ ...current, [operationId]: result }));
+      setAuthorizedRetry(null);
+      statusHandlers.setStatus(result.state === "CREATED" ? "Bounded retry request recorded for Factory review." : "Existing bounded retry request confirmed.");
+      statusHandlers.setError("");
+    } catch (error) {
+      statusHandlers.setError(deferredReentryErrorMessage(error));
+    } finally { setPendingAction(null); }
+  }
   const sourceLabel = (source: TopicWorkItem["source"]) => source === "founder" ? "Founder" : source === "public_request" ? "Visitor" : "Factory";
   const stageLabel = (stage: TopicWorkItem["currentStage"]) => ({
     queued: "Queued", research: "Research", extraction: "Preparing", publication_candidate: "Preparing",
@@ -398,6 +427,14 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
             <p className="small muted">Re-entry: {topic.outcome.reentryState === "REQUIRES_RELEVANT_CHANGE" ? "A relevant eligible-evidence change is required." : "An authorized bounded retry is required."}</p>
             <p className="small muted">Operational signal: {topic.operationalFeasibility.requiredCondition === "RELEVANT_EVIDENCE_CHANGE" ? "Awaiting a newly available eligible source." : "Awaiting a documented retry authorization."} Previous attempts: {topic.operationalFeasibility.attemptsConsumed}.</p>
             {topic.operationalFeasibility.requiredCondition === "RELEVANT_EVIDENCE_CHANGE" ? <div className="admin-action-row"><button className="button secondary" disabled={pendingAction !== null} onClick={() => setSourceSubmission({ operationId: topic.runId, url: "", rationale: "" })}>Submit Source Candidate</button></div> : null}
+            {topic.operationalFeasibility.requiredCondition === "AUTHORIZED_RETRY" ? <div className="stack" style={{ marginTop: "0.75rem" }}>
+              {deferredReentryRequests[topic.runId] ? <p className="small muted">Bounded retry request {deferredReentryRequests[topic.runId]!.state === "CREATED" ? "recorded" : "already recorded"}: {deferredReentryRequests[topic.runId]!.requestId}. It remains a request only; it does not dispatch or start research.</p> : null}
+              {authorizedRetry?.operationId !== topic.runId ? <div className="admin-action-row"><button className="button secondary" disabled={pendingAction !== null} onClick={() => setAuthorizedRetry({ operationId: topic.runId, reason: "" })}>Record bounded retry authorization</button></div> : <>
+                <label className="small">Why this bounded retry is authorized<textarea value={authorizedRetry.reason} maxLength={1000} onChange={(event) => setAuthorizedRetry({ ...authorizedRetry, reason: event.target.value })} rows={3} /></label>
+                <div className="admin-action-row"><button className="button" disabled={pendingAction !== null || authorizedRetry.reason.trim().length < 3} onClick={() => void requestAuthorizedRetry()}>Record retry request</button><button className="button secondary" disabled={pendingAction !== null} onClick={() => setAuthorizedRetry(null)}>Cancel</button></div>
+                <p className="small muted">This creates an immutable, attributable re-entry request. It does not consume the request, dispatch a worker, or start research.</p>
+              </>}
+            </div> : null}
             {sourceSubmission?.operationId === topic.runId ? <div className="stack" style={{ marginTop: "0.75rem" }}>
               <label className="small">Public HTTPS source URL<input value={sourceSubmission.url} onChange={(event) => setSourceSubmission({ ...sourceSubmission, url: event.target.value })} placeholder="https://…" inputMode="url" /></label>
               <label className="small">Why this may address the unresolved obligation<textarea value={sourceSubmission.rationale} onChange={(event) => setSourceSubmission({ ...sourceSubmission, rationale: event.target.value })} rows={3} /></label>

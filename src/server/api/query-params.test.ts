@@ -196,6 +196,17 @@ test("candidate outcome inspection remains read-only", () => {
   assert.doesNotMatch(candidateSection, /dispatchSourceSubmissionRetrieval|createDeferredFactoryV2Reentry|Submit Source Candidate/);
 });
 
+test("deferred budget retries remain explicit request-only Factory operations", () => {
+  const ui = readFileSync("components/admin/AdminFactoryOperations.tsx", "utf8");
+  const deferredStart = ui.indexOf("Deferred Evidence Work");
+  const deferredSection = ui.slice(deferredStart, ui.indexOf("{detail ?", deferredStart));
+  assert.match(deferredSection, /Record bounded retry authorization/);
+  assert.match(ui, /trigger: "AUTHORIZED_RETRY"/);
+  assert.match(deferredSection, /creates an immutable, attributable re-entry request/);
+  assert.match(deferredSection, /does not consume the request, dispatch a worker, or start research/);
+  assert.doesNotMatch(deferredSection, /deferred-reentry\/(?:consume|dispatch)/);
+});
+
 test("Factory operations explains typed backend unavailability without implying a state change", () => {
   const ui = readFileSync("components/admin/AdminFactoryOperations.tsx", "utf8");
   const availability = readFileSync("components/admin/factory-operational-availability.ts", "utf8");
