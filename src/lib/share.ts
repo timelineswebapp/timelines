@@ -53,8 +53,11 @@ export function summarizeShareText(value: string, maxLength: number): string {
   return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
-export function parseEventIdParam(value: string | null | undefined): number | null {
-  const normalized = value?.trim() || "";
+export function parseEventIdParam(value: string | readonly string[] | null | undefined): number | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
   if (!/^\d+$/.test(normalized)) {
     return null;
   }
@@ -63,7 +66,7 @@ export function parseEventIdParam(value: string | null | undefined): number | nu
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-export function parseMilestoneIdParam(value: string | null | undefined): number | null {
+export function parseMilestoneIdParam(value: string | readonly string[] | null | undefined): number | null {
   return parseEventIdParam(value);
 }
 

@@ -15,7 +15,7 @@ export async function generateMetadata({
   searchParams
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ event?: string }>;
+  searchParams: Promise<{ event?: string | string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
   const { event } = await searchParams;
@@ -38,7 +38,7 @@ export default async function TimelinePage({
   searchParams
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ event?: string }>;
+  searchParams: Promise<{ event?: string | string[] }>;
 }) {
   const { slug } = await params;
   const { event } = await searchParams;
