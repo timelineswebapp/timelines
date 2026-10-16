@@ -1,4 +1,4 @@
-import { contentAddressedId } from "./hashing";
+import { contentAddressedId, verifyPayloadHash } from "./hashing";
 import { parseSealedArtifact } from "./contracts/builders";
 import { sourceSubmissionCandidateSchema, type SourceSubmissionCandidate } from "./contracts/source-submission";
 import { sourceSubmissionRetrievalSchema } from "./contracts/source-submission-retrieval";
@@ -22,6 +22,9 @@ function parseInspectionArtifact<T extends { artifactId: string }>(input: {
   if (typeof documentId === "string" && documentId !== artifact.artifactId) {
     throw new Error(`${input.identityLabel} document identity does not match its payload.`);
   }
+  if (!verifyPayloadHash(artifact)) {
+    throw new Error(`${input.identityLabel} payload hash is invalid.`);
+  }
   return artifact;
 }
 
@@ -44,9 +47,11 @@ export async function listSourceSubmissionCandidates(repository: V2FirestoreRepo
     Math.max(1, Math.min(100, Math.trunc(limit))),
     { field: "createdAt", direction: "desc" }
   );
-  return records.flatMap(({ id: _documentId, ...record }) => {
+  return records.flatMap(({ id: documentId, ...record }) => {
     const parsed = sourceSubmissionCandidateSchema.safeParse(record);
-    return parsed.success ? [{ candidateId: parsed.data.sourceSubmissionCandidateId, operationId: parsed.data.originalOperationId, submittedUrl: parsed.data.submittedUrl, rationale: parsed.data.rationale, submittedBy: parsed.data.submittedBy, createdAt: parsed.data.createdAt, state: parsed.data.state }] : [];
+    return parsed.success && documentId === parsed.data.sourceSubmissionCandidateId && verifyPayloadHash(parsed.data)
+      ? [{ candidateId: parsed.data.sourceSubmissionCandidateId, operationId: parsed.data.originalOperationId, submittedUrl: parsed.data.submittedUrl, rationale: parsed.data.rationale, submittedBy: parsed.data.submittedBy, createdAt: parsed.data.createdAt, state: parsed.data.state }]
+      : [];
   }).sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
@@ -63,6 +68,7 @@ export async function inspectSourceSubmissionCandidate(repository: V2FirestoreRe
   if (typeof candidateDocumentId === "string" && candidateDocumentId !== candidateId) throw new Error("Source submission candidate document identity does not match its requested identity.");
   const candidate = sourceSubmissionCandidateSchema.parse(candidatePayload);
   if (candidate.sourceSubmissionCandidateId !== candidateId) throw new Error("Source submission candidate document identity does not match its payload.");
+  if (!verifyPayloadHash(candidate)) throw new Error("Source submission candidate payload hash is invalid.");
 
   const [validationRecords, retrievalRecords] = await Promise.all([
     repository.boundedQuery("v2SourceSubmissionValidations", [{ field: "sourceSubmissionCandidateId", op: "==", value: candidateId }], 2),

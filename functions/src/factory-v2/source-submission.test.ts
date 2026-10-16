@@ -89,6 +89,16 @@ test("source submission inspection fails closed on unsealed observation lineage"
     }
   } as any;
   await assert.rejects(inspectSourceSubmissionCandidate(repositoryWithMismatchedObservationDocument, candidate.sourceSubmissionCandidateId), /validation document identity/);
+
+  const repositoryWithInvalidObservationHash = {
+    async getById() { return candidateRecord; },
+    async boundedQuery(name: string) {
+      if (name === "v2SourceSubmissionValidations") return [{ id: validation.sourceSubmissionValidationId, ...validation, payloadHash: "0".repeat(64) }];
+      if (name === "v2SourceSubmissionRetrievals") return [];
+      throw new Error(`Unexpected collection: ${name}`);
+    }
+  } as any;
+  await assert.rejects(inspectSourceSubmissionCandidate(repositoryWithInvalidObservationHash, candidate.sourceSubmissionCandidateId), /validation payload hash/);
 });
 
 test("source submission candidate list applies server-owned newest-first ordering before its bound", async () => {
@@ -104,5 +114,22 @@ test("source submission candidate list applies server-owned newest-first orderin
   const summaries = await listSourceSubmissionCandidates(repository, 1_000);
 
   assert.deepEqual(calls, [["v2SourceSubmissionCandidates", [], 100, { field: "createdAt", direction: "desc" }]]);
+  assert.deepEqual(summaries, [{ candidateId: candidate.sourceSubmissionCandidateId, operationId: candidate.originalOperationId, submittedUrl: candidate.submittedUrl, rationale: candidate.rationale, submittedBy: candidate.submittedBy, createdAt: candidate.createdAt, state: "CANDIDATE" }]);
+});
+
+test("source submission candidate list omits mismatched or unsealed records", async () => {
+  const candidate = deriveSourceSubmissionCandidate({ operation, failure, submittedUrl: "https://example.org/integrity-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" });
+  const repository = {
+    async boundedQuery() {
+      return [
+        { id: "candidate-document-mismatch", ...candidate },
+        { id: candidate.sourceSubmissionCandidateId, ...candidate, payloadHash: "0".repeat(64) },
+        { id: candidate.sourceSubmissionCandidateId, ...candidate }
+      ];
+    }
+  } as any;
+
+  const summaries = await listSourceSubmissionCandidates(repository, 10);
+
   assert.deepEqual(summaries, [{ candidateId: candidate.sourceSubmissionCandidateId, operationId: candidate.originalOperationId, submittedUrl: candidate.submittedUrl, rationale: candidate.rationale, submittedBy: candidate.submittedBy, createdAt: candidate.createdAt, state: "CANDIDATE" }]);
 });
