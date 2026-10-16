@@ -82,6 +82,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Generation-retry operational visibility increment:** Completed locally on `2026-10-16`. The authenticated `factory_operator` interface now has a bounded, read-only view of retry-scheduled generation work through the existing signed server bridge. It exposes only topic/job lineage, origin, generation, retry time, update time, and a boolean diagnostic-presence signal; raw failure text stays server-side. The interface supplies no retry, dispatch, reprioritization, re-entry, discovery, or publication control.
 
+**Public-search accessibility increment:** Completed locally on `2026-10-16`. The public search page now trims whitespace before invoking the server-owned bounded search service and presents a semantic, polite live-region empty-result state with useful reader guidance. It does not alter ranking, result contracts, persistence, Factory access, or publication behavior.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -100,7 +102,7 @@ Completed for this increment:
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
-- Root suite: 249 passed, 0 failed; root strict typecheck and lint passed, revalidated after the deferred re-entry activation-boundary increment.
+- Root suite: 250 passed, 0 failed; root strict typecheck and lint passed, revalidated after the public-search accessibility increment.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
 - Production-hardening and monitoring configuration validators: passed after the generation-retry interface increment.

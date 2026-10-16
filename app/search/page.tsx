@@ -90,8 +90,9 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q = "" } = await searchParams;
+  const query = q.trim();
   const [result, [searchBottomAd]] = await Promise.all([
-    q ? contentService.searchKnowledge(q, 20) : Promise.resolve({ query: "", total: 0, items: [] }),
+    query ? contentService.searchKnowledge(query, 20) : Promise.resolve({ query: "", total: 0, items: [] }),
     adsService.getPublicAssignments(["search_bottom"])
   ]);
   const activeSearchBottomAd = searchBottomAd?.activeCampaign ? searchBottomAd : null;
@@ -103,11 +104,11 @@ export default async function SearchPage({
         <h1 className="page-title" style={{ fontFamily: "var(--font-serif)" }}>Find timelines and milestones</h1>
         <p className="section-copy">Search returns timelines and canonical milestones, ranked by title, tags, and event content.</p>
         <div style={{ marginTop: 18 }}>
-          <SearchBar defaultValue={q} />
+          <SearchBar defaultValue={query} />
         </div>
       </GlassPanel>
 
-      {q ? (
+      {query ? (
         <GlassPanel>
           <strong>{result.total}</strong>
           <p className="muted" style={{ margin: "8px 0 0" }}>
@@ -117,7 +118,12 @@ export default async function SearchPage({
       ) : null}
 
       <section className="search-results">
-        {result.items.map((item) => (
+        {query && result.items.length === 0 ? <GlassPanel>
+          <div role="status" aria-live="polite">
+            <h2 className="section-title">No matching timelines or milestones</h2>
+            <p className="muted">Try a broader historical term, an alternate spelling, or a related event.</p>
+          </div>
+        </GlassPanel> : result.items.map((item) => (
           <SearchResultCard key={`${item.type}-${item.id}`} item={item} />
         ))}
         {activeSearchBottomAd ? <AdSlot assignment={activeSearchBottomAd} className="search-bottom-ad" /> : null}
