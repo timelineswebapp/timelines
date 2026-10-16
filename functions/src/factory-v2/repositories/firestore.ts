@@ -7,12 +7,16 @@ import { parseSealedArtifact } from "../contracts/builders";
 import { deferredReentryDispatchReceiptSchema, deferredReentryRequestSchema } from "../contracts/reentry";
 import { topicOperationSchema } from "../contracts/operations";
 import { sourceSubmissionCandidateSchema } from "../contracts/source-submission";
+import { sourceSubmissionValidationSchema } from "../contracts/source-submission-validation";
+import { sourceSubmissionRetrievalSchema } from "../contracts/source-submission-retrieval";
 import { topicAuthoritySetSchema } from "../contracts/authority-first";
 import { publisherAuthorityVersionSchema } from "../contracts/knowledge";
 import { sourceSubmissionUrlMatchesAuthority } from "../source-submission-eligibility";
 import { planDeferredReentryDispatch } from "../reentry-dispatch";
 import { deriveDeferredReentryRequest } from "../reentry-request";
 import { deriveSourceSubmissionCandidate } from "../source-submission";
+import { buildSourceSubmissionAuthorityValidation } from "../source-submission-validation";
+import type { SourceSubmissionRetrievalArtifacts } from "../source-submission-retrieval";
 
 export type V2RepositoryDependencies = {
   firestore?: Firestore;
@@ -245,6 +249,35 @@ export class V2FirestoreRepository {
       }
     }
     throw new Error("Source-submission URL is not bound to the deferred Topic Authority Set.");
+  }
+
+  /** Creates the sealed authority gate before any worker is permitted to fetch a submitted URL. */
+  async prepareSourceSubmissionRetrieval(candidateId: string, now = new Date().toISOString()): Promise<{ candidate: DocumentData; validation: DocumentData; publisher: ReturnType<typeof publisherAuthorityVersionSchema.parse> }> {
+    const authority = await this.resolveSourceSubmissionAuthority(candidateId);
+    const [candidate, operation, publisher] = await Promise.all([
+      this.getById("v2SourceSubmissionCandidates", candidateId),
+      this.getById("v2TopicOperations", authority.operationId),
+      this.getById("v2PublisherAuthorityVersions", authority.publisherVersionId)
+    ]);
+    if (!candidate || !operation || !publisher) throw new Error("Source-submission retrieval authority lineage disappeared.");
+    const validation = buildSourceSubmissionAuthorityValidation({ candidate, operation, publisherVersionId: authority.publisherVersionId, now });
+    await this.createImmutable("v2SourceSubmissionValidations", validation);
+    return { candidate: sourceSubmissionCandidateSchema.parse(candidate), validation: sourceSubmissionValidationSchema.parse(validation), publisher: publisherAuthorityVersionSchema.parse(publisher) };
+  }
+
+  /** Persists an acquisition observation only; it never creates evidence, claims, or a re-entry request. */
+  async persistSourceSubmissionRetrieval(input: { result: Record<string, unknown> } & SourceSubmissionRetrievalArtifacts): Promise<void> {
+    const result = sourceSubmissionRetrievalSchema.parse(input.result);
+    if (input.source || input.snapshot || input.evidenceSegments) {
+      if (!input.source || !input.snapshot || !input.evidenceSegments) throw new Error("Source-submission retrieval persistence requires complete acquisition artifacts.");
+      if (result.sourceId !== input.source.sourceId || result.sourceSnapshotId !== input.snapshot.sourceSnapshotId) throw new Error("Source-submission retrieval result lineage does not match acquisition artifacts.");
+      await this.upsertSourceDocument(input.source);
+      await this.createImmutable("v2SourceSnapshots", input.snapshot);
+      if (input.evidenceSegments.length > 0) await this.createImmutableBatch("v2EvidenceSegments", input.evidenceSegments);
+    } else if (result.sourceId !== null || result.sourceSnapshotId !== null) {
+      throw new Error("Source-submission retrieval result requires its referenced acquisition artifacts.");
+    }
+    await this.createImmutable("v2SourceSubmissionRetrievals", result);
   }
 
   async consumeDeferredReentryRequest(requestId: string, now = new Date().toISOString()): Promise<"CONSUMED" | "IDEMPOTENT"> {

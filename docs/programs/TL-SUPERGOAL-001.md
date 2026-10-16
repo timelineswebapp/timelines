@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `ccba39c` — `feat: resolve candidate authority lineage` |
+| Prior program checkpoint | `a9ac624` — `test: cover source submission authority validation` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -58,6 +58,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Candidate authority-resolution increment:** Completed locally on `2026-10-16`. Before a candidate may be retrieved, the repository now resolves its original deferred operation, immutable terminal failure, retained `topicAuthoritySetId`, validated Topic Authority Set, and bound registered publisher version. The submitted HTTPS domain must match that exact bound publisher; no network access occurs in this step and any missing or mismatched lineage fails closed.
 
+**Candidate retrieval-handoff increment:** Completed locally on `2026-10-16`. A worker-only V2 handoff now seals an `AUTHORITY_ELIGIBLE` validation observation before invoking the existing bounded SSRF, DNS, redirect, robots, access, body-size, and archive controls. It seals a separate retrieval observation with candidate, validation, authority, source, and snapshot lineage. A fetched item is always `qualifyingEvidence: false` and `reentryAuthorized: false`; inaccessible, empty, access-limited, or authority-escaping redirect material is explicitly rejected. There is no Admin or public retrieval endpoint, no claim creation, and no Registry, Governance, Library, or Published Memory mutation.
+
 ## Certification and verification state
 
 Local and shadow verification may be executed only within existing budgets and safety controls. No result becomes Phase-2 certification unless it is a fresh four-subject run from one materially equivalent sealed release and produces four valid CKS records. Provider-backed certification is not part of the current implementation increment.
@@ -66,7 +68,7 @@ Completed for this increment:
 
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
-- Full Functions suite: 352 passed, 0 failed, 2 intentional emulator-only skips.
+- Full Functions suite: 354 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator repository suite: 6 passed, 0 failed, including concurrent deferred re-entry request creation and consumption.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
@@ -83,4 +85,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Implement the immutable candidate-validation result and bounded V2 retrieval handoff for submitted source candidates. It must invoke the existing SSRF/robots/access controls only after authority resolution, preserve candidate-to-snapshot lineage in a new immutable result, reject inaccessible or insufficient material, and must not treat successful retrieval as Authority Registry admission or qualifying evidence.
+Add emulator-backed repository coverage for authority resolution and the sealed retrieval handoff, then assess an internal bounded worker-dispatch contract without enabling autonomous discovery or an Admin retrieval control.
