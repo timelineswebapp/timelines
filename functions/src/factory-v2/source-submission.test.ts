@@ -15,4 +15,5 @@ test("source submission remains an immutable candidate and cannot become a snaps
   assert.equal(candidate.sourceSnapshotId, null);
   assert.equal(candidate.publicationEligible, false);
   assert.throws(() => deriveSourceSubmissionCandidate({ operation: { ...operation, state: "FAILED" }, failure, submittedUrl: "https://example.org/new-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" }), /exact deferred/);
+  assert.throws(() => deriveSourceSubmissionCandidate({ operation: { ...operation, autonomousOutcome: { ...outcome, classification: "RESEARCH_BUDGET_EXHAUSTED", reentryState: "REQUIRES_AUTHORIZED_RETRY", publicEvidenceBasis: null } }, failure, submittedUrl: "https://example.org/new-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" }), /only for matching public-evidence/);
 });
