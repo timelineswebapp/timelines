@@ -65,3 +65,24 @@ test("dispatch persists a controlled authority-bound retrieval as non-evidentiar
   assert.ok(persistedResult.evidenceSegments.length > 0);
   assert.equal(fetchCalls, 2);
 });
+
+test("dispatch propagates retrieval-persistence infrastructure failures", async () => {
+  const context = { corpusId: "dispatch-persistence-corpus", topicId: "dispatch-persistence-topic", runId: "dispatch-persistence-run", generation: 1, createdAt: "2026-10-16T06:00:00.000Z" };
+  const outcome = { policyVersion: "autonomous-public-evidence.1" as const, classification: "PUBLIC_EVIDENCE_LIMITATION" as const, disposition: "DEFERRED" as const, reentryState: "REQUIRES_RELEVANT_CHANGE" as const, detailedReason: "FAILED_UNCLASSIFIED", publicEvidenceBasis: "GOVERNED_CAPACITY_EXHAUSTED" as const };
+  const failure = parseSealedArtifact(v2FailureRecordSchema, { ...immutableEnvelope(context, "dispatch-persistence-failure"), failureRecordId: "dispatch-persistence-failure", stage: "A2_SCOPE_ACQUISITION", failureClass: "FAILED_UNCLASSIFIED", severity: "HIGH", retryable: false, message: "No governed source.", protectedRepresentationDiagnostics: null, blockingArtifactIds: [], attemptsConsumed: 1, budgetConsumed: {}, autonomousOutcome: outcome });
+  const operation = { operationId: context.runId, corpusId: context.corpusId, topicId: context.topicId, runId: context.runId, generation: 1, pipelineVersion: "factory-v2-a.70" as const, executionMode: "SHADOW" as const, state: "DEFERRED" as const, stage: "A2_SCOPE_ACQUISITION" as const, scopeState: "LOCKED", researchMapState: "VALID", currentBlockingReason: "capacity", counts: {}, budgetsConsumed: {}, elapsedMs: 1, finalVerdict: "FAIL" as const, terminalFailureRecordId: failure.failureRecordId, topicAuthoritySetId: "dispatch-persistence-authority", autonomousOutcome: outcome, updatedAt: context.createdAt };
+  const candidate = deriveSourceSubmissionCandidate({ operation, failure, submittedUrl: "https://www.bl.uk/dispatch-persistence", rationale: "A registered authority URL may address the unresolved obligation.", submittedBy: "operator-dispatch", now: context.createdAt });
+  const publisher = bootstrapPublisherRegistry(context).find((item) => item.canonicalName === "British Library")!;
+  const validation = buildSourceSubmissionAuthorityValidation({ candidate, operation, publisherVersionId: publisher.publisherVersionId, now: context.createdAt });
+  const repository = {
+    async prepareSourceSubmissionRetrieval() { return { candidate, validation, publisher }; },
+    async persistSourceSubmissionRetrieval() { throw new Error("SOURCE_SUBMISSION_RETRIEVAL_PERSISTENCE_FAILURE"); }
+  } as any;
+  await assert.rejects(
+    dispatchSourceSubmissionRetrieval({ candidateId: candidate.sourceSubmissionCandidateId, dispatchedAt: context.createdAt }, repository, {
+      dnsLookup: (async () => [{ address: "93.184.216.34", family: 4 }]) as never,
+      fetch: async () => { throw new Error("SOURCE_RETRIEVAL_TEST_FAILURE"); }
+    }),
+    /SOURCE_SUBMISSION_RETRIEVAL_PERSISTENCE_FAILURE/
+  );
+});
