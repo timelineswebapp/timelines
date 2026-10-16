@@ -103,4 +103,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Reconcile independently authorized Phase-1 stability workstreams against the execution index and implement the highest-priority missing bounded verification or repair. Do not activate re-entry, discovery, publication, Governance submission, or deployment.
+No further implementation action is currently authorized. Reconciliation against `TL-TIER1-COMPLETION-001.md` confirms that the remaining Phase-2 path is Founder-reserved: approve sealing the verified `.70` successor, complete its normal release/protected-state preflight, and run exactly one fresh, non-combined four-subject certification. The historical Phase-1 status record is superseded by the current Tier-1 master record and does not authorize a separate run. Do not activate re-entry, discovery, publication, Governance submission, deployment, Registry changes, or certification before that decision.
