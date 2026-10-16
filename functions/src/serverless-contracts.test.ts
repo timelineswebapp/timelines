@@ -172,6 +172,8 @@ test("generation retry queue isolates individual enqueue failures without activa
   assert.match(ledger, /retryDeferredEnqueuesWithDependencies/u);
   assert.match(ledger, /retry_deferred_without_blocking_batch/u);
   assert.match(ledger, /listGenerationRetryQueueSummaries/u);
+  assert.match(ledger, /RETRY_QUEUE_VISIBILITY_OVERSCAN_FACTOR = 3/u);
+  assert.match(ledger, /\.limit\(boundedLimit \* RETRY_QUEUE_VISIBILITY_OVERSCAN_FACTOR\)/u);
   assert.match(ledger, /listGenerationEnqueueFailureSummaries/u);
   assert.match(ledger, /enqueueRetryCount \+ 1 >= MAX_ENQUEUE_RETRIES/u);
   assert.match(ledger, /action: "enqueue_retry_exhausted"/u);

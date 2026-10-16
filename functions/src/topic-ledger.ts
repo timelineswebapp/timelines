@@ -20,6 +20,7 @@ export type TopicState =
 
 const ACTIVE_STATES = new Set<TopicState>(["NEW", "QUEUED", "PROCESSING", "AWAITING_REVIEW", "SHADOW_COMPLETED", "RETRY_SCHEDULED"]);
 const ENQUEUE_RETRY_DELAY_MS = 60_000;
+const RETRY_QUEUE_VISIBILITY_OVERSCAN_FACTOR = 3;
 
 type RetryDeferredEnqueueDependencies = {
   enqueueGenerationTask: typeof enqueueGenerationTask;
@@ -417,7 +418,9 @@ export async function listGenerationRetryQueueSummaries(limit: number): Promise<
   const snapshot = await corpusCollection("topicLedgers")
     .where("state", "==", "RETRY_SCHEDULED")
     .orderBy("nextRetryAt", "asc")
-    .limit(boundedLimit)
+    // A malformed server record must not consume the entire read-only visibility window.
+    // The bounded overscan keeps this operational query predictable (at most 300 documents).
+    .limit(boundedLimit * RETRY_QUEUE_VISIBILITY_OVERSCAN_FACTOR)
     .get();
   return snapshot.docs.flatMap((document) => {
     const data = document.data();
@@ -439,7 +442,7 @@ export async function listGenerationRetryQueueSummaries(limit: number): Promise<
       lastErrorPresent: typeof data.lastError === "string" && data.lastError.length > 0,
       enqueueRetryCount: Number.isInteger(data.enqueueRetryCount) && data.enqueueRetryCount > 0 ? data.enqueueRetryCount : 0
     }];
-  });
+  }).slice(0, boundedLimit);
 }
 
 /** Read-only, bounded visibility of terminal legacy enqueue exhaustion. */

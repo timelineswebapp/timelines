@@ -11,6 +11,8 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   const failedTopicId = `a${"0".repeat(38)}${suffix}`;
   const successfulTopicId = `b${"0".repeat(38)}${suffix}`;
   const malformedTerminalTopicId = `c${"0".repeat(38)}${suffix}`;
+  const malformedRetryTopicId = `d${"0".repeat(38)}${suffix}`;
+  const validRetryTopicId = `e${"0".repeat(38)}${suffix}`;
   const failedJobId = "4af86d2f-1596-4b8c-a927-42e9e25b646d";
   const successfulJobId = "5af86d2f-1596-4b8c-a927-42e9e25b646d";
   const dueAt = Timestamp.fromMillis(Date.now() - 1_000);
@@ -141,4 +143,26 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
     updatedAt: Timestamp.now()
   });
   assert.equal((await listGenerationEnqueueFailureSummaries(25)).some((item) => item.topicId === malformedTerminalTopicId), false);
+
+  await Promise.all([
+    ledger.doc(malformedRetryTopicId).set({
+      corpusId: process.env.ACTIVE_CORPUS_ID,
+      state: "RETRY_SCHEDULED",
+      activeJobId: "7af86d2f-1596-4b8c-a927-42e9e25b646d",
+      generation: 0,
+      origin: "user",
+      nextRetryAt: Timestamp.fromMillis(0),
+      updatedAt: Timestamp.fromMillis(0)
+    }),
+    ledger.doc(validRetryTopicId).set({
+      corpusId: process.env.ACTIVE_CORPUS_ID,
+      state: "RETRY_SCHEDULED",
+      activeJobId: "8af86d2f-1596-4b8c-a927-42e9e25b646d",
+      generation: 1,
+      origin: "user",
+      nextRetryAt: Timestamp.fromMillis(1),
+      updatedAt: Timestamp.fromMillis(1)
+    })
+  ]);
+  assert.deepEqual((await listGenerationRetryQueueSummaries(1)).map((item) => item.topicId), [validRetryTopicId]);
 });
