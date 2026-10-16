@@ -6,7 +6,6 @@ import type { V2FirestoreRepository } from "./repositories/firestore";
 /** Internal-only, bounded dispatch contract; intentionally not an HTTP payload. */
 export const sourceSubmissionDispatchSchema = z.object({
   candidateId: idSchema,
-  dispatchId: idSchema,
   dispatchedAt: z.string().datetime()
 }).strict();
 
