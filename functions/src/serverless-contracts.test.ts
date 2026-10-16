@@ -204,6 +204,13 @@ test("public Functions search and topic-status controls require a single scalar 
   }
 });
 
+test("Functions public read selectors use the scalar query guard before data access", () => {
+  const publicApi = readFileSync("src/public-api.ts", "utf8");
+  for (const selector of ["request.query.type", "request.query.slug", "request.query.sourcePublishedSnapshotId", "request.query.authorityKey", "request.query.relationshipId"]) {
+    assert.match(publicApi, new RegExp(`scalarQueryString\\(${selector.replace(".", "\\.")}\\)`, "u"));
+  }
+});
+
 test("signed source submission preserves the credential-free HTTPS boundary", () => {
   const valid = {
     operationId: "operation-001",

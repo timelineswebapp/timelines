@@ -106,7 +106,8 @@ function readModelSnapshot(document: FirebaseFirestore.QueryDocumentSnapshot | F
 }
 
 async function listReadModels(request: Request, response: Response) {
-  const type = String(request.query.type || "");
+  const type = scalarQueryString(request.query.type);
+  if (type === null) return failure(response, 400, "VALIDATION_FAILED", "Read-model type must appear at most once.");
   if (!readModelTypes.has(type)) return failure(response, 400, "VALIDATION_FAILED", "Invalid read-model type.");
   const limit = Math.max(1, boundedInteger(request.query.limit, 12, 200));
   const offset = boundedInteger(request.query.offset, 0, 10_000);
@@ -121,9 +122,10 @@ async function listReadModels(request: Request, response: Response) {
 }
 
 async function getReadModel(request: Request, response: Response) {
-  const type = String(request.query.type || "");
-  const slug = String(request.query.slug || "");
+  const type = scalarQueryString(request.query.type);
+  const slug = scalarQueryString(request.query.slug);
   const id = boundedInteger(request.query.id, 0, Number.MAX_SAFE_INTEGER);
+  if (type === null || slug === null) return failure(response, 400, "VALIDATION_FAILED", "Read-model selectors must appear at most once.");
   if (!readModelTypes.has(type)) return failure(response, 400, "VALIDATION_FAILED", "Invalid read-model type.");
   if (slug && (!canonicalPublicSlugPattern.test(slug) || slug.length > 160)) return failure(response, 400, "VALIDATION_FAILED", "Invalid read-model slug.");
   const documentId = type === "milestone" && id > 0 ? `milestone--${id}` : slug ? `${type.replace("historical_object", "historical-object")}--${slug}` : "";
@@ -175,7 +177,8 @@ async function listTaxonomy(request: Request, response: Response, kind: "categor
 }
 
 async function taxonomyDetail(request: Request, response: Response, kind: "category" | "tag") {
-  const slug = String(request.query.slug || "");
+  const slug = scalarQueryString(request.query.slug);
+  if (slug === null) return failure(response, 400, "VALIDATION_FAILED", "Taxonomy slug must appear at most once.");
   if (!canonicalPublicSlugPattern.test(slug) || slug.length > 160) return failure(response, 400, "VALIDATION_FAILED", "Invalid taxonomy slug.");
   const collection = kind === "category" ? "categoryDocuments" : "tagDocuments";
   const taxonomy = await corpusCollection(collection).doc(slug).get();
@@ -199,7 +202,8 @@ async function listSitemap(response: Response) {
 }
 
 async function continuity(request: Request, response: Response) {
-  const sourcePublishedSnapshotId = String(request.query.sourcePublishedSnapshotId || "");
+  const sourcePublishedSnapshotId = scalarQueryString(request.query.sourcePublishedSnapshotId);
+  if (sourcePublishedSnapshotId === null) return failure(response, 400, "VALIDATION_FAILED", "Published snapshot ID must appear at most once.");
   if (!/^[A-Za-z0-9-]{1,128}$/u.test(sourcePublishedSnapshotId)) {
     return failure(response, 400, "VALIDATION_FAILED", "Invalid published snapshot ID.");
   }
@@ -208,8 +212,9 @@ async function continuity(request: Request, response: Response) {
 }
 
 async function relationships(request: Request, response: Response) {
-  const key = String(request.query.authorityKey || "");
-  const relationshipId = String(request.query.relationshipId || "");
+  const key = scalarQueryString(request.query.authorityKey);
+  const relationshipId = scalarQueryString(request.query.relationshipId);
+  if (key === null || relationshipId === null) return failure(response, 400, "VALIDATION_FAILED", "Relationship selectors must appear at most once.");
   if (relationshipId) {
     let snapshot = await corpusCollection("platformReadModels").doc(`relationship--${relationshipId}`).get();
     if (!snapshot.exists) {
