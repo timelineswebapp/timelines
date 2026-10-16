@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { AdSlot } from "@/components/timeline/AdSlot";
 import { GlassPanel } from "@/components/ui/GlassPanel";
@@ -117,6 +118,8 @@ export default async function SearchPage({
     query ? contentService.searchKnowledge(query, SEARCH_PAGE_SIZE, (currentPage - 1) * SEARCH_PAGE_SIZE) : Promise.resolve({ query: "", total: 0, items: [] }),
     adsService.getPublicAssignments(["search_bottom"])
   ]);
+  const totalPages = Math.max(1, Math.ceil(result.total / SEARCH_PAGE_SIZE));
+  if (query && result.total > 0 && currentPage > totalPages) redirect(searchPageHref(query, totalPages));
   const activeSearchBottomAd = searchBottomAd?.activeCampaign ? searchBottomAd : null;
 
   return (
@@ -152,7 +155,7 @@ export default async function SearchPage({
       </section>
       {query && result.total > SEARCH_PAGE_SIZE ? <nav className="admin-action-row" aria-label="Search result pages">
         {currentPage > 1 ? <Link className="button secondary" href={searchPageHref(query, currentPage - 1)}>Previous results</Link> : <span />}
-        <span className="muted small">Page {currentPage} of {Math.ceil(result.total / SEARCH_PAGE_SIZE)}</span>
+        <span className="muted small">Page {currentPage} of {totalPages}</span>
         {currentPage * SEARCH_PAGE_SIZE < result.total ? <Link className="button secondary" href={searchPageHref(query, currentPage + 1)}>Next results</Link> : <span />}
       </nav> : null}
     </div>

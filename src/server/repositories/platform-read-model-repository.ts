@@ -14,6 +14,11 @@ type BackendProjection = {
   createdAt?: string;
 };
 
+type SearchReadModelMatch = {
+  snapshot: PublishedReadModelSnapshot;
+  rank: number;
+};
+
 function projectionToReadModel(projection: BackendProjection): PublishedReadModelSnapshot {
   return {
     snapshotId: projection.publishedSnapshotId,
@@ -35,17 +40,19 @@ export const platformReadModelRepository = {
 
   async searchPublishedReadModels(query: string, limit: number, offset: number) {
     const result = await serverlessBackendClient.search<SearchResult>(query, limit, offset);
-    if (!result) return [];
-    return result.items.map((item) => ({
-      snapshot: projectionToReadModel({
-        publishedSnapshotId: `${item.type}:${item.id}`,
-        projectionType: "search",
-        slug: item.type === "timeline" ? item.timeline.slug : null,
-        payload: item as unknown as Record<string, unknown>
-      }),
-      rank: item.rank,
-      total: result.total
-    }));
+    if (!result) return { total: 0, matches: [] as SearchReadModelMatch[] };
+    return {
+      total: result.total,
+      matches: result.items.map((item) => ({
+        snapshot: projectionToReadModel({
+          publishedSnapshotId: `${item.type}:${item.id}`,
+          projectionType: "search",
+          slug: item.type === "timeline" ? item.timeline.slug : null,
+          payload: item as unknown as Record<string, unknown>
+        }),
+        rank: item.rank
+      }))
+    };
   },
 
   async getPublishedReadModelBySlug(type: PublishedReadModelType, slug: string): Promise<PublishedReadModelSnapshot | null> {

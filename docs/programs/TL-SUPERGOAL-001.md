@@ -106,6 +106,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Public-search page normalization increment:** Completed locally on `2026-10-16`. The server-rendered search route now accepts only canonical positive-integer page parameters before applying its existing 500-page cap. Malformed, signed, decimal, whitespace-padded, or mixed-text values fail closed to the first page rather than being partially parsed into later result offsets. Query ranking, result bounds, content access, and public-data separation are unchanged.
 
+**Public-search deep-page correction increment:** Completed locally on `2026-10-16`. The projection repository now retains the server-reported result total even when a bounded requested page contains no rows. The reader route uses that total to redirect an in-range-but-out-of-range page request to the final actual page, preventing misleading empty pages and invalid page-count text. Search remains projection-backed, bounded, and server-owned; no Factory or institutional data enters the public path.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -133,6 +135,7 @@ Completed for this increment:
 - Tier-1 security gate and root lint: passed after terminal enqueue-failure visibility. Production runtime audits remain zero high/critical; the recorded lint-tooling-only advisory remains accepted solely under its existing constraints.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips after terminal enqueue observability.
 - Public-search pagination regression and root strict typecheck: passed after strict page-parameter normalization.
+- Public-search deep-page regression and root strict typecheck: passed after total-preservation and final-page redirect correction.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.

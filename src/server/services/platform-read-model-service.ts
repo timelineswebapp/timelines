@@ -270,15 +270,15 @@ export const platformReadModelService = {
     }
     const boundedLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
     const boundedOffset = Math.max(0, Math.min(10_000, Math.trunc(offset)));
-    const matches = await platformReadModelRepository.searchPublishedReadModels(normalized, boundedLimit, boundedOffset);
+    const { matches, total } = await platformReadModelRepository.searchPublishedReadModels(normalized, boundedLimit, boundedOffset);
     const projectedItems = matches
       .map(({ snapshot, rank }) => projectionToSearchItem(snapshot.payload, rank))
       .filter((item): item is SearchResultItem => Boolean(item))
       .slice(0, boundedLimit);
     if (projectedItems.length > 0) {
-      return { query: normalized, total: matches[0]?.total || projectedItems.length, items: projectedItems };
+      return { query: normalized, total, items: projectedItems };
     }
-    return { query: normalized, total: 0, items: [] };
+    return { query: normalized, total, items: [] };
   },
 
   async resolveContinuity(publishedSnapshotId: string): Promise<ContinuityResolution> {
