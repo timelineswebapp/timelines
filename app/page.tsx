@@ -33,12 +33,10 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const [homeFeedAd, homepageSnapshot, categoryEntries] = await Promise.all([
     adsService.getPublicAssignments(["home_feed_ad"]).then((assignments) => assignments[0] ?? null),
-    contentService.getHomepageSnapshotSlice(0, 12).catch(() => ({
-      items: [],
-      nextOffset: null,
-      hasMore: false,
-      snapshotDate: new Date().toISOString().slice(0, 10)
-    })),
+    contentService.getHomepageSnapshotSlice(0, 12).catch((error) => {
+      console.error(JSON.stringify({ severity: "ERROR", component: "homepage", action: "snapshot_load_failed", diagnosticPresent: error instanceof Error }));
+      return null;
+    }),
     SHOW_HOME_TAXONOMY_SECTION ? contentService.listCategoryEntries().catch(() => []) : Promise.resolve([])
   ]);
   const activeHomeFeedAd = homeFeedAd?.activeCampaign ? homeFeedAd : null;
@@ -80,11 +78,12 @@ export default async function HomePage() {
       <h2 className="featured-title">FEATURED TIMELINES</h2>
 
       <HomeTimelineFeed
-        initialItems={homepageSnapshot.items}
-        initialNextOffset={homepageSnapshot.nextOffset}
-        initialHasMore={homepageSnapshot.hasMore}
-        snapshotDate={homepageSnapshot.snapshotDate}
+        initialItems={homepageSnapshot?.items ?? []}
+        initialNextOffset={homepageSnapshot?.nextOffset ?? null}
+        initialHasMore={homepageSnapshot?.hasMore ?? false}
+        snapshotDate={homepageSnapshot?.snapshotDate ?? new Date().toISOString().slice(0, 10)}
         homeFeedAd={activeHomeFeedAd}
+        initialUnavailable={homepageSnapshot === null}
       />
     </div>
   );

@@ -31,6 +31,7 @@ type HomepageTimelineFeedProps = {
   initialHasMore: boolean;
   snapshotDate: string;
   homeFeedAd: AdSlotAssignment | null;
+  initialUnavailable: boolean;
 };
 
 export function HomeTimelineFeed({
@@ -38,7 +39,8 @@ export function HomeTimelineFeed({
   initialNextOffset,
   initialHasMore,
   snapshotDate,
-  homeFeedAd
+  homeFeedAd,
+  initialUnavailable
 }: HomepageTimelineFeedProps) {
   const [items, setItems] = useState(initialItems);
   const [nextOffset, setNextOffset] = useState<number | null>(initialNextOffset);
@@ -143,6 +145,7 @@ export function HomeTimelineFeed({
   return (
     <>
       <section className="timeline-summary-list" aria-label="Featured timelines">
+        {initialUnavailable ? <div role="status" aria-live="polite" className="glass section-card"><h3>Featured timelines are temporarily unavailable</h3><p className="muted">Please try again shortly.</p></div> : null}
         {visibleItems.map((timeline, index) => (
           <Fragment key={timeline.id}>
             {appendedStartIndex === index ? (
