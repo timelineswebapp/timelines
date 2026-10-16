@@ -49,6 +49,8 @@ async function request<T>(path: string, init?: RequestInit, allowNotFound = fals
   }
   let payload: BackendEnvelope<T>;
   try {
+    const contentType = response.headers.get("content-type") || "";
+    if (!/^application\/json(?:\s*;|$)/iu.test(contentType)) throw new Error("Invalid backend content type.");
     payload = parseBackendEnvelope<T>(await response.json());
   } catch {
     throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Serverless backend returned an invalid response.");
