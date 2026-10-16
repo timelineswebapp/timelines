@@ -231,19 +231,23 @@ export class V2FirestoreRepository {
     const candidateSnapshot = await this.collection("v2SourceSubmissionCandidates").doc(candidateId).get();
     if (!candidateSnapshot.exists) throw new Error("Source-submission candidate does not exist.");
     const candidate = sourceSubmissionCandidateSchema.parse(candidateSnapshot.data());
+    if (candidateSnapshot.id !== candidate.sourceSubmissionCandidateId || candidate.sourceSubmissionCandidateId !== candidateId || candidate.corpusId !== this.corpusId || !verifyPayloadHash(candidate)) {
+      throw new Error("Source-submission candidate integrity is invalid.");
+    }
     const operationSnapshot = await this.collection("v2TopicOperations").doc(candidate.originalOperationId).get();
     if (!operationSnapshot.exists) throw new Error("Source-submission operation does not exist.");
     const operation = topicOperationSchema.parse(operationSnapshot.data());
-    if (operation.state !== "DEFERRED" || operation.operationId !== candidate.originalOperationId || operation.terminalFailureRecordId !== candidate.originalFailureRecordId || operation.topicAuthoritySetId === null) throw new Error("Source-submission operation has no eligible deferred authority lineage.");
+    if (operationSnapshot.id !== operation.operationId || operation.corpusId !== this.corpusId || operation.state !== "DEFERRED" || operation.operationId !== candidate.originalOperationId || operation.terminalFailureRecordId !== candidate.originalFailureRecordId || operation.topicAuthoritySetId === null) throw new Error("Source-submission operation has no eligible deferred authority lineage.");
     const setSnapshot = await this.collection("v2TopicAuthoritySets").doc(operation.topicAuthoritySetId).get();
     if (!setSnapshot.exists) throw new Error("Source-submission Topic Authority Set does not exist.");
     const authoritySet = topicAuthoritySetSchema.parse(setSnapshot.data());
-    if (authoritySet.topicId !== operation.topicId || authoritySet.validationStatus !== "VALIDATED") throw new Error("Source-submission Topic Authority Set is invalid for the deferred topic.");
+    if (setSnapshot.id !== authoritySet.topicAuthoritySetId || authoritySet.corpusId !== this.corpusId || !verifyPayloadHash(authoritySet) || authoritySet.topicId !== operation.topicId || authoritySet.validationStatus !== "VALIDATED") throw new Error("Source-submission Topic Authority Set is invalid for the deferred topic.");
     const publisherRefs = authoritySet.bindings.map((binding) => this.collection("v2PublisherAuthorityVersions").doc(binding.publisherVersionId));
     const publishers = await this.firestore.getAll(...publisherRefs);
     for (const publisherSnapshot of publishers) {
       if (!publisherSnapshot.exists) continue;
       const publisher = publisherAuthorityVersionSchema.parse(publisherSnapshot.data());
+      if (publisherSnapshot.id !== publisher.publisherVersionId || publisher.corpusId !== this.corpusId || !verifyPayloadHash(publisher)) throw new Error("Source-submission publisher authority integrity is invalid.");
       if (sourceSubmissionUrlMatchesAuthority({ submittedUrl: candidate.submittedUrl, boundPublisherVersionIds: authoritySet.bindings.map((binding) => binding.publisherVersionId), publisherVersionId: publisher.publisherVersionId, knownDomains: publisher.knownDomains })) {
         return { candidateId, operationId: operation.operationId, publisherVersionId: publisher.publisherVersionId };
       }
@@ -260,12 +264,20 @@ export class V2FirestoreRepository {
       this.getById("v2PublisherAuthorityVersions", authority.publisherVersionId)
     ]);
     if (!candidate || !operation || !publisher) throw new Error("Source-submission retrieval authority lineage disappeared.");
-    const { id: _candidateDocumentId, ...candidateArtifact } = candidate;
-    const { id: _operationDocumentId, ...operationProjection } = operation;
-    const validation = buildSourceSubmissionAuthorityValidation({ candidate: candidateArtifact, operation: operationProjection, publisherVersionId: authority.publisherVersionId, now });
+    const { id: candidateDocumentId, ...candidateArtifact } = candidate;
+    const { id: operationDocumentId, ...operationProjection } = operation;
+    const { id: publisherDocumentId, ...publisherArtifact } = publisher;
+    const parsedCandidate = sourceSubmissionCandidateSchema.parse(candidateArtifact);
+    const parsedOperation = topicOperationSchema.parse(operationProjection);
+    const parsedPublisher = publisherAuthorityVersionSchema.parse(publisherArtifact);
+    if (candidateDocumentId !== parsedCandidate.sourceSubmissionCandidateId || parsedCandidate.sourceSubmissionCandidateId !== candidateId || !verifyPayloadHash(parsedCandidate)
+      || operationDocumentId !== parsedOperation.operationId || parsedOperation.operationId !== authority.operationId || parsedOperation.state !== "DEFERRED" || parsedOperation.terminalFailureRecordId !== parsedCandidate.originalFailureRecordId
+      || publisherDocumentId !== parsedPublisher.publisherVersionId || parsedPublisher.publisherVersionId !== authority.publisherVersionId || !verifyPayloadHash(parsedPublisher)) {
+      throw new Error("Source-submission retrieval authority lineage integrity is invalid.");
+    }
+    const validation = buildSourceSubmissionAuthorityValidation({ candidate: parsedCandidate, operation: parsedOperation, publisherVersionId: authority.publisherVersionId, now });
     await this.createImmutable("v2SourceSubmissionValidations", validation);
-    const { id: _publisherDocumentId, ...publisherArtifact } = publisher;
-    return { candidate: sourceSubmissionCandidateSchema.parse(candidateArtifact), validation: sourceSubmissionValidationSchema.parse(validation), publisher: publisherAuthorityVersionSchema.parse(publisherArtifact) };
+    return { candidate: parsedCandidate, validation: sourceSubmissionValidationSchema.parse(validation), publisher: parsedPublisher };
   }
 
   /** Persists an acquisition observation only; it never creates evidence, claims, or a re-entry request. */
