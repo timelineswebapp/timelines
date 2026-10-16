@@ -136,6 +136,7 @@ Completed for this increment:
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips after terminal enqueue observability.
 - Public-search pagination regression and root strict typecheck: passed after strict page-parameter normalization.
 - Public-search deep-page regression and root strict typecheck: passed after total-preservation and final-page redirect correction.
+- Full root suite: 251 passed, 0 failed after the public-search deep-page correction; expected fixture warnings remained non-failing and no production mutation occurred.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
