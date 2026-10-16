@@ -340,11 +340,12 @@ export class V2FirestoreRepository {
     });
   }
 
-  async boundedQuery(name: V2CorpusCollectionName, filters: Array<{ field: string; op: FirebaseFirestore.WhereFilterOp; value: unknown }>, limit: number): Promise<DocumentData[]> {
+  async boundedQuery(name: V2CorpusCollectionName, filters: Array<{ field: string; op: FirebaseFirestore.WhereFilterOp; value: unknown }>, limit: number, order?: { field: "createdAt" | "updatedAt"; direction: "asc" | "desc" }): Promise<DocumentData[]> {
     const boundedLimit = Math.trunc(limit);
     if (boundedLimit < 1 || boundedLimit > 200) throw new Error("V2 repository queries require an explicit limit from 1 through 200.");
     let query: FirebaseFirestore.Query = this.collection(name);
     for (const filter of filters) query = query.where(filter.field, filter.op, filter.value);
+    if (order) query = query.orderBy(order.field, order.direction);
     const result = await query.limit(boundedLimit).get();
     return result.docs.map((document) => ({ id: document.id, ...document.data() }));
   }

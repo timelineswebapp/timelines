@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseSealedArtifact, immutableEnvelope } from "./contracts/builders";
 import { v2FailureRecordSchema } from "./contracts/knowledge";
-import { deriveSourceSubmissionCandidate, inspectSourceSubmissionCandidate } from "./source-submission";
+import { deriveSourceSubmissionCandidate, inspectSourceSubmissionCandidate, listSourceSubmissionCandidates } from "./source-submission";
 import { buildSourceSubmissionAuthorityValidation } from "./source-submission-validation";
 import { buildSourceSubmissionRetrieval } from "./source-submission-retrieval";
 
@@ -84,4 +84,20 @@ test("source submission inspection fails closed on unsealed observation lineage"
     }
   } as any;
   await assert.rejects(inspectSourceSubmissionCandidate(repositoryWithMismatchedObservationDocument, candidate.sourceSubmissionCandidateId), /validation document identity/);
+});
+
+test("source submission candidate list applies server-owned newest-first ordering before its bound", async () => {
+  const candidate = deriveSourceSubmissionCandidate({ operation, failure, submittedUrl: "https://example.org/ordered-source", rationale: "This newly available public source may address the unresolved obligation.", submittedBy: "operator-001", now: "2026-10-16T03:01:00.000Z" });
+  const calls: unknown[][] = [];
+  const repository = {
+    async boundedQuery(...args: unknown[]) {
+      calls.push(args);
+      return [{ id: candidate.sourceSubmissionCandidateId, ...candidate }];
+    }
+  } as any;
+
+  const summaries = await listSourceSubmissionCandidates(repository, 1_000);
+
+  assert.deepEqual(calls, [["v2SourceSubmissionCandidates", [], 100, { field: "createdAt", direction: "desc" }]]);
+  assert.deepEqual(summaries, [{ candidateId: candidate.sourceSubmissionCandidateId, operationId: candidate.originalOperationId, submittedUrl: candidate.submittedUrl, rationale: candidate.rationale, submittedBy: candidate.submittedBy, createdAt: candidate.createdAt, state: "CANDIDATE" }]);
 });

@@ -38,7 +38,12 @@ export function deriveSourceSubmissionCandidate(input: { operation: unknown; fai
 }
 
 export async function listSourceSubmissionCandidates(repository: V2FirestoreRepository, limit: number) {
-  const records = await repository.boundedQuery("v2SourceSubmissionCandidates", [], Math.max(1, Math.min(100, Math.trunc(limit))));
+  const records = await repository.boundedQuery(
+    "v2SourceSubmissionCandidates",
+    [],
+    Math.max(1, Math.min(100, Math.trunc(limit))),
+    { field: "createdAt", direction: "desc" }
+  );
   return records.flatMap(({ id: _documentId, ...record }) => {
     const parsed = sourceSubmissionCandidateSchema.safeParse(record);
     return parsed.success ? [{ candidateId: parsed.data.sourceSubmissionCandidateId, operationId: parsed.data.originalOperationId, submittedUrl: parsed.data.submittedUrl, rationale: parsed.data.rationale, submittedBy: parsed.data.submittedBy, createdAt: parsed.data.createdAt, state: parsed.data.state }] : [];
