@@ -197,6 +197,7 @@ Completed for this increment:
 - Optimized Next production build: passed after the in-place public continuation retry and protected Admin retry-health/terminal-failure boundary regressions. All public, Factory V2, and authenticated Admin route modules compiled without deployment, discovery, publication, or Governance submission.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
+- Functions strict typecheck and full suite: passed after the successor public-reader and Admin-boundary increments (360 passed, 0 failed, 2 intentional emulator-only skips). Deferred re-entry consumption, retry isolation, and institutional separation contracts remain fail-closed and unactivated.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
 - Root suite: 250 passed, 0 failed; root strict typecheck and lint passed, revalidated after the public-search accessibility increment.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
