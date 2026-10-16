@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `1515968` — `feat: expose generation retry attempt count` (following `9b7e7f3` audited terminal recovery) |
+| Prior program checkpoint | `b1ba6e2` — `docs: record terminal alert regression` (following `2994fe4` terminal-enqueue observability) |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | `.70` release `dd9737a1742a68c726aa3d41fd4549430c6d68098cf48fb13c6fd38ee6f7ed16`; its fresh non-combined run produced one valid San Francisco CKS before Berlin failed closed on the protected affected-community identity boundary. |
 | Phase 2 | **BLOCKED — FOUNDER-GOVERNED HISTORICAL IDENTITY/CAPACITY; UNCERTIFIED.** The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -88,6 +88,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Terminal enqueue-observability increment:** Completed locally on `2026-10-16`. Once terminal delivery exhaustion is durably persisted, the scheduler now emits exactly one structured `ERROR` event with action, topic/job lineage, bounded retry count, and diagnostic-presence signal. It deliberately omits raw failure text from the terminal alert event. Transient retry failures remain `WARNING` events, so alerting distinguishes actionable terminal exhaustion from scheduler-owned recovery without creating a new control plane.
 
+**Retry-batch telemetry increment:** Completed locally on `2026-10-16`. Every completed bounded scheduler drain now emits one structured `INFO` event with its enforced request limit, requeued count, and elapsed duration. The telemetry is emitted by the existing scheduler-owned path only, contains no source/evidence or raw diagnostic content, and adds no retry control, dispatch, discovery, re-entry, publication, Governance, Registry, or protected-state mutation.
+
 **Bounded enqueue-recovery increment:** Completed locally on `2026-10-16`. Persistent Cloud Tasks delivery failures now consume a separate, capped enqueue-retry counter and terminate the affected legacy generation item after five retry deliveries rather than looping indefinitely. The retry ceiling is operational only; it does not create or consume a V2 deferred re-entry request, alter historical evidence, or activate any production path.
 
 The Firestore emulator regression verifies both nonblocking recovery of a later ready topic and the fifth failed delivery’s terminal `FAILED` ledger/job state with no future retry time.
@@ -122,6 +124,7 @@ Completed for this increment:
 - Functions contract suite: 13 passed, 0 failed after the terminal enqueue-failure visibility increment.
 - Focused Firestore emulator retry regression: passed after terminal enqueue-failure visibility, proving the indexed terminal failure summary reports the persisted fifth-attempt failure without exposing diagnostics.
 - Focused Firestore emulator retry regression: passed after terminal enqueue observability, proving exactly one sanitized terminal `ERROR` event follows durable fifth-attempt failure while transient recovery remains a `WARNING`.
+- Focused Firestore emulator retry regression: passed after retry-batch telemetry, proving one bounded completion event reports the enforced limit, throughput, and nonnegative latency.
 - Full root suite: 250 passed, 0 failed after terminal enqueue-failure visibility; expected fixture warnings remained non-failing and no production mutation occurred.
 - Functions build and optimized Next production build: passed after terminal enqueue-failure visibility; the new route remains dynamically server-owned and Admin-authenticated.
 - Production-hardening validator: passed all dashboard, alert, PITR, retention, deployment-workflow, and incident checks; monitoring validator passed all 27 declared metrics and 15 alerts.

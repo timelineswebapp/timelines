@@ -23,17 +23,27 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   ]);
 
   const accepted: string[] = [];
+  const batchLogs: string[] = [];
   const beforeRetry = Date.now();
   const requeued = await retryDeferredEnqueuesWithDependencies(2, {
     enqueueGenerationTask: async (payload) => {
       if (payload.topicId === failedTopicId) throw new Error("Cloud Tasks unavailable for this topic.");
       accepted.push(payload.topicId);
       return { created: true, name: `emulator/${payload.jobId}` };
-    }
+    },
+    log: { info: (...args: unknown[]) => { batchLogs.push(args.map(String).join(" ")); } }
   });
 
   assert.equal(requeued, 1);
   assert.deepEqual(accepted, [successfulTopicId]);
+  assert.equal(batchLogs.length, 1);
+  const batchLog = JSON.parse(batchLogs[0]!);
+  assert.equal(batchLog.severity, "INFO");
+  assert.equal(batchLog.component, "deferred_enqueue_retry");
+  assert.equal(batchLog.action, "retry_batch_completed");
+  assert.equal(batchLog.requestedLimit, 2);
+  assert.equal(batchLog.requeued, 1);
+  assert.equal(typeof batchLog.durationMs, "number");
   const [failed, successful, failedJob, successfulJob] = await Promise.all([
     ledger.doc(failedTopicId).get(),
     ledger.doc(successfulTopicId).get(),

@@ -23,6 +23,7 @@ const ENQUEUE_RETRY_DELAY_MS = 60_000;
 
 type RetryDeferredEnqueueDependencies = {
   enqueueGenerationTask: typeof enqueueGenerationTask;
+  log?: Pick<Console, "info">;
 };
 
 export type GenerationRetryQueueSummary = {
@@ -299,7 +300,7 @@ export async function claimAutonomousTopic(title: string, significance: string, 
 }
 
 export async function retryDeferredEnqueues(limit = 50) {
-  return retryDeferredEnqueuesWithDependencies(limit, { enqueueGenerationTask });
+  return retryDeferredEnqueuesWithDependencies(limit, { enqueueGenerationTask, log: console });
 }
 
 /**
@@ -312,6 +313,7 @@ export async function retryDeferredEnqueuesWithDependencies(
   limit = 50,
   dependencies: RetryDeferredEnqueueDependencies
 ) {
+  const startedAt = Date.now();
   const boundedLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
   const snapshot = await corpusCollection("topicLedgers")
     .where("state", "==", "RETRY_SCHEDULED")
@@ -394,6 +396,14 @@ export async function retryDeferredEnqueuesWithDependencies(
       }
     }
   }
+  dependencies.log?.info(JSON.stringify({
+    severity: "INFO",
+    component: "deferred_enqueue_retry",
+    action: "retry_batch_completed",
+    requestedLimit: boundedLimit,
+    requeued,
+    durationMs: Math.max(0, Date.now() - startedAt)
+  }));
   return requeued;
 }
 
