@@ -6,7 +6,7 @@ import { V2FirestoreRepository } from "./firestore";
 import { date, scopeFixture, TEST_CONTEXT } from "../test-fixtures";
 import { buildEvidenceSegment, buildAtomicClaimVersion, buildCanonicalEventVersion, buildClaimEvidenceEdge, buildResearchMap, immutableEnvelope, parseSealedArtifact, sealArtifact, semanticArtifactId, semanticEnvelope } from "../contracts/builders";
 import { bootstrapPublisherRegistry, buildPublisherAuthorityVersion } from "../authority";
-import { claimAuthorityVerdictSchema, publisherAuthorityRecordSchema } from "../contracts";
+import { claimAuthorityVerdictSchema, deferredReentryRequestSchema, publisherAuthorityRecordSchema, v2FailureRecordSchema } from "../contracts";
 import { normalizedIdentityText } from "../contracts/builders";
 import { auditKnowledgeCoverage, buildCompletionResearchMap, buildKnowledgeCompletionResult, KNOWLEDGE_COVERAGE_POLICY_VERSION, planGapDirectedCompletion } from "../coverage";
 import { reconstructCompletedKnowledgeSetForB1 } from "../completed-knowledge-set";
@@ -14,6 +14,23 @@ import { reconstructCompletedKnowledgeSetForB1 } from "../completed-knowledge-se
 const AUTHORITY_LINEAGE = [{ topicAuthoritySetId: "topic-authority-set", routingObligationSetId: "routing-obligation-set", authorityResearchPlanId: "authority-research-plan", controlledResearchLedgerId: "controlled-research-ledger", perspectiveAuditId: "perspective-audit", confidenceVectorId: "confidence-vector" }];
 
 const enabled = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+
+test("Firestore emulator consumes a deferred re-entry exactly once and rejects occupied next lineage", { skip: !enabled }, async () => {
+  const app = getApps()[0] || initializeApp({ projectId: "tiimeliines" });
+  const firestore = getFirestore(app);
+  const context = { corpusId: "reentry-emulator-corpus", topicId: "topic-reentry-001", runId: "run-original-001", generation: 1, createdAt: "2026-10-16T00:00:00.000Z" };
+  const repository = new V2FirestoreRepository({ firestore, corpusId: context.corpusId });
+  const outcome = { policyVersion: "autonomous-public-evidence.1", classification: "PUBLIC_EVIDENCE_LIMITATION" as const, disposition: "DEFERRED" as const, reentryState: "REQUIRES_RELEVANT_CHANGE" as const, detailedReason: "FAILED_UNCLASSIFIED", publicEvidenceBasis: "GOVERNED_CAPACITY_EXHAUSTED" };
+  const failure = parseSealedArtifact(v2FailureRecordSchema, { ...immutableEnvelope(context, "failure-reentry-001"), failureRecordId: "failure-reentry-001", stage: "A2_SCOPE_ACQUISITION", failureClass: "FAILED_UNCLASSIFIED", severity: "HIGH", retryable: false, message: "Governed public evidence capacity is exhausted.", protectedRepresentationDiagnostics: null, blockingArtifactIds: [], attemptsConsumed: 1, budgetConsumed: {}, autonomousOutcome: outcome });
+  const operation = { operationId: "operation-reentry-001", corpusId: context.corpusId, topicId: context.topicId, runId: context.runId, generation: 1, pipelineVersion: "factory-v2-a.70", executionMode: "SHADOW", state: "DEFERRED", stage: "A2_SCOPE_ACQUISITION", scopeState: "LOCKED", researchMapState: "VALID", currentBlockingReason: "capacity", counts: {}, budgetsConsumed: {}, elapsedMs: 1, finalVerdict: "FAIL", terminalFailureRecordId: failure.failureRecordId, autonomousOutcome: outcome, updatedAt: context.createdAt };
+  const request = parseSealedArtifact(deferredReentryRequestSchema, { ...immutableEnvelope({ ...context, runId: "run-reentry-002", generation: 2 }, "request-reentry-001"), deferredReentryRequestId: "request-reentry-001", originalFailureRecordId: failure.failureRecordId, originalOperationId: operation.operationId, originalRunId: context.runId, originalGeneration: 1, nextRunId: "run-reentry-002", nextGeneration: 2, originalRelease: { pipelineVersion: "factory-v2-a.70", schemaVersion: "factory-v2-a.15", policyVersion: "authority-first-research.43", promptVersion: null }, outcome, trigger: "RELEVANT_EVIDENCE_CHANGE", relevantChangeArtifactId: "governed-change-001", authorizedBy: null, state: "REQUESTED" });
+  await repository.createImmutable("v2FailureRecords", failure);
+  await repository.setOperation(operation.operationId, operation);
+  await repository.createImmutable("v2DeferredReentryRequests", request);
+  assert.deepEqual(await Promise.all([repository.consumeDeferredReentryRequest(request.deferredReentryRequestId), repository.consumeDeferredReentryRequest(request.deferredReentryRequestId)]).then((values) => values.sort()), ["CONSUMED", "IDEMPOTENT"]);
+  assert.equal((await repository.getById("v2TopicOperations", request.nextRunId))?.state, "QUEUED");
+  await assert.rejects(repository.consumeDeferredReentryRequest("missing-request"), /does not exist/);
+});
 
 test("Firestore emulator enforces corpus paths, immutable idempotency, heads, and edge integrity", { skip: !enabled }, async () => {
   const app = getApps()[0] || initializeApp({ projectId: "tiimeliines" });

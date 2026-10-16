@@ -59,7 +59,7 @@ Completed for this increment:
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 350 passed, 0 failed, 2 intentional emulator-only skips.
-- Isolated Firestore emulator suite: 6 passed, 0 failed, including private V2-memory denial and full V2-A shadow orchestration.
+- Isolated Firestore emulator suites: 11 passed, 0 failed, including private V2-memory denial, full V2-A shadow orchestration, and concurrent deferred re-entry consumption.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
@@ -75,4 +75,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Add emulator-backed transaction coverage for deferred re-entry consumption, including concurrent consumption, stale lineage, and next-run collision cases. Only after that coverage passes may a separate server-owned request-creation workflow be considered; it must not expose direct Admin evidence, Registry, Governance, or Published Memory mutation.
+Implement the server-owned immutable deferred re-entry request-creation workflow. It must derive all original lineage from persisted records, permit only the contract’s governed relevant-change or attributable retry condition, use a bounded authenticated path, and must not expose direct Admin evidence, Registry, Governance, or Published Memory mutation.
