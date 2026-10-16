@@ -3,13 +3,12 @@ import test from "node:test";
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/homepage/timelines/route";
 
-test("homepage pagination rejects malformed, excessive, and zero-limit input before content reads", async () => {
-  for (const query of ["offset=2junk", "offset=10001", "limit=0", "limit=25", "limit=1.5"]) {
+test("homepage pagination and snapshot date reject invalid input before content reads", async () => {
+  for (const query of ["offset=2junk", "offset=10001", "limit=0", "limit=25", "limit=1.5", "snapshotDate=2026-02-30", "snapshotDate=2026-2-03", "snapshotDate=unbounded-value"]) {
     const response = await GET(new NextRequest(`https://timelines.example/api/homepage/timelines?${query}`));
     assert.equal(response.status, 400, query);
-    assert.deepEqual(await response.json(), {
-      ok: false,
-      error: { code: "VALIDATION_FAILED", message: "Invalid pagination parameters." }
-    });
+    const payload = await response.json() as { ok: boolean; error: { code: string } };
+    assert.equal(payload.ok, false);
+    assert.equal(payload.error.code, "VALIDATION_FAILED");
   }
 });

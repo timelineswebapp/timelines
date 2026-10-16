@@ -122,6 +122,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Public catalog pagination integrity increment:** Completed locally on `2026-10-16`. The homepage and catalog routes now share one server-side canonical bounded-integer parser. The catalog accepts limits only from 1 through 50, rejecting fractional, mixed-text, unsafe, zero, and oversized values before the projection-backed content service. Direct route regressions cover both consumers.
 
+**Homepage snapshot-date integrity increment:** Completed locally on `2026-10-16`. The optional public snapshot cursor now accepts only a real canonical `YYYY-MM-DD` ISO calendar date. Impossible, noncanonical, and arbitrary values fail validation before they can be reflected in a response or reach the content service; homepage content and snapshot semantics are otherwise unchanged.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -158,6 +160,7 @@ Completed for this increment:
 - Functions strict typecheck and public API contract regression: passed after the direct topic-status bound.
 - Root strict typecheck and direct homepage-route regression: passed after homepage pagination input integrity hardening.
 - Root strict typecheck and direct homepage/catalog route regressions: passed after shared public pagination validation.
+- Root strict typecheck and direct homepage-route regression: passed after snapshot-date validation.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
