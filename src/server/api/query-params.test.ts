@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DELETE as deleteCampaign } from "@/app/api/admin/ads/[id]/route";
 import { DELETE as deleteEvent } from "@/app/api/admin/events/[id]/route";
@@ -76,4 +77,12 @@ test("mutable numeric Admin resources reject noncanonical path identities before
     adminService.deleteTimeline = originalTimeline;
     setAdminSecurityAuditStoreForTests(null);
   }
+});
+
+test("deferred source-candidate UI remains provenance-only", () => {
+  const ui = readFileSync("components/admin/AdminFactoryOperations.tsx", "utf8");
+  assert.match(ui, /Recorded rationale: \{candidate\.rationale\}/);
+  assert.match(ui, /This is provenance only; it is not evidence, authority, a retrieval instruction, or a re-entry authorization\./);
+  const candidateSection = ui.slice(ui.indexOf("Candidate awaiting Factory validation:"), ui.indexOf("</article>)"));
+  assert.doesNotMatch(candidateSection, /dispatchSourceSubmissionRetrieval|createDeferredFactoryV2Reentry|Submit Source Candidate/);
 });
