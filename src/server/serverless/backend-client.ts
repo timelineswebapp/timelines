@@ -120,10 +120,10 @@ export const serverlessBackendClient = {
     return internalRequest<T[]>(`/internal/factory-v2/generation-enqueue-failures?${query({ limit })}`).then(requireInternalReadResult);
   },
   createDeferredFactoryV2Reentry<T>(body: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) {
-    return internalRequest<T>("/internal/factory-v2/deferred-reentry", { method: "POST", body });
+    return internalRequest<T>("/internal/factory-v2/deferred-reentry", { method: "POST", body }).then(requireInternalReadResult);
   },
   createFactoryV2SourceSubmission<T>(body: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string }) {
-    return internalRequest<T>("/internal/factory-v2/source-submissions", { method: "POST", body });
+    return internalRequest<T>("/internal/factory-v2/source-submissions", { method: "POST", body }).then(requireInternalReadResult);
   },
   listFactoryV2SourceSubmissions<T>(limit = 25) {
     return internalRequest<T[]>(`/internal/factory-v2/source-submissions?${query({ limit })}`).then(requireInternalReadResult);
