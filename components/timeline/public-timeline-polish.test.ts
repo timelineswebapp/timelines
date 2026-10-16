@@ -44,4 +44,5 @@ test("homepage presents an explicit availability state when its snapshot fails",
   assert.match(homeFeed, /role="status" aria-live="polite"/);
   assert.match(homeFeed, /More timelines could not be loaded right now/);
   assert.match(homeFeed, /setContinuationError\(true\)/);
+  assert.match(homeFeed, /window\.location\.reload\(\)/);
 });
