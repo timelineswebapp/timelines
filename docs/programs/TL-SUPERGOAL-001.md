@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `49f1164` — `test: verify governed source retrieval lineage` |
+| Prior program checkpoint | `84abe58` — `test: permit injected source dispatch retrieval dependencies` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -63,6 +63,8 @@ The repository contains untracked historical artifacts and local working materia
 **Retrieval persistence isolation correction:** Completed locally on `2026-10-16`. A durable-write failure in the worker handoff now propagates as an infrastructure failure; it can no longer be caught and reclassified as a source-material rejection. This preserves the doctrine’s separation between implementation/infrastructure faults and public-evidence limitations.
 
 **Bounded retrieval-dispatch increment:** Completed locally on `2026-10-16`. The Factory exposes a strict internal-only candidate retrieval dispatch contract with a sealed candidate identity and execution timestamp. It is not an HTTP payload, Admin control, queue configuration, or deployed worker; therefore it cannot activate autonomous discovery. Its timestamp is bound into immutable execution identity, and no unused caller-provided dispatch identity remains.
+
+**Dispatch testability increment:** Completed locally on `2026-10-16`. The internal dispatcher accepts injected retrieval dependencies only as an in-process function argument, allowing deterministic worker-path tests without creating a network endpoint, queue, or alternate caller-controlled acquisition path.
 
 **Governed retrieval-lineage verification increment:** Completed locally on `2026-10-16`. The Firestore emulator now persists a registered publisher authority version, validated Topic Authority Set, deferred terminal operation, and governed submitted-source candidate, then proves that authority resolution creates a strict immutable validation artifact and that a retrieval observation remains explicitly non-evidentiary. The test also exposed and corrected repository hydration so Firestore document IDs never enter strict artifact contracts.
 
