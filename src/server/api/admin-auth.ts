@@ -78,7 +78,13 @@ function cookieValue(request: Request, name: string): string {
   const cookie = request.headers.get("cookie") || "";
   for (const segment of cookie.split(";")) {
     const [key, ...valueParts] = segment.trim().split("=");
-    if (key === name) return decodeURIComponent(valueParts.join("="));
+    if (key === name) {
+      try {
+        return decodeURIComponent(valueParts.join("="));
+      } catch {
+        return "";
+      }
+    }
   }
   return "";
 }

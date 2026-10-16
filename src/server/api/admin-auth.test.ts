@@ -73,6 +73,28 @@ test("withAdminAuth issues an admin CSRF cookie after successful authentication"
   }
 });
 
+test("withAdminAuth replaces malformed CSRF cookies without failing an authenticated request", async () => {
+  const previousToken = config.adminApiToken;
+  config.adminApiToken = "legacy-secret";
+  setAdminSecurityAuditStoreForTests({ async append() {} });
+
+  try {
+    const handler = withAdminAuth(async () => Response.json({ ok: true }), { roles: ["admin"] });
+    const response = await handler(
+      new Request("https://timelines.example/api/admin/analytics", {
+        headers: { authorization: "Bearer legacy-secret", cookie: "timelines_admin_csrf=%E0%A4%A" }
+      }),
+      {}
+    );
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("set-cookie") || "", /timelines_admin_csrf=/);
+    assert.doesNotMatch(response.headers.get("set-cookie") || "", /%E0%A4%A/);
+  } finally {
+    config.adminApiToken = previousToken;
+    setAdminSecurityAuditStoreForTests(null);
+  }
+});
+
 test("withAdminAuth rejects unsafe browser admin requests missing CSRF token", async () => {
   const previousToken = config.adminApiToken;
   config.adminApiToken = "legacy-secret";
