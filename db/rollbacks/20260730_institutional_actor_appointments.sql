@@ -1,0 +1,3 @@
+DROP TRIGGER IF EXISTS prevent_institutional_actor_appointment_mutation ON institutional_actor_appointments;
+DROP FUNCTION IF EXISTS prevent_institutional_actor_appointment_mutation();
+DROP TABLE IF EXISTS institutional_actor_appointments;
