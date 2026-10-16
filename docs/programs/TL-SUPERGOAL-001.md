@@ -71,7 +71,7 @@ Completed for this increment:
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 354 passed, 0 failed, 2 intentional emulator-only skips.
-- Isolated Firestore emulator repository suite: 6 passed, 0 failed, including concurrent deferred re-entry request creation and consumption.
+- Isolated Firestore emulator repository suite: 6 passed, 0 failed, including concurrent deferred re-entry request creation and consumption. This verifies existing repository transaction behavior; dedicated submitted-source authority/retrieval emulator fixtures remain the next coverage increment.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
