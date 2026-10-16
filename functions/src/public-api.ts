@@ -74,13 +74,13 @@ function failure(response: Response, status: number, code: string, message: stri
   response.status(status).json({ ok: false, error: { code, message, ...(details === undefined ? {} : { details: jsonValue(details) }) }, apiVersion: PUBLIC_API_VERSION });
 }
 
-function verifiedClientIp(request: Request) {
+export function verifiedClientIp(request: { header(name: string): string | undefined; body: unknown }) {
   const clientIp = request.header("x-timelines-client-ip") || "";
   const timestamp = request.header("x-timelines-timestamp") || "";
   const supplied = request.header("x-timelines-signature") || "";
   const secret = process.env.BACKEND_SHARED_SECRET;
   const timestampMs = Number(timestamp);
-  if (!secret || secret.length < 32 || !clientIp || !Number.isFinite(timestampMs) || Math.abs(Date.now() - timestampMs) > 5 * 60_000) return null;
+  if (!secret || secret.length < 32 || !clientIp || !/^\d+$/u.test(timestamp) || !Number.isFinite(timestampMs) || Math.abs(Date.now() - timestampMs) > 5 * 60_000) return null;
   const expected = createHmac("sha256", secret).update(`${timestamp}.${clientIp}.${JSON.stringify(request.body)}`).digest("hex");
   const expectedBuffer = Buffer.from(expected, "hex");
   const suppliedBuffer = Buffer.from(supplied, "hex");

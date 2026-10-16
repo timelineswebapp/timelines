@@ -4,7 +4,8 @@ import test from "node:test";
 import { normalizeTopic } from "./normalization";
 import { evidenceFirstTaskPayloadSchema, generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
-import { boundedInteger, deferredReentryCommandSchema, scalarQueryString, sourceSubmissionCommandSchema } from "./public-api";
+import { boundedInteger, deferredReentryCommandSchema, scalarQueryString, sourceSubmissionCommandSchema, verifiedClientIp } from "./public-api";
+import { createHmac } from "node:crypto";
 import { internalRequestSignature, validInternalRequest } from "./internal-auth";
 
 function event(sortYear: number, title: string) {
@@ -236,6 +237,33 @@ test("mandatory contract suite verifies internal request method, path, body, and
   assert.equal(validInternalRequest({ ...valid, path: "/internal/factory-v2/deferred" }), false);
   assert.equal(validInternalRequest({ ...valid, timestamp: "1e3" }), false);
   assert.equal(validInternalRequest({ ...valid, now: Number(timestamp) + 300_001 }), false);
+});
+
+test("signed public topic intake rejects noncanonical timestamps and altered bodies", () => {
+  const previousSecret = process.env.BACKEND_SHARED_SECRET;
+  const secret = "b".repeat(32);
+  const timestamp = String(Date.now());
+  const clientIp = "203.0.113.10";
+  const body = { requestType: "timeline_request", query: "Printing press" };
+  process.env.BACKEND_SHARED_SECRET = secret;
+  const signature = createHmac("sha256", secret).update(`${timestamp}.${clientIp}.${JSON.stringify(body)}`).digest("hex");
+  const request = (overrides: { timestamp?: string; body?: unknown } = {}) => ({
+    body: overrides.body ?? body,
+    header(name: string) {
+      if (name === "x-timelines-client-ip") return clientIp;
+      if (name === "x-timelines-timestamp") return overrides.timestamp ?? timestamp;
+      if (name === "x-timelines-signature") return signature;
+      return undefined;
+    }
+  });
+  try {
+    assert.equal(verifiedClientIp(request()), clientIp);
+    assert.equal(verifiedClientIp(request({ timestamp: "1e3" })), null);
+    assert.equal(verifiedClientIp(request({ body: { ...body, query: "Altered" } })), null);
+  } finally {
+    if (previousSecret === undefined) delete process.env.BACKEND_SHARED_SECRET;
+    else process.env.BACKEND_SHARED_SECRET = previousSecret;
+  }
 });
 
 test("generation retry queue isolates individual enqueue failures without activating deferred re-entry", () => {
