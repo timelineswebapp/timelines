@@ -27,10 +27,10 @@ The repository contains untracked historical artifacts and local working materia
 
 | Workstream | Status | Current authorized action |
 |---|---|---|
-| A — Factory reliability | Active | Preserve Authority-First and repair only general verified defects. |
+| A — Factory reliability | Completed authorized scope | Serverless transport, signing configuration, response envelope/media-type/size integrity, typed availability, Admin DTO validation, and operational continuity now fail closed with deterministic coverage. Reopen only for a newly verified general defect. |
 | B — Autonomous operations | Completed authorized technical scope | The outcome, deferment, bounded request, transaction-owned consumption, recovery visibility, immutable lineage, and deterministic verification journey is complete. Runtime consumption/worker dispatch remains deliberately unactivated; activating research requires separate Founder authorization. |
 | C — Institutional integration | Implemented baseline; verification ongoing | Keep Factory → Governance → Library → Published Memory boundaries intact. |
-| D — Founder/Admin | Partially implemented | Extend existing authenticated operations UI only through server-owned, audited controls. |
+| D — Founder/Admin | Active, highest priority | Extend existing authenticated operations UI only through server-owned, audited controls. |
 | E — Public experience | Implemented baseline; verification ongoing | Complete bounded accessibility, responsive, and reliability defects as evidenced. |
 | F — Infrastructure and security | Active | Run non-destructive verification and remediate proved defects. |
 | G — Existing monetization | Deferred | No activation or external commercial integration authorized. |
