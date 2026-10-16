@@ -454,7 +454,7 @@ export async function listGenerationEnqueueFailureSummaries(limit: number): Prom
       !Number.isInteger(data.generation) || data.generation < 1 ||
       (data.origin !== "user" && data.origin !== "autonomous") ||
       !(data.updatedAt instanceof Timestamp) ||
-      !Number.isInteger(data.enqueueRetryCount) || data.enqueueRetryCount < 1
+      data.enqueueRetryCount !== MAX_ENQUEUE_RETRIES
     ) return [];
     return [{
       topicId: document.id,

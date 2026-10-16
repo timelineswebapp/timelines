@@ -177,6 +177,7 @@ test("generation retry queue isolates individual enqueue failures without activa
   assert.match(ledger, /action: "enqueue_retry_exhausted"/u);
   assert.match(ledger, /diagnosticPresent: true/u);
   assert.match(ledger, /action: "retry_batch_completed"/u);
+  assert.match(ledger, /data\.enqueueRetryCount !== MAX_ENQUEUE_RETRIES/u);
   assert.match(ledger, /state: "RETRY_SCHEDULED", nextRetryAt/u);
   assert.match(ledger, /state: "QUEUED", currentStage: "queued", nextRetryAt: null/u);
   assert.doesNotMatch(ledger, /consumeDeferredReentryRequest/u);

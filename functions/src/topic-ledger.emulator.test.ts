@@ -10,6 +10,7 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   const suffix = (Date.now() % 16).toString(16);
   const failedTopicId = `a${"0".repeat(38)}${suffix}`;
   const successfulTopicId = `b${"0".repeat(38)}${suffix}`;
+  const malformedTerminalTopicId = `c${"0".repeat(38)}${suffix}`;
   const failedJobId = "4af86d2f-1596-4b8c-a927-42e9e25b646d";
   const successfulJobId = "5af86d2f-1596-4b8c-a927-42e9e25b646d";
   const dueAt = Timestamp.fromMillis(Date.now() - 1_000);
@@ -114,4 +115,16 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
     enqueueRetryCount: 5,
     lastErrorPresent: true
   });
+  await ledger.doc(malformedTerminalTopicId).set({
+    corpusId: process.env.ACTIVE_CORPUS_ID,
+    state: "FAILED",
+    currentStage: "enqueue_failed",
+    activeJobId: "6af86d2f-1596-4b8c-a927-42e9e25b646d",
+    generation: 1,
+    origin: "user",
+    enqueueRetryCount: 6,
+    lastError: "corrupt terminal count",
+    updatedAt: Timestamp.now()
+  });
+  assert.equal((await listGenerationEnqueueFailureSummaries(25)).some((item) => item.topicId === malformedTerminalTopicId), false);
 });
