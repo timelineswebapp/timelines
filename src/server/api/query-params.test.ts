@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { DELETE as deleteCampaign } from "@/app/api/admin/ads/[id]/route";
+import { DELETE as deleteEvent } from "@/app/api/admin/events/[id]/route";
+import { DELETE as deleteTag } from "@/app/api/admin/tags/[id]/route";
+import { DELETE as deleteTimeline } from "@/app/api/admin/timelines/[id]/route";
+import { config } from "@/src/lib/config";
 import { ApiError } from "@/src/server/api/responses";
 import { parseCanonicalPositiveIntegerPathParameter, parseOptionalEnumQueryParameter, parseOptionalSingleQueryParameter } from "@/src/server/api/query-params";
+import { adminService } from "@/src/server/services/admin-service";
+import { setAdminSecurityAuditStoreForTests } from "@/src/server/security/admin-identity";
 
 test("operational enum filters accept only one declared value", () => {
   const options = ["queued", "running", "completed"] as const;
@@ -22,5 +29,36 @@ test("numeric operational path identifiers remain canonical and bounded", () => 
   assert.equal(parseCanonicalPositiveIntegerPathParameter("42", "report id"), 42);
   for (const value of ["", "0", "01", "1.0", "1e2", "-1", "9007199254740992"]) {
     assert.throws(() => parseCanonicalPositiveIntegerPathParameter(value, "report id"), ApiError);
+  }
+});
+
+test("mutable numeric Admin resources reject noncanonical path identities before service calls", async () => {
+  const previousToken = config.adminApiToken;
+  const originalCampaign = adminService.deleteAdCampaign;
+  const originalEvent = adminService.deleteEvent;
+  const originalTag = adminService.deleteTag;
+  const originalTimeline = adminService.deleteTimeline;
+  const calls: string[] = [];
+  config.adminApiToken = "admin-secret";
+  adminService.deleteAdCampaign = async () => { calls.push("campaign"); return false; };
+  adminService.deleteEvent = async () => { calls.push("event"); return false; };
+  adminService.deleteTag = async () => { calls.push("tag"); return false; };
+  adminService.deleteTimeline = async () => { calls.push("timeline"); return false; };
+  setAdminSecurityAuditStoreForTests({ async append() {} });
+
+  const request = new Request("https://timelines.example/api/admin/resource/1e2", { method: "DELETE", headers: { authorization: "Bearer admin-secret" } });
+  try {
+    for (const remove of [deleteCampaign, deleteEvent, deleteTag, deleteTimeline]) {
+      const response = await remove(request, { params: Promise.resolve({ id: "1e2" }) });
+      assert.equal(response.status, 400);
+    }
+    assert.deepEqual(calls, []);
+  } finally {
+    config.adminApiToken = previousToken;
+    adminService.deleteAdCampaign = originalCampaign;
+    adminService.deleteEvent = originalEvent;
+    adminService.deleteTag = originalTag;
+    adminService.deleteTimeline = originalTimeline;
+    setAdminSecurityAuditStoreForTests(null);
   }
 });
