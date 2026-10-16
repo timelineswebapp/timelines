@@ -1,5 +1,6 @@
 import { fail, ok } from "@/src/server/api/responses";
 import { withAdminAuth } from "@/src/server/api/admin-auth";
+import { parseCanonicalPositiveIntegerPathParameter } from "@/src/server/api/query-params";
 import { adminService } from "@/src/server/services/admin-service";
 import { timelineSchema } from "@/src/server/validation/schemas";
 
@@ -7,7 +8,7 @@ export const PATCH = withAdminAuth(async (request: Request, { params }: { params
   const { id } = await params;
   const body = await request.json();
   const input = timelineSchema.parse(body);
-  const updated = await adminService.updateTimeline(Number(id), input);
+  const updated = await adminService.updateTimeline(parseCanonicalPositiveIntegerPathParameter(id, "timeline id"), input);
   if (!updated) {
     return fail(404, "Timeline not found.");
   }
@@ -16,7 +17,7 @@ export const PATCH = withAdminAuth(async (request: Request, { params }: { params
 
 export const DELETE = withAdminAuth(async (_request: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const deleted = await adminService.deleteTimeline(Number(id));
+  const deleted = await adminService.deleteTimeline(parseCanonicalPositiveIntegerPathParameter(id, "timeline id"));
   if (!deleted) {
     return fail(404, "Timeline not found.");
   }
