@@ -104,6 +104,8 @@ Terminal enqueue exhaustion also creates a durable non-retryable failure record 
 
 **Public-search page identity increment:** Completed locally on `2026-10-16`. Each bounded public-search page now emits its own canonical and Open Graph URL, preserving pagination identity for readers and crawlers without broadening result access or changing public content.
 
+**Public-search page normalization increment:** Completed locally on `2026-10-16`. The server-rendered search route now accepts only canonical positive-integer page parameters before applying its existing 500-page cap. Malformed, signed, decimal, whitespace-padded, or mixed-text values fail closed to the first page rather than being partially parsed into later result offsets. Query ranking, result bounds, content access, and public-data separation are unchanged.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
@@ -130,6 +132,7 @@ Completed for this increment:
 - Production-hardening validator: passed all dashboard, alert, PITR, retention, deployment-workflow, and incident checks; monitoring validator passed all 27 declared metrics and 15 alerts.
 - Tier-1 security gate and root lint: passed after terminal enqueue-failure visibility. Production runtime audits remain zero high/critical; the recorded lint-tooling-only advisory remains accepted solely under its existing constraints.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips after terminal enqueue observability.
+- Public-search pagination regression and root strict typecheck: passed after strict page-parameter normalization.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.

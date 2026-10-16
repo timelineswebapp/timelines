@@ -21,8 +21,9 @@ function normalizePublicSearchQuery(value: string) {
 }
 
 function normalizeSearchPage(value: string | undefined) {
-  const parsed = Number.parseInt(value || "1", 10);
-  return Number.isSafeInteger(parsed) ? Math.max(1, Math.min(MAX_SEARCH_PAGE, parsed)) : 1;
+  if (!value || !/^[1-9]\d*$/u.test(value)) return 1;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? Math.min(MAX_SEARCH_PAGE, parsed) : 1;
 }
 
 function searchPageHref(query: string, page: number) {

@@ -10,6 +10,8 @@ test("public search trims queries and presents an accessible empty-result state"
   assert.match(source, /const query = normalizePublicSearchQuery\(q\)/u);
   assert.match(source, /const SEARCH_PAGE_SIZE = 20/u);
   assert.match(source, /const MAX_SEARCH_PAGE = 500/u);
+  assert.match(source, /!\/\^\[1-9\]\\d\*\$\/u\.test\(value\)/u);
+  assert.match(source, /const parsed = Number\(value\)/u);
   assert.match(source, /contentService\.searchKnowledge\(query, SEARCH_PAGE_SIZE, \(currentPage - 1\) \* SEARCH_PAGE_SIZE\)/u);
   assert.match(source, /aria-label="Search result pages"/u);
   assert.match(source, /const canonicalPath = query \? searchPageHref\(query, currentPage\) : "\/search"/u);
