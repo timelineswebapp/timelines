@@ -19,6 +19,11 @@ export type TopicState =
   | "CANCELLED";
 
 const ACTIVE_STATES = new Set<TopicState>(["NEW", "QUEUED", "PROCESSING", "AWAITING_REVIEW", "SHADOW_COMPLETED", "RETRY_SCHEDULED"]);
+const ENQUEUE_RETRY_DELAY_MS = 60_000;
+
+type RetryDeferredEnqueueDependencies = {
+  enqueueGenerationTask: typeof enqueueGenerationTask;
+};
 
 function requireIpSalt() {
   const salt = process.env.IP_HASH_SALT;
@@ -271,6 +276,19 @@ export async function claimAutonomousTopic(title: string, significance: string, 
 }
 
 export async function retryDeferredEnqueues(limit = 50) {
+  return retryDeferredEnqueuesWithDependencies(limit, { enqueueGenerationTask });
+}
+
+/**
+ * Drains a bounded retry batch without allowing one transient Cloud Tasks failure
+ * to strand later ready topics. This is deliberately limited to legacy generation
+ * queue retries; deferred V2 re-entry remains a separately governed, unactivated
+ * workflow.
+ */
+export async function retryDeferredEnqueuesWithDependencies(
+  limit = 50,
+  dependencies: RetryDeferredEnqueueDependencies
+) {
   const boundedLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
   const snapshot = await corpusCollection("topicLedgers")
     .where("state", "==", "RETRY_SCHEDULED")
@@ -281,19 +299,47 @@ export async function retryDeferredEnqueues(limit = 50) {
   let requeued = 0;
   for (const document of snapshot.docs) {
     const data = document.data();
-    if (typeof data.activeJobId !== "string" || !Number.isInteger(data.generation) || data.generation < 1) continue;
-    const rawPayload = {
-      corpusId: ACTIVE_CORPUS_ID,
-      topicId: document.id,
-      jobId: data.activeJobId,
-      generation: data.generation,
-      origin: "retry" as const,
-      ...(typeof data.generationReleaseId === "string" ? { generationReleaseId: data.generationReleaseId } : {})
-    };
-    const payload = "generationReleaseId" in rawPayload ? evidenceFirstTaskPayloadSchema.parse(rawPayload) : taskPayloadSchema.parse(rawPayload);
-    await enqueueGenerationTask(payload, data.origin !== "autonomous");
-    await document.ref.update({ state: "QUEUED", currentStage: "queued", nextRetryAt: null, lastError: null, updatedAt: Timestamp.now() });
-    requeued += 1;
+    try {
+      if (typeof data.activeJobId !== "string" || !Number.isInteger(data.generation) || data.generation < 1) {
+        throw new Error("Retry-scheduled ledger entry is missing a valid active job identity or generation.");
+      }
+      const rawPayload = {
+        corpusId: ACTIVE_CORPUS_ID,
+        topicId: document.id,
+        jobId: data.activeJobId,
+        generation: data.generation,
+        origin: "retry" as const,
+        ...(typeof data.generationReleaseId === "string" ? { generationReleaseId: data.generationReleaseId } : {})
+      };
+      const payload = "generationReleaseId" in rawPayload ? evidenceFirstTaskPayloadSchema.parse(rawPayload) : taskPayloadSchema.parse(rawPayload);
+      await dependencies.enqueueGenerationTask(payload, data.origin !== "autonomous");
+      const queued = await db.runTransaction(async (transaction) => {
+        const current = await transaction.get(document.ref);
+        if (current.data()?.state !== "RETRY_SCHEDULED" || current.data()?.activeJobId !== data.activeJobId) return false;
+        const jobRef = corpusCollection("generationJobs").doc(data.activeJobId);
+        const job = await transaction.get(jobRef);
+        transaction.update(document.ref, { state: "QUEUED", currentStage: "queued", nextRetryAt: null, lastError: null, updatedAt: Timestamp.now() });
+        if (job.exists) transaction.update(jobRef, { state: "QUEUED", currentStage: "queued", nextRetryAt: null, lastError: null, updatedAt: Timestamp.now() });
+        return true;
+      });
+      if (queued) requeued += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const nextRetryAt = Timestamp.fromMillis(Date.now() + ENQUEUE_RETRY_DELAY_MS);
+      try {
+        await db.runTransaction(async (transaction) => {
+          const current = await transaction.get(document.ref);
+          if (current.data()?.state !== "RETRY_SCHEDULED" || current.data()?.activeJobId !== data.activeJobId) return;
+          const jobRef = typeof data.activeJobId === "string" ? corpusCollection("generationJobs").doc(data.activeJobId) : null;
+          const job = jobRef ? await transaction.get(jobRef) : null;
+          transaction.update(document.ref, { nextRetryAt, lastError: message.slice(0, 2000), updatedAt: Timestamp.now() });
+          if (jobRef && job?.exists) transaction.update(jobRef, { state: "RETRY_SCHEDULED", nextRetryAt, lastError: message.slice(0, 2000), updatedAt: Timestamp.now() });
+        });
+      } catch (persistenceError) {
+        console.error(JSON.stringify({ severity: "ERROR", component: "deferred_enqueue_retry", action: "retry_failure_persistence_failed", topicId: document.id, message: persistenceError instanceof Error ? persistenceError.message : String(persistenceError) }));
+      }
+      console.warn(JSON.stringify({ severity: "WARNING", component: "deferred_enqueue_retry", action: "retry_deferred_without_blocking_batch", topicId: document.id, message: message.slice(0, 2000) }));
+    }
   }
   return requeued;
 }

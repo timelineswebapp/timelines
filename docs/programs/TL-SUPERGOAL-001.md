@@ -1,6 +1,6 @@
 # TL-SUPERGOAL-001 — Autonomous Tier-1 Production Completion
 
-**Status:** ACTIVE — AUTHORIZED ENGINEERING EXECUTION
+**Status:** ACTIVE — INDEPENDENT CTO ENGINEERING EXECUTION
 **Authority:** CTO execution index; subordinate to `Knowledge/AUTHORITY_INDEX.md`, the V2 canons, locked institutional records, and certification artifacts.
 **Last reconciled:** 2026-10-16
 **Related records:** `docs/programs/TL-TIER1-COMPLETION-001.md`; `docs/decisions/TL-AUTONOMY-001.md`.
@@ -13,10 +13,10 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `6dea240` — `test: keep deferred reentry consumption unroutable` |
+| Prior program checkpoint | `a333726` — `docs: seal phase two artifact integrity evidence` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
-| Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
-| Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
+| Latest sealed Phase-2 evidence | `.70` release `dd9737a1742a68c726aa3d41fd4549430c6d68098cf48fb13c6fd38ee6f7ed16`; its fresh non-combined run produced one valid San Francisco CKS before Berlin failed closed on the protected affected-community identity boundary. |
+| Phase 2 | **BLOCKED — FOUNDER-GOVERNED HISTORICAL IDENTITY/CAPACITY; UNCERTIFIED.** The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
 | Autonomous discovery | Paused. |
 | Publication and Governance submission | Disabled for Authority-First shadow execution. |
 | Production / institutional mutation | Not authorized by this program. |
@@ -34,7 +34,7 @@ The repository contains untracked historical artifacts and local working materia
 | E — Public experience | Implemented baseline; verification ongoing | Complete bounded accessibility, responsive, and reliability defects as evidenced. |
 | F — Infrastructure and security | Active | Run non-destructive verification and remediate proved defects. |
 | G — Existing monetization | Deferred | No activation or external commercial integration authorized. |
-| H — Certification | Blocked for Phase 2; local verification active | Preserve sealed evidence; do not claim certification without the locked 4/4 evidence. |
+| H — Certification | **Blocked — Founder-governed historical identity/capacity** | Preserve `.70` sealed evidence; do not infer a Community Identity, expand Registry capacity, or rerun certification without separately justified authorization. This does not block independent engineering. |
 
 ## Current implementation increment
 
@@ -78,6 +78,14 @@ The repository contains untracked historical artifacts and local working materia
 
 **Governed retrieval-lineage verification increment:** Completed locally on `2026-10-16`. The Firestore emulator now persists a registered publisher authority version, validated Topic Authority Set, deferred terminal operation, and governed submitted-source candidate, then proves that authority resolution creates a strict immutable validation artifact and that a retrieval observation remains explicitly non-evidentiary. The test also exposed and corrected repository hydration so Firestore document IDs never enter strict artifact contracts.
 
+**Nonblocking generation-retry increment:** Completed locally on `2026-10-16`. The bounded legacy generation retry drain now isolates each Cloud Tasks enqueue failure. A failed or malformed ready entry remains `RETRY_SCHEDULED` with a bounded next-attempt time and structured diagnostic, while later ready entries continue. On a successful enqueue, the ledger and its generation-job projection advance together to `QUEUED`. This applies only to existing generation queue recovery; it neither consumes deferred V2 re-entry requests nor activates discovery, retrieval dispatch, publication, Governance submission, deployment, or any historical workflow.
+
+## Phase-2 certification boundary
+
+The `.70` sealed release and immutable report are preserved. The fresh prescribed certification run established one valid Completed Knowledge Set for **The 1906 San Francisco Earthquake** with exact protected-state parity. **The Berlin Blockade and Airlift** then failed closed before research or retrieval on `UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY` for a locked affected-community requirement, also with exact parity. **Ada Lovelace: Life and Work** and **The Development of the Printing Press** were not executed after the failure.
+
+Phase 2 is therefore not passed and must not be retried, combined with another release, or treated as a basis for publication. The remaining action is Founder-only: a bounded, evidenced decision on the protected Berlin affected-community identity/Registry capacity boundary or another compliant disposition. All independent technical workstreams remain active.
+
 ## Certification and verification state
 
 Local and shadow verification may be executed only within existing budgets and safety controls. No result becomes Phase-2 certification unless it is a fresh four-subject run from one materially equivalent sealed release and produces four valid CKS records. Provider-backed certification is not part of the current implementation increment.
@@ -86,8 +94,8 @@ Completed for this increment:
 
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
-- Full Functions suite: 359 passed, 0 failed, 2 intentional emulator-only skips.
-- Isolated Firestore emulator repository suite: 7 passed, 0 failed, including concurrent deferred re-entry request creation and consumption plus submitted-source authority/retrieval lineage.
+- Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
+- Isolated Firestore emulator suite: 10 passed, 0 failed, including concurrent deferred re-entry request creation and consumption, submitted-source authority/retrieval lineage, protected-state rules, full V2-A shadow orchestration, and nonblocking generation retry recovery.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed, revalidated after the deferred re-entry activation-boundary increment.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
@@ -103,4 +111,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Founder authorization sealed `.70` release `dd9737a1742a68c726aa3d41fd4549430c6d68098cf48fb13c6fd38ee6f7ed16` and ran exactly one fresh, non-combined certification. San Francisco produced a valid CKS with exact parity; Berlin failed closed before research/retrieval on `UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY` for a locked affected-community requirement, also with exact parity. Ada and Printing Press were not executed. The next action is Founder-reserved historical governance: authorize a bounded, evidenced Community Identity/Registry resolution or another compliant disposition. Do not retry certification, alter standards, activate re-entry/discovery/publication/Governance submission, deploy, or infer a Registry change.
+Continue independent `TL-AUTONOMY-001` and operational-interface work. The next implementation target is bounded, server-owned operational visibility for the generation retry queue and its failure state, with no queue-control endpoint and no activation of deferred V2 re-entry dispatch. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.

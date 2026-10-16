@@ -165,6 +165,15 @@ test("deferred re-entry consumption remains transaction-owned and unroutable", (
   assert.doesNotMatch(publicApi, /source-submissions\/(?:dispatch|retrieve)/u);
 });
 
+test("generation retry queue isolates individual enqueue failures without activating deferred re-entry", () => {
+  const ledger = readFileSync("src/topic-ledger.ts", "utf8");
+  assert.match(ledger, /retryDeferredEnqueuesWithDependencies/u);
+  assert.match(ledger, /retry_deferred_without_blocking_batch/u);
+  assert.match(ledger, /state: "RETRY_SCHEDULED", nextRetryAt/u);
+  assert.match(ledger, /state: "QUEUED", currentStage: "queued", nextRetryAt: null/u);
+  assert.doesNotMatch(ledger, /consumeDeferredReentryRequest/u);
+});
+
 test("generation schema rejects evidence that merely repeats public copy", () => {
   const repeated = event(1900, "Repeated evidence");
   repeated.evidenceSummary = repeated.description;
