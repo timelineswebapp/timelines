@@ -4,6 +4,7 @@ import test from "node:test";
 import { normalizeTopic } from "./normalization";
 import { evidenceFirstTaskPayloadSchema, generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
+import { deferredReentryCommandSchema } from "./public-api";
 
 function event(sortYear: number, title: string) {
   return {
@@ -163,6 +164,29 @@ test("deferred re-entry consumption remains transaction-owned and unroutable", (
   assert.doesNotMatch(publicApi, /deferred-reentry\/(?:consume|dispatch)/u);
   assert.doesNotMatch(backendClient, /deferred-reentry\/(?:consume|dispatch)/u);
   assert.doesNotMatch(publicApi, /source-submissions\/(?:dispatch|retrieve)/u);
+});
+
+test("signed deferred re-entry creation accepts only trigger-compatible server lineage", () => {
+  const evidenceChange = {
+    operationId: "operation-001",
+    trigger: "RELEVANT_EVIDENCE_CHANGE" as const,
+    relevantChangeArtifactId: "snapshot-001",
+    authorizedBy: null,
+    authorizationReason: null
+  };
+  const authorizedRetry = {
+    operationId: "operation-002",
+    trigger: "AUTHORIZED_RETRY" as const,
+    relevantChangeArtifactId: null,
+    authorizedBy: "operator-001",
+    authorizationReason: "The bounded retry is authorized after a verified provider recovery."
+  };
+  assert.equal(deferredReentryCommandSchema.safeParse(evidenceChange).success, true);
+  assert.equal(deferredReentryCommandSchema.safeParse(authorizedRetry).success, true);
+  assert.equal(deferredReentryCommandSchema.safeParse({ ...evidenceChange, relevantChangeArtifactId: null }).success, false);
+  assert.equal(deferredReentryCommandSchema.safeParse({ ...evidenceChange, authorizationReason: "Forged authorization." }).success, false);
+  assert.equal(deferredReentryCommandSchema.safeParse({ ...authorizedRetry, authorizedBy: null }).success, false);
+  assert.equal(deferredReentryCommandSchema.safeParse({ ...authorizedRetry, relevantChangeArtifactId: "snapshot-001" }).success, false);
 });
 
 test("generation retry queue isolates individual enqueue failures without activating deferred re-entry", () => {

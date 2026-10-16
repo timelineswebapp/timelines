@@ -13,13 +13,24 @@ import { V2FirestoreRepository } from "./factory-v2/repositories/firestore";
 import { listSourceSubmissionCandidates } from "./factory-v2/source-submission";
 import { idSchema } from "./factory-v2/contracts/common";
 
-const deferredReentryCommandSchema = z.object({
+export const deferredReentryCommandSchema = z.object({
   operationId: idSchema,
   trigger: z.enum(["RELEVANT_EVIDENCE_CHANGE", "AUTHORIZED_RETRY"]),
   relevantChangeArtifactId: idSchema.nullable().optional(),
   authorizedBy: z.string().trim().min(2).max(240).nullable().optional(),
   authorizationReason: z.string().trim().min(3).max(1_000).nullable().optional()
-}).strict();
+}).strict().superRefine((command, context) => {
+  if (command.trigger === "RELEVANT_EVIDENCE_CHANGE") {
+    if (!command.relevantChangeArtifactId) context.addIssue({ code: z.ZodIssueCode.custom, path: ["relevantChangeArtifactId"], message: "A relevant change artifact is required." });
+    if (command.authorizedBy !== null && command.authorizedBy !== undefined) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorizedBy"], message: "Evidence-change re-entry cannot carry an authorization identity." });
+    if (command.authorizationReason !== null && command.authorizationReason !== undefined) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorizationReason"], message: "Evidence-change re-entry cannot carry an authorization reason." });
+    return;
+  }
+
+  if (!command.authorizedBy) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorizedBy"], message: "An authorized retry requires an attributable operator." });
+  if (!command.authorizationReason) context.addIssue({ code: z.ZodIssueCode.custom, path: ["authorizationReason"], message: "An authorized retry requires a reason." });
+  if (command.relevantChangeArtifactId !== null && command.relevantChangeArtifactId !== undefined) context.addIssue({ code: z.ZodIssueCode.custom, path: ["relevantChangeArtifactId"], message: "An authorized retry cannot carry an evidence artifact." });
+});
 const sourceSubmissionCommandSchema = z.object({
   operationId: idSchema,
   submittedUrl: z.string().url().max(4096),
