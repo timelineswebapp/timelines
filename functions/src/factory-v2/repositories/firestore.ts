@@ -383,11 +383,30 @@ export class V2FirestoreRepository {
 
   async getReusableSource(canonicalUrl: string): Promise<{ source: DocumentData; snapshot: DocumentData; evidenceSegments: DocumentData[] } | null> {
     const sourceId = contentAddressedId("source", canonicalUrl);
-    const source = await this.getById("v2SourceDocuments", sourceId);
-    if (!source || typeof source.currentSnapshotId !== "string") return null;
-    const snapshot = await this.getById("v2SourceSnapshots", source.currentSnapshotId);
-    if (!snapshot) return null;
-    const evidenceSegments = await this.boundedQuery("v2EvidenceSegments", [{ field: "sourceSnapshotId", op: "==", value: source.currentSnapshotId }], 200);
+    const sourceRecord = await this.getById("v2SourceDocuments", sourceId);
+    if (!sourceRecord || typeof sourceRecord.currentSnapshotId !== "string") return null;
+    const { id: sourceDocumentId, ...sourcePayload } = sourceRecord;
+    const source = sourceDocumentSchema.parse(sourcePayload);
+    if (sourceDocumentId !== source.sourceId || source.sourceId !== sourceId || source.canonicalUrl !== canonicalUrl) {
+      throw new Error("Reusable source document identity is invalid.");
+    }
+    if (source.currentSnapshotId === null) return null;
+    const snapshotRecord = await this.getById("v2SourceSnapshots", source.currentSnapshotId);
+    if (!snapshotRecord) return null;
+    const { id: snapshotDocumentId, ...snapshotPayload } = snapshotRecord;
+    const snapshot = sourceSnapshotSchema.parse(snapshotPayload);
+    if (snapshotDocumentId !== snapshot.sourceSnapshotId || snapshot.sourceId !== source.sourceId || !verifyPayloadHash(snapshot)) {
+      throw new Error("Reusable source snapshot integrity is invalid.");
+    }
+    const evidenceSegmentRecords = await this.boundedQuery("v2EvidenceSegments", [{ field: "sourceSnapshotId", op: "==", value: source.currentSnapshotId }], 200);
+    const evidenceSegments = evidenceSegmentRecords.map((record) => {
+      const { id: evidenceSegmentDocumentId, ...evidenceSegmentPayload } = record;
+      const evidenceSegment = evidenceSegmentSchema.parse(evidenceSegmentPayload);
+      if (evidenceSegmentDocumentId !== evidenceSegment.evidenceSegmentId || evidenceSegment.sourceSnapshotId !== snapshot.sourceSnapshotId || !verifyPayloadHash(evidenceSegment)) {
+        throw new Error("Reusable source evidence segment integrity is invalid.");
+      }
+      return evidenceSegment;
+    });
     return { source, snapshot, evidenceSegments };
   }
 
