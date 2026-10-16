@@ -794,7 +794,7 @@ export const factoryRuntimeWorkerSchema = z.object({
   description: trimmedString(10, 1000),
   capabilities: z.array(trimmedString(2, 120)).max(50).default([]),
   defaultProviderKey: z.enum(["qwen14"]).default("qwen14"),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
@@ -804,7 +804,7 @@ export const factoryRuntimePromptSchema = z.object({
   template: trimmedString(10, 10000),
   inputSchema: z.record(z.unknown()).default({}),
   outputSchema: z.record(z.unknown()).default({}),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
@@ -815,23 +815,23 @@ export const factoryRuntimeJobSchema = z.object({
   priority: z.coerce.number().int().min(0).max(100).default(0),
   input: z.record(z.unknown()),
   configuration: z.record(z.unknown()).default({}),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryRuntimeJobTransitionSchema = z.object({
   status: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryRuntimeJobExecutionSchema = z.object({
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 
 export const factoryWorkerRegistrySyncSchema = z.object({
-  actor: actorSchema,
+  actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
 

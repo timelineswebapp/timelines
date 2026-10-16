@@ -5,7 +5,7 @@ import { factoryRuntimeWorkerSchema } from "@/src/server/validation/schemas";
 
 export const GET = withAdminAuth(async () => ok(await adminService.listFactoryRuntimeWorkers()), { roles: ["factory_operator"] });
 
-export const POST = withAdminAuth(async (request: Request) => {
+export const POST = withAdminAuth(async (request: Request, _context, identity) => {
   const input = factoryRuntimeWorkerSchema.parse(await request.json());
-  return ok(await adminService.registerFactoryRuntimeWorker(input), { status: 201 });
+  return ok(await adminService.registerFactoryRuntimeWorker({ ...input, actor: identity.operatorId }), { status: 201 });
 }, { roles: ["factory_operator"] });

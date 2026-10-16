@@ -9,7 +9,7 @@ export const GET = withAdminAuth(async (request: Request) => {
   return ok(await adminService.listFactoryRuntimeJobs(status));
 }, { roles: ["factory_operator"] });
 
-export const POST = withAdminAuth(async (request: Request) => {
+export const POST = withAdminAuth(async (request: Request, _context, identity) => {
   const input = factoryRuntimeJobSchema.parse(await request.json());
-  return ok(await adminService.queueFactoryRuntimeJob(input), { status: 201 });
+  return ok(await adminService.queueFactoryRuntimeJob({ ...input, actor: identity.operatorId }), { status: 201 });
 }, { roles: ["factory_operator"] });

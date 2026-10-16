@@ -5,7 +5,7 @@ import { factoryWorkerRegistrySyncSchema } from "@/src/server/validation/schemas
 
 export const GET = withAdminAuth(async () => ok(await adminService.listFactoryWorkerRegistry()), { roles: ["factory_operator"] });
 
-export const POST = withAdminAuth(async (request: Request) => {
+export const POST = withAdminAuth(async (request: Request, _context, identity) => {
   const input = factoryWorkerRegistrySyncSchema.parse(await request.json());
-  return ok(await adminService.syncFactoryWorkerRegistry(input), { status: 201 });
+  return ok(await adminService.syncFactoryWorkerRegistry({ ...input, actor: identity.operatorId }), { status: 201 });
 }, { roles: ["factory_operator"] });
