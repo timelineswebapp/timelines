@@ -94,6 +94,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Retry-batch telemetry increment:** Completed locally on `2026-10-16`. Every completed bounded scheduler drain now emits one structured `INFO` event with its enforced request limit, requeued count, and elapsed duration. The telemetry is emitted by the existing scheduler-owned path only, contains no source/evidence or raw diagnostic content, and adds no retry control, dispatch, discovery, re-entry, publication, Governance, Registry, or protected-state mutation.
 
+**Retry-batch terminal-outcome telemetry increment:** Completed locally on `2026-10-16`. The same completion event now includes the number of terminal enqueue exhaustions persisted in that bounded batch. It cleanly distinguishes successful queue recovery throughput from operationally actionable exhaustion while retaining the separate sanitized terminal error event and no control-plane capability.
+
 **Bounded enqueue-recovery increment:** Completed locally on `2026-10-16`. Persistent Cloud Tasks delivery failures now consume a separate, capped enqueue-retry counter and terminate the affected legacy generation item after five retry deliveries rather than looping indefinitely. The retry ceiling is operational only; it does not create or consume a V2 deferred re-entry request, alter historical evidence, or activate any production path.
 
 The Firestore emulator regression verifies both nonblocking recovery of a later ready topic and the fifth failed delivery’s terminal `FAILED` ledger/job state with no future retry time.
@@ -139,6 +141,7 @@ Completed for this increment:
 - Focused Firestore emulator retry regression: passed after retry-batch telemetry, proving one bounded completion event reports the enforced limit, throughput, and nonnegative latency.
 - Functions strict typecheck, contract suite (13/13), and focused Firestore emulator retry regression: passed after terminal enqueue-failure integrity filtering.
 - Functions strict typecheck and focused Firestore emulator retry regression: passed after indexed terminal-count query isolation.
+- Functions strict typecheck and focused Firestore emulator retry regression: passed after terminal-outcome batch telemetry.
 - Full root suite: 250 passed, 0 failed after terminal enqueue-failure visibility; expected fixture warnings remained non-failing and no production mutation occurred.
 - Functions build and optimized Next production build: passed after terminal enqueue-failure visibility; the new route remains dynamically server-owned and Admin-authenticated.
 - Production-hardening validator: passed all dashboard, alert, PITR, retention, deployment-workflow, and incident checks; monitoring validator passed all 27 declared metrics and 15 alerts.

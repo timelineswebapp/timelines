@@ -322,6 +322,7 @@ export async function retryDeferredEnqueuesWithDependencies(
     .limit(boundedLimit)
     .get();
   let requeued = 0;
+  let terminalFailures = 0;
   for (const document of snapshot.docs) {
     const data = document.data();
     try {
@@ -378,6 +379,7 @@ export async function retryDeferredEnqueuesWithDependencies(
         });
         if (persisted?.exhausted) {
           terminalExhausted = true;
+          terminalFailures += 1;
           console.error(JSON.stringify({
             severity: "ERROR",
             component: "deferred_enqueue_retry",
@@ -402,6 +404,7 @@ export async function retryDeferredEnqueuesWithDependencies(
     action: "retry_batch_completed",
     requestedLimit: boundedLimit,
     requeued,
+    terminalFailures,
     durationMs: Math.max(0, Date.now() - startedAt)
   }));
   return requeued;

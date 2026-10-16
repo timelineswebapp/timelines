@@ -44,6 +44,7 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   assert.equal(batchLog.action, "retry_batch_completed");
   assert.equal(batchLog.requestedLimit, 2);
   assert.equal(batchLog.requeued, 1);
+  assert.equal(batchLog.terminalFailures, 0);
   assert.equal(typeof batchLog.durationMs, "number");
   const [failed, successful, failedJob, successfulJob] = await Promise.all([
     ledger.doc(failedTopicId).get(),
@@ -69,11 +70,13 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
     jobs.doc(failedJobId).update({ enqueueRetryCount: 4, nextRetryAt: Timestamp.fromMillis(Date.now() - 1_000) })
   ]);
   const terminalErrors: string[] = [];
+  const terminalBatchLogs: string[] = [];
   const originalConsoleError = console.error;
   console.error = (...args: unknown[]) => { terminalErrors.push(args.map(String).join(" ")); };
   try {
     assert.equal(await retryDeferredEnqueuesWithDependencies(2, {
-      enqueueGenerationTask: async () => { throw new Error("Cloud Tasks remains unavailable."); }
+      enqueueGenerationTask: async () => { throw new Error("Cloud Tasks remains unavailable."); },
+      log: { info: (...args: unknown[]) => { terminalBatchLogs.push(args.map(String).join(" ")); } }
     }), 0);
   } finally {
     console.error = originalConsoleError;
@@ -97,6 +100,15 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
     enqueueRetryCount: 5,
     diagnosticPresent: true
   }]);
+  assert.equal(terminalBatchLogs.length, 1);
+  const terminalBatchLog = JSON.parse(terminalBatchLogs[0]!);
+  assert.equal(terminalBatchLog.severity, "INFO");
+  assert.equal(terminalBatchLog.component, "deferred_enqueue_retry");
+  assert.equal(terminalBatchLog.action, "retry_batch_completed");
+  assert.equal(terminalBatchLog.requestedLimit, 2);
+  assert.equal(terminalBatchLog.requeued, 0);
+  assert.equal(terminalBatchLog.terminalFailures, 1);
+  assert.equal(typeof terminalBatchLog.durationMs, "number");
   const failureSummary = (await listGenerationEnqueueFailureSummaries(25)).find((item) => item.topicId === failedTopicId);
   assert.deepEqual(failureSummary && {
     topicId: failureSummary.topicId,
