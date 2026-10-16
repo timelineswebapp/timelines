@@ -3,6 +3,7 @@ export * from "./knowledge";
 export * from "./operations";
 export * from "./reentry";
 export * from "./source-submission";
+export * from "./source-submission-validation";
 export * from "./assembly";
 export * from "./coverage";
 export * from "./search";
