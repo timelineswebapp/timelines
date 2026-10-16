@@ -204,6 +204,8 @@ test("deferred budget retries remain explicit request-only Factory operations", 
   assert.match(ui, /trigger: "AUTHORIZED_RETRY"/);
   assert.match(deferredSection, /creates an immutable, attributable re-entry request/);
   assert.match(deferredSection, /does not consume the request, dispatch a worker, or start research/);
+  assert.match(deferredSection, /Bounded re-entry history/);
+  assert.match(deferredSection, /This view cannot consume, dispatch, or start research/);
   assert.doesNotMatch(deferredSection, /deferred-reentry\/(?:consume|dispatch)/);
 });
 

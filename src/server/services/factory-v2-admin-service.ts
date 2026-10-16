@@ -20,6 +20,14 @@ export type DeferredFactoryV2Topic = {
     budgetConsumed: Record<string, number>;
     failureClass: string;
   };
+  reentryRequests: Array<{
+    requestId: string;
+    trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY";
+    requestedAt: string;
+    state: "REQUESTED" | "CONSUMED";
+    consumedAt: string | null;
+    queuedRunId: string | null;
+  }>;
 };
 
 export type DeferredFactoryV2ReentryResult = {

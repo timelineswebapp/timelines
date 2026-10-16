@@ -197,6 +197,14 @@
       ]
     },
     {
+      "collectionGroup": "v2DeferredReentryRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "originalOperationId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "v2FailureRecords",
       "queryScope": "COLLECTION",
       "fields": [
