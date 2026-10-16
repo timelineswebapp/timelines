@@ -81,6 +81,7 @@ export const topicOperationSchema = z.object({
   budgetsConsumed: z.record(z.number().nonnegative()).refine((value) => Object.keys(value).length <= 20),
   elapsedMs: z.number().int().nonnegative().max(86_400_000),
   finalVerdict: z.enum(["PENDING", "PASS", "FAIL"]),
+  terminalFailureRecordId: idSchema.nullable().default(null),
   autonomousOutcome: autonomousTerminalOutcomeSchema.nullable().default(null),
   updatedAt: z.string().datetime()
 }).strict();

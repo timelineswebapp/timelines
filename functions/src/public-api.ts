@@ -7,6 +7,9 @@ import { assertActiveCorpus, corpusCollection } from "./corpus";
 import { normalizeTopic } from "./normalization";
 import { topicRequestSchema } from "./schemas";
 import { captureVisitorRequest, intakeTopic } from "./topic-ledger";
+import { validInternalRequest } from "./internal-auth";
+import { listDeferredTopicAdminSummaries } from "./factory-v2/admin-read-model";
+import { V2FirestoreRepository } from "./factory-v2/repositories/firestore";
 
 const readModelTypes = new Set(["timeline", "milestone", "historical_object", "relationship", "search", "sitemap"]);
 
@@ -175,6 +178,19 @@ async function relationships(request: Request, response: Response) {
   return success(response, snapshot.docs.map(readModelSnapshot));
 }
 
+async function internalFactoryV2DeferredTopics(request: Request, response: Response) {
+  const authorized = validInternalRequest({
+    secret: process.env.BACKEND_SHARED_SECRET,
+    timestamp: request.header("x-timelines-internal-timestamp") || undefined,
+    signature: request.header("x-timelines-internal-signature") || undefined,
+    method: request.method,
+    path: request.path
+  });
+  if (!authorized) return failure(response, 401, "UNAUTHORIZED", "Signed internal request required.");
+  const limit = Math.max(1, boundedInteger(request.query.limit, 25, 100));
+  return success(response, await listDeferredTopicAdminSummaries(new V2FirestoreRepository(), limit));
+}
+
 export async function handlePublicApi(request: Request, response: Response) {
   response.set("Cache-Control", "no-store");
   try {
@@ -191,6 +207,7 @@ export async function handlePublicApi(request: Request, response: Response) {
     if (request.method === "GET" && request.path === "/tag") return await taxonomyDetail(request, response, "tag");
     if (request.method === "GET" && request.path === "/sitemap") return await listSitemap(response);
     if (request.method === "GET" && request.path === "/relationships") return await relationships(request, response);
+    if (request.method === "GET" && request.path === "/internal/factory-v2/deferred") return await internalFactoryV2DeferredTopics(request, response);
     if (request.method === "GET" && request.path === "/continuity") return await continuity(request, response);
     if (request.method === "GET" && request.path === "/topic-status") {
       const query = String(request.query.q || "");

@@ -36,6 +36,29 @@ function query(params: Record<string, string | number | undefined>) {
   return search.toString();
 }
 
+function requireSharedSecret() {
+  const secret = process.env.BACKEND_SHARED_SECRET;
+  if (!secret || secret.length < 32) throw new Error("BACKEND_SHARED_SECRET is required for serverless internal requests.");
+  return secret;
+}
+
+function internalSignature(secret: string, timestamp: string, method: string, path: string, serializedBody = "") {
+  return createHmac("sha256", secret).update(`${timestamp}.${method.toUpperCase()}.${path}.${serializedBody}`).digest("hex");
+}
+
+async function internalRequest<T>(path: string): Promise<T[]> {
+  if (!baseUrl()) return [];
+  const secret = requireSharedSecret();
+  const timestamp = String(Date.now());
+  const signature = internalSignature(secret, timestamp, "GET", path.split("?")[0] || path);
+  return (await request<T[]>(path, {
+    headers: {
+      "x-timelines-internal-timestamp": timestamp,
+      "x-timelines-internal-signature": signature
+    }
+  })) || [];
+}
+
 export const serverlessBackendClient = {
   listReadModels<T>(type: string, limit: number, offset = 0) {
     return request<T[]>(`/read-models?${query({ type, limit, offset })}`);
@@ -67,9 +90,11 @@ export const serverlessBackendClient = {
   getContinuity<T>(sourcePublishedSnapshotId: string) {
     return request<T>(`/continuity?${query({ sourcePublishedSnapshotId })}`);
   },
+  listDeferredFactoryV2Topics<T>(limit = 25) {
+    return internalRequest<T>(`/internal/factory-v2/deferred?${query({ limit })}`);
+  },
   submitTopic<T>(body: unknown, clientIp: string) {
-    const secret = process.env.BACKEND_SHARED_SECRET;
-    if (!secret || secret.length < 32) throw new Error("BACKEND_SHARED_SECRET is required for topic intake.");
+    const secret = requireSharedSecret();
     const timestamp = String(Date.now());
     const serializedBody = JSON.stringify(body);
     const signature = createHmac("sha256", secret).update(`${timestamp}.${clientIp}.${serializedBody}`).digest("hex");

@@ -51,6 +51,15 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     alerts: Array<{ id: string; severity: string; status: string; message: string }>;
   } | null>(null);
   const [home, setHome] = useState<FounderHomeReadModel | null>(null);
+  const [deferredV2Topics, setDeferredV2Topics] = useState<Array<{
+    topicId: string;
+    runId: string;
+    generation: number;
+    stage: string;
+    updatedAt: string;
+    terminalFailureRecordId: string | null;
+    outcome: { classification: "PUBLIC_EVIDENCE_LIMITATION" | "RESEARCH_BUDGET_EXHAUSTED"; reentryState: "REQUIRES_RELEVANT_CHANGE" | "REQUIRES_AUTHORIZED_RETRY"; detailedReason: string };
+  }>>([]);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!token) return;
@@ -68,14 +77,16 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         statusHandlers.setError("");
         return;
       }
-      const [operations, notifications, reliabilityDashboard] = await Promise.all([
+      const [operations, notifications, reliabilityDashboard, deferredTopics] = await Promise.all([
         fetchAdmin<OperationsSnapshot>("/api/admin/factory/operations"),
         fetchAdmin<OperationalNotification[]>("/api/admin/factory/operations/inbox"),
-        fetchAdmin<typeof reliability>("/api/admin/operations/reliability")
+        fetchAdmin<typeof reliability>("/api/admin/operations/reliability"),
+        fetchAdmin<typeof deferredV2Topics>("/api/admin/factory/v2/deferred")
       ]);
       setSnapshot(operations);
       setInbox(notifications);
       setReliability(reliabilityDashboard);
+      setDeferredV2Topics(deferredTopics);
       statusHandlers.onLoaded();
       statusHandlers.setError("");
     } catch (error) { statusHandlers.setError(error instanceof Error ? error.message : "Operations load failed."); }
@@ -275,6 +286,21 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
             <button className="button secondary" onClick={() => void mutate(topic, "reprioritize", { priority: Math.min(1000, topic.priority + 10) })}>Raise Priority</button>
             {!["completed", "cancelled"].includes(topic.status) ? <button className="button secondary" onClick={() => void mutate(topic, "cancel")}>Cancel</button> : null}
           </div>
+        </article>)}
+      </div>
+    </section>
+    <section className="glass section-card">
+      <span className="eyebrow">Deferred Evidence Work</span>
+      <h2>Topics awaiting a governed change</h2>
+      <p className="muted">Deferred research preserves its evidence boundary and does not retry until the recorded condition changes.</p>
+      <div className="stack">
+        {deferredV2Topics.length === 0 ? <p className="muted">No Authority-First topics are currently deferred.</p> : deferredV2Topics.map((topic) => <article className="fos-list-card" key={topic.runId}>
+          <div>
+            <strong>{topic.outcome.classification.replaceAll("_", " ")}</strong>
+            <p className="small muted">Stage {topic.stage.replaceAll("_", " ")} · {topic.outcome.detailedReason.replaceAll("_", " ")} · updated {formatOperationalTime(topic.updatedAt)}</p>
+            <p className="small muted">Re-entry: {topic.outcome.reentryState === "REQUIRES_RELEVANT_CHANGE" ? "A relevant eligible-evidence change is required." : "An authorized bounded retry is required."}</p>
+          </div>
+          <span className="pill">Generation {topic.generation}</span>
         </article>)}
       </div>
     </section>

@@ -18,6 +18,7 @@ import { reliabilityService } from "@/src/server/services/reliability-service";
 import { scheduledOperationsService } from "@/src/server/services/scheduled-operations-service";
 import { performanceAnalyticsService } from "@/src/server/services/performance-analytics-service";
 import { founderOperationsService } from "@/src/server/services/founder-operations-service";
+import { factoryV2AdminService } from "@/src/server/services/factory-v2-admin-service";
 
 export const adminService = {
   getFounderHome: founderOperationsService.getHome,
@@ -32,6 +33,7 @@ export const adminService = {
   getPerformanceAnalytics: performanceAnalyticsService.getReport,
   getFounderInbox: factoryOperationsService.getFounderInbox,
   getFactoryTopicDetail: factoryOperationsService.getTopicDetail,
+  listDeferredFactoryV2Topics: factoryV2AdminService.listDeferredTopics,
   addFactoryOperationsTopic: factoryOperationsService.addTopic,
   controlFactoryOperations: factoryOperationsService.control.bind(factoryOperationsService),
   mutateFactoryOperationsTopic: factoryOperationsService.mutateTopic.bind(factoryOperationsService),

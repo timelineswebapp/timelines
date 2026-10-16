@@ -389,8 +389,8 @@ function provisionalSourceClass(publisher: PublisherAuthorityVersion | undefined
   return "OTHER";
 }
 
-function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "DEFERRED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL"; autonomousOutcome?: AutonomousTerminalOutcome | null }) {
-  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: V2_PIPELINE_VERSION, executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, autonomousOutcome: input.autonomousOutcome ?? null, updatedAt: new Date().toISOString() });
+function operationProjection(input: { context: ArtifactContext; state: "RUNNING" | "FAILED" | "DEFERRED" | "COMPLETED"; stage: "A1_SCHEMAS" | "A2_SCOPE_ACQUISITION" | "A3_CLAIMS" | "A4_AUTHORITY_CONFLICTS" | "A5_RESOLUTION_REUSE" | "COMPLETE"; startedAt: number; blockingReason: string | null; counts: Record<string, number>; finalVerdict: "PENDING" | "PASS" | "FAIL"; terminalFailureRecordId?: string | null; autonomousOutcome?: AutonomousTerminalOutcome | null }) {
+  return topicOperationSchema.parse({ operationId: input.context.runId, corpusId: input.context.corpusId, topicId: input.context.topicId, runId: input.context.runId, generation: input.context.generation, pipelineVersion: V2_PIPELINE_VERSION, executionMode: "SHADOW", state: input.state, stage: input.stage, scopeState: input.stage === "A1_SCHEMAS" ? "PENDING" : "LOCKED", researchMapState: ["A1_SCHEMAS", "A2_SCOPE_ACQUISITION"].includes(input.stage) ? "PENDING" : "VALID", currentBlockingReason: input.blockingReason, counts: input.counts, budgetsConsumed: {}, elapsedMs: Date.now() - input.startedAt, finalVerdict: input.finalVerdict, terminalFailureRecordId: input.terminalFailureRecordId ?? null, autonomousOutcome: input.autonomousOutcome ?? null, updatedAt: new Date().toISOString() });
 }
 
 export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, config: FactoryV2Config, dependencies: OrchestratorDependencies = {}): Promise<V2AShadowResult> {
@@ -1492,7 +1492,7 @@ export async function runV2AShadowFixture(descriptor: ShadowFixtureDescriptor, c
       try { await persist("v2FailureRecords", failure); } catch { /* Preserve the originating failure. */ }
     }
     try {
-      const write = () => repository.setOperation(context.runId, operationProjection({ context, state: autonomousOutcome.disposition === "DEFERRED" ? "DEFERRED" : "FAILED", stage: currentStage, startedAt, blockingReason: deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED" : message.slice(0, 1000), counts: {}, finalVerdict: "FAIL", autonomousOutcome }));
+      const write = () => repository.setOperation(context.runId, operationProjection({ context, state: autonomousOutcome.disposition === "DEFERRED" ? "DEFERRED" : "FAILED", stage: currentStage, startedAt, blockingReason: deadlineExceeded ? "WHOLE_RUN_DEADLINE_EXCEEDED" : message.slice(0, 1000), counts: {}, finalVerdict: "FAIL", terminalFailureRecordId: failureRecordId, autonomousOutcome }));
       if (deadlineExceeded) await terminalWrite(write);
       else await bounded("firestore:set-operation:failed", 30_000, write);
     } catch { /* Preserve the originating failure. */ }

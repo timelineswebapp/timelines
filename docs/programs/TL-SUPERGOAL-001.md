@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Current `HEAD` | `9ba5ce9` — `docs: record autonomous public evidence doctrine` |
+| Prior program checkpoint | `24ec164` — `docs: record supergoal verification status` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -46,6 +46,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Implementation state:** Completed locally on `2026-10-16`. Factory V2 now persists an additive, policy-versioned autonomous outcome on both the mutable shadow topic-operation projection and the immutable failure record. A protected governed-capacity exhaustion becomes a deferred `PUBLIC_EVIDENCE_LIMITATION` only with the explicit `GOVERNED_CAPACITY_EXHAUSTED` basis; provider failure, budget/deadline exhaustion, implementation failure, and valid completed knowledge are distinct. Deferred records require either a relevant change or an explicitly authorized retry. Existing detailed terminal diagnostics remain authoritative and unchanged.
 
+**Admin read increment:** Completed locally on `2026-10-16`. The existing authenticated `factory_operator` Admin surface now reads a bounded deferred-topic projection through a server-owned, HMAC-authenticated Functions bridge. The projection carries only operation lineage and the recorded autonomous outcome; it is read-only, fails closed on an invalid signature, and filters malformed persisted records. It deliberately does not expose a re-entry control because release-pinned re-entry requires a separate immutable request and caller contract.
+
 ## Certification and verification state
 
 Local and shadow verification may be executed only within existing budgets and safety controls. No result becomes Phase-2 certification unless it is a fresh four-subject run from one materially equivalent sealed release and produces four valid CKS records. Provider-backed certification is not part of the current implementation increment.
@@ -53,8 +55,8 @@ Local and shadow verification may be executed only within existing budgets and s
 Completed for this increment:
 
 - Functions strict typecheck: passed.
-- Focused autonomous-operation, contract, completion, and orchestration tests: 45/45 passed.
-- Full Functions suite: 346 passed, 0 failed, 2 intentional emulator-only skips.
+- Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
+- Full Functions suite: 348 passed, 0 failed, 2 intentional emulator-only skips.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
@@ -70,4 +72,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Complete the server-owned Founder/Admin read model and action contract for deferred-topic inspection and bounded re-entry, reusing this Factory V2 outcome lineage. It must not introduce a direct evidence, Registry, Governance, or Published Memory mutation path.
+Define and implement the release-pinned, immutable bounded re-entry request contract for a deferred topic. It must bind the original failure lineage, reject unrestricted retries, preserve no-direct-mutation boundaries for evidence, Registry, Governance, and Published Memory, and be independently testable before any Admin action is exposed.
