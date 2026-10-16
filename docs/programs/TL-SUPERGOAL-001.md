@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `b46f98a` — `feat: show deferred source candidates` |
+| Prior program checkpoint | `ccba39c` — `feat: resolve candidate authority lineage` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -56,6 +56,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Governed source-submission increment:** Completed locally on `2026-10-16`. A `factory_operator` can submit a credential-free HTTPS URL and rationale only for a matching `PUBLIC_EVIDENCE_LIMITATION` deferred operation. The server derives submitter identity and terminal lineage, then preserves an immutable `CANDIDATE` record with `sourceSnapshotId: null`; candidates are listed read-only with their provenance. They cannot be used as evidence or re-entry changes until a separate V2 Factory validation/retrieval flow creates and validates a source snapshot under the normal Authority-First rules.
 
+**Candidate authority-resolution increment:** Completed locally on `2026-10-16`. Before a candidate may be retrieved, the repository now resolves its original deferred operation, immutable terminal failure, retained `topicAuthoritySetId`, validated Topic Authority Set, and bound registered publisher version. The submitted HTTPS domain must match that exact bound publisher; no network access occurs in this step and any missing or mismatched lineage fails closed.
+
 ## Certification and verification state
 
 Local and shadow verification may be executed only within existing budgets and safety controls. No result becomes Phase-2 certification unless it is a fresh four-subject run from one materially equivalent sealed release and produces four valid CKS records. Provider-backed certification is not part of the current implementation increment.
@@ -81,4 +83,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Implement the bounded V2 Factory validation/retrieval handoff for submitted source candidates. It must use the existing SSRF/robots/access controls and immutable V2 source/snapshot contracts, preserve candidate-to-snapshot lineage, reject inaccessible or insufficient material, and must not treat successful retrieval as Authority Registry admission or qualifying evidence.
+Implement the immutable candidate-validation result and bounded V2 retrieval handoff for submitted source candidates. It must invoke the existing SSRF/robots/access controls only after authority resolution, preserve candidate-to-snapshot lineage in a new immutable result, reject inaccessible or insufficient material, and must not treat successful retrieval as Authority Registry admission or qualifying evidence.
