@@ -172,6 +172,7 @@ test("generation retry queue isolates individual enqueue failures without activa
   assert.match(ledger, /retryDeferredEnqueuesWithDependencies/u);
   assert.match(ledger, /retry_deferred_without_blocking_batch/u);
   assert.match(ledger, /listGenerationRetryQueueSummaries/u);
+  assert.match(ledger, /getGenerationRetryQueueHealth/u);
   assert.match(ledger, /RETRY_QUEUE_VISIBILITY_OVERSCAN_FACTOR = 3/u);
   assert.match(ledger, /\.limit\(boundedLimit \* RETRY_QUEUE_VISIBILITY_OVERSCAN_FACTOR\)/u);
   assert.match(ledger, /listGenerationEnqueueFailureSummaries/u);
@@ -187,8 +188,10 @@ test("generation retry queue isolates individual enqueue failures without activa
   assert.match(ledger, /state: "QUEUED", currentStage: "queued", nextRetryAt: null/u);
   assert.doesNotMatch(ledger, /consumeDeferredReentryRequest/u);
   assert.match(publicApi, /GET" && request\.path === "\/internal\/factory-v2\/generation-retries"/u);
+  assert.match(publicApi, /GET" && request\.path === "\/internal\/factory-v2\/generation-retry-health"/u);
   assert.match(publicApi, /GET" && request\.path === "\/internal\/factory-v2\/generation-enqueue-failures"/u);
   assert.match(backendClient, /listGenerationEnqueueFailures/u);
+  assert.match(backendClient, /getGenerationRetryQueueHealth/u);
   assert.doesNotMatch(publicApi, /generation-(?:retries|enqueue-failures)\/(?:dispatch|retry|consume)/u);
   assert.doesNotMatch(backendClient, /generation-(?:retries|enqueue-failures)\/(?:dispatch|retry|consume)/u);
 });

@@ -50,6 +50,12 @@ export type GenerationEnqueueFailureSummary = {
   lastErrorPresent: boolean;
 };
 
+export type GenerationRetryQueueHealth = {
+  scheduledCount: number;
+  dueCount: number;
+  oldestDueAt: string | null;
+};
+
 function requireIpSalt() {
   const salt = process.env.IP_HASH_SALT;
   if (!salt || salt.length < 32) throw new Error("IP_HASH_SALT is not configured securely.");
@@ -443,6 +449,24 @@ export async function listGenerationRetryQueueSummaries(limit: number): Promise<
       enqueueRetryCount: Number.isInteger(data.enqueueRetryCount) && data.enqueueRetryCount > 0 ? data.enqueueRetryCount : 0
     }];
   }).slice(0, boundedLimit);
+}
+
+/** Read-only aggregate health for the scheduler-owned legacy retry backlog. */
+export async function getGenerationRetryQueueHealth(): Promise<GenerationRetryQueueHealth> {
+  const now = Timestamp.now();
+  const scheduled = corpusCollection("topicLedgers").where("state", "==", "RETRY_SCHEDULED");
+  const due = scheduled.where("nextRetryAt", "<=", now);
+  const [scheduledCount, dueCount, oldestDue] = await Promise.all([
+    scheduled.count().get(),
+    due.count().get(),
+    due.orderBy("nextRetryAt", "asc").limit(1).get()
+  ]);
+  const oldestDueAt = oldestDue.docs[0]?.data().nextRetryAt;
+  return {
+    scheduledCount: scheduledCount.data().count,
+    dueCount: dueCount.data().count,
+    oldestDueAt: oldestDueAt instanceof Timestamp ? oldestDueAt.toDate().toISOString() : null
+  };
 }
 
 /** Read-only, bounded visibility of terminal legacy enqueue exhaustion. */

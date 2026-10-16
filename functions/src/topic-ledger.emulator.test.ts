@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Timestamp } from "firebase-admin/firestore";
 import { corpusCollection } from "./corpus";
-import { listGenerationEnqueueFailureSummaries, listGenerationRetryQueueSummaries, retryDeferredEnqueuesWithDependencies } from "./topic-ledger";
+import { getGenerationRetryQueueHealth, listGenerationEnqueueFailureSummaries, listGenerationRetryQueueSummaries, retryDeferredEnqueuesWithDependencies } from "./topic-ledger";
 
 const enabled = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 
@@ -165,4 +165,9 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
     })
   ]);
   assert.deepEqual((await listGenerationRetryQueueSummaries(1)).map((item) => item.topicId), [validRetryTopicId]);
+  assert.deepEqual(await getGenerationRetryQueueHealth(), {
+    scheduledCount: 2,
+    dueCount: 2,
+    oldestDueAt: new Date(0).toISOString()
+  });
 });

@@ -65,6 +65,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
   const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }>>([]);
   const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number }>>([]);
+  const [generationRetryHealth, setGenerationRetryHealth] = useState<{ scheduledCount: number; dueCount: number; oldestDueAt: string | null } | null>(null);
   const [generationEnqueueFailures, setGenerationEnqueueFailures] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "FAILED"; failedAt: string; enqueueRetryCount: number; lastErrorPresent: boolean }>>([]);
   const load = useCallback(async () => {
     if (!token) return;
@@ -86,13 +87,14 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         statusHandlers.setError("");
         return;
       }
-      const [operations, notifications, reliabilityDashboard, deferredTopics, candidates, retries, enqueueFailures] = await Promise.all([
+      const [operations, notifications, reliabilityDashboard, deferredTopics, candidates, retries, retryHealth, enqueueFailures] = await Promise.all([
         fetchAdmin<OperationsSnapshot>("/api/admin/factory/operations"),
         fetchAdmin<OperationalNotification[]>("/api/admin/factory/operations/inbox"),
         fetchAdmin<typeof reliability>("/api/admin/operations/reliability"),
         fetchAdmin<typeof deferredV2Topics>("/api/admin/factory/v2/deferred"),
         fetchAdmin<typeof sourceCandidates>("/api/admin/factory/v2/source-submissions"),
         fetchAdmin<typeof generationRetries>("/api/admin/factory/v2/generation-retries"),
+        fetchAdmin<typeof generationRetryHealth>("/api/admin/factory/v2/generation-retry-health"),
         fetchAdmin<typeof generationEnqueueFailures>("/api/admin/factory/v2/generation-enqueue-failures")
       ]);
       setSnapshot(operations);
@@ -101,6 +103,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       setDeferredV2Topics(deferredTopics);
       setSourceCandidates(candidates);
       setGenerationRetries(retries);
+      setGenerationRetryHealth(retryHealth);
       setGenerationEnqueueFailures(enqueueFailures);
       statusHandlers.onLoaded();
       statusHandlers.setError("");
@@ -332,6 +335,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       <span className="eyebrow">Generation Retry Queue</span>
       <h2>Ready work recovering from delivery failure</h2>
       <p className="muted">This is a bounded, scheduler-owned view. Operators cannot dispatch, reprioritize, or alter retry work here.</p>
+      <p className="small muted">Scheduled: {generationRetryHealth?.scheduledCount ?? "—"} · due now: {generationRetryHealth?.dueCount ?? "—"}{generationRetryHealth?.oldestDueAt ? ` · oldest due ${formatOperationalTime(generationRetryHealth.oldestDueAt)}` : ""}</p>
       <div className="stack">
         {generationRetries.length === 0 ? <p className="muted">No generation retries are currently scheduled.</p> : generationRetries.map((retry) => <article className="fos-list-card" key={retry.jobId}>
           <div><strong>{retry.origin === "user" ? "Visitor-requested topic" : "Autonomous topic"}</strong><p className="small muted">Generation {retry.generation} · delivery retries {retry.enqueueRetryCount} · next retry {formatOperationalTime(retry.nextRetryAt)} · updated {formatOperationalTime(retry.updatedAt)}</p><p className="small muted">Last delivery issue recorded: {retry.lastErrorPresent ? "yes" : "no"}. Diagnostic content is retained server-side.</p></div>
