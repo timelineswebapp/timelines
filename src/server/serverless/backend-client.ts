@@ -129,7 +129,7 @@ export const serverlessBackendClient = {
     return internalRequest<T[]>(`/internal/factory-v2/source-submissions?${query({ limit })}`).then(requireInternalReadResult);
   },
   getFactoryV2SourceSubmissionInspection<T>(candidateId: string) {
-    return internalRequest<T>(`/internal/factory-v2/source-submissions/${encodeURIComponent(candidateId)}`);
+    return internalRequest<T>(`/internal/factory-v2/source-submissions/${encodeURIComponent(candidateId)}`).then(requireInternalReadResult);
   },
   submitTopic<T>(body: unknown, clientIp: string) {
     const secret = requireSharedSecret();

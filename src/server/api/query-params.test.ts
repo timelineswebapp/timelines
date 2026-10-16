@@ -58,6 +58,7 @@ test("unavailable serverless Factory reads do not masquerade as empty operationa
   try {
     await assert.rejects(factoryV2AdminService.listDeferredTopics(), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
     await assert.rejects(factoryV2AdminService.getGenerationRetryQueueHealth(), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
+    await assert.rejects(factoryV2AdminService.getSourceSubmissionInspection("candidate-001"), (error: unknown) => error instanceof ApiError && error.status === 503 && error.code === "SERVERLESS_BACKEND_UNAVAILABLE");
   } finally {
     if (previousBaseUrl === undefined) delete process.env.SERVERLESS_API_BASE_URL;
     else process.env.SERVERLESS_API_BASE_URL = previousBaseUrl;
