@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `a333726` — `docs: seal phase two artifact integrity evidence` |
+| Prior program checkpoint | `ee59007` — `feat: expose bounded generation retry queue` (following `d01ede8` nonblocking retry recovery) |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | `.70` release `dd9737a1742a68c726aa3d41fd4549430c6d68098cf48fb13c6fd38ee6f7ed16`; its fresh non-combined run produced one valid San Francisco CKS before Berlin failed closed on the protected affected-community identity boundary. |
 | Phase 2 | **BLOCKED — FOUNDER-GOVERNED HISTORICAL IDENTITY/CAPACITY; UNCERTIFIED.** The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -82,6 +82,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Generation-retry operational visibility increment:** Completed locally on `2026-10-16`. The authenticated `factory_operator` interface now has a bounded, read-only view of retry-scheduled generation work through the existing signed server bridge. It exposes only topic/job lineage, origin, generation, retry time, update time, and a boolean diagnostic-presence signal; raw failure text stays server-side. The interface supplies no retry, dispatch, reprioritization, re-entry, discovery, or publication control.
 
+**Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
+
 ## Phase-2 certification boundary
 
 The `.70` sealed release and immutable report are preserved. The fresh prescribed certification run established one valid Completed Knowledge Set for **The 1906 San Francisco Earthquake** with exact protected-state parity. **The Berlin Blockade and Airlift** then failed closed before research or retrieval on `UNRESOLVED_AFFECTED_COMMUNITY_IDENTITY` for a locked affected-community requirement, also with exact parity. **Ada Lovelace: Life and Work** and **The Development of the Printing Press** were not executed after the failure.
@@ -101,6 +103,7 @@ Completed for this increment:
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed, revalidated after the deferred re-entry activation-boundary increment.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
+- Production-hardening and monitoring configuration validators: passed after the generation-retry interface increment.
 - No provider call, certification execution, production mutation, or institutional/public write was performed.
 
 ## Founder-only boundaries
