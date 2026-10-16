@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `6a65d1f` — `fix: remove unused source dispatch identifier` |
+| Prior program checkpoint | `49f1164` — `test: verify governed source retrieval lineage` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -64,6 +64,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Bounded retrieval-dispatch increment:** Completed locally on `2026-10-16`. The Factory exposes a strict internal-only candidate retrieval dispatch contract with a sealed candidate identity and execution timestamp. It is not an HTTP payload, Admin control, queue configuration, or deployed worker; therefore it cannot activate autonomous discovery. Its timestamp is bound into immutable execution identity, and no unused caller-provided dispatch identity remains.
 
+**Governed retrieval-lineage verification increment:** Completed locally on `2026-10-16`. The Firestore emulator now persists a registered publisher authority version, validated Topic Authority Set, deferred terminal operation, and governed submitted-source candidate, then proves that authority resolution creates a strict immutable validation artifact and that a retrieval observation remains explicitly non-evidentiary. The test also exposed and corrected repository hydration so Firestore document IDs never enter strict artifact contracts.
+
 ## Certification and verification state
 
 Local and shadow verification may be executed only within existing budgets and safety controls. No result becomes Phase-2 certification unless it is a fresh four-subject run from one materially equivalent sealed release and produces four valid CKS records. Provider-backed certification is not part of the current implementation increment.
@@ -73,7 +75,7 @@ Completed for this increment:
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 355 passed, 0 failed, 2 intentional emulator-only skips.
-- Isolated Firestore emulator repository suite: 6 passed, 0 failed, including concurrent deferred re-entry request creation and consumption. This verifies existing repository transaction behavior; dedicated submitted-source authority/retrieval emulator fixtures remain the next coverage increment.
+- Isolated Firestore emulator repository suite: 7 passed, 0 failed, including concurrent deferred re-entry request creation and consumption plus submitted-source authority/retrieval lineage.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
 - Functions build and Next optimized production build: passed.
@@ -89,4 +91,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Add emulator-backed repository coverage for submitted-source authority resolution and sealed retrieval persistence. Keep the internal dispatch contract unactivated; do not add an Admin retrieval control or enable autonomous discovery.
+Add execution-path regression coverage for the strict internal retrieval dispatch contract. Keep it unactivated; do not add an Admin retrieval control or enable autonomous discovery.
