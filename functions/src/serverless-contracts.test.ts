@@ -151,6 +151,20 @@ test("visitor request contracts remain compatible and metadata is bounded", () =
   }).success, false);
 });
 
+test("deferred re-entry consumption remains transaction-owned and unroutable", () => {
+  const publicApi = readFileSync("src/public-api.ts", "utf8");
+  const backendClient = readFileSync("../src/server/serverless/backend-client.ts", "utf8");
+  const repository = readFileSync("src/factory-v2/repositories/firestore.ts", "utf8");
+  const dispatch = readFileSync("src/factory-v2/reentry-dispatch.ts", "utf8");
+  assert.match(repository, /async consumeDeferredReentryRequest\(requestId/u);
+  assert.match(repository, /this\.firestore\.runTransaction/u);
+  assert.match(dispatch, /Pure, fail-closed precondition check/u);
+  assert.match(publicApi, /POST" && request\.path === "\/internal\/factory-v2\/deferred-reentry"/u);
+  assert.doesNotMatch(publicApi, /deferred-reentry\/(?:consume|dispatch)/u);
+  assert.doesNotMatch(backendClient, /deferred-reentry\/(?:consume|dispatch)/u);
+  assert.doesNotMatch(publicApi, /source-submissions\/(?:dispatch|retrieve)/u);
+});
+
 test("generation schema rejects evidence that merely repeats public copy", () => {
   const repeated = event(1900, "Repeated evidence");
   repeated.evidenceSummary = repeated.description;
