@@ -59,7 +59,12 @@ test("deferred re-entry creation requires a factory operator and trigger-compati
     const response = await createDeferredReentry(request({ operationId: "operation-1", trigger: "AUTHORIZED_RETRY", authorizationReason: "Recorded authorization." }), {});
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true, data: { state: "CREATED", requestId: "request-1" } });
-    assert.deepEqual(received, [{ operationId: "operation-1", trigger: "AUTHORIZED_RETRY", relevantChangeArtifactId: null, authorizedBy: "operator-1", authorizationReason: "Recorded authorization." }]);
+    const evidenceChange = await createDeferredReentry(request({ operationId: "operation-2", trigger: "RELEVANT_EVIDENCE_CHANGE", relevantChangeArtifactId: "snapshot-1" }), {});
+    assert.equal(evidenceChange.status, 200);
+    assert.deepEqual(received, [
+      { operationId: "operation-1", trigger: "AUTHORIZED_RETRY", relevantChangeArtifactId: null, authorizedBy: "operator-1", authorizationReason: "Recorded authorization." },
+      { operationId: "operation-2", trigger: "RELEVANT_EVIDENCE_CHANGE", relevantChangeArtifactId: "snapshot-1", authorizedBy: null, authorizationReason: null }
+    ]);
   } finally {
     config.adminOperatorTokens = previousOperatorTokens;
     adminService.createDeferredFactoryV2Reentry = originalCreate;
