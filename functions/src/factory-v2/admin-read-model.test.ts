@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { listDeferredTopicAdminSummaries } from "./admin-read-model";
+import { parseSealedArtifact, immutableEnvelope } from "./contracts/builders";
+import { v2FailureRecordSchema } from "./contracts/knowledge";
 
 const deferredOperation = {
   operationId: "run-deferred-001",
@@ -32,11 +34,13 @@ const deferredOperation = {
 };
 
 test("deferred-topic read model exposes only valid deferred lineage", async () => {
+  const failure = parseSealedArtifact(v2FailureRecordSchema, { ...immutableEnvelope({ corpusId: deferredOperation.corpusId, topicId: deferredOperation.topicId, runId: deferredOperation.runId, generation: deferredOperation.generation, createdAt: deferredOperation.updatedAt }, deferredOperation.terminalFailureRecordId!), failureRecordId: deferredOperation.terminalFailureRecordId, stage: deferredOperation.stage, failureClass: "FAILED_UNCLASSIFIED", severity: "HIGH", retryable: false, message: "Governed public evidence capacity is exhausted.", protectedRepresentationDiagnostics: null, blockingArtifactIds: [], attemptsConsumed: 2, budgetConsumed: { providerQueries: 10 }, autonomousOutcome: deferredOperation.autonomousOutcome });
   const repository = {
     boundedQuery: async () => [
       { id: "topic-operation-deferred-001", ...deferredOperation },
       { id: "topic-operation-invalid-001", ...deferredOperation, operationId: "run-invalid-001", autonomousOutcome: null }
-    ]
+    ],
+    getById: async () => ({ id: failure.failureRecordId, ...failure })
   };
   const results = await listDeferredTopicAdminSummaries(repository as never, 25);
   assert.deepEqual(results, [{
@@ -46,6 +50,7 @@ test("deferred-topic read model exposes only valid deferred lineage", async () =
     stage: "A2_SCOPE_ACQUISITION",
     updatedAt: "2026-10-16T00:00:00.000Z",
     terminalFailureRecordId: "failure-deferred-001",
-    outcome: deferredOperation.autonomousOutcome
+    outcome: deferredOperation.autonomousOutcome,
+    operationalFeasibility: { state: "REENTRY_CONDITION_REQUIRED", requiredCondition: "RELEVANT_EVIDENCE_CHANGE", terminalAt: deferredOperation.updatedAt, attemptsConsumed: 2, budgetConsumed: { providerQueries: 10 }, failureClass: "FAILED_UNCLASSIFIED" }
   }]);
 });

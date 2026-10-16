@@ -59,6 +59,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     updatedAt: string;
     terminalFailureRecordId: string | null;
     outcome: { classification: "PUBLIC_EVIDENCE_LIMITATION" | "RESEARCH_BUDGET_EXHAUSTED"; reentryState: "REQUIRES_RELEVANT_CHANGE" | "REQUIRES_AUTHORIZED_RETRY"; detailedReason: string };
+    operationalFeasibility: { state: "REENTRY_CONDITION_REQUIRED"; requiredCondition: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; terminalAt: string; attemptsConsumed: number; budgetConsumed: Record<string, number>; failureClass: string };
   }>>([]);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -299,6 +300,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
             <strong>{topic.outcome.classification.replaceAll("_", " ")}</strong>
             <p className="small muted">Stage {topic.stage.replaceAll("_", " ")} · {topic.outcome.detailedReason.replaceAll("_", " ")} · updated {formatOperationalTime(topic.updatedAt)}</p>
             <p className="small muted">Re-entry: {topic.outcome.reentryState === "REQUIRES_RELEVANT_CHANGE" ? "A relevant eligible-evidence change is required." : "An authorized bounded retry is required."}</p>
+            <p className="small muted">Operational signal: {topic.operationalFeasibility.requiredCondition === "RELEVANT_EVIDENCE_CHANGE" ? "Awaiting a newly available eligible source." : "Awaiting a documented retry authorization."} Previous attempts: {topic.operationalFeasibility.attemptsConsumed}.</p>
           </div>
           <span className="pill">Generation {topic.generation}</span>
         </article>)}

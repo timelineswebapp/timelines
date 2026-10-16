@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `9eab334` — `test: verify atomic deferred re-entry consumption` |
+| Prior program checkpoint | `f4523e2` — `feat: create deferred re-entry requests safely` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -52,6 +52,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Server-owned request-creation increment:** Completed locally on `2026-10-16`. The new repository transaction derives every re-entry lineage field from the persisted deferred operation and immutable failure record; the caller cannot supply a run, generation, release, outcome, or failure identity. For public-evidence limitations it accepts only a post-terminal, open, complete, immutable `NEWLY_RETRIEVED` or `REVALIDATED` source snapshot whose current source document is attributable to a publisher. For budget exhaustion it requires an authenticated Factory operator identity and bounded authorization reason. A signed internal Functions endpoint and CSRF/RBAC-protected `factory_operator` Admin route carry only the permitted trigger inputs. No route mutates evidence, the Registry, Governance, Historical Library, or Published Memory.
 
+**Operational-feasibility increment:** Completed locally on `2026-10-16`. The deferred Admin read model now derives a bounded, read-only re-entry feasibility signal from the exact deferred operation and immutable terminal failure record: required condition, terminal time, consumed attempts and budget, and detailed failure class. It has no historical-significance, priority, coverage, selection, evidence, Registry, Governance, or publication field; it cannot reorder or modify any research work. The Admin surface presents it solely as an operational condition.
+
 ## Certification and verification state
 
 Local and shadow verification may be executed only within existing budgets and safety controls. No result becomes Phase-2 certification unless it is a fresh four-subject run from one materially equivalent sealed release and produces four valid CKS records. Provider-backed certification is not part of the current implementation increment.
@@ -60,7 +62,7 @@ Completed for this increment:
 
 - Functions strict typecheck: passed.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
-- Full Functions suite: 351 passed, 0 failed, 2 intentional emulator-only skips.
+- Full Functions suite: 352 passed, 0 failed, 2 intentional emulator-only skips.
 - Isolated Firestore emulator repository suite: 6 passed, 0 failed, including concurrent deferred re-entry request creation and consumption.
 - Root suite: 249 passed, 0 failed; root strict typecheck and lint passed.
 - Tier-1 security gate: passed with zero high/critical production findings; the existing build-tooling-only advisory remains explicitly accepted under its recorded constraints.
@@ -77,4 +79,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Implement the next TL-AUTONOMY-001 operational-feasibility signal as a bounded, non-authoritative read model. It must remain separate from topic significance and historical obligations, derive only from immutable terminal outcomes and attempt lineage, and must not change selection, evidence, Registry, Governance, publication, or certification behavior.
+Audit and complete the governed source-submission candidate workflow for deferred public-evidence re-entry. It must preserve source provenance, authorization, validation, and normal Authority-First admission, produce a valid immutable source snapshot before it can serve as a relevant-change artifact, and must not create direct evidence, Registry, Governance, Library, or Published Memory mutation paths.

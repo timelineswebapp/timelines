@@ -12,6 +12,14 @@ export type DeferredFactoryV2Topic = {
     reentryState: "REQUIRES_RELEVANT_CHANGE" | "REQUIRES_AUTHORIZED_RETRY";
     detailedReason: string;
   };
+  operationalFeasibility: {
+    state: "REENTRY_CONDITION_REQUIRED";
+    requiredCondition: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY";
+    terminalAt: string;
+    attemptsConsumed: number;
+    budgetConsumed: Record<string, number>;
+    failureClass: string;
+  };
 };
 
 export type DeferredFactoryV2ReentryResult = {
