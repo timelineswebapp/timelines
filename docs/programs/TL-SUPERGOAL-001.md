@@ -179,6 +179,7 @@ Completed for this increment:
 - Root strict typecheck and full root suite passed after the reader-route hardening: 258 passed, 0 failed.
 - Public search query integrity: repeated `q` or `page` selectors now fail closed before normalization, preserving deterministic search rendering and canonical metadata. Root strict typecheck and full root suite passed: 258 passed, 0 failed.
 - Public homepage availability: snapshot failures now emit a sanitized structured server diagnostic and present an explicit accessible temporary-unavailable state, rather than silently masquerading as an empty featured catalog. Root strict typecheck and full root suite passed: 259 passed, 0 failed.
+- Public homepage continuation resilience: an interrupted bounded feed fetch now communicates an accessible, non-sensitive status to readers instead of failing only in the browser console. Root strict typecheck and focused public UI regression passed (5/5).
 - Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.

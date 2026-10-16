@@ -47,6 +47,7 @@ export function HomeTimelineFeed({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [sentinelNode, setSentinelNode] = useState<Element | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [continuationError, setContinuationError] = useState(false);
   const fetchInFlightRef = useRef(false);
 
   const visibleItems = useMemo(() => items, [items]);
@@ -87,8 +88,10 @@ export function HomeTimelineFeed({
             });
             setNextOffset(payload.data.nextOffset);
             setHasMore(payload.data.hasMore);
+            setContinuationError(false);
           })
           .catch((error) => {
+            setContinuationError(true);
             console.error(
               JSON.stringify({
                 level: "error",
@@ -170,6 +173,7 @@ export function HomeTimelineFeed({
           </Fragment>
         ))}
       </section>
+      {continuationError ? <p className="muted small" role="status" aria-live="polite">More timelines could not be loaded right now. Please try again shortly.</p> : null}
       <button
         type="button"
         aria-label="Back to top"

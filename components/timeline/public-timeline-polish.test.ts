@@ -42,4 +42,6 @@ test("homepage presents an explicit availability state when its snapshot fails",
   assert.match(homePage, /initialUnavailable=\{homepageSnapshot === null\}/);
   assert.match(homeFeed, /Featured timelines are temporarily unavailable/);
   assert.match(homeFeed, /role="status" aria-live="polite"/);
+  assert.match(homeFeed, /More timelines could not be loaded right now/);
+  assert.match(homeFeed, /setContinuationError\(true\)/);
 });
