@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import type { AdminFetcher } from "@/components/admin/admin-shared";
+import { factoryOperationalAvailabilityMessage } from "@/components/admin/factory-operational-availability";
 import type { OperationalNotification, OperationsSnapshot, TopicOperationsDetail, TopicWorkItem } from "@/src/server/factory-operations/contracts";
 import type { FounderAction, FounderHomeReadModel } from "@/src/server/founder/contracts";
 
@@ -23,10 +24,8 @@ function founderErrorMessage(error: unknown, action: FounderAction | "approve") 
 }
 
 function operationsLoadErrorMessage(error: unknown) {
-  const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-  if (code === "SERVERLESS_BACKEND_UNAVAILABLE" || code === "SERVERLESS_BACKEND_INVALID_RESPONSE") {
-    return "Factory operational data is temporarily unavailable. Existing work has not been changed; refresh Home to try again.";
-  }
+  const availabilityMessage = factoryOperationalAvailabilityMessage(error);
+  if (availabilityMessage) return availabilityMessage;
   return error instanceof Error ? error.message : "Operations load failed.";
 }
 
@@ -84,17 +83,19 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   const [inspectingCandidateId, setInspectingCandidateId] = useState<string | null>(null);
   const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number }>>([]);
   const [generationRetryHealth, setGenerationRetryHealth] = useState<{ scheduledCount: number; dueCount: number; oldestDueAt: string | null } | null>(null);
-  const [generationEnqueueFailures, setGenerationEnqueueFailures] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "FAILED"; failedAt: string; enqueueRetryCount: number; lastErrorPresent: boolean }>>([]);
+  const [generationEnqueueFailures, setGenerationEnqueueFailures] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "FAILED"; failedAt: string; enqueueRetryCount: number; lastErrorPresent: boolean }> | null>(null);
+  const [factoryOperationalAvailability, setFactoryOperationalAvailability] = useState<string | null>(null);
   const load = useCallback(async () => {
     if (!token) return;
     try {
       if (view === "home") {
-        const [briefing, enqueueFailures] = await Promise.all([
+        const [briefingResult, enqueueFailuresResult] = await Promise.allSettled([
           fetchAdmin<FounderHomeReadModel>("/api/admin/founder/home"),
           fetchAdmin<typeof generationEnqueueFailures>("/api/admin/factory/v2/generation-enqueue-failures")
         ]);
+        if (briefingResult.status === "rejected") throw briefingResult.reason;
+        const briefing = briefingResult.value;
         setHome(briefing);
-        setGenerationEnqueueFailures(enqueueFailures);
         onFounderStatus({
           institution: briefing.summary.institutionStatus,
           factory: briefing.summary.processing > 0 ? "Processing" : briefing.summary.factoryStatus,
@@ -102,7 +103,17 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         });
         statusHandlers.setStatus("Founder authenticated");
         statusHandlers.onLoaded();
-        statusHandlers.setError("");
+        if (enqueueFailuresResult.status === "fulfilled") {
+          setGenerationEnqueueFailures(enqueueFailuresResult.value);
+          setFactoryOperationalAvailability(null);
+          statusHandlers.setError("");
+          return;
+        }
+        const availabilityMessage = factoryOperationalAvailabilityMessage(enqueueFailuresResult.reason);
+        if (!availabilityMessage) throw enqueueFailuresResult.reason;
+        setGenerationEnqueueFailures(null);
+        setFactoryOperationalAvailability(availabilityMessage);
+        statusHandlers.setError(availabilityMessage);
         return;
       }
       const [operations, notifications, reliabilityDashboard, deferredTopics, candidates, retries, retryHealth, enqueueFailures] = await Promise.all([
@@ -123,6 +134,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       setGenerationRetries(retries);
       setGenerationRetryHealth(retryHealth);
       setGenerationEnqueueFailures(enqueueFailures);
+      setFactoryOperationalAvailability(null);
       statusHandlers.onLoaded();
       statusHandlers.setError("");
     } catch (error) { statusHandlers.setError(operationsLoadErrorMessage(error)); }
@@ -287,7 +299,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       <h2>Delivery work requiring operational investigation</h2>
       <p className="muted">This bounded, read-only record confirms terminal delivery exhaustion. It does not permit dispatch, retry, reprioritization, re-entry, or historical-state changes.</p>
       <div className="stack">
-        {generationEnqueueFailures.length === 0 ? <p className="muted">No terminal generation enqueue failures are currently recorded.</p> : generationEnqueueFailures.map((failure) => <article className="fos-list-card" key={failure.jobId}>
+        {factoryOperationalAvailability ? <div className="fos-empty-state" role="status" aria-live="polite"><strong>Operational record temporarily unavailable.</strong><p className="muted">{factoryOperationalAvailability}</p><button className="button secondary" type="button" disabled={pendingAction !== null} onClick={() => void load()}>Retry operational read</button></div> : generationEnqueueFailures === null || generationEnqueueFailures.length === 0 ? <p className="muted">No terminal generation enqueue failures are currently recorded.</p> : generationEnqueueFailures.map((failure) => <article className="fos-list-card" key={failure.jobId}>
           <div><strong>{failure.origin === "user" ? "Visitor-requested topic" : "Autonomous topic"}</strong><p className="small muted">Generation {failure.generation} · delivery retries {failure.enqueueRetryCount} · failed {formatOperationalTime(failure.failedAt)}</p><p className="small muted">Delivery diagnostic recorded: {failure.lastErrorPresent ? "yes" : "no"}. Diagnostic content is retained server-side.</p></div>
           <span className="pill">Delivery failed</span>
         </article>)}

@@ -198,6 +198,11 @@ test("candidate outcome inspection remains read-only", () => {
 
 test("Factory operations explains typed backend unavailability without implying a state change", () => {
   const ui = readFileSync("components/admin/AdminFactoryOperations.tsx", "utf8");
-  assert.match(ui, /SERVERLESS_BACKEND_UNAVAILABLE/);
-  assert.match(ui, /Factory operational data is temporarily unavailable\. Existing work has not been changed;/);
+  const availability = readFileSync("components/admin/factory-operational-availability.ts", "utf8");
+  assert.match(availability, /SERVERLESS_BACKEND_UNAVAILABLE/);
+  assert.match(availability, /Factory operational data is temporarily unavailable\. Existing work has not been changed;/);
+  assert.match(ui, /Promise\.allSettled/);
+  assert.match(ui, /if \(briefingResult\.status === "rejected"\) throw briefingResult\.reason;/);
+  assert.match(ui, /Operational record temporarily unavailable\./);
+  assert.match(ui, /Retry operational read/);
 });
