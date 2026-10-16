@@ -74,7 +74,7 @@ test("circuit half-open success closes the provider/model/location circuit", asy
 });
 
 test("deadline prevents a capacity retry from starting", async () => {
-  const controller = capacity(); let calls = 0;
-  await assert.rejects(() => controller.execute({ logicalOperationId: "deadline", stage: "SCOPE", deadlineAt: Date.now() + 1, run: async () => { calls += 1; throw exhausted(); } }), ProviderCapacityError);
+  const controller = new ProviderCapacityController({ runId: "run-1", topicId: "topic-1", project: "project", model: "gemini-2.5-flash", location: "global", policy, random: () => 0.5, now: () => 0, sleep: async () => undefined }); let calls = 0;
+  await assert.rejects(() => controller.execute({ logicalOperationId: "deadline", stage: "SCOPE", deadlineAt: 1, run: async () => { calls += 1; throw exhausted(); } }), ProviderCapacityError);
   assert.equal(calls, 1);
 });
