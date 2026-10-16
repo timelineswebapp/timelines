@@ -13,9 +13,22 @@ import { contentService } from "@/src/server/services/content-service";
 
 export const dynamic = "force-dynamic";
 const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120;
+const SEARCH_PAGE_SIZE = 20;
+const MAX_SEARCH_PAGE = 500;
 
 function normalizePublicSearchQuery(value: string) {
   return value.trim().slice(0, MAX_PUBLIC_SEARCH_QUERY_LENGTH);
+}
+
+function normalizeSearchPage(value: string | undefined) {
+  const parsed = Number.parseInt(value || "1", 10);
+  return Number.isSafeInteger(parsed) ? Math.max(1, Math.min(MAX_SEARCH_PAGE, parsed)) : 1;
+}
+
+function searchPageHref(query: string, page: number) {
+  const params = new URLSearchParams({ q: query });
+  if (page > 1) params.set("page", String(page));
+  return `/search?${params.toString()}`;
 }
 
 function MilestoneSearchCard({ milestone }: { milestone: MilestoneSearchSummary }) {
@@ -58,7 +71,7 @@ function SearchResultCard({ item }: { item: SearchResultItem }) {
 export async function generateMetadata({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }): Promise<Metadata> {
   const { q = "" } = await searchParams;
   const query = normalizePublicSearchQuery(q);
@@ -92,12 +105,13 @@ export async function generateMetadata({
 export default async function SearchPage({
   searchParams
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const { q = "" } = await searchParams;
+  const { q = "", page } = await searchParams;
   const query = normalizePublicSearchQuery(q);
+  const currentPage = normalizeSearchPage(page);
   const [result, [searchBottomAd]] = await Promise.all([
-    query ? contentService.searchKnowledge(query, 20) : Promise.resolve({ query: "", total: 0, items: [] }),
+    query ? contentService.searchKnowledge(query, SEARCH_PAGE_SIZE, (currentPage - 1) * SEARCH_PAGE_SIZE) : Promise.resolve({ query: "", total: 0, items: [] }),
     adsService.getPublicAssignments(["search_bottom"])
   ]);
   const activeSearchBottomAd = searchBottomAd?.activeCampaign ? searchBottomAd : null;
@@ -133,6 +147,11 @@ export default async function SearchPage({
         ))}
         {activeSearchBottomAd ? <AdSlot assignment={activeSearchBottomAd} className="search-bottom-ad" /> : null}
       </section>
+      {query && result.total > SEARCH_PAGE_SIZE ? <nav className="admin-action-row" aria-label="Search result pages">
+        {currentPage > 1 ? <Link className="button secondary" href={searchPageHref(query, currentPage - 1)}>Previous results</Link> : <span />}
+        <span className="muted small">Page {currentPage} of {Math.ceil(result.total / SEARCH_PAGE_SIZE)}</span>
+        {currentPage * SEARCH_PAGE_SIZE < result.total ? <Link className="button secondary" href={searchPageHref(query, currentPage + 1)}>Next results</Link> : <span />}
+      </nav> : null}
     </div>
   );
 }

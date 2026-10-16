@@ -8,7 +8,10 @@ test("public search trims queries and presents an accessible empty-result state"
   assert.match(source, /const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120/u);
   assert.match(source, /value\.trim\(\)\.slice\(0, MAX_PUBLIC_SEARCH_QUERY_LENGTH\)/u);
   assert.match(source, /const query = normalizePublicSearchQuery\(q\)/u);
-  assert.match(source, /contentService\.searchKnowledge\(query, 20\)/u);
+  assert.match(source, /const SEARCH_PAGE_SIZE = 20/u);
+  assert.match(source, /const MAX_SEARCH_PAGE = 500/u);
+  assert.match(source, /contentService\.searchKnowledge\(query, SEARCH_PAGE_SIZE, \(currentPage - 1\) \* SEARCH_PAGE_SIZE\)/u);
+  assert.match(source, /aria-label="Search result pages"/u);
   assert.match(source, /query && result\.items\.length === 0/u);
   assert.match(source, /role="status" aria-live="polite"/u);
   assert.match(source, /No matching timelines or milestones/u);

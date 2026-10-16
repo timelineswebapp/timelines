@@ -86,6 +86,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Public-search input-bound increment:** Completed locally on `2026-10-16`. Public search now applies the API-compatible 120-character query cap in both its browser form and server-rendered route, so direct oversized URLs cannot inflate metadata or downstream search work. Search semantics remain server-owned and the existing result cap is unchanged.
 
+**Public-search navigation increment:** Completed locally on `2026-10-16`. Public search now pages projection-backed results in bounded groups of 20, with a maximum requested page of 500 and accessible previous/next navigation. Query identity, result ranking, and backend limits remain server-owned; no Factory or institutional data enters the reader path.
+
 **Production-readiness configuration verification:** Revalidated locally on `2026-10-16` after the operational-interface change. The non-destructive production-hardening validator passed dashboard, alert-delivery, PITR/recovery, retention, deployment-workflow, and incident-severity configuration checks; the monitoring validator passed all metric-to-alert mappings. This is configuration readiness evidence only and does not authorize deployment, launch, publication, or any protected-state mutation.
 
 ## Phase-2 certification boundary
