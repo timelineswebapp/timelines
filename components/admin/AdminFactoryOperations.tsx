@@ -62,6 +62,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     operationalFeasibility: { state: "REENTRY_CONDITION_REQUIRED"; requiredCondition: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; terminalAt: string; attemptsConsumed: number; budgetConsumed: Record<string, number>; failureClass: string };
   }>>([]);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
   const load = useCallback(async () => {
     if (!token) return;
     try {
@@ -171,6 +172,19 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     } finally {
       setPendingAction(null);
     }
+  }
+  async function submitSourceCandidate() {
+    if (!sourceSubmission) return;
+    setPendingAction(`source:${sourceSubmission.operationId}`);
+    try {
+      await fetchAdmin("/api/admin/factory/v2/source-submissions", { method: "POST", body: JSON.stringify({ operationId: sourceSubmission.operationId, submittedUrl: sourceSubmission.url, rationale: sourceSubmission.rationale }) });
+      setSourceSubmission(null);
+      statusHandlers.setStatus("Source candidate preserved for governed Factory validation.");
+      statusHandlers.setError("");
+      await load();
+    } catch (error) {
+      statusHandlers.setError(error instanceof Error ? error.message : "The source candidate could not be submitted.");
+    } finally { setPendingAction(null); }
   }
   const sourceLabel = (source: TopicWorkItem["source"]) => source === "founder" ? "Founder" : source === "public_request" ? "Visitor" : "Factory";
   const stageLabel = (stage: TopicWorkItem["currentStage"]) => ({
@@ -301,6 +315,13 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
             <p className="small muted">Stage {topic.stage.replaceAll("_", " ")} · {topic.outcome.detailedReason.replaceAll("_", " ")} · updated {formatOperationalTime(topic.updatedAt)}</p>
             <p className="small muted">Re-entry: {topic.outcome.reentryState === "REQUIRES_RELEVANT_CHANGE" ? "A relevant eligible-evidence change is required." : "An authorized bounded retry is required."}</p>
             <p className="small muted">Operational signal: {topic.operationalFeasibility.requiredCondition === "RELEVANT_EVIDENCE_CHANGE" ? "Awaiting a newly available eligible source." : "Awaiting a documented retry authorization."} Previous attempts: {topic.operationalFeasibility.attemptsConsumed}.</p>
+            {topic.operationalFeasibility.requiredCondition === "RELEVANT_EVIDENCE_CHANGE" ? <div className="admin-action-row"><button className="button secondary" disabled={pendingAction !== null} onClick={() => setSourceSubmission({ operationId: topic.runId, url: "", rationale: "" })}>Submit Source Candidate</button></div> : null}
+            {sourceSubmission?.operationId === topic.runId ? <div className="stack" style={{ marginTop: "0.75rem" }}>
+              <label className="small">Public HTTPS source URL<input value={sourceSubmission.url} onChange={(event) => setSourceSubmission({ ...sourceSubmission, url: event.target.value })} placeholder="https://…" inputMode="url" /></label>
+              <label className="small">Why this may address the unresolved obligation<textarea value={sourceSubmission.rationale} onChange={(event) => setSourceSubmission({ ...sourceSubmission, rationale: event.target.value })} rows={3} /></label>
+              <div className="admin-action-row"><button className="button" disabled={pendingAction !== null || sourceSubmission.url.trim().length < 8 || sourceSubmission.rationale.trim().length < 10} onClick={() => void submitSourceCandidate()}>Preserve Candidate</button><button className="button secondary" disabled={pendingAction !== null} onClick={() => setSourceSubmission(null)}>Cancel</button></div>
+              <p className="small muted">This creates a candidate for Factory validation. It does not create evidence, change authority, or retry research.</p>
+            </div> : null}
           </div>
           <span className="pill">Generation {topic.generation}</span>
         </article>)}
