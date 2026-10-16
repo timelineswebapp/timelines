@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Timestamp } from "firebase-admin/firestore";
 import { corpusCollection } from "./corpus";
-import { listGenerationRetryQueueSummaries, retryDeferredEnqueuesWithDependencies } from "./topic-ledger";
+import { listGenerationEnqueueFailureSummaries, listGenerationRetryQueueSummaries, retryDeferredEnqueuesWithDependencies } from "./topic-ledger";
 
 const enabled = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 
@@ -70,4 +70,22 @@ test("Firestore retry queue isolates a failed enqueue and drains later ready wor
   assert.equal(exhaustedLedger.data()?.enqueueRetryCount, 5);
   assert.equal(exhaustedJob.data()?.state, "FAILED");
   assert.equal(terminalFailures.docs.some((document) => document.data().stage === "enqueue_retry_exhausted" && document.data().retryable === false), true);
+  const failureSummary = (await listGenerationEnqueueFailureSummaries(25)).find((item) => item.topicId === failedTopicId);
+  assert.deepEqual(failureSummary && {
+    topicId: failureSummary.topicId,
+    jobId: failureSummary.jobId,
+    generation: failureSummary.generation,
+    origin: failureSummary.origin,
+    state: failureSummary.state,
+    enqueueRetryCount: failureSummary.enqueueRetryCount,
+    lastErrorPresent: failureSummary.lastErrorPresent
+  }, {
+    topicId: failedTopicId,
+    jobId: failedJobId,
+    generation: 1,
+    origin: "user",
+    state: "FAILED",
+    enqueueRetryCount: 5,
+    lastErrorPresent: true
+  });
 });

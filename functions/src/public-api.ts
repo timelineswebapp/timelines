@@ -6,7 +6,7 @@ import { ACTIVE_CORPUS_ID, PUBLIC_API_VERSION } from "./config";
 import { assertActiveCorpus, corpusCollection } from "./corpus";
 import { normalizeTopic } from "./normalization";
 import { topicRequestSchema } from "./schemas";
-import { captureVisitorRequest, intakeTopic, listGenerationRetryQueueSummaries } from "./topic-ledger";
+import { captureVisitorRequest, intakeTopic, listGenerationEnqueueFailureSummaries, listGenerationRetryQueueSummaries } from "./topic-ledger";
 import { validInternalRequest } from "./internal-auth";
 import { listDeferredTopicAdminSummaries } from "./factory-v2/admin-read-model";
 import { V2FirestoreRepository } from "./factory-v2/repositories/firestore";
@@ -224,6 +224,18 @@ async function internalGenerationRetryQueue(request: Request, response: Response
   return success(response, await listGenerationRetryQueueSummaries(Math.max(1, boundedInteger(request.query.limit, 25, 100))));
 }
 
+async function internalGenerationEnqueueFailures(request: Request, response: Response) {
+  const authorized = validInternalRequest({
+    secret: process.env.BACKEND_SHARED_SECRET,
+    timestamp: request.header("x-timelines-internal-timestamp") || undefined,
+    signature: request.header("x-timelines-internal-signature") || undefined,
+    method: request.method,
+    path: request.path
+  });
+  if (!authorized) return failure(response, 401, "UNAUTHORIZED", "Signed internal request required.");
+  return success(response, await listGenerationEnqueueFailureSummaries(Math.max(1, boundedInteger(request.query.limit, 25, 100))));
+}
+
 async function createInternalFactoryV2DeferredReentry(request: Request, response: Response) {
   const serializedBody = JSON.stringify(request.body);
   const authorized = validInternalRequest({
@@ -273,6 +285,7 @@ export async function handlePublicApi(request: Request, response: Response) {
     if (request.method === "GET" && request.path === "/relationships") return await relationships(request, response);
     if (request.method === "GET" && request.path === "/internal/factory-v2/deferred") return await internalFactoryV2DeferredTopics(request, response);
     if (request.method === "GET" && request.path === "/internal/factory-v2/generation-retries") return await internalGenerationRetryQueue(request, response);
+    if (request.method === "GET" && request.path === "/internal/factory-v2/generation-enqueue-failures") return await internalGenerationEnqueueFailures(request, response);
     if (request.method === "POST" && request.path === "/internal/factory-v2/deferred-reentry") return await createInternalFactoryV2DeferredReentry(request, response);
     if (request.method === "POST" && request.path === "/internal/factory-v2/source-submissions") return await createInternalFactoryV2SourceSubmission(request, response);
     if (request.method === "GET" && request.path === "/internal/factory-v2/source-submissions") return await internalFactoryV2SourceSubmissions(request, response);

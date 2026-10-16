@@ -37,6 +37,17 @@ export type GenerationRetryQueueSummary = {
   enqueueRetryCount: number;
 };
 
+export type GenerationEnqueueFailureSummary = {
+  topicId: string;
+  jobId: string;
+  generation: number;
+  origin: "user" | "autonomous";
+  state: "FAILED";
+  failedAt: string;
+  enqueueRetryCount: number;
+  lastErrorPresent: boolean;
+};
+
 function requireIpSalt() {
   const salt = process.env.IP_HASH_SALT;
   if (!salt || salt.length < 32) throw new Error("IP_HASH_SALT is not configured securely.");
@@ -397,6 +408,37 @@ export async function listGenerationRetryQueueSummaries(limit: number): Promise<
       updatedAt: data.updatedAt.toDate().toISOString(),
       lastErrorPresent: typeof data.lastError === "string" && data.lastError.length > 0,
       enqueueRetryCount: Number.isInteger(data.enqueueRetryCount) && data.enqueueRetryCount > 0 ? data.enqueueRetryCount : 0
+    }];
+  });
+}
+
+/** Read-only, bounded visibility of terminal legacy enqueue exhaustion. */
+export async function listGenerationEnqueueFailureSummaries(limit: number): Promise<GenerationEnqueueFailureSummary[]> {
+  const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const snapshot = await corpusCollection("topicLedgers")
+    .where("state", "==", "FAILED")
+    .where("currentStage", "==", "enqueue_failed")
+    .orderBy("updatedAt", "desc")
+    .limit(boundedLimit)
+    .get();
+  return snapshot.docs.flatMap((document) => {
+    const data = document.data();
+    if (
+      typeof data.activeJobId !== "string" ||
+      !Number.isInteger(data.generation) || data.generation < 1 ||
+      (data.origin !== "user" && data.origin !== "autonomous") ||
+      !(data.updatedAt instanceof Timestamp) ||
+      !Number.isInteger(data.enqueueRetryCount) || data.enqueueRetryCount < 1
+    ) return [];
+    return [{
+      topicId: document.id,
+      jobId: data.activeJobId,
+      generation: data.generation,
+      origin: data.origin,
+      state: "FAILED" as const,
+      failedAt: data.updatedAt.toDate().toISOString(),
+      enqueueRetryCount: data.enqueueRetryCount,
+      lastErrorPresent: typeof data.lastError === "string" && data.lastError.length > 0
     }];
   });
 }

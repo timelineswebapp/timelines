@@ -65,6 +65,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
   const [sourceSubmission, setSourceSubmission] = useState<{ operationId: string; url: string; rationale: string } | null>(null);
   const [sourceCandidates, setSourceCandidates] = useState<Array<{ candidateId: string; operationId: string; submittedUrl: string; rationale: string; submittedBy: string; createdAt: string; state: "CANDIDATE" }>>([]);
   const [generationRetries, setGenerationRetries] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "RETRY_SCHEDULED"; nextRetryAt: string; updatedAt: string; lastErrorPresent: boolean; enqueueRetryCount: number }>>([]);
+  const [generationEnqueueFailures, setGenerationEnqueueFailures] = useState<Array<{ topicId: string; jobId: string; generation: number; origin: "user" | "autonomous"; state: "FAILED"; failedAt: string; enqueueRetryCount: number; lastErrorPresent: boolean }>>([]);
   const load = useCallback(async () => {
     if (!token) return;
     try {
@@ -81,13 +82,14 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         statusHandlers.setError("");
         return;
       }
-      const [operations, notifications, reliabilityDashboard, deferredTopics, candidates, retries] = await Promise.all([
+      const [operations, notifications, reliabilityDashboard, deferredTopics, candidates, retries, enqueueFailures] = await Promise.all([
         fetchAdmin<OperationsSnapshot>("/api/admin/factory/operations"),
         fetchAdmin<OperationalNotification[]>("/api/admin/factory/operations/inbox"),
         fetchAdmin<typeof reliability>("/api/admin/operations/reliability"),
         fetchAdmin<typeof deferredV2Topics>("/api/admin/factory/v2/deferred"),
         fetchAdmin<typeof sourceCandidates>("/api/admin/factory/v2/source-submissions"),
-        fetchAdmin<typeof generationRetries>("/api/admin/factory/v2/generation-retries")
+        fetchAdmin<typeof generationRetries>("/api/admin/factory/v2/generation-retries"),
+        fetchAdmin<typeof generationEnqueueFailures>("/api/admin/factory/v2/generation-enqueue-failures")
       ]);
       setSnapshot(operations);
       setInbox(notifications);
@@ -95,6 +97,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       setDeferredV2Topics(deferredTopics);
       setSourceCandidates(candidates);
       setGenerationRetries(retries);
+      setGenerationEnqueueFailures(enqueueFailures);
       statusHandlers.onLoaded();
       statusHandlers.setError("");
     } catch (error) { statusHandlers.setError(error instanceof Error ? error.message : "Operations load failed."); }
@@ -240,6 +243,17 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       <span className="eyebrow">Add Topics</span><h2 style={{ margin: 0 }}>What should TiMELiNES publish next?</h2>
       <p className="muted">Enter one Topic, or separate multiple Topics with commas or new lines.</p>
       <div className="fos-topic-entry"><textarea aria-label="Topics to publish" className="input fos-topic-textarea" value={title} maxLength={4000} rows={4} onChange={(event) => setTitle(event.target.value)} placeholder={"Telephone\nSteam Engine\nApollo Program"} /><button className="button fos-queue-button" disabled={title.trim().length < 3} onClick={() => void addTopic()}>Queue Topics</button></div>
+    </section>
+    <section className="glass section-card">
+      <span className="eyebrow">Terminal Enqueue Failures</span>
+      <h2>Delivery work requiring operational investigation</h2>
+      <p className="muted">This bounded, read-only record confirms terminal delivery exhaustion. It does not permit dispatch, retry, reprioritization, re-entry, or historical-state changes.</p>
+      <div className="stack">
+        {generationEnqueueFailures.length === 0 ? <p className="muted">No terminal generation enqueue failures are currently recorded.</p> : generationEnqueueFailures.map((failure) => <article className="fos-list-card" key={failure.jobId}>
+          <div><strong>{failure.origin === "user" ? "Visitor-requested topic" : "Autonomous topic"}</strong><p className="small muted">Generation {failure.generation} · delivery retries {failure.enqueueRetryCount} · failed {formatOperationalTime(failure.failedAt)}</p><p className="small muted">Delivery diagnostic recorded: {failure.lastErrorPresent ? "yes" : "no"}. Diagnostic content is retained server-side.</p></div>
+          <span className="pill">Delivery failed</span>
+        </article>)}
+      </div>
     </section>
     <section className="glass section-card">
       <span className="eyebrow">Founder Inbox</span><h2>What requires your attention</h2>

@@ -167,14 +167,21 @@ test("deferred re-entry consumption remains transaction-owned and unroutable", (
 
 test("generation retry queue isolates individual enqueue failures without activating deferred re-entry", () => {
   const ledger = readFileSync("src/topic-ledger.ts", "utf8");
+  const publicApi = readFileSync("src/public-api.ts", "utf8");
+  const backendClient = readFileSync("../src/server/serverless/backend-client.ts", "utf8");
   assert.match(ledger, /retryDeferredEnqueuesWithDependencies/u);
   assert.match(ledger, /retry_deferred_without_blocking_batch/u);
   assert.match(ledger, /listGenerationRetryQueueSummaries/u);
+  assert.match(ledger, /listGenerationEnqueueFailureSummaries/u);
   assert.match(ledger, /enqueueRetryCount \+ 1 >= MAX_ENQUEUE_RETRIES/u);
   assert.match(ledger, /state: "RETRY_SCHEDULED", nextRetryAt/u);
   assert.match(ledger, /state: "QUEUED", currentStage: "queued", nextRetryAt: null/u);
   assert.doesNotMatch(ledger, /consumeDeferredReentryRequest/u);
-  assert.doesNotMatch(ledger, /generation-retries\/(?:dispatch|consume)/u);
+  assert.match(publicApi, /GET" && request\.path === "\/internal\/factory-v2\/generation-retries"/u);
+  assert.match(publicApi, /GET" && request\.path === "\/internal\/factory-v2\/generation-enqueue-failures"/u);
+  assert.match(backendClient, /listGenerationEnqueueFailures/u);
+  assert.doesNotMatch(publicApi, /generation-(?:retries|enqueue-failures)\/(?:dispatch|retry|consume)/u);
+  assert.doesNotMatch(backendClient, /generation-(?:retries|enqueue-failures)\/(?:dispatch|retry|consume)/u);
 });
 
 test("generation schema rejects evidence that merely repeats public copy", () => {
