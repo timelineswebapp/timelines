@@ -5,6 +5,7 @@ import { normalizeTopic } from "./normalization";
 import { evidenceFirstTaskPayloadSchema, generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
 import { boundedInteger, deferredReentryCommandSchema, scalarQueryString, sourceSubmissionCommandSchema } from "./public-api";
+import { internalRequestSignature, validInternalRequest } from "./internal-auth";
 
 function event(sortYear: number, title: string) {
   return {
@@ -221,6 +222,20 @@ test("signed source submission preserves the credential-free HTTPS boundary", ()
   assert.equal(sourceSubmissionCommandSchema.safeParse(valid).success, true);
   assert.equal(sourceSubmissionCommandSchema.safeParse({ ...valid, submittedUrl: "http://archives.example.org/record" }).success, false);
   assert.equal(sourceSubmissionCommandSchema.safeParse({ ...valid, submittedUrl: "https://operator:secret@archives.example.org/record" }).success, false);
+});
+
+test("mandatory contract suite verifies internal request method, path, body, and timestamp binding", () => {
+  const secret = "a".repeat(32);
+  const timestamp = "1760572800000";
+  const serializedBody = JSON.stringify({ operationId: "operation-001" });
+  const signature = internalRequestSignature(secret, timestamp, "POST", "/internal/factory-v2/deferred-reentry", serializedBody);
+  const valid = { secret, timestamp, signature, method: "POST", path: "/internal/factory-v2/deferred-reentry", serializedBody, now: Number(timestamp) + 1 };
+  assert.equal(validInternalRequest(valid), true);
+  assert.equal(validInternalRequest({ ...valid, serializedBody: JSON.stringify({ operationId: "operation-002" }) }), false);
+  assert.equal(validInternalRequest({ ...valid, method: "GET" }), false);
+  assert.equal(validInternalRequest({ ...valid, path: "/internal/factory-v2/deferred" }), false);
+  assert.equal(validInternalRequest({ ...valid, timestamp: "1e3" }), false);
+  assert.equal(validInternalRequest({ ...valid, now: Number(timestamp) + 300_001 }), false);
 });
 
 test("generation retry queue isolates individual enqueue failures without activating deferred re-entry", () => {
