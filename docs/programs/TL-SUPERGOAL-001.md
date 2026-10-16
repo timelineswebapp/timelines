@@ -13,7 +13,7 @@ This is the durable execution index for the authorized Tier-1 completion program
 
 | Item | Current evidence |
 |---|---|
-| Prior program checkpoint | `f4523e2` — `feat: create deferred re-entry requests safely` |
+| Prior program checkpoint | `b46f98a` — `feat: show deferred source candidates` |
 | Baseline implementation checkpoint | `24d4507a4e67718bc4363f409ce2973ad4e298d9` (`factory-v2-a.70`, Authority-First `.43`, schema `.15`, prompt `.21`) |
 | Latest sealed Phase-2 evidence | The `.69` sealed run recorded the governed Berlin affected-community capacity boundary. It is not a four-subject certification. |
 | Phase 2 | **UNCERTIFIED**. The locked four prescribed subjects / one materially equivalent sealed release / four valid CKS criterion is unchanged. |
@@ -54,6 +54,8 @@ The repository contains untracked historical artifacts and local working materia
 
 **Operational-feasibility increment:** Completed locally on `2026-10-16`. The deferred Admin read model now derives a bounded, read-only re-entry feasibility signal from the exact deferred operation and immutable terminal failure record: required condition, terminal time, consumed attempts and budget, and detailed failure class. It has no historical-significance, priority, coverage, selection, evidence, Registry, Governance, or publication field; it cannot reorder or modify any research work. The Admin surface presents it solely as an operational condition.
 
+**Governed source-submission increment:** Completed locally on `2026-10-16`. A `factory_operator` can submit a credential-free HTTPS URL and rationale only for a matching `PUBLIC_EVIDENCE_LIMITATION` deferred operation. The server derives submitter identity and terminal lineage, then preserves an immutable `CANDIDATE` record with `sourceSnapshotId: null`; candidates are listed read-only with their provenance. They cannot be used as evidence or re-entry changes until a separate V2 Factory validation/retrieval flow creates and validates a source snapshot under the normal Authority-First rules.
+
 ## Certification and verification state
 
 Local and shadow verification may be executed only within existing budgets and safety controls. No result becomes Phase-2 certification unless it is a fresh four-subject run from one materially equivalent sealed release and produces four valid CKS records. Provider-backed certification is not part of the current implementation increment.
@@ -79,4 +81,4 @@ Completed for this increment:
 
 ## Next authorized action
 
-Audit and complete the governed source-submission candidate workflow for deferred public-evidence re-entry. It must preserve source provenance, authorization, validation, and normal Authority-First admission, produce a valid immutable source snapshot before it can serve as a relevant-change artifact, and must not create direct evidence, Registry, Governance, Library, or Published Memory mutation paths.
+Implement the bounded V2 Factory validation/retrieval handoff for submitted source candidates. It must use the existing SSRF/robots/access controls and immutable V2 source/snapshot contracts, preserve candidate-to-snapshot lineage, reject inaccessible or insufficient material, and must not treat successful retrieval as Authority Registry admission or qualifying evidence.
