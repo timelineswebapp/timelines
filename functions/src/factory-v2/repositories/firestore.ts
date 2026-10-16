@@ -276,12 +276,30 @@ export class V2FirestoreRepository {
       const source = sourceDocumentSchema.parse(input.source);
       const snapshot = sourceSnapshotSchema.parse(input.snapshot);
       const evidenceSegments = input.evidenceSegments.map((segment) => evidenceSegmentSchema.parse(segment));
+      if (evidenceSegments.length > 200) throw new Error("Source-submission retrieval persistence permits at most 200 evidence segments.");
       if (!verifyPayloadHash(snapshot) || evidenceSegments.some((segment) => !verifyPayloadHash(segment))) throw new Error("Source-submission retrieval acquisition artifact hash is invalid.");
       if (snapshot.sourceId !== source.sourceId || evidenceSegments.some((segment) => segment.sourceSnapshotId !== snapshot.sourceSnapshotId)) throw new Error("Source-submission retrieval acquisition artifact lineage is invalid.");
       if (result.sourceId !== source.sourceId || result.sourceSnapshotId !== snapshot.sourceSnapshotId) throw new Error("Source-submission retrieval result lineage does not match acquisition artifacts.");
-      await this.upsertSourceDocument(source);
-      await this.createImmutable("v2SourceSnapshots", snapshot);
-      if (evidenceSegments.length > 0) await this.createImmutableBatch("v2EvidenceSegments", evidenceSegments);
+      if (source.corpusId !== this.corpusId || snapshot.corpusId !== this.corpusId || evidenceSegments.some((segment) => segment.corpusId !== this.corpusId) || result.corpusId !== this.corpusId) throw new Error("Cross-corpus source-submission retrieval persistence rejected.");
+      const sourceRef = this.collection("v2SourceDocuments").doc(source.sourceId);
+      const snapshotRef = this.collection("v2SourceSnapshots").doc(snapshot.sourceSnapshotId);
+      const segmentRefs = evidenceSegments.map((segment) => this.collection("v2EvidenceSegments").doc(segment.evidenceSegmentId));
+      const retrievalRef = this.collection("v2SourceSubmissionRetrievals").doc(result.sourceSubmissionRetrievalId);
+      await this.firestore.runTransaction(async (transaction) => {
+        const records = await transaction.getAll(sourceRef, snapshotRef, ...segmentRefs, retrievalRef);
+        const existingSource = records[0]!;
+        const immutable = [{ reference: snapshotRef, artifact: snapshot, snapshot: records[1]! }, ...evidenceSegments.map((segment, index) => ({ reference: segmentRefs[index]!, artifact: segment, snapshot: records[index + 2]! })), { reference: retrievalRef, artifact: result, snapshot: records[records.length - 1]! }];
+        if (existingSource.exists) {
+          const current = existingSource.data()!;
+          if (current.identityHash !== source.identityHash || current.canonicalUrl !== source.canonicalUrl) throw new Error("Source identity collision.");
+          if (current.currentSnapshotId !== source.currentSnapshotId) transaction.set(sourceRef, source);
+        } else transaction.create(sourceRef, source);
+        for (const item of immutable) {
+          if (item.snapshot.exists) {
+            if (item.snapshot.data()?.payloadHash !== item.artifact.payloadHash) throw new Error("Immutable artifact ID collision with a different payload.");
+          } else transaction.create(item.reference, item.artifact);
+        }
+      });
     } else if (result.sourceId !== null || result.sourceSnapshotId !== null) {
       throw new Error("Source-submission retrieval result requires its referenced acquisition artifacts.");
     }
