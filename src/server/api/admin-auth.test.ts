@@ -123,6 +123,32 @@ test("withAdminAuth rejects unsafe browser admin requests missing CSRF token", a
   }
 });
 
+test("withAdminAuth rejects unsafe requests with duplicate CSRF cookie values", async () => {
+  const previousToken = config.adminApiToken;
+  config.adminApiToken = "legacy-secret";
+  setAdminSecurityAuditStoreForTests({ async append() {} });
+
+  try {
+    const handler = withAdminAuth(async () => Response.json({ ok: true }), { roles: ["admin"] });
+    const response = await handler(
+      new Request("https://timelines.example/api/admin/timelines", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer legacy-secret",
+          cookie: "timelines_admin_csrf=expected; timelines_admin_csrf=attacker",
+          "x-csrf-token": "expected"
+        }
+      }),
+      {}
+    );
+    assert.equal(response.status, 403);
+    assert.equal((await response.json() as { error?: { code?: string } }).error?.code, "CSRF_REJECTED");
+  } finally {
+    config.adminApiToken = previousToken;
+    setAdminSecurityAuditStoreForTests(null);
+  }
+});
+
 test("withAdminAuth accepts unsafe browser admin requests with matching CSRF token", async () => {
   const previousToken = config.adminApiToken;
   config.adminApiToken = "legacy-secret";

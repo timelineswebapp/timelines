@@ -160,11 +160,19 @@ export function browserCsrfProtectionApplies(request: Request): boolean {
 
 function cookieValue(request: Request, name: string): string {
   const cookie = request.headers.get("cookie") || "";
+  let matchedValue: string | null = null;
   for (const segment of cookie.split(";")) {
     const [key, ...valueParts] = segment.trim().split("=");
-    if (key === name) return decodeURIComponent(valueParts.join("="));
+    if (key === name) {
+      if (matchedValue !== null) return "";
+      try {
+        matchedValue = decodeURIComponent(valueParts.join("="));
+      } catch {
+        return "";
+      }
+    }
   }
-  return "";
+  return matchedValue || "";
 }
 
 function signSessionPayload(payload: string): string {
