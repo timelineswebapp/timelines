@@ -186,6 +186,7 @@ Completed for this increment:
 - Public catalog API integrity: duplicate `limit` controls now fail closed with the standard 400 validation response before any content read. Root strict typecheck and direct route regressions passed (2/2).
 - Public homepage API integrity: duplicate `offset`, `limit`, or `snapshotDate` controls now fail closed with the standard 400 validation response before any projection read. Root strict typecheck and direct route regressions passed (2/2).
 - Optimized Next production build: passed after the public route and homepage resilience increments; all public and authenticated Admin route modules compiled successfully without activating deployment, discovery, publication, or Governance submission.
+- Tier-1 security gate: passed after the public route and homepage resilience increments with zero high/critical runtime findings in both root and Functions production audits. The sole accepted advisory remains build-tooling-only under its recorded constraints.
 - Optimized Next production build, root lint, and Tier-1 security gate: passed after the public-route validation increments. Runtime production audits remain zero high/critical; the existing lint-tooling-only advisory remains accepted under its recorded constraints.
 - Focused autonomous-operation, authenticated bridge, contract, completion, and orchestration tests: 17/17 passed.
 - Full Functions suite: 360 passed, 0 failed, 2 intentional emulator-only skips.
