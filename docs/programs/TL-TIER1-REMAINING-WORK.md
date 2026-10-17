@@ -275,3 +275,9 @@ Read-only GCP inspection confirms provider-side recovery controls for the active
 Read-only Google Cloud Monitoring inventory returned zero alert policies and zero notification channels in `tiimeliines`. Together with the Vercel inventory’s absence of `OPERATIONS_CRITICAL_WEBHOOK_URL`, `OPERATIONS_WARNING_WEBHOOK_URL`, and `OPERATIONS_INFO_WEBHOOK_URL`, there is no configured production provider path for the repository’s 15 declared alert conditions to reach an operator. Local webhook delivery proves only payload and route-code behavior, not provider delivery.
 
 **Status:** P0-D remains blocked on an authorized operations owner creating approved notification channels/webhooks, mapping the critical/warning/info routes, creating the required alert policies, and delivering documented test alerts. No policy, channel, webhook, alert, log, or notification was created or contacted.
+
+### 2026-10-17 — P0 security IAM inventory: active Functions use scoped runtime identity
+
+Read-only project IAM and Function metadata inspection confirms all five deployed Functions use `timelines-runtime@tiimeliines.iam.gserviceaccount.com`. Its project roles are bounded to Vertex AI use, Cloud Tasks enqueue, Firestore user access, logging writer, and Secret Manager accessor. It does not hold project `Editor` or `Owner`. This is consistent with the service-level invoker restrictions recorded above and is positive active-runtime least-privilege evidence.
+
+The project owner remains `timelineswebapp@gmail.com`; the legacy default Compute and App Engine service accounts retain project `Editor`. They are not the identity of any deployed Function, but their broad standing permissions remain a P0 security review/remediation item. Do not remove or alter these bindings without a workload inventory and Founder-authorized IAM change window. No IAM binding, service account, key, secret, or workload was changed.
