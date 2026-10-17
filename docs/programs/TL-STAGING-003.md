@@ -48,7 +48,7 @@ The Vercel team is on an active Hobby plan with no contract commitment reported 
 | Staging web project isolation | Pass | Separate Vercel project exists; no production URL, domain, deployment, or environment value has been configured. |
 | PostgreSQL migration/API parity | Not run | Requires independent Neon primary and restore databases and staging-only URLs. |
 | Admin/MFA/institutional synthetic journey | Not run | Requires the staging Next.js deployment and synthetic PostgreSQL fixtures. |
-| Monitoring alert delivery | Partially verified | Staging-only budget Pub/Sub topic/subscription exists. Actual provider budget delivery may take hours; application alert endpoints await staging configuration. |
+| Monitoring alert delivery | Partially verified | Staging-only budget Pub/Sub topic/subscription exists and accepted/consumed a `TL-STAGING-003_TRANSPORT_TEST` event. Actual provider budget delivery may take hours; application alert endpoints await staging configuration. |
 | Backup/restore and rollback rehearsal | Not run | Requires Neon staging primary/restore destinations and Vercel staging deployment. |
 | Browser/accessibility/performance | Not run | Requires deployed staging public website. |
 
