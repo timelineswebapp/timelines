@@ -1,6 +1,6 @@
 # TL-STAGING-003 — Staging Deployment and Acceptance Report
 
-**Status:** Isolated staging foundation provisioned; web deployment and full acceptance blocked by a release-level staging-host isolation defect
+**Status:** Isolated staging website deployed; core URL, database, API-health, and MFA acceptance passed; remaining data-bearing and recovery gates are incomplete
 
 **Date:** 2026-10-17
 
@@ -26,13 +26,17 @@ All provider mutations in this record targeted `timelines-staging` only. The pro
 | Neon project | `timelines-staging` / `hidden-darkness-27048706`; AWS US East 2 (Ohio); branch `production` / `br-patient-mud-b5qz4y9i` | Created in Neon organization `timelines`, distinct from the production project in AWS US East 1. | Verified |
 | Neon databases | `timelines-staging-primary`; `timelines-staging-restore` | Separate empty databases on the staging branch. The provider-created `neondb` default database was deleted after both required databases existed. | Verified |
 | Neon roles | `timelines_staging_app`, `timelines_staging_migration`, `timelines_staging_restore` | Staging-only credentials; application role authenticated and had required read access after schema grants. | Partially verified |
-| Vercel project | `timelines-app/timelines-staging` (`prj_tnEeiyefyvp5GGOoFT554vB233an`) | Separate Hobby-plan project. Isolated primary/restore database URLs and staging-only service, cron, admin-session, MFA-test-operator, and route variables are configured in Production and Preview. No production value was copied. | Verified; deployment blocked below |
+| Vercel project | `timelines-app/timelines-staging` (`prj_tnEeiyefyvp5GGOoFT554vB233an`) | Separate Hobby-plan Next.js project. Isolated primary/restore database URLs and staging-only service, cron, admin-session, MFA-test-operator, canonical-origin, and route variables are configured in Production and Preview. No production value was copied. | Verified |
 
 ## Release identity
 
 The staged Function deployment was rebuilt and postflight-verified from source revision `cacb292ceacb41cacc2e3abec10c486673fa5ec0` with generation release identity `d42a12e495305c03885cd817865b8a466df301b7c0bd15b47b89240431db643f` and source-tree SHA-256 `13ac7fe865b5d73030201482d1d09c00e5c8e08ca3fba96cc13e7f3d51cf3bad`.
 
 The Function suite passed in staging configuration: **374 passed, 0 failed, 2 intentional emulator skips**. Focused staging deployment-safety tests passed **9/9**.
+
+The staging public API was rolled to revision `timelines-public-api-00003-dkv`, serving 100% of its staging traffic and reading the current staging Secret Manager values. The verified web deployment is Vercel deployment `dpl_J5a1xMfc2EW9srHYS13gpo6J86jq`, commit `d3d8fc8`, aliased only to `https://timelines-staging.vercel.app` and protected by Vercel authentication.
+
+The release verification matrix completed at this checkpoint: repository tests **305/305**, public-site canonical regression tests **5/5**, TypeScript typecheck, ESLint, the Tier-1 security gate, and a production-mode Next.js build with `TIMELINES_ENVIRONMENT=staging` and the declared staging origin. The security gate reports zero high/critical production findings; its documented development-lint tooling exception remains unchanged.
 
 ## Cost and isolation assessment
 
@@ -48,23 +52,27 @@ The Vercel team is on an active Hobby plan with no contract commitment reported 
 | Provider-research prohibition | Pass | Staging deploy rejects `TIMELINES_ENABLE_PROVIDER_RESEARCH` other than `false`; no Vertex role/service was enabled. |
 | Function release parity | Pass | All five Functions became active; priority/autonomous postflight verified the exact content-addressed release identity. |
 | Discovery protection | Pass | Scheduler is paused; no manual run. |
-| Staging web project isolation | Partial | Separate Vercel project and staging-only secret configuration exist. The current `src/lib/public-site.ts` hard-codes `https://www.timelines.sbs` and rejects staging/preview hosts, so deploying it would generate production canonical, share, sitemap, and scheduled-operation URLs. Deployment is correctly withheld. |
+| Staging web project isolation | Pass | `TIMELINES_ENVIRONMENT=staging` plus the exact staging Vercel origin resolve all canonical, Open Graph, sitemap, JSON-LD, and share URLs server-side. Missing/invalid staging configuration throws; request host headers are ignored. Live homepage canonical and Open Graph URLs are both `https://timelines-staging.vercel.app`. |
+| Staging website deployment | Pass | Next.js framework preset was corrected from generic output to Next.js after the first staging-only deployment served provider 404s. The current authenticated deployment serves app routes; Vercel unauthenticated access returns SSO protection and `X-Robots-Tag: noindex`. |
 | PostgreSQL migration parity | Pass | `db/schema.sql` applied to the isolated primary database; `npm run ops:migrations` then completed successfully through `20260730_institutional_actor_appointments`. The app role authenticated as `timelines_staging_app` with schema read access. |
 | PostgreSQL least privilege | Partial | `PUBLIC` database access was revoked; app, migration, and restore database/schema grants were applied. Neon denied default-privilege changes for the separate migration role, so future migration object grants require an explicit owner-controlled step and are not yet automated. |
-| API parity | Not run | Requires a safe web deployment and function shared-secret rollout on a fresh Function revision. |
-| Admin/MFA/institutional synthetic journey | Not run | A synthetic named MFA-attested test operator is configured only in the isolated Vercel project; exercising it requires safe web deployment and synthetic fixtures. |
+| API health / empty-corpus contract | Pass | The fresh Function revision and staging website health endpoint both returned healthy configuration/database status. The public API returns the clean-corpus v2 envelope and an empty read-model/sitemap collection after guarded synthetic corpus activation. |
+| Full API parity | Incomplete | The established parity verifier now permits only the exact declared staging API base and v2 clean-corpus contract, but requires synthetic published-projection fixtures (including duplicate-slug/search fixtures). None were created because Governance/publication remains disabled. |
+| Admin/MFA | Pass | A newly rotated staging-only named MFA operator received HTTP 200 from read-only `/api/admin/timelines`; the same request without credentials received HTTP 401. No administrative mutation was sent. |
+| Institutional-boundary journey | Incomplete | No synthetic institutional fixture or appointment was created. Real appointments and Governance/publication remain prohibited. |
 | Monitoring alert delivery | Partially verified | Staging-only budget Pub/Sub topic/subscription exists and accepted/consumed a `TL-STAGING-003_TRANSPORT_TEST` event. Actual provider budget delivery may take hours; application alert endpoints await staging configuration. |
 | Backup/restore and rollback rehearsal | Not run | The isolated primary/restore destinations now exist, but Free-plan history is six hours and cannot demonstrate the planned paid-PITR criterion. A synthetic logical backup/restore rehearsal remains possible after a safe web release. |
-| Browser/accessibility/performance | Not run | Requires deployed staging public website. |
+| Browser/accessibility/performance | Partial | Authenticated HTTP smoke confirms rendered homepage, canonical/Open Graph isolation, health, sitemap, and robots behavior. A desktop browser session rendered the TiMELiNES homepage at the staging origin; navigation and search have accessible names, and keyboard Tab traversal reached the labeled search field. Ten protected health samples had 519 ms minimum, 1,048 ms p95, and 1,048 ms maximum. This is a smoke sample, not a capacity qualification; responsive-browser, screen-reader, and representative load testing remain open. |
 
 ## Remaining blockers and next action
 
-1. **P0 — staging-host isolation defect:** `src/lib/public-site.ts` intentionally normalizes every host, including `*.vercel.app`, to the production canonical host. Do not deploy the current web release to staging because scheduled operations and public metadata/share/sitemap URLs can target production. This requires a narrowly scoped, tested runtime change and explicit approval because the original assessment was documentation-only.
-2. **P0 — Free-plan recovery boundary:** Neon Free provides only six-hour history. The former Launch/PITR acceptance criterion cannot be met while the Founder’s Free-plan direction stands. Do not represent it as passed; use a synthetic logical backup/restore rehearsal only, or obtain a later Founder decision for paid retention.
-3. **P1 — serverless/API and user-journey acceptance:** after a safe web release, roll the Function revision to consume the rotated staging shared secret; run API parity, synthetic named-MFA admin authorization/rejection, institutional separation, browser/accessibility/performance, staging-only alert delivery, and rollback tests.
-4. **P1 — migration-role provisioning:** codify an owner-controlled post-migration grant/default-privilege step, or obtain supported Neon role-management configuration. Do not elevate the application role as a workaround.
-5. **P1 — budget-email threshold alerts:** Google requires an approved staging-only email notification channel before it accepts 50/80/100 threshold rules. The staging-only Pub/Sub budget feed is configured; an explicit staging-only recipient is still required for email threshold delivery.
+1. **P0 — Free-plan recovery boundary:** Neon Free provides only six-hour history. The former Launch/PITR acceptance criterion cannot be met while the Founder’s Free-plan direction stands. Do not represent it as passed; use a synthetic logical backup/restore rehearsal only, or obtain a later Founder decision for paid retention.
+2. **P1 — data-bearing API and institutional acceptance:** create only an explicitly authorized synthetic published-projection fixture set and its synthetic institutional boundary records, then run full DTO/search/duplicate-slug parity and rejection-path checks. Do not activate discovery, Governance submission, or publication.
+3. **P1 — accessibility and representative performance:** run interactive keyboard, screen-reader, responsive-browser, and representative load tests through the protected staging deployment. The present ten-request health sample is not sufficient for capacity certification.
+4. **P1 — recovery and rollback:** run a synthetic logical PostgreSQL backup/restore into `timelines-staging-restore` and a staging Vercel rollback rehearsal. Record six-hour Neon Free history as a limitation, never as paid-PITR certification.
+5. **P1 — migration-role provisioning:** codify an owner-controlled post-migration grant/default-privilege step, or obtain supported Neon role-management configuration. Do not elevate the application role as a workaround.
+6. **P1 — budget-email threshold alerts:** Google requires an approved staging-only email notification channel before it accepts 50/80/100 threshold rules. The staging-only Pub/Sub budget feed is configured; an explicit staging-only recipient is still required for email threshold delivery.
 
 ## Production-readiness verdict
 
-**Not production-ready.** The independent GCP, Vercel, and PostgreSQL staging foundation is operational and schema migration parity is established, but the web release must not be deployed until it can keep staging URLs isolated from production. Free-plan Neon history also cannot satisfy the planned paid-PITR acceptance criterion. Phase 2 certification remains blocked by the Berlin Founder-governed affected-community identity/capacity requirement and is not certified.
+**Not production-ready.** The isolated staging website is now deployed and core isolation, migration, health, API-empty-corpus, and MFA checks pass. It is not a completed Tier-1 acceptance environment: data-bearing API/institutional fixtures, full browser/accessibility/capacity tests, recovery/rollback rehearsal, and real alert delivery remain open. Neon Free history is six hours and cannot satisfy paid-PITR acceptance. Phase 2 certification remains blocked by the Berlin Founder-governed affected-community identity/capacity requirement and is not certified.

@@ -7,6 +7,7 @@ loadEnvConfig(process.cwd());
 
 const MIGRATION_ID = "TL-SERVERLESS-MIGRATION-001";
 const environment = process.env.TIMELINES_ENVIRONMENT || "production";
+const PUBLIC_API_VERSION = "serverless-public-api-v2-clean-corpus";
 const approvedApiBaseUrls = {
   production: "https://us-central1-tiimeliines.cloudfunctions.net/timelines-public-api",
   staging: "https://timelines-public-api-7kn4fbw2cq-uc.a.run.app"
@@ -45,7 +46,7 @@ async function api<T>(path: string): Promise<T> {
   if (!response.ok || !envelope.ok || envelope.data === undefined) {
     throw new Error(`API verification failed for ${path}: ${response.status} ${envelope.error?.code || "INVALID_ENVELOPE"}.`);
   }
-  if (envelope.apiVersion !== "serverless-public-api-v1") throw new Error(`Unexpected API version for ${path}.`);
+  if (envelope.apiVersion !== PUBLIC_API_VERSION) throw new Error(`Unexpected API version for ${path}.`);
   return envelope.data;
 }
 
@@ -109,7 +110,7 @@ async function main() {
     migrationId: MIGRATION_ID,
     checkedAt: new Date().toISOString(),
     apiBaseUrl: API_BASE_URL,
-    apiVersion: "serverless-public-api-v1",
+    apiVersion: PUBLIC_API_VERSION,
     readModels: typeResults,
     sitemap: { source: sourceEntries.length, target: targetEntries.length, payloadHashSet: hash(sourceEntries) },
     duplicateSlugResolution: { timeline: latestTimeline.slug, historicalObject: latestObject.slug },
