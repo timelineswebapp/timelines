@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_ID="tiimeliines"
-DEPLOY_ACCOUNT="timelineswebapp@gmail.com"
+TIMELINES_ENVIRONMENT="${TIMELINES_ENVIRONMENT:-}"
+PROJECT_ID="${TIMELINES_GCP_PROJECT_ID:-}"
+DEPLOY_ACCOUNT="${TIMELINES_DEPLOY_ACCOUNT:-}"
 REGION="us-central1"
 RUNTIME_SA="timelines-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 TASKS_SA="timelines-tasks-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -11,6 +12,27 @@ ARCHIVE_BUCKET="${PROJECT_ID}-institutional-archive"
 ACTIVE_CORPUS_ID="${ACTIVE_CORPUS_ID:-}"
 PUBLIC_ID_BASE="${PUBLIC_ID_BASE:-}"
 EVIDENCE_FIRST_MODE="${EVIDENCE_FIRST_MODE:-SHADOW}"
+
+if [[ "${TIMELINES_ENVIRONMENT}" != "staging" && "${TIMELINES_ENVIRONMENT}" != "production" ]]; then
+  echo "Refusing deployment: set TIMELINES_ENVIRONMENT to staging or production explicitly." >&2
+  exit 1
+fi
+if [[ -z "${PROJECT_ID}" ]]; then
+  echo "Refusing deployment: set TIMELINES_GCP_PROJECT_ID explicitly." >&2
+  exit 1
+fi
+if [[ -z "${DEPLOY_ACCOUNT}" ]]; then
+  echo "Refusing deployment: set TIMELINES_DEPLOY_ACCOUNT explicitly." >&2
+  exit 1
+fi
+if [[ "${TIMELINES_ENVIRONMENT}" == "production" && "${PROJECT_ID}" != "tiimeliines" ]]; then
+  echo "Refusing production deployment outside the canonical production project." >&2
+  exit 1
+fi
+if [[ "${TIMELINES_ENVIRONMENT}" == "staging" && "${PROJECT_ID}" == "tiimeliines" ]]; then
+  echo "Refusing staging deployment into the production project." >&2
+  exit 1
+fi
 
 if [[ ! "${ACTIVE_CORPUS_ID}" =~ ^[a-z0-9][a-z0-9-]{2,62}$ ]]; then
   echo "Refusing deployment: set ACTIVE_CORPUS_ID to the activated clean corpus identifier." >&2
@@ -124,7 +146,7 @@ deploy_function() {
     --cpu=1 \
     --concurrency="${concurrency}" \
     --max-instances="${max_instances}" \
-    --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},FUNCTION_REGION=${REGION},VERTEX_LOCATION=global,VERTEX_MODEL=gemini-2.5-flash,TASK_INVOKER_EMAIL=${TASKS_SA},ACTIVE_CORPUS_ID=${ACTIVE_CORPUS_ID},PUBLIC_ID_BASE=${PUBLIC_ID_BASE},EVIDENCE_FIRST_MODE=${EVIDENCE_FIRST_MODE},GENERATION_RELEASE_ID=${GENERATION_RELEASE_ID},GENERATION_SOURCE_REVISION=${GENERATION_SOURCE_REVISION},GENERATION_SOURCE_TREE_SHA256=${GENERATION_SOURCE_TREE_SHA256},GENERATION_ROOT_LOCK_SHA256=${GENERATION_ROOT_LOCK_SHA256},GENERATION_FUNCTIONS_LOCK_SHA256=${GENERATION_FUNCTIONS_LOCK_SHA256},GENERATION_CONFIG_BUNDLE_SHA256=${GENERATION_CONFIG_BUNDLE_SHA256}" \
+    --set-env-vars="TIMELINES_ENVIRONMENT=${TIMELINES_ENVIRONMENT},GOOGLE_CLOUD_PROJECT=${PROJECT_ID},FUNCTION_REGION=${REGION},VERTEX_LOCATION=global,VERTEX_MODEL=gemini-2.5-flash,TASK_INVOKER_EMAIL=${TASKS_SA},ACTIVE_CORPUS_ID=${ACTIVE_CORPUS_ID},PUBLIC_ID_BASE=${PUBLIC_ID_BASE},EVIDENCE_FIRST_MODE=${EVIDENCE_FIRST_MODE},GENERATION_RELEASE_ID=${GENERATION_RELEASE_ID},GENERATION_SOURCE_REVISION=${GENERATION_SOURCE_REVISION},GENERATION_SOURCE_TREE_SHA256=${GENERATION_SOURCE_TREE_SHA256},GENERATION_ROOT_LOCK_SHA256=${GENERATION_ROOT_LOCK_SHA256},GENERATION_FUNCTIONS_LOCK_SHA256=${GENERATION_FUNCTIONS_LOCK_SHA256},GENERATION_CONFIG_BUNDLE_SHA256=${GENERATION_CONFIG_BUNDLE_SHA256}" \
     "$@" \
     --quiet
 }
@@ -196,5 +218,6 @@ else
     --oidc-service-account-email="${SCHEDULER_SA}" --oidc-token-audience="${DISCOVERY_URL}" \
     --headers="X-CloudScheduler=true,Content-Type=application/json" --message-body='{}' --quiet
 fi
+gcloud scheduler jobs pause topic-discovery-daily --location="${REGION}" --project="${PROJECT_ID}" --quiet
 
 echo "TiMELiNES serverless infrastructure deployed to ${PROJECT_ID}/${REGION}."

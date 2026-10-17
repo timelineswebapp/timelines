@@ -1,4 +1,23 @@
-export const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || "tiimeliines";
+const PRODUCTION_PROJECT_ID = "tiimeliines";
+const runtimeEnvironment = process.env.TIMELINES_ENVIRONMENT || "production";
+
+if (runtimeEnvironment !== "production" && runtimeEnvironment !== "staging") {
+  throw new Error("TIMELINES_ENVIRONMENT must be production or staging.");
+}
+
+const configuredProjectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+if (runtimeEnvironment === "staging" && !configuredProjectId) {
+  throw new Error("Staging functions require an explicit GOOGLE_CLOUD_PROJECT or GCLOUD_PROJECT.");
+}
+
+export const PROJECT_ID = configuredProjectId || PRODUCTION_PROJECT_ID;
+if (runtimeEnvironment === "production" && PROJECT_ID !== PRODUCTION_PROJECT_ID) {
+  throw new Error(`Refusing to initialize production functions for unexpected project ${PROJECT_ID}.`);
+}
+if (runtimeEnvironment === "staging" && PROJECT_ID === PRODUCTION_PROJECT_ID) {
+  throw new Error("Refusing to initialize staging functions in the production project.");
+}
+export const RUNTIME_ENVIRONMENT = runtimeEnvironment;
 export const COMPUTE_REGION = process.env.FUNCTION_REGION || "us-central1";
 export const VERTEX_LOCATION = process.env.VERTEX_LOCATION || "global";
 export const VERTEX_MODEL = process.env.VERTEX_MODEL || "gemini-2.5-flash";
@@ -45,7 +64,3 @@ export const LEASE_DURATION_MS = 15 * 60 * 1000;
 export const MAX_DISCOVERY_CANDIDATES = 10;
 export const MAX_DISCOVERY_PROMOTIONS = 3;
 export const MAX_REQUESTS_PER_IP_PER_DAY = 3;
-
-if (PROJECT_ID !== "tiimeliines") {
-  throw new Error(`Refusing to initialize TiMELiNES functions for unexpected project ${PROJECT_ID}.`);
-}

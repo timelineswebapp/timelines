@@ -3,11 +3,13 @@
 **Status:** ACTIVE — INDEPENDENT CTO ENGINEERING EXECUTION
 **Authority:** CTO execution index; subordinate to `Knowledge/AUTHORITY_INDEX.md`, the V2 canons, locked institutional records, and certification artifacts.
 **Last reconciled:** 2026-10-17
-**Related records:** `docs/programs/TL-TIER1-COMPLETION-001.md`; `docs/programs/TL-TIER1-REMAINING-WORK.md` (current Tier-1 completion-gap assessment); `docs/decisions/TL-AUTONOMY-001.md`.
+**Related records:** `docs/programs/TL-TIER1-COMPLETION-001.md`; `docs/programs/TL-TIER1-REMAINING-WORK.md` (current Tier-1 completion-gap assessment); [`docs/programs/TL-STAGING-001.md`](TL-STAGING-001.md) (Founder-authorized staging execution); `docs/decisions/TL-AUTONOMY-001.md`.
 
 ## Purpose and control boundary
 
 This is the durable execution index for the authorized Tier-1 completion program. It records current repository evidence and implementation progress; it neither supersedes constitutional/LOCK authority nor authorizes production deployment, launch, Registry expansion, new providers, or a change to the locked Phase-2 benchmark.
+
+**TL-STAGING-001 status:** `STAGING_NOT_DEPLOYED`. The 2026-10-17 staging execution established that accessible Vercel and GCP resources are production-only and cannot satisfy the independently enforceable isolation boundary. No deployment was attempted. The record preserves local emulator/database evidence and the fail-closed staging-project guard; it identifies the exact Founder/environment dependency before staging can resume.
 
 ## Reconciled repository state
 
