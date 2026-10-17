@@ -32,6 +32,23 @@ test("Governance initiation derives its current actor from an appointment", asyn
   assert.match(approval, /governance\.approval\.create/);
 });
 
+test("actorless Governance creation routes remain appointment-gated", async () => {
+  const routes: ReadonlyArray<readonly [string, string]> = [
+    ["queues", "governance.queue.create"],
+    ["disputes", "governance.dispute.create"],
+    ["publication-packages", "governance.publication.create"],
+    ["audit-records", "governance.audit.create"]
+  ];
+  for (const [route, scope] of routes) {
+    const source = await readFile(join(process.cwd(), "app/api/admin/governance", route, "route.ts"), "utf8");
+    assert.match(source, /resolveInstitutionalActor/);
+    assert.match(source, new RegExp(scope.replace(".", "\\.")));
+  }
+  const feedback = await readFile(join(process.cwd(), "app/api/admin/governance/feedback-packages/route.ts"), "utf8");
+  assert.match(feedback, /omit\(\{ originActor: true \}\)/);
+  assert.match(feedback, /governance\.feedback\.create/);
+});
+
 test("Historical Library mutations derive authority from a Library appointment", async () => {
   const routes = [
     "admissions/[packageId]", "feedback-packages",

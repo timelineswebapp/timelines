@@ -213,7 +213,8 @@ describe("historical library backend foundation", () => {
       const route = readFileSync(routePath, "utf8");
       assert.match(route, /withAdminAuth/);
       assert.match(route, /roles: \["library_operator"\]/);
-      assert.match(route, /Schema\.parse\(await request\.json\(\)\)/);
+      assert.match(route, /Schema\.omit\(\{ actor: true \}\)\.parse\(await request\.json\(\)\)/);
+      assert.match(route, /resolveInstitutionalActor/);
       assert.doesNotMatch(route, /Repository|getWriteSql|INSERT INTO|UPDATE |DELETE FROM/);
     }
   });
