@@ -33,6 +33,10 @@ if [[ "${TIMELINES_ENVIRONMENT}" == "staging" && "${PROJECT_ID}" == "tiimeliines
   echo "Refusing staging deployment into the production project." >&2
   exit 1
 fi
+if [[ "${TIMELINES_ENVIRONMENT}" == "staging" && "${TIMELINES_STAGING_ISOLATION_VERIFIED:-false}" != "true" ]]; then
+  echo "Refusing staging deployment: independently verified isolation must be recorded before deployment." >&2
+  exit 1
+fi
 
 if [[ ! "${ACTIVE_CORPUS_ID}" =~ ^[a-z0-9][a-z0-9-]{2,62}$ ]]; then
   echo "Refusing deployment: set ACTIVE_CORPUS_ID to the activated clean corpus identifier." >&2

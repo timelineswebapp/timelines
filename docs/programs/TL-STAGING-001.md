@@ -28,7 +28,7 @@ The serverless configuration previously accepted only the production project ID,
 
 - Production remains pinned to `tiimeliines`.
 - Staging requires an explicit `GOOGLE_CLOUD_PROJECT` or `GCLOUD_PROJECT` and rejects `tiimeliines`.
-- The deployment script requires explicit environment, project, and deploy-principal inputs; it rejects staging into the production project and production outside its canonical project.
+- The deployment script requires explicit environment, project, deploy-principal, and `TIMELINES_STAGING_ISOLATION_VERIFIED=true` inputs; it rejects staging into the production project and production outside its canonical project.
 - A future deploy injects the environment identity into each Function and pauses `topic-discovery-daily` after deployment. Discovery is never activated by this change.
 
 This is configuration safety, not staging deployment evidence.
