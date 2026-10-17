@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { HomeTimelineFeed } from "@/components/timeline/HomeTimelineFeed";
 import { RequestTimelineForm } from "@/components/ui/RequestTimelineForm";
+import { buildPublicUrl } from "@/src/lib/public-site";
 import { adsService } from "@/src/server/services/ads-service";
 import { buildHomePageJsonLd, sanitizeJsonLd } from "@/src/lib/timeline-jsonld";
 import { contentService } from "@/src/server/services/content-service";
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "TiMELiNES | Structured timelines of history, science, technology, and culture",
     description: "TiMELiNES publishes structured timelines of major events, dates, and milestones across history, science, technology, culture, and society.",
-    url: "https://www.timelines.sbs/",
+    url: buildPublicUrl("/"),
     type: "website"
   },
   twitter: {

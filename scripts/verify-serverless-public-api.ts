@@ -6,12 +6,20 @@ import postgres from "postgres";
 loadEnvConfig(process.cwd());
 
 const MIGRATION_ID = "TL-SERVERLESS-MIGRATION-001";
-const API_BASE_URL = process.env.SERVERLESS_API_BASE_URL || "https://us-central1-tiimeliines.cloudfunctions.net/timelines-public-api";
+const environment = process.env.TIMELINES_ENVIRONMENT || "production";
+const approvedApiBaseUrls = {
+  production: "https://us-central1-tiimeliines.cloudfunctions.net/timelines-public-api",
+  staging: "https://timelines-public-api-7kn4fbw2cq-uc.a.run.app"
+} as const;
+if (environment !== "production" && environment !== "staging") {
+  throw new Error("TIMELINES_ENVIRONMENT must be production or staging.");
+}
+const API_BASE_URL = process.env.SERVERLESS_API_BASE_URL || approvedApiBaseUrls[environment];
 const READ_MODEL_TYPES = ["timeline", "milestone", "historical_object", "relationship"] as const;
 
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required for source parity verification.");
-if (new URL(API_BASE_URL).hostname !== "us-central1-tiimeliines.cloudfunctions.net") {
-  throw new Error(`Refusing to verify an unexpected API host: ${API_BASE_URL}.`);
+if (API_BASE_URL.replace(/\/$/u, "") !== approvedApiBaseUrls[environment]) {
+  throw new Error(`Refusing to verify an unexpected ${environment} API base URL: ${API_BASE_URL}.`);
 }
 
 const sql = postgres(process.env.DATABASE_URL, { max: 2, connect_timeout: 15, idle_timeout: 20 });
