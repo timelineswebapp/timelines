@@ -7,6 +7,6 @@ import { resolveInstitutionalActor } from "@/src/server/security/institutional-a
 export const POST = withAdminAuth(async (request: Request, { params }: { params: Promise<{ id: string }> }, identity) => {
   const { id: rawId } = await params;
   const id = uuidParamSchema.parse(rawId);
-  const input = governanceTransitionSchema.parse(await request.json());
-  return ok(await adminService.submitGovernanceDecision({ ...input, id, actor: await resolveInstitutionalActor(identity, "governance.decision.submit") }));
+  const input = governanceTransitionSchema.omit({ actor: true }).parse(await request.json());
+  return ok(await adminService.submitGovernanceDecision({ ...input, id, actor: await resolveInstitutionalActor(identity, "governance.decision.submit", ["governance"]) }));
 }, { roles: ["governance_operator"] });

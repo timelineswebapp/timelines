@@ -11,7 +11,11 @@ export function institutionalActorFromAppointments(principalId: string, rows: Ap
   return { actorId: principalId, institutionId: appointment.institutionId, role: appointment.role };
 }
 
-export async function resolveInstitutionalActor(identity: AdminOperatorIdentity, actionScope: string): Promise<GovernanceActorRef> {
+export async function resolveInstitutionalActor(
+  identity: AdminOperatorIdentity,
+  actionScope: string,
+  permittedInstitutionIds: readonly string[] = []
+): Promise<GovernanceActorRef> {
   const sql = getWriteSql("resolving institutional actor appointment");
   const rows = await sql<AppointmentRow[]>`
     SELECT id::text AS "appointmentId", institution_id AS "institutionId", constitutional_role AS role, authorization_version AS "authorizationVersion"
@@ -28,5 +32,9 @@ export async function resolveInstitutionalActor(identity: AdminOperatorIdentity,
           AND revoked.revoked_at <= NOW()
       )
     ORDER BY authorization_version DESC, created_at DESC LIMIT 2`;
-  return institutionalActorFromAppointments(identity.operatorId, rows);
+  const actor = institutionalActorFromAppointments(identity.operatorId, rows);
+  if (permittedInstitutionIds.length > 0 && !permittedInstitutionIds.includes(actor.institutionId)) {
+    throw new ApiError(403, "INSTITUTIONAL_AUTHORIZATION_REQUIRED", "No active institutional appointment authorizes this institution.");
+  }
+  return actor;
 }
