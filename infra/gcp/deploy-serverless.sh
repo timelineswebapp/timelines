@@ -65,7 +65,7 @@ if [[ "${active_account}" != "${DEPLOY_ACCOUNT}" ]]; then
 fi
 
 npm --prefix functions ci
-npm --prefix functions test
+GOOGLE_CLOUD_PROJECT="${PROJECT_ID}" npm --prefix functions test
 npm --prefix functions run typecheck
 npm --prefix functions run build
 
