@@ -10,6 +10,7 @@
     "test:operations-auth": "tsx --test app/api/admin/factory/operations/route.test.ts",
     "test:runtime-auth": "tsx --test app/api/admin/factory/runtime/route.test.ts",
     "test:institutional-actor-db": "tsx scripts/test-institutional-actor-resolution-db.ts",
+    "test:institutional-actor-boundaries": "tsx --test src/server/security/governance-transition-actor-boundary.test.ts",
     "test:editorial-certification": "tsx --test src/server/services/editorial-certification-service.test.ts src/server/services/ei003-certification-service.test.ts src/server/services/ei004-certification-service.test.ts src/server/editorial-intelligence/timeline-compiler.test.ts src/server/editorial-intelligence/timeline-compiler-adapter.test.ts src/server/editorial-intelligence/editorial-composition-planner.test.ts src/server/repositories/editorial-timeline-candidate-repository.test.ts src/server/repositories/editorial-composition-repository.test.ts src/server/services/editorial-timeline-pipeline-integration.test.ts src/server/services/editorial-composition-pipeline-integration.test.ts",
     "test:historical-library-certification": "tsx --test src/server/services/historical-library-certification-service.test.ts",
     "test:published-memory-certification": "tsx --test src/server/services/published-memory-certification-service.test.ts",
