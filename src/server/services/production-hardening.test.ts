@@ -69,6 +69,10 @@ test("serverless deployment requires an explicit isolated target and infrastruct
   assert.match(deployment, /TIMELINES_STAGING_ISOLATION_VERIFIED/);
   assert.match(deployment, /TIMELINES_INFRASTRUCTURE_MUTATION_APPROVED/);
   assert.match(deployment, /Refusing staging deployment into the production project/);
+  assert.match(deployment, /TIMELINES_ENABLE_PROVIDER_RESEARCH/);
+  assert.match(deployment, /Refusing staging deployment: provider-backed research is not authorized/);
+  assert.match(deployment, /gcloud firestore databases create/);
+  assert.match(deployment, /git diff --quiet/);
   assert.match(deployment, /gcloud scheduler jobs pause topic-discovery-daily/);
 });
 

@@ -12,6 +12,7 @@ ARCHIVE_BUCKET="${PROJECT_ID}-institutional-archive"
 ACTIVE_CORPUS_ID="${ACTIVE_CORPUS_ID:-}"
 PUBLIC_ID_BASE="${PUBLIC_ID_BASE:-}"
 EVIDENCE_FIRST_MODE="${EVIDENCE_FIRST_MODE:-SHADOW}"
+ENABLE_PROVIDER_RESEARCH="${TIMELINES_ENABLE_PROVIDER_RESEARCH:-false}"
 
 if [[ "${TIMELINES_ENVIRONMENT}" != "staging" && "${TIMELINES_ENVIRONMENT}" != "production" ]]; then
   echo "Refusing deployment: set TIMELINES_ENVIRONMENT to staging or production explicitly." >&2
@@ -71,7 +72,11 @@ if [[ "${EVIDENCE_FIRST_MODE}" != "SHADOW" ]]; then
   echo "Refusing deployment: Evidence-First Generation is authorized only in SHADOW mode." >&2
   exit 1
 fi
-if [[ -n "$(git status --porcelain)" ]]; then
+if [[ "${TIMELINES_ENVIRONMENT}" == "staging" && "${ENABLE_PROVIDER_RESEARCH}" != "false" ]]; then
+  echo "Refusing staging deployment: provider-backed research is not authorized." >&2
+  exit 1
+fi
+if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Refusing deployment: generation release identity requires a clean repository." >&2
   exit 1
 fi
@@ -163,9 +168,12 @@ ensure_service_account "timelines-runtime" "TiMELiNES serverless runtime"
 ensure_service_account "timelines-tasks-invoker" "TiMELiNES Cloud Tasks invoker"
 ensure_service_account "timelines-scheduler" "TiMELiNES Cloud Scheduler invoker"
 
-for role in roles/datastore.user roles/aiplatform.user roles/cloudtasks.enqueuer roles/logging.logWriter roles/secretmanager.secretAccessor; do
+for role in roles/datastore.user roles/cloudtasks.enqueuer roles/logging.logWriter roles/secretmanager.secretAccessor; do
   ensure_project_role "serviceAccount:${RUNTIME_SA}" "${role}"
 done
+if [[ "${ENABLE_PROVIDER_RESEARCH}" == "true" ]]; then
+  ensure_project_role "serviceAccount:${RUNTIME_SA}" roles/aiplatform.user
+fi
 gcloud iam service-accounts add-iam-policy-binding "${TASKS_SA}" --project="${PROJECT_ID}" \
   --member="serviceAccount:${RUNTIME_SA}" --role=roles/iam.serviceAccountUser --quiet >/dev/null
 
@@ -181,6 +189,10 @@ if ! gcloud storage buckets describe "gs://${ARCHIVE_BUCKET}" --project="${PROJE
 fi
 gcloud storage buckets update "gs://${ARCHIVE_BUCKET}" --versioning --retention-period=1y --quiet >/dev/null
 
+if ! gcloud firestore databases describe --database='(default)' --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  gcloud firestore databases create --database='(default)' --project="${PROJECT_ID}" \
+    --location=nam5 --edition=standard --type=firestore-native --enable-pitr --delete-protection --quiet
+fi
 firebase deploy --only firestore:rules,firestore:indexes --project "${PROJECT_ID}" --account "${DEPLOY_ACCOUNT}" --non-interactive
 gcloud firestore databases update --database='(default)' --project="${PROJECT_ID}" --enable-pitr --delete-protection --quiet >/dev/null
 

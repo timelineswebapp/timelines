@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { ACTIVE_CORPUS_ID, COMPUTE_REGION, PROJECT_ID, VERTEX_LOCATION, VERTEX_MODEL } from "./config";
@@ -11,8 +11,8 @@ function sha256File(path: string): string {
 }
 
 function sourceTreeSha256(repositoryRoot: string): string {
-  const paths = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { cwd: repositoryRoot, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 })
-    .split("\n").filter(Boolean).filter((path) => !path.startsWith("artifacts/") && !path.startsWith(".next/") && !path.includes("node_modules/")).sort();
+  const paths = execFileSync("git", ["ls-files", "--cached"], { cwd: repositoryRoot, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 })
+    .split("\n").filter(Boolean).filter((path) => !path.includes("node_modules/")).sort();
   const digest = createHash("sha256");
   for (const path of paths) {
     const absolute = resolve(repositoryRoot, path);
@@ -24,8 +24,9 @@ function sourceTreeSha256(repositoryRoot: string): string {
 function main() {
   const executionRoot = process.cwd();
   const repositoryRoot = basename(executionRoot) === "functions" ? resolve(executionRoot, "..") : executionRoot;
-  const dirty = execFileSync("git", ["status", "--porcelain"], { cwd: repositoryRoot, encoding: "utf8" }).trim();
-  if (dirty && process.env.ALLOW_DIRTY_GENERATION_RELEASE !== "true") throw new Error("Generation releases require a clean repository so sourceRevision identifies the exact deployed source.");
+  const hasUnstagedTrackedChanges = spawnSync("git", ["diff", "--quiet"], { cwd: repositoryRoot }).status !== 0;
+  const hasStagedChanges = spawnSync("git", ["diff", "--cached", "--quiet"], { cwd: repositoryRoot }).status !== 0;
+  if ((hasUnstagedTrackedChanges || hasStagedChanges) && process.env.ALLOW_DIRTY_GENERATION_RELEASE !== "true") throw new Error("Generation releases require no tracked changes so sourceRevision identifies the exact deployed source.");
   const sourceRevision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repositoryRoot, encoding: "utf8" }).trim();
   const release = buildGenerationReleaseManifest({
     sourceRevision,
