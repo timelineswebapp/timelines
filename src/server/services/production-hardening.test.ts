@@ -61,6 +61,17 @@ test("release gate verifies the two-lockfile Vercel contract before promotion", 
   assert.match(workflow, /actions\/setup-node@[a-f0-9]{40}/);
 });
 
+test("serverless deployment requires an explicit isolated target and infrastructure-mutation approval", async () => {
+  const deployment = await readFile("infra/gcp/deploy-serverless.sh", "utf8");
+  assert.match(deployment, /TIMELINES_ENVIRONMENT/);
+  assert.match(deployment, /TIMELINES_GCP_PROJECT_ID/);
+  assert.match(deployment, /TIMELINES_DEPLOY_ACCOUNT/);
+  assert.match(deployment, /TIMELINES_STAGING_ISOLATION_VERIFIED/);
+  assert.match(deployment, /TIMELINES_INFRASTRUCTURE_MUTATION_APPROVED/);
+  assert.match(deployment, /Refusing staging deployment into the production project/);
+  assert.match(deployment, /gcloud scheduler jobs pause topic-discovery-daily/);
+});
+
 test("environment template documents every configured operational alert route", async () => {
   const environmentTemplate = await readFile(".env.example", "utf8");
   const routes = JSON.parse(await readFile("ops/alerts/delivery.json", "utf8")) as {

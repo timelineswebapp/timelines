@@ -33,6 +33,8 @@ The serverless configuration previously accepted only the production project ID,
 
 This is configuration safety, not staging deployment evidence.
 
+The server-owned hardening regression statically locks these deployment requirements and passed 9/9 after the infrastructure-mutation interlock was added.
+
 ## Acceptance matrix
 
 | Gate | Status | Evidence | Remaining blocker |
