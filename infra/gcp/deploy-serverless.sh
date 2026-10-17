@@ -9,6 +9,7 @@ RUNTIME_SA="timelines-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 TASKS_SA="timelines-tasks-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
 SCHEDULER_SA="timelines-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
 ARCHIVE_BUCKET="${PROJECT_ID}-institutional-archive"
+STAGING_ARCHIVE_LIFECYCLE_FILE="infra/gcp/staging-archive-lifecycle.json"
 ACTIVE_CORPUS_ID="${ACTIVE_CORPUS_ID:-}"
 PUBLIC_ID_BASE="${PUBLIC_ID_BASE:-}"
 EVIDENCE_FIRST_MODE="${EVIDENCE_FIRST_MODE:-SHADOW}"
@@ -184,10 +185,20 @@ ensure_queue autonomous-topic-generation 1 2
 ensure_queue institutional-transitions 10 10
 
 if ! gcloud storage buckets describe "gs://${ARCHIVE_BUCKET}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
-  gcloud storage buckets create "gs://${ARCHIVE_BUCKET}" --project="${PROJECT_ID}" --location=us \
-    --uniform-bucket-level-access --public-access-prevention
+  if [[ "${TIMELINES_ENVIRONMENT}" == "staging" ]]; then
+    gcloud storage buckets create "gs://${ARCHIVE_BUCKET}" --project="${PROJECT_ID}" --location=us-central1 \
+      --uniform-bucket-level-access --public-access-prevention --soft-delete-duration=7d
+  else
+    gcloud storage buckets create "gs://${ARCHIVE_BUCKET}" --project="${PROJECT_ID}" --location=us \
+      --uniform-bucket-level-access --public-access-prevention
+  fi
 fi
-gcloud storage buckets update "gs://${ARCHIVE_BUCKET}" --versioning --retention-period=1y --quiet >/dev/null
+if [[ "${TIMELINES_ENVIRONMENT}" == "staging" ]]; then
+  gcloud storage buckets update "gs://${ARCHIVE_BUCKET}" --versioning --soft-delete-duration=7d \
+    --lifecycle-file="${STAGING_ARCHIVE_LIFECYCLE_FILE}" --quiet >/dev/null
+else
+  gcloud storage buckets update "gs://${ARCHIVE_BUCKET}" --versioning --retention-period=1y --quiet >/dev/null
+fi
 
 if ! gcloud firestore databases describe --database='(default)' --project="${PROJECT_ID}" >/dev/null 2>&1; then
   gcloud firestore databases create --database='(default)' --project="${PROJECT_ID}" \

@@ -72,6 +72,9 @@ test("serverless deployment requires an explicit isolated target and infrastruct
   assert.match(deployment, /TIMELINES_ENABLE_PROVIDER_RESEARCH/);
   assert.match(deployment, /Refusing staging deployment: provider-backed research is not authorized/);
   assert.match(deployment, /gcloud firestore databases create/);
+  assert.match(deployment, /--location=us-central1/);
+  assert.match(deployment, /--soft-delete-duration=7d/);
+  assert.match(deployment, /staging-archive-lifecycle\.json/);
   assert.match(deployment, /git diff --quiet/);
   assert.match(deployment, /gcloud scheduler jobs pause topic-discovery-daily/);
 });
