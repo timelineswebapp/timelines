@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { GET, getHealthResponse } from "./route";
+import { GET } from "./route";
+import { getHealthResponse } from "@/src/server/api/health";
 
 test("health endpoint fails closed without required database configuration", async () => {
   const previousDatabaseUrl = process.env.DATABASE_URL;

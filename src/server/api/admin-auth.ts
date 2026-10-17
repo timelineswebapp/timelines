@@ -135,6 +135,14 @@ export function withAdminAuth<TContext = unknown>(handler: AdminHandler<TContext
       return fail(401, "Unauthorized.", undefined, "UNAUTHORIZED");
     }
 
+    // Privileged browser and Admin API access requires server-attested MFA in
+    // production. Cron and internal machine-to-machine paths use separate
+    // authenticated boundaries rather than this Admin wrapper.
+    if (config.isProduction && !identity.mfaVerified) {
+      auditAdminSecurityEvent("admin_mfa_rejected", request, identity);
+      return fail(403, "Multi-factor authentication is required.", undefined, "MFA_REQUIRED");
+    }
+
     if (options.roles && !identityHasAnyRole(identity, options.roles)) {
       auditAdminSecurityEvent("admin_rbac_rejected", request, identity, { requiredRoles: options.roles });
       return fail(403, "Forbidden.", undefined, "FORBIDDEN");

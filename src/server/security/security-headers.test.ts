@@ -12,4 +12,7 @@ test("security headers include clickjacking and CSP protections", () => {
   assert.equal(headers.get("referrer-policy"), "strict-origin-when-cross-origin");
   assert.match(headers.get("content-security-policy") || "", /frame-ancestors 'none'/);
   assert.match(headers.get("content-security-policy") || "", /object-src 'none'/);
+  assert.match(headers.get("content-security-policy") || "", /connect-src[^;]*https:\/\/www\.google-analytics\.com/);
+  assert.match(headers.get("content-security-policy") || "", /connect-src[^;]*https:\/\/www\.google\.com/);
+  assert.doesNotMatch(headers.get("content-security-policy") || "", /connect-src[^;]*\*/);
 });

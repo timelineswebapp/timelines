@@ -41,6 +41,7 @@ export type AdminSecurityEvent =
   | "admin_auth_failed"
   | "admin_auth_succeeded"
   | "admin_csrf_rejected"
+  | "admin_mfa_rejected"
   | "admin_rbac_rejected"
   | "admin_request_failed"
   | "admin_security_violation"
@@ -132,7 +133,10 @@ export async function resolveAdminIdentity(request: Request): Promise<AdminOpera
     }
   }
 
-  if (config.adminApiToken && safeEqual(token, config.adminApiToken)) {
+  // The shared super-admin token is retained only for local, backwards-compatible
+  // operation. Production requires a named operator token or signed session so
+  // roles and actor attribution remain explicit and auditable.
+  if (!config.isProduction && config.adminApiToken && safeEqual(token, config.adminApiToken)) {
     return {
       operatorId: "legacy-admin-token",
       displayName: "Legacy Admin Token",

@@ -3,7 +3,7 @@
 **Status:** ACTIVE — INDEPENDENT CTO ENGINEERING EXECUTION
 **Authority:** CTO execution index; subordinate to `Knowledge/AUTHORITY_INDEX.md`, the V2 canons, locked institutional records, and certification artifacts.
 **Last reconciled:** 2026-10-17
-**Related records:** `docs/programs/TL-TIER1-COMPLETION-001.md`; `docs/decisions/TL-AUTONOMY-001.md`.
+**Related records:** `docs/programs/TL-TIER1-COMPLETION-001.md`; `docs/programs/TL-TIER1-REMAINING-WORK.md` (current Tier-1 completion-gap assessment); `docs/decisions/TL-AUTONOMY-001.md`.
 
 ## Purpose and control boundary
 
@@ -37,6 +37,8 @@ The repository contains untracked historical artifacts and local working materia
 | H — Certification | **Blocked — Founder-governed historical identity/capacity** | Preserve `.70` sealed evidence; do not infer a Community Identity, expand Registry capacity, or rerun certification without separately justified authorization. This does not block independent engineering. |
 
 ## Current implementation increment
+
+**Tier-1 P0 secure-identity and public-CSP increment:** Completed locally on `2026-10-17`. Production Admin routes now reject the legacy shared super-admin bearer token and require server-attested MFA before handler execution; named operator/session attribution, RBAC, CSRF, audit, expiry, and revocation remain enforced. The public CSP now includes the exact Google Analytics collection origin `https://www.google.com`, resolving the documented collector mismatch without a wildcard allowance. The health route’s non-route test export was moved to the server API layer so optimized builds satisfy Next 16 route contracts. The default build command uses Webpack because the installed Next 16.3.8 Turbopack compiler reproducibly fails resolving `next/font/google` after a clean cache; optimized Webpack production build passes. Focused security/route tests, isolated PostgreSQL institutional actor-resolution verification, root typecheck and suite (298/298), Functions typecheck and suite (374 passed / 2 intentional emulator-only skips), lint, security gate, monitoring and production-hardening validators, plus local public smoke checks passed. No provider call, discovery, Governance/publication activation, deployment, Registry/Community Identity change, or appointment occurred. Production identity provisioning, staging verification, alert delivery, backup/restore, performance, and launch remain open P0 gates; see `TL-TIER1-REMAINING-WORK.md`.
 
 **Increment:** `TL-AUTONOMY-001` additive Factory V2 operational-outcome contract.
 

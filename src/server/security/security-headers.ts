@@ -15,7 +15,10 @@ export const SECURITY_HEADERS: ReadonlyArray<readonly [string, string]> = [
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://pagead2.googlesyndication.com",
-      "connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com",
+      // gtag sends measurement payloads to both the canonical Analytics host and
+      // the canonical Google collection host. Keep this allowlist exact; do not
+      // widen connect-src to a Google wildcard.
+      "connect-src 'self' https://www.google-analytics.com https://www.google.com https://www.googletagmanager.com",
       "upgrade-insecure-requests"
     ].join("; ")
   ]

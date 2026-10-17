@@ -24,9 +24,11 @@ test("operator token configuration parses roles and MFA state", () => {
   assert.equal(operator?.mfaVerified, true);
 });
 
-test("legacy admin token remains authorized as super admin", async () => {
+test("legacy admin token is limited to non-production compatibility", async () => {
   const previousToken = config.adminApiToken;
+  const previousIsProduction = config.isProduction;
   config.adminApiToken = "legacy-secret";
+  config.isProduction = false;
 
   try {
     const identity = await resolveAdminIdentity(
@@ -40,6 +42,27 @@ test("legacy admin token remains authorized as super admin", async () => {
     assert.equal(identityHasAnyRole(identity!, ["governance_operator"]), true);
   } finally {
     config.adminApiToken = previousToken;
+    config.isProduction = previousIsProduction;
+  }
+});
+
+test("legacy admin token is rejected in production", async () => {
+  const previousToken = config.adminApiToken;
+  const previousIsProduction = config.isProduction;
+  config.adminApiToken = "legacy-secret";
+  config.isProduction = true;
+
+  try {
+    const identity = await resolveAdminIdentity(
+      new Request("https://timelines.example/api/admin/analytics", {
+        headers: { authorization: "Bearer legacy-secret" }
+      })
+    );
+
+    assert.equal(identity, null);
+  } finally {
+    config.adminApiToken = previousToken;
+    config.isProduction = previousIsProduction;
   }
 });
 

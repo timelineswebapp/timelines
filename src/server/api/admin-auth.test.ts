@@ -26,6 +26,36 @@ test("withAdminAuth rejects operators without required role", async () => {
   }
 });
 
+test("withAdminAuth rejects a non-MFA operator in production before the handler runs", async () => {
+  const previousTokens = config.adminOperatorTokens;
+  const previousIsProduction = config.isProduction;
+  let handlerCalled = false;
+  config.adminOperatorTokens = "operator-1|admin|operator-secret|Primary Operator|false";
+  config.isProduction = true;
+  setAdminSecurityAuditStoreForTests({ async append() {} });
+
+  try {
+    const handler = withAdminAuth(async () => {
+      handlerCalled = true;
+      return Response.json({ ok: true });
+    }, { roles: ["admin"] });
+    const response = await handler(
+      new Request("https://timelines.example/api/admin/analytics", {
+        headers: { authorization: "Bearer operator-secret" }
+      }),
+      {}
+    );
+
+    assert.equal(response.status, 403);
+    assert.equal((await response.json() as { error?: { code?: string } }).error?.code, "MFA_REQUIRED");
+    assert.equal(handlerCalled, false);
+  } finally {
+    config.adminOperatorTokens = previousTokens;
+    config.isProduction = previousIsProduction;
+    setAdminSecurityAuditStoreForTests(null);
+  }
+});
+
 test("withAdminAuth allows super admin across route role requirements", async () => {
   const previousToken = config.adminApiToken;
   config.adminApiToken = "legacy-secret";
