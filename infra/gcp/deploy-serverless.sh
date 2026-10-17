@@ -217,10 +217,12 @@ deploy_function timelines-public-api publicApi 60s 512Mi 80 20 \
 
 verify_generation_release() {
   local service="$1"
+  local service_json
   local actual_release
   local actual_revision
-  actual_release="$(gcloud run services describe "${service}" --region="${REGION}" --project="${PROJECT_ID}" --format='value(spec.template.spec.containers[0].env[?name=GENERATION_RELEASE_ID].value)')"
-  actual_revision="$(gcloud run services describe "${service}" --region="${REGION}" --project="${PROJECT_ID}" --format='value(spec.template.spec.containers[0].env[?name=GENERATION_SOURCE_REVISION].value)')"
+  service_json="$(gcloud run services describe "${service}" --region="${REGION}" --project="${PROJECT_ID}" --format=json)"
+  actual_release="$(node -e 'const service=JSON.parse(process.argv[1]); const value=service.spec?.template?.spec?.containers?.[0]?.env?.find((entry) => entry.name === "GENERATION_RELEASE_ID")?.value || ""; process.stdout.write(value)' "${service_json}")"
+  actual_revision="$(node -e 'const service=JSON.parse(process.argv[1]); const value=service.spec?.template?.spec?.containers?.[0]?.env?.find((entry) => entry.name === "GENERATION_SOURCE_REVISION")?.value || ""; process.stdout.write(value)' "${service_json}")"
   if [[ "${actual_release}" != "${GENERATION_RELEASE_ID}" || "${actual_revision}" != "${GENERATION_SOURCE_REVISION}" ]]; then
     echo "Generation release postflight failed for ${service}: expected release ${GENERATION_RELEASE_ID} at ${GENERATION_SOURCE_REVISION}." >&2
     exit 1
