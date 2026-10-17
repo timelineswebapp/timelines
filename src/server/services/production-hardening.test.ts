@@ -43,6 +43,24 @@ test("institution schedulers preserve independent routes under GitHub orchestrat
   assert.equal(vercelConfig.buildCommand, "npm run build");
 });
 
+test("release gate verifies the two-lockfile Vercel contract before promotion", async () => {
+  const workflow = await readFile(".github/workflows/tier1-release-gate.yml", "utf8");
+  assert.match(workflow, /pull_request:/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /permissions:\n  contents: read/);
+  assert.match(workflow, /node-version: 24/);
+  assert.match(workflow, /npm ci && npm --prefix functions ci/);
+  assert.match(workflow, /npm run typecheck/);
+  assert.match(workflow, /npm test/);
+  assert.match(workflow, /npm run lint/);
+  assert.match(workflow, /npm run security:gate/);
+  assert.match(workflow, /npm run build/);
+  assert.match(workflow, /npm --prefix functions run build/);
+  assert.match(workflow, /npm run serverless:functions:test/);
+  assert.match(workflow, /actions\/checkout@[a-f0-9]{40}/);
+  assert.match(workflow, /actions\/setup-node@[a-f0-9]{40}/);
+});
+
 test("provider coordination uses shared PostgreSQL leases and rate windows", async () => {
   const migration = await readFile("db/migrations/20260709_production_hardening.sql", "utf8");
   const repository = await readFile("src/server/repositories/provider-coordination-repository.ts", "utf8");

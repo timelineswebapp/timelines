@@ -1,0 +1,46 @@
+name: Tier-1 Release Gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tier1-release-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify release contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the reviewed revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up the Vercel runtime major
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Install both locked dependency trees
+        run: npm ci && npm --prefix functions ci
+
+      - name: Verify root release gates
+        run: |
+          npm run typecheck
+          npm test
+          npm run lint
+          npm run security:gate
+          npm run build
+
+      - name: Verify Functions release gates
+        run: |
+          npm --prefix functions run build
+          npm run serverless:functions:test
