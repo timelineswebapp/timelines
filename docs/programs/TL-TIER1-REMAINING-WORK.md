@@ -269,3 +269,9 @@ The authoritative Cloud Scheduler job `topic-discovery-daily` is **PAUSED**, sch
 Read-only GCP inspection confirms provider-side recovery controls for the active Firestore database: native-mode database `(default)` in `nam5`, delete protection enabled, point-in-time recovery enabled, and `604800s` (seven-day) version retention; the earliest currently available version is `2026-10-10T06:54:00Z`. The institutional archive bucket (`gs://tiimeliines-institutional-archive`) is US multi-region Standard storage with enforced public-access prevention, uniform bucket-level access, object versioning, seven-day soft delete, and a `31557600`-second (one-year) retention policy.
 
 **Status:** actual provider configuration is now evidenced for the Firestore/archive portion of recovery posture. It does not prove PostgreSQL/Neon PITR, backup artifact completeness, restore access, RPO/RTO achievement, or a current end-to-end recovery drill. No data, object, backup, restore, lifecycle policy, or provider configuration was read beyond metadata or changed.
+
+### 2026-10-17 — P0-D provider monitoring inventory: no live alert policy or channel
+
+Read-only Google Cloud Monitoring inventory returned zero alert policies and zero notification channels in `tiimeliines`. Together with the Vercel inventory’s absence of `OPERATIONS_CRITICAL_WEBHOOK_URL`, `OPERATIONS_WARNING_WEBHOOK_URL`, and `OPERATIONS_INFO_WEBHOOK_URL`, there is no configured production provider path for the repository’s 15 declared alert conditions to reach an operator. Local webhook delivery proves only payload and route-code behavior, not provider delivery.
+
+**Status:** P0-D remains blocked on an authorized operations owner creating approved notification channels/webhooks, mapping the critical/warning/info routes, creating the required alert policies, and delivering documented test alerts. No policy, channel, webhook, alert, log, or notification was created or contacted.
