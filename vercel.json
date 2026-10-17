@@ -1,1 +1,4 @@
-{}
+{
+  "installCommand": "npm ci && npm --prefix functions ci",
+  "buildCommand": "npm run build"
+}

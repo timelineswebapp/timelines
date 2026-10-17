@@ -21,7 +21,11 @@ test("institution schedulers preserve independent routes under GitHub orchestrat
   const governance = await readFile("app/api/cron/governance/route.ts", "utf8");
   const maintenance = await readFile("app/api/cron/maintenance/route.ts", "utf8");
   const workflow = await readFile(".github/workflows/factory-scheduler.yml", "utf8");
-  const vercelConfig = JSON.parse(await readFile("vercel.json", "utf8")) as { crons?: unknown };
+  const vercelConfig = JSON.parse(await readFile("vercel.json", "utf8")) as {
+    buildCommand?: unknown;
+    crons?: unknown;
+    installCommand?: unknown;
+  };
   assert.match(factory, /FactoryDispatcher/);
   assert.doesNotMatch(factory, /governanceExecutionService|scheduledOperationsService/);
   assert.match(governance, /governanceExecutionService/);
@@ -35,6 +39,8 @@ test("institution schedulers preserve independent routes under GitHub orchestrat
   assert.ok(workflow.indexOf("/api/cron/factory") < workflow.indexOf("/api/cron/governance"));
   assert.ok(workflow.indexOf("/api/cron/governance") < workflow.indexOf("/api/cron/maintenance"));
   assert.equal(vercelConfig.crons, undefined);
+  assert.equal(vercelConfig.installCommand, "npm ci && npm --prefix functions ci");
+  assert.equal(vercelConfig.buildCommand, "npm run build");
 });
 
 test("provider coordination uses shared PostgreSQL leases and rate windows", async () => {
