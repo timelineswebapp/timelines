@@ -22,6 +22,11 @@ function databaseIdentity(value: string): string {
 }
 
 async function main() {
+  if (process.env.ALLOW_SYNTHETIC_GOVERNANCE_CERTIFICATION !== "true") {
+    throw new Error(
+      "Synthetic publication certification is disabled. Set ALLOW_SYNTHETIC_GOVERNANCE_CERTIFICATION=true only under an explicit institutional-fixture authorization."
+    );
+  }
   const productionUrl = process.env.DATABASE_URL;
   const syntheticUrl = process.env.SYNTHETIC_DATABASE_URL;
   if (!productionUrl || !syntheticUrl) throw new Error("DATABASE_URL and SYNTHETIC_DATABASE_URL are required.");

@@ -131,5 +131,6 @@ test("synthetic certification restores and executes the real institutional harne
   assert.match(script, /ops:restore/);
   assert.match(script, /ops:publication:certify/);
   assert.match(script, /SYNTHETIC_CERTIFICATION/);
+  assert.match(script, /ALLOW_SYNTHETIC_GOVERNANCE_CERTIFICATION/);
   assert.match(script, /databaseIdentity\(productionUrl\) === databaseIdentity\(syntheticUrl\)/);
 });
