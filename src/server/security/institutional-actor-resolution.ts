@@ -21,6 +21,12 @@ export async function resolveInstitutionalActor(identity: AdminOperatorIdentity,
       AND valid_from <= NOW()
       AND (valid_until IS NULL OR valid_until > NOW())
       AND ${actionScope} = ANY(action_scopes)
+      AND NOT EXISTS (
+        SELECT 1 FROM institutional_actor_appointments revoked
+        WHERE revoked.appointment_key = institutional_actor_appointments.appointment_key
+          AND revoked.status = 'revoked'
+          AND revoked.revoked_at <= NOW()
+      )
     ORDER BY authorization_version DESC, created_at DESC LIMIT 2`;
   return institutionalActorFromAppointments(identity.operatorId, rows);
 }

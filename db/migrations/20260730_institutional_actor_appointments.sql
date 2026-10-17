@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS institutional_actor_appointments (
   id UUID PRIMARY KEY,
+  appointment_key UUID NOT NULL,
   principal_id TEXT NOT NULL,
   institution_id TEXT NOT NULL,
   constitutional_role TEXT NOT NULL CHECK (constitutional_role IN ('factory_editor','governance_reviewer','senior_governance_reviewer','library_editor','registry_operator','auditor')),
@@ -18,6 +19,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS institutional_actor_appointments_active_princi
   WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS institutional_actor_appointments_resolution
   ON institutional_actor_appointments(principal_id, status, valid_from, valid_until);
+CREATE INDEX IF NOT EXISTS institutional_actor_appointments_revocation
+  ON institutional_actor_appointments(appointment_key, status, revoked_at);
 CREATE OR REPLACE FUNCTION prevent_institutional_actor_appointment_mutation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Institutional appointments are immutable; create a new version or revocation record.'; END; $$;
 DROP TRIGGER IF EXISTS prevent_institutional_actor_appointment_mutation ON institutional_actor_appointments;
 CREATE TRIGGER prevent_institutional_actor_appointment_mutation BEFORE UPDATE OR DELETE ON institutional_actor_appointments FOR EACH ROW EXECUTE FUNCTION prevent_institutional_actor_appointment_mutation();
