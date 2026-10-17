@@ -163,6 +163,8 @@ The initial assessment changed only this document and the cross-reference in `TL
 
 ## P0 execution ledger
 
+**P0 local checkpoint:** `76ac68b` (`fix: harden P0 admin and release build gates`). This immutable repository checkpoint contains the scoped P0-A/P0-E remediation, the route-contract build correction, and the evidence updates recorded below. It is not a staging or production release artifact.
+
 ### 2026-10-17 — P0-A secure Admin identity: local/isolated completion
 
 Implemented the two production guards required before any Admin route can be treated as launch-safe:
