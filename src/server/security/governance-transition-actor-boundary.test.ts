@@ -31,3 +31,19 @@ test("Governance initiation derives its current actor from an appointment", asyn
   assert.match(approval, /omit\(\{ requestedBy: true \}\)/);
   assert.match(approval, /governance\.approval\.create/);
 });
+
+test("Historical Library mutations derive authority from a Library appointment", async () => {
+  const routes = [
+    "admissions/[packageId]", "feedback-packages",
+    "published-snapshots/[id]/merge", "published-snapshots/[id]/preservations",
+    "published-snapshots/[id]/retirements", "published-snapshots/[id]/revisions",
+    "published-snapshots/[id]/splits", "published-snapshots/[id]/supersessions",
+    "published-snapshots/[id]/withdrawals"
+  ];
+  for (const route of routes) {
+    const source = await readFile(join(process.cwd(), "app/api/admin/historical-library", route, "route.ts"), "utf8");
+    assert.match(source, /resolveInstitutionalActor/);
+    assert.match(source, /omit\(\{ actor: true \}\)/);
+    assert.match(source, /\["historical_library"\]/);
+  }
+});
