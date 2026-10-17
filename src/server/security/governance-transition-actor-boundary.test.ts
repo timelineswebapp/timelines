@@ -20,3 +20,14 @@ test("every actor-bearing Governance transition derives authority from an appoin
     assert.match(source, /\["governance"\]/);
   }
 });
+
+test("Governance initiation derives its current actor from an appointment", async () => {
+  const [decision, approval] = await Promise.all([
+    readFile(join(process.cwd(), "app/api/admin/governance/decisions/route.ts"), "utf8"),
+    readFile(join(process.cwd(), "app/api/admin/governance/approvals/route.ts"), "utf8")
+  ]);
+  assert.match(decision, /governanceDecisionSchema\.omit\(\{ actor: true \}\)/);
+  assert.match(decision, /governance\.decision\.create/);
+  assert.match(approval, /omit\(\{ requestedBy: true \}\)/);
+  assert.match(approval, /governance\.approval\.create/);
+});
