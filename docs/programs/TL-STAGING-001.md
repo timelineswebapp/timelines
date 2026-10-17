@@ -6,7 +6,7 @@
 
 **Authority:** Founder authorization TL-STAGING-001. This record is subordinate to the constitutional, canonical, LOCK, and Phase-2 constraints referenced by `TL-SUPERGOAL-001`.
 
-**Successor planning record:** [`TL-STAGING-002.md`](TL-STAGING-002.md) specifies the single recommended isolated staging architecture, cost ceiling, and exact next Founder authorization. It is planning only and does not change this record’s `STAGING_NOT_DEPLOYED` verdict.
+**Successor planning record:** [`TL-STAGING-002.md`](TL-STAGING-002.md) specifies the single recommended isolated staging architecture, cost ceiling, and exact next Founder authorization. The subsequent live provisioning evidence is in [`TL-STAGING-003.md`](TL-STAGING-003.md); this record remains the historical pre-provisioning assessment.
 
 ## Verdict
 

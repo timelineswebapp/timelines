@@ -3,7 +3,7 @@
 **Status:** ACTIVE — INDEPENDENT CTO ENGINEERING EXECUTION
 **Authority:** CTO execution index; subordinate to `Knowledge/AUTHORITY_INDEX.md`, the V2 canons, locked institutional records, and certification artifacts.
 **Last reconciled:** 2026-10-17
-**Related records:** `docs/programs/TL-TIER1-COMPLETION-001.md`; `docs/programs/TL-TIER1-REMAINING-WORK.md` (current Tier-1 completion-gap assessment); [`TL-STAGING-001.md`](TL-STAGING-001.md) (staging execution); [`TL-STAGING-002.md`](TL-STAGING-002.md) (Founder approval package for isolated staging infrastructure); `docs/decisions/TL-AUTONOMY-001.md`.
+**Related records:** `docs/programs/TL-TIER1-COMPLETION-001.md`; `docs/programs/TL-TIER1-REMAINING-WORK.md` (current Tier-1 completion-gap assessment); [`TL-STAGING-001.md`](TL-STAGING-001.md) (staging execution); [`TL-STAGING-002.md`](TL-STAGING-002.md) (Founder approval package for isolated staging infrastructure); [`TL-STAGING-003.md`](TL-STAGING-003.md) (staging deployment and acceptance evidence); `docs/decisions/TL-AUTONOMY-001.md`.
 
 ## Purpose and control boundary
 
