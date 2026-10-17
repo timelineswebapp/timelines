@@ -61,6 +61,17 @@ test("release gate verifies the two-lockfile Vercel contract before promotion", 
   assert.match(workflow, /actions\/setup-node@[a-f0-9]{40}/);
 });
 
+test("environment template documents every configured operational alert route", async () => {
+  const environmentTemplate = await readFile(".env.example", "utf8");
+  const routes = JSON.parse(await readFile("ops/alerts/delivery.json", "utf8")) as {
+    routes?: Array<{ webhookEnv?: unknown }>;
+  };
+  for (const route of routes.routes ?? []) {
+    assert.equal(typeof route.webhookEnv, "string");
+    assert.match(environmentTemplate, new RegExp(`^${route.webhookEnv}=$`, "m"));
+  }
+});
+
 test("provider coordination uses shared PostgreSQL leases and rate windows", async () => {
   const migration = await readFile("db/migrations/20260709_production_hardening.sql", "utf8");
   const repository = await readFile("src/server/repositories/provider-coordination-repository.ts", "utf8");
