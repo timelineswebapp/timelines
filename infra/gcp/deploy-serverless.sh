@@ -81,7 +81,7 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "Refusing deployment: generation release identity requires a clean repository." >&2
   exit 1
 fi
-GENERATION_RELEASE_JSON="$(ACTIVE_CORPUS_ID="${ACTIVE_CORPUS_ID}" PUBLIC_ID_BASE="${PUBLIC_ID_BASE}" EVIDENCE_FIRST_MODE="${EVIDENCE_FIRST_MODE}" npm --prefix functions run --silent release:manifest)"
+GENERATION_RELEASE_JSON="$(GOOGLE_CLOUD_PROJECT="${PROJECT_ID}" ACTIVE_CORPUS_ID="${ACTIVE_CORPUS_ID}" PUBLIC_ID_BASE="${PUBLIC_ID_BASE}" EVIDENCE_FIRST_MODE="${EVIDENCE_FIRST_MODE}" npm --prefix functions run --silent release:manifest)"
 GENERATION_RELEASE_ID="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.generationReleaseId)' "${GENERATION_RELEASE_JSON}")"
 GENERATION_SOURCE_REVISION="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.manifest.sourceRevision)' "${GENERATION_RELEASE_JSON}")"
 GENERATION_SOURCE_TREE_SHA256="$(node -e 'const value=JSON.parse(process.argv[1]); process.stdout.write(value.manifest.sourceTreeSha256)' "${GENERATION_RELEASE_JSON}")"
