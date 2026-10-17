@@ -9,7 +9,7 @@
 
 This is the durable execution index for the authorized Tier-1 completion program. It records current repository evidence and implementation progress; it neither supersedes constitutional/LOCK authority nor authorizes production deployment, launch, Registry expansion, new providers, or a change to the locked Phase-2 benchmark.
 
-**TL-STAGING-001 status:** `STAGING_NOT_DEPLOYED`. The 2026-10-17 staging execution established that accessible Vercel and GCP resources are production-only and cannot satisfy the independently enforceable isolation boundary. No deployment was attempted. Checkpoints `264f383` and `e762a1d` make staging project selection and deployment attestation fail closed; the record preserves local emulator/database evidence and identifies the exact Founder/environment dependency before staging can resume.
+**TL-STAGING-001 status:** `STAGING_NOT_DEPLOYED`. The 2026-10-17 staging execution established that accessible Vercel and GCP resources are production-only and cannot satisfy the independently enforceable isolation boundary. No deployment was attempted. Checkpoints `264f383` and `e762a1d` make staging project selection and deployment attestation fail closed; the succeeding checkpoint also requires explicit infrastructure-mutation approval before the deployment script can create or alter any cloud resource. The record preserves local emulator/database evidence and identifies the exact Founder/environment dependency before staging can resume.
 
 ## Reconciled repository state
 
