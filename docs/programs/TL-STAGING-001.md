@@ -6,6 +6,8 @@
 
 **Authority:** Founder authorization TL-STAGING-001. This record is subordinate to the constitutional, canonical, LOCK, and Phase-2 constraints referenced by `TL-SUPERGOAL-001`.
 
+**Successor planning record:** [`TL-STAGING-002.md`](TL-STAGING-002.md) specifies the single recommended isolated staging architecture, cost ceiling, and exact next Founder authorization. It is planning only and does not change this record’s `STAGING_NOT_DEPLOYED` verdict.
+
 ## Verdict
 
 TiMELiNES has a reproducible, locally verified staging release candidate, but no independently isolated staging destination exists in the accessible provider accounts. No staging deployment, provider mutation, production deployment, discovery activation, Governance submission, publication, real appointment, or provider-backed research was performed.
