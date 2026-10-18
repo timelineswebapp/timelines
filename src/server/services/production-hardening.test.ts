@@ -128,9 +128,16 @@ test("Runtime V2 worker visibility changes share one atomic transaction and repl
 
 test("synthetic certification restores and executes the real institutional harness outside production", async () => {
   const script = await readFile("scripts/run-synthetic-publication-certification.ts", "utf8");
+  const certification = await readFile("scripts/certify-publishing-institution.ts", "utf8");
+  const fixtures = await readFile("scripts/staging-synthetic-institutional-fixtures.ts", "utf8");
   assert.match(script, /ops:restore/);
   assert.match(script, /ops:publication:certify/);
   assert.match(script, /SYNTHETIC_CERTIFICATION/);
   assert.match(script, /ALLOW_SYNTHETIC_GOVERNANCE_CERTIFICATION/);
   assert.match(script, /databaseIdentity\(productionUrl\) === databaseIdentity\(syntheticUrl\)/);
+  assert.match(certification, /resolveInstitutionalActor/);
+  assert.match(certification, /TIMELINES_ENVIRONMENT !== "staging"/);
+  assert.match(fixtures, /ALLOW_STAGING_SYNTHETIC_FIXTURES/);
+  assert.match(fixtures, /immutableAppointmentRecordsRetained/);
+  assert.match(fixtures, /postRevocationAuthorizationRejected/);
 });

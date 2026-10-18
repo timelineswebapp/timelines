@@ -7,15 +7,78 @@ import { governanceService } from "@/src/server/services/governance-service";
 import { historicalLibraryService } from "@/src/server/services/historical-library-service";
 import { publishedMemoryProjectionService } from "@/src/server/services/published-memory-projection-service";
 import { getWriteSql } from "@/src/server/db/client";
+import { resolveInstitutionalActor } from "@/src/server/security/institutional-actor-resolution";
+import type { AdminOperatorIdentity } from "@/src/server/security/admin-identity";
+import type { GovernanceActorRef } from "@/src/server/governance/contracts";
 
 const DEFAULT_PACKAGE_VERSION_ID = "dbd74f2b-1cd7-4fe8-b85a-23f40d993d3b";
-const FACTORY_ACTOR = { actorId: "publishing-certification", role: "factory_editor" as const, institutionId: "factory" };
-const REVIEWER = { actorId: "publishing-certification", role: "senior_governance_reviewer" as const, institutionId: "governance" };
-const LIBRARIAN = { actorId: "publishing-certification", role: "library_editor" as const, institutionId: "historical_library" };
+
+const GOVERNANCE_SCOPES = [
+  "governance.decision.create",
+  "governance.decision.submit",
+  "governance.decision.review",
+  "governance.approval.create",
+  "governance.approval.approve_step",
+  "governance.decision.approve",
+  "governance.publication.submit",
+  "governance.publication.certify_readiness",
+  "governance.publication.submit_library_review",
+  "governance.publication.accept",
+  "governance.publication.publish"
+] as const;
+
+type InstitutionalActors = {
+  factory: GovernanceActorRef;
+  governance: Record<(typeof GOVERNANCE_SCOPES)[number], GovernanceActorRef>;
+  library: GovernanceActorRef;
+};
+
+function syntheticIdentity(principal: string, roles: AdminOperatorIdentity["roles"]): AdminOperatorIdentity {
+  return {
+    operatorId: principal,
+    displayName: `Synthetic staging fixture ${principal}`,
+    roles,
+    authMethod: "operator_token",
+    mfaVerified: true,
+    sessionId: null
+  };
+}
+
+async function resolveSyntheticInstitutionalActors(): Promise<InstitutionalActors> {
+  if (process.env.SYNTHETIC_CERTIFICATION !== "true") {
+    throw new Error("Institutional publication certification only runs in explicit synthetic mode.");
+  }
+  if (process.env.TIMELINES_ENVIRONMENT !== "staging") {
+    throw new Error("Synthetic institutional certification requires TIMELINES_ENVIRONMENT=staging.");
+  }
+  if (process.env.ALLOW_SYNTHETIC_GOVERNANCE_CERTIFICATION !== "true") {
+    throw new Error("Synthetic institutional certification requires its explicit authorization flag.");
+  }
+  const runId = process.env.STAGING_SYNTHETIC_FIXTURE_RUN_ID;
+  if (!runId || !/^tl-staging-004-[a-z0-9-]{8,80}$/.test(runId)) {
+    throw new Error("STAGING_SYNTHETIC_FIXTURE_RUN_ID must be an explicit TL-STAGING-004 fixture identifier.");
+  }
+
+  const factoryIdentity = syntheticIdentity(`${runId}-factory`, ["admin", "factory_operator"]);
+  const governanceIdentity = syntheticIdentity(`${runId}-governance`, ["admin", "governance_operator"]);
+  const libraryIdentity = syntheticIdentity(`${runId}-library`, ["admin", "library_operator"]);
+  const governance = Object.fromEntries(await Promise.all(
+    GOVERNANCE_SCOPES.map(async (scope) => [
+      scope,
+      await resolveInstitutionalActor(governanceIdentity, scope, ["governance"])
+    ])
+  )) as InstitutionalActors["governance"];
+  return {
+    factory: await resolveInstitutionalActor(factoryIdentity, "factory.publication.submit", ["factory"]),
+    governance,
+    library: await resolveInstitutionalActor(libraryIdentity, "historical_library.admission.admit", ["historical_library"])
+  };
+}
 
 async function approvedDecision(
   packageId: string,
   decisionType: "CERTIFY_PUBLICATION_READINESS" | "ACCEPT_PUBLICATION_PACKAGE",
+  actors: InstitutionalActors,
   evidenceRefs: Awaited<ReturnType<typeof governanceRepository.getPublicationPackage>> extends infer P
     ? P extends { validationArtifacts: infer E } ? E : never
     : never
@@ -25,7 +88,7 @@ async function approvedDecision(
     decisionId,
     decisionType,
     targetAuthority: { authorityType: "publication_package", authorityId: packageId },
-    actor: REVIEWER,
+    actor: actors.governance["governance.decision.create"],
     evidenceRefs,
     rationale: {
       summary: `Operational certification: ${decisionType}.`,
@@ -36,15 +99,15 @@ async function approvedDecision(
     outcome: "no_action",
     lifecycle: "draft"
   });
-  await governanceService.submitDecision({ id: decisionId, actor: REVIEWER, reason: "Submit certification decision." });
-  await governanceService.reviewDecision({ id: decisionId, actor: REVIEWER, reason: "Review certification decision." });
+  await governanceService.submitDecision({ id: decisionId, actor: actors.governance["governance.decision.submit"], reason: "Submit certification decision." });
+  await governanceService.reviewDecision({ id: decisionId, actor: actors.governance["governance.decision.review"], reason: "Review certification decision." });
   const approvalId = randomUUID();
   const stepId = randomUUID();
   await governanceService.createApproval({
     approvalId,
     decisionId,
     request: {
-      requestedBy: REVIEWER,
+      requestedBy: actors.governance["governance.approval.create"],
       requestedRole: "senior_governance_reviewer",
       targetAuthority: { authorityType: "publication_package", authorityId: packageId },
       reason: "Operational institutional certification."
@@ -52,13 +115,14 @@ async function approvedDecision(
     steps: [{ stepId, sequence: 1, requiredRole: "senior_governance_reviewer" }],
     lifecycle: "requested"
   });
-  await governanceService.requestApproval({ id: approvalId, actor: REVIEWER, reason: "Begin approval." });
-  await governanceService.approveStep({ id: approvalId, stepId, actor: REVIEWER, reason: "Authority and evidence verified." });
-  await governanceService.approveDecision({ id: decisionId, actor: REVIEWER, reason: "Approve certification decision." });
+  await governanceService.requestApproval({ id: approvalId, actor: actors.governance["governance.approval.create"], reason: "Begin approval." });
+  await governanceService.approveStep({ id: approvalId, stepId, actor: actors.governance["governance.approval.approve_step"], reason: "Authority and evidence verified." });
+  await governanceService.approveDecision({ id: decisionId, actor: actors.governance["governance.decision.approve"], reason: "Approve certification decision." });
   return decisionId;
 }
 
 async function main() {
+  const actors = await resolveSyntheticInstitutionalActors();
   let packageVersionId = process.env.CERTIFICATION_PACKAGE_VERSION_ID || DEFAULT_PACKAGE_VERSION_ID;
   let version = process.env.SYNTHETIC_CERTIFICATION === "true"
     ? null
@@ -86,7 +150,7 @@ async function main() {
   const packageInput = buildGovernancePublicationPackage(
     version,
     draft,
-    FACTORY_ACTOR,
+    actors.factory,
     randomUUID(),
     objects.filter((object): object is NonNullable<typeof object> => Boolean(object))
   );
@@ -110,21 +174,21 @@ async function main() {
     if (packageForAdmission.lifecycle === "readiness_certified") {
       packageForAdmission = await governanceService.submitPackageToLibraryReview({
         id: packageForAdmission.packageId,
-        actor: REVIEWER,
+        actor: actors.governance["governance.publication.submit_library_review"],
         reason: "Submit certified package for Historical Library review."
       });
     }
     if (!acceptanceDecisionId) {
       acceptanceDecisionId = await approvedDecision(
         packageForAdmission.packageId,
-        "ACCEPT_PUBLICATION_PACKAGE",
+        "ACCEPT_PUBLICATION_PACKAGE", actors,
         packageForAdmission.validationArtifacts.filter((ref) => ref.evidenceType === "validated_evidence")
       );
     }
     if (packageForAdmission.lifecycle === "library_review") {
       packageForAdmission = await governanceService.acceptPackage({
         id: packageForAdmission.packageId,
-        actor: REVIEWER,
+        actor: actors.governance["governance.publication.accept"],
         reason: "Accept canonical authority for Historical Library admission.",
         governanceDecisionId: acceptanceDecisionId
       });
@@ -135,21 +199,21 @@ async function main() {
     const admission = await historicalLibraryService.admitPublicationPackage({
       packageId: packageForAdmission.packageId,
       governanceDecisionId: acceptanceDecisionId,
-      actor: LIBRARIAN,
+      actor: actors.library,
       reason: "Admit reconciled Governance-approved canonical authority.",
       requestedByService: "historical_library"
     });
     const retry = await historicalLibraryService.admitPublicationPackage({
       packageId: packageForAdmission.packageId,
       governanceDecisionId: acceptanceDecisionId,
-      actor: LIBRARIAN,
+      actor: actors.library,
       reason: "Verify idempotent admission.",
       requestedByService: "historical_library"
     });
     if (packageForAdmission.lifecycle === "accepted") {
       packageForAdmission = await governanceService.publishPackage({
         id: packageForAdmission.packageId,
-        actor: LIBRARIAN,
+        actor: actors.governance["governance.publication.publish"],
         reason: "Published Memory and deterministic projections created."
       });
     }
@@ -180,46 +244,46 @@ async function main() {
   const publicationPackage = await governanceService.createPublicationPackage(packageInput);
   await governanceService.submitPackage({
     id: publicationPackage.packageId,
-    actor: REVIEWER,
+    actor: actors.governance["governance.publication.submit"],
     reason: "Submit complete Historical Publication Package."
   });
   const evidence = publicationPackage.validationArtifacts.filter((ref) => ref.evidenceType === "validated_evidence");
-  const readinessDecisionId = await approvedDecision(publicationPackage.packageId, "CERTIFY_PUBLICATION_READINESS", evidence);
+  const readinessDecisionId = await approvedDecision(publicationPackage.packageId, "CERTIFY_PUBLICATION_READINESS", actors, evidence);
   await governanceService.certifyReadiness({
     id: publicationPackage.packageId,
-    actor: REVIEWER,
+    actor: actors.governance["governance.publication.certify_readiness"],
     reason: "Package authority and evidence are publication ready.",
     governanceDecisionId: readinessDecisionId
   });
   await governanceService.submitPackageToLibraryReview({
     id: publicationPackage.packageId,
-    actor: REVIEWER,
+    actor: actors.governance["governance.publication.submit_library_review"],
     reason: "Submit certified package for Library review."
   });
-  const acceptanceDecisionId = await approvedDecision(publicationPackage.packageId, "ACCEPT_PUBLICATION_PACKAGE", evidence);
+  const acceptanceDecisionId = await approvedDecision(publicationPackage.packageId, "ACCEPT_PUBLICATION_PACKAGE", actors, evidence);
   await governanceService.acceptPackage({
     id: publicationPackage.packageId,
-    actor: REVIEWER,
+    actor: actors.governance["governance.publication.accept"],
     reason: "Accept canonical authority for Historical Library admission.",
     governanceDecisionId: acceptanceDecisionId
   });
   const admission = await historicalLibraryService.admitPublicationPackage({
     packageId: publicationPackage.packageId,
     governanceDecisionId: acceptanceDecisionId,
-    actor: LIBRARIAN,
+    actor: actors.library,
     reason: "Admit Governance-approved canonical authority.",
     requestedByService: "historical_library"
   });
   const retry = await historicalLibraryService.admitPublicationPackage({
     packageId: publicationPackage.packageId,
     governanceDecisionId: acceptanceDecisionId,
-    actor: LIBRARIAN,
+    actor: actors.library,
     reason: "Verify idempotent admission.",
     requestedByService: "historical_library"
   });
   await governanceService.publishPackage({
     id: publicationPackage.packageId,
-    actor: LIBRARIAN,
+    actor: actors.governance["governance.publication.publish"],
     reason: "Published Memory and deterministic projections created."
   });
   const projections = Object.fromEntries(
