@@ -432,3 +432,7 @@ The canonical staging Vercel alias was moved from its stale prior deployment to 
 ## 2026-10-18 — structural responsive staging verification
 
 The canonical staging synthetic reader was reloaded at 320×568, 768×1024, and 1440×900. Each accessibility-tree inspection preserved the heading plus labeled navigation, event-detail, and copy-link controls. The authorised structural responsive-browser gate is therefore complete. This remains distinct from an actual screen-reader-user audit and representative real-corpus/public-Internet capacity qualification, which are not claimed as complete.
+
+## 2026-10-18 — P0 accessibility and capacity external-evidence boundary
+
+Repository inspection confirms there is no installed browser/DOM accessibility runner: the only `axe-core` copy is transitive to linting and cannot audit the deployed staging UI. VoiceOver is not active on the available workstation. The remaining screen-reader-user audit therefore requires a qualified human participant; adding a new unreviewed runner would not replace it. Representative real-corpus/public-Internet capacity qualification also needs an approved corpus and operations window. These remain external evidence prerequisites, while Neon Free's six-hour recovery history remains a separate Founder spending decision. No production system is eligible for testing under the current authorization.
