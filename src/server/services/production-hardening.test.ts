@@ -146,8 +146,14 @@ test("serverless migration requires an explicit environment-owned project", asyn
   const migration = await readFile("scripts/migrate-postgres-to-firestore.ts", "utf8");
   assert.match(migration, /TIMELINES_ENVIRONMENT/);
   assert.match(migration, /STAGING_PROJECT_ID = "timelines-staging"/);
+  assert.match(migration, /STAGING_ACTIVE_CORPUS_ID = "staging-synthetic-corpus"/);
+  assert.match(migration, /Refusing to migrate staging data outside the staging synthetic corpus/);
+  assert.match(migration, /db\.collection\("corpora"\)\.doc\(ACTIVE_CORPUS_ID!\)\.collection\(name\)/);
+  assert.match(migration, /function readerTimelinePayload/);
+  assert.match(migration, /sources: Array\.isArray\(event\.sources\) \? event\.sources : \[\]/);
   assert.match(migration, /PRODUCTION_PROJECT_ID = "tiimeliines"/);
   assert.match(migration, /STAGING_RUNTIME_SERVICE_ACCOUNT/);
   assert.match(migration, /GOOGLE_IMPERSONATE_SERVICE_ACCOUNT is permitted only for the staging runtime identity/);
+  assert.match(migration, /GOOGLE_STAGING_MIGRATION_SOURCE_ACCESS_TOKEN is permitted only for an unimpersonated staging migration/);
   assert.match(migration, /Refusing to migrate outside the declared/);
 });

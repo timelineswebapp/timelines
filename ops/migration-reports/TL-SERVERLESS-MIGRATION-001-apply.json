@@ -1,9 +1,9 @@
 {
   "migrationId": "TL-SERVERLESS-MIGRATION-001",
   "mode": "apply",
-  "projectId": "tiimeliines",
-  "startedAt": "2026-09-04T23:00:29.270Z",
-  "completedAt": "2026-09-04T23:01:06.275Z",
+  "projectId": "timelines-staging",
+  "startedAt": "2026-10-18T04:42:26.453Z",
+  "completedAt": "2026-10-18T04:44:38.000Z",
   "inventory": [
     {
       "tableName": "ad_campaigns",
@@ -18,7 +18,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 152474,
+      "estimatedRows": 2,
       "targetCollection": "auditEvents"
     },
     {
@@ -42,7 +42,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 143,
+      "estimatedRows": 2,
       "targetCollection": "corpusDocuments"
     },
     {
@@ -50,7 +50,7 @@
       "primaryKeys": [
         "superseded_prompt_version_id"
       ],
-      "estimatedRows": 4,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -58,7 +58,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 8,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -66,7 +66,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 4,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -74,7 +74,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 1,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -82,7 +82,7 @@
       "primaryKeys": [
         "superseded_binding_id"
       ],
-      "estimatedRows": 1,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -90,7 +90,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 2,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -98,7 +98,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 1,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -132,7 +132,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 471,
+      "estimatedRows": 2,
       "targetCollection": "evidenceRecords"
     },
     {
@@ -140,7 +140,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 471,
+      "estimatedRows": 2,
       "targetCollection": "evidenceValidations"
     },
     {
@@ -148,7 +148,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 246,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -156,7 +156,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 42,
+      "estimatedRows": 6,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -164,7 +164,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 1,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -172,7 +172,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 1,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -207,7 +207,7 @@
         "arc_key",
         "milestone_object_id"
       ],
-      "estimatedRows": 17,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -217,7 +217,7 @@
         "arc_key",
         "phase_key"
       ],
-      "estimatedRows": 15,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -226,7 +226,7 @@
         "composition_id",
         "arc_key"
       ],
-      "estimatedRows": 8,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -235,7 +235,7 @@
         "composition_id",
         "boundary_type"
       ],
-      "estimatedRows": 16,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -244,7 +244,7 @@
         "composition_id",
         "sequence"
       ],
-      "estimatedRows": 9,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -253,7 +253,7 @@
         "composition_id",
         "milestone_object_id"
       ],
-      "estimatedRows": 17,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -262,7 +262,7 @@
         "composition_id",
         "phase_key"
       ],
-      "estimatedRows": 15,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -271,7 +271,7 @@
         "composition_id",
         "sequence"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -289,7 +289,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 8,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -297,7 +297,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 35,
+      "estimatedRows": 5,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -306,7 +306,7 @@
         "editorial_evidence_set_id",
         "evidence_record_id"
       ],
-      "estimatedRows": 252,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -314,7 +314,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 13,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -322,7 +322,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 51,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -332,7 +332,7 @@
         "citation_key",
         "evidence_record_id"
       ],
-      "estimatedRows": 23,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -342,7 +342,7 @@
         "citation_key",
         "sentence_key"
       ],
-      "estimatedRows": 44,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -351,7 +351,7 @@
         "narrative_id",
         "citation_key"
       ],
-      "estimatedRows": 18,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -361,7 +361,7 @@
         "paragraph_key",
         "milestone_object_id"
       ],
-      "estimatedRows": 44,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -370,7 +370,7 @@
         "narrative_id",
         "paragraph_key"
       ],
-      "estimatedRows": 43,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -379,7 +379,7 @@
         "narrative_id",
         "position"
       ],
-      "estimatedRows": 44,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -387,7 +387,7 @@
       "primaryKeys": [
         "narrative_id"
       ],
-      "estimatedRows": 11,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -395,7 +395,7 @@
       "primaryKeys": [
         "narrative_id"
       ],
-      "estimatedRows": 11,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -404,7 +404,7 @@
         "narrative_id",
         "section_key"
       ],
-      "estimatedRows": 42,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -414,7 +414,7 @@
         "sentence_key",
         "claim_id"
       ],
-      "estimatedRows": 44,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -424,7 +424,7 @@
         "sentence_key",
         "milestone_object_id"
       ],
-      "estimatedRows": 44,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -433,7 +433,7 @@
         "narrative_id",
         "sentence_key"
       ],
-      "estimatedRows": 44,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -441,7 +441,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 11,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -449,7 +449,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 1,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -460,7 +460,7 @@
         "evidence_record_id",
         "validation_record_id"
       ],
-      "estimatedRows": 17,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -478,7 +478,7 @@
         "candidate_id",
         "milestone_object_id"
       ],
-      "estimatedRows": 17,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -486,7 +486,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 8,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -502,7 +502,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -510,7 +510,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -518,7 +518,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 86,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -526,7 +526,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 210,
+      "estimatedRows": 1,
       "targetCollection": "factoryObjects"
     },
     {
@@ -534,7 +534,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 29,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -550,7 +550,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 1,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -558,7 +558,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 1,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -566,7 +566,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 57,
+      "estimatedRows": 0,
       "targetCollection": "factoryRuns"
     },
     {
@@ -574,7 +574,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 269,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -582,7 +582,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -598,7 +598,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 358,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -638,7 +638,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 14,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -646,7 +646,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 14,
+      "estimatedRows": 0,
       "targetCollection": "factoryArtifacts"
     },
     {
@@ -654,7 +654,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 668,
+      "estimatedRows": 0,
       "targetCollection": "generationJobs"
     },
     {
@@ -662,7 +662,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 11,
+      "estimatedRows": 0,
       "targetCollection": "topicLedgers"
     },
     {
@@ -702,7 +702,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 14,
+      "estimatedRows": 2,
       "targetCollection": "governanceApprovals"
     },
     {
@@ -710,7 +710,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 91,
+      "estimatedRows": 15,
       "targetCollection": "governanceAudits"
     },
     {
@@ -718,7 +718,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 14,
+      "estimatedRows": 2,
       "targetCollection": "governanceDecisions"
     },
     {
@@ -742,7 +742,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 1,
       "targetCollection": "governancePackages"
     },
     {
@@ -758,7 +758,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 1,
       "targetCollection": "libraryAdmissions"
     },
     {
@@ -830,7 +830,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 7,
+      "estimatedRows": 1,
       "targetCollection": "publicationLifecycle"
     },
     {
@@ -862,7 +862,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 78,
+      "estimatedRows": 1,
       "targetCollection": "publishedMemory"
     },
     {
@@ -987,6 +987,14 @@
       "targetCollection": "institutionalArchive"
     },
     {
+      "tableName": "institutional_actor_appointments",
+      "primaryKeys": [
+        "id"
+      ],
+      "estimatedRows": 9,
+      "targetCollection": "institutionalArchive"
+    },
+    {
       "tableName": "milestone_participation_disputes",
       "primaryKeys": [
         "id"
@@ -1015,7 +1023,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 39,
+      "estimatedRows": 0,
       "targetCollection": "adminOperations"
     },
     {
@@ -1023,7 +1031,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 9,
+      "estimatedRows": 0,
       "targetCollection": "adminOperations"
     },
     {
@@ -1031,7 +1039,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 90,
+      "estimatedRows": 0,
       "targetCollection": "operationalMetrics"
     },
     {
@@ -1039,7 +1047,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 195,
+      "estimatedRows": 0,
       "targetCollection": "operationalMetrics"
     },
     {
@@ -1047,7 +1055,7 @@
       "primaryKeys": [
         "migration_id"
       ],
-      "estimatedRows": 57,
+      "estimatedRows": 58,
       "targetCollection": "adminOperations"
     },
     {
@@ -1055,7 +1063,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 4,
+      "estimatedRows": 0,
       "targetCollection": "adminOperations"
     },
     {
@@ -1063,7 +1071,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 68,
+      "estimatedRows": 0,
       "targetCollection": "adminOperations"
     },
     {
@@ -1183,7 +1191,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 2,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -1191,7 +1199,7 @@
       "primaryKeys": [
         "provider"
       ],
-      "estimatedRows": 4,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -1255,7 +1263,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 102,
+      "estimatedRows": 7,
       "targetCollection": "platformReadModelHistory"
     },
     {
@@ -1271,7 +1279,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 102,
+      "estimatedRows": 7,
       "targetCollection": "platformReadModelHistory"
     },
     {
@@ -1335,7 +1343,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 94,
+      "estimatedRows": 2,
       "targetCollection": "sourceRecords"
     },
     {
@@ -1343,7 +1351,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 143,
+      "estimatedRows": 2,
       "targetCollection": "sourceSnapshots"
     },
     {
@@ -1351,7 +1359,7 @@
       "primaryKeys": [
         "id"
       ],
-      "estimatedRows": 171,
+      "estimatedRows": 0,
       "targetCollection": "institutionalArchive"
     },
     {
@@ -1469,6 +1477,896 @@
     }
   ],
   "counts": {
+    "ad_campaigns": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "admin_security_audit_events": {
+      "source": 2,
+      "written": 2,
+      "hash": "83d1a8fad3e0e838194abc81da17358e9d6b4571956c764857783b4165568dfa"
+    },
+    "admin_session_revocations": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "analytics_events": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "corpus_documents": {
+      "source": 2,
+      "written": 2,
+      "hash": "965ad7a3c701a0f54ac220c5f0654e426a41534db80317e5105b395bf4c16810"
+    },
+    "editorial_prompt_supersessions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "editorial_prompt_versions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "editorial_prompts": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "editorial_provider_configurations": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "editorial_writer_configuration_binding_supersessions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "editorial_writer_configuration_bindings": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "editorial_writing_policies": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "event_sources": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "event_tags": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "events": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "evidence_records": {
+      "source": 2,
+      "written": 2,
+      "hash": "b052dd0ec56e32e428f76d7ecf963cf1cc13ea5dd7643fce7fa528556b73c0fa"
+    },
+    "evidence_validation_records": {
+      "source": 2,
+      "written": 2,
+      "hash": "d716886dbd4317054ccbd1331d632f20d22e60a4a4bf0ba89aa8ec9ce49a9eab"
+    },
+    "factory_artifacts": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_audit_records": {
+      "source": 6,
+      "written": 6,
+      "hash": "3b8dab7a48adab83402ff9781f484b66e6a64fcd2f87e154e055c5dd3e687ae8"
+    },
+    "factory_authority_preparations": {
+      "source": 1,
+      "written": 1,
+      "hash": "f480234a1653b2496f1e34a80a18d7af075f82b134dccf7590238875bb1ba7c4"
+    },
+    "factory_confidence_assessments": {
+      "source": 1,
+      "written": 1,
+      "hash": "ae1404d710e3fe571028d2bc25f23fd880bb29e344448e9e4d1e2af9a9b9c9a1"
+    },
+    "factory_editorial_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_arc_milestones": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_arc_phases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_arcs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_boundaries": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_continuity": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_phase_milestones": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_phases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_transitions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_composition_turning_points": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_compositions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_decisions": {
+      "source": 5,
+      "written": 5,
+      "hash": "dc4024ba54fbd2768c5fd89b75d959f550632ee6c676de0d962f559623d04ed8"
+    },
+    "factory_editorial_evidence_set_inputs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_evidence_sets": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_generation_units": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_citation_evidence": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_citation_sentences": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_citations": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_paragraph_milestones": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_paragraphs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_prompt_refs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_provenance": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_sections": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_sentence_claims": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_sentence_milestones": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narrative_sentences": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_narratives": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_reviews": {
+      "source": 1,
+      "written": 1,
+      "hash": "63a5805ef2bf3b81e1d873242b347b7fbdbea61d5ca3cc35bd5cb6ae35358f24"
+    },
+    "factory_editorial_timeline_candidate_evidence": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_timeline_candidate_exclusions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_timeline_candidate_milestones": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_editorial_timeline_candidates": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_feedback_consumptions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_governance_handoffs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_governance_submissions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_institutional_events": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_objects": {
+      "source": 1,
+      "written": 1,
+      "hash": "ff27dad274a0f010b28a3c43cd0269cf8b0f8b00b14b40d0b7e1ac7dae1eee85"
+    },
+    "factory_operational_notifications": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_operations_control": {
+      "source": 1,
+      "written": 1,
+      "hash": "0763d259aefbce9a6133fd4ba97a5920d5d2f2e497dfc7765f198a9711084b48"
+    },
+    "factory_package_drafts": {
+      "source": 1,
+      "written": 1,
+      "hash": "7be5b97f3a47645f5a23478e377b6c670509d5e6e77cfd1d675403605df9a010"
+    },
+    "factory_package_versions": {
+      "source": 1,
+      "written": 1,
+      "hash": "091f1815811c07bae8f0933bc80f1dde1e5616ce59e3831e9270e7ed875f138b"
+    },
+    "factory_pipeline_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_pipeline_steps": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_publication_verifications": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_revision_plans": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_audit_records": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_executions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_jobs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_prompts": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_runtime_workers": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_submission_audit_records": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_submission_lineage": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_topic_execution_history": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_topic_work_items": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_worker_capabilities": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_worker_permissions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_worker_policies": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "factory_worker_versions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "governance_approvals": {
+      "source": 2,
+      "written": 2,
+      "hash": "5673ffd091cd2c47318fff5335e6cad7be4ba3484022bf3f774213b0aa2c2dc0"
+    },
+    "governance_audit_records": {
+      "source": 15,
+      "written": 15,
+      "hash": "9f1063a40bb7094c4be840b8151851b3a517284c61ac0068063450d2d3e26335"
+    },
+    "governance_decisions": {
+      "source": 2,
+      "written": 2,
+      "hash": "c10fe11033de0dfeef3d9966cb2da6cf92b07412007faaaab306712b471962b7"
+    },
+    "governance_disputes": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "governance_feedback_packages": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "governance_publication_packages": {
+      "source": 1,
+      "written": 1,
+      "hash": "9c925089cc0cf2655abb94a5f3d3608db49ac4930206a9972e0d9857c892a367"
+    },
+    "governance_queues": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_admissions": {
+      "source": 1,
+      "written": 1,
+      "hash": "0d3a5d8bb10c15097fc33ff3b091a4250830e96254b9fcf49667818e11758f4b"
+    },
+    "historical_library_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_lifecycle_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_continuity_edges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_feedback_links": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_lifecycle_audit": {
+      "source": 1,
+      "written": 1,
+      "hash": "469ba9c6cbb28cb7be318f2e7129fb51486747087a9656909da14729ad6a6672"
+    },
+    "historical_library_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_preservations": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_published_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_published_snapshots": {
+      "source": 1,
+      "written": 1,
+      "hash": "9e135e61fae6de207aa7b92229f4b59d4f470814d5a0b4bacc7ff7cafdc52092"
+    },
+    "historical_library_retirements": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_split_children": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_splits": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_supersessions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_library_withdrawals": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_object_aliases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_object_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_object_retirements": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_object_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_objects": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationship_disputes": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationship_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationship_retirements": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationship_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "historical_relationships": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "institutional_actor_appointments": {
+      "source": 9,
+      "written": 9,
+      "hash": "b92a8803458b0f51f5dd7c314c44b0fedff7fc93d4057467841b6ef2b9b8d796"
+    },
+    "milestone_participation_disputes": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "milestone_participation_revisions": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "milestone_participations": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_alert_history": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_alerts": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_health_assessments": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_metric_measurements": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_migration_ledger": {
+      "source": 58,
+      "written": 58,
+      "hash": "8f2def2eeb267733c940dfe77fb2061ebfdff303c665a8cdb767cc8cbaa38a13"
+    },
+    "operational_replay_requests": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "operational_scheduled_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "platform_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_projection_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "projection_engine_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "provider_execution_leases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "provider_execution_limits": {
+      "source": 1,
+      "written": 1,
+      "hash": "0dbf2720c51510e9e2bfdd8dd087e9f65742d5e05761cc9110e3233fb933bdb4"
+    },
+    "provider_execution_metrics": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "provider_rate_limit_events": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "provider_runtime_state": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_lifecycle_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_continuity_projections": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_projection_lineage": {
+      "source": 7,
+      "written": 7,
+      "hash": "186b6a851348f736b015d6014f0ee1b6700d6bb4912cc45c05a4871f99063dcd"
+    },
+    "published_memory_projection_rebuild_reports": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "published_memory_projections": {
+      "source": 7,
+      "written": 7,
+      "hash": "3d8be100e88aa812a0158717673c4907247c9fa96b54687e64b45dab24327646"
+    },
+    "relationship_recovery_reports": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_case_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_failure_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_invariant_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_runs": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_search_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "search_certification_stage_results": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "source_authority_records": {
+      "source": 2,
+      "written": 2,
+      "hash": "560729f0164d468f6dcce309e0f955bcbb394bc3dc4815f6b12c0cfd1a767a95"
+    },
+    "source_authority_snapshots": {
+      "source": 2,
+      "written": 2,
+      "hash": "f7ba485c174edae49300b684ac6c095d6298eb57355e27eba6f3ac3b672e8400"
+    },
+    "source_relevance_diagnostics": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "sources": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tag_aliases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tag_governance": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tag_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tag_redirects": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "tags": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "taxonomy_categories": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "taxonomy_category_aliases": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "taxonomy_category_merges": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "taxonomy_category_redirects": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "timeline_events": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "timeline_requests": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "timeline_slug_history": {
+      "source": 0,
+      "written": 0,
+      "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
     "timelines": {
       "source": 0,
       "written": 0,
@@ -1476,10 +2374,10 @@
     }
   },
   "materialized": {
-    "activeProjections": 73,
+    "activeProjections": 4,
     "continuity": 0,
-    "maxTimelineId": 1469121843,
-    "maxEventId": 1936504816,
+    "maxTimelineId": 438425868,
+    "maxEventId": 2061714990,
     "maxSourceId": 0,
     "maxTagId": 0,
     "categories": 1,
@@ -1487,34 +2385,924 @@
   },
   "verification": {
     "collectionCounts": {
-      "topicLedgers": 16,
-      "factoryRuns": 57,
-      "factoryObjects": 210,
-      "factoryArtifacts": 2043,
-      "sourceRecords": 94,
-      "sourceSnapshots": 143,
-      "corpusDocuments": 143,
-      "evidenceRecords": 471,
-      "evidenceValidations": 471,
-      "governancePackages": 7,
-      "governanceDecisions": 14,
-      "governanceApprovals": 14,
-      "libraryAdmissions": 7,
-      "publishedMemory": 78,
-      "platformReadModelHistory": 204,
-      "platformReadModels": 43,
-      "searchDocuments": 15,
-      "sitemapDocuments": 15,
-      "auditEvents": 152474
+      "topicLedgers": 1,
+      "factoryRuns": 0,
+      "factoryObjects": 1,
+      "factoryArtifacts": 17,
+      "sourceRecords": 2,
+      "sourceSnapshots": 2,
+      "corpusDocuments": 2,
+      "evidenceRecords": 2,
+      "evidenceValidations": 2,
+      "governancePackages": 1,
+      "governanceDecisions": 2,
+      "governanceApprovals": 2,
+      "libraryAdmissions": 1,
+      "publishedMemory": 1,
+      "platformReadModelHistory": 14,
+      "platformReadModels": 2,
+      "searchDocuments": 1,
+      "sitemapDocuments": 1,
+      "auditEvents": 2
     },
-    "activeProjectionCount": 43,
-    "postgresActiveProjectionCount": 43,
+    "activeProjectionCount": 2,
+    "postgresActiveProjectionCount": 2,
     "activeProjectionParity": true,
     "tableParityPassed": true,
     "tableMismatches": [],
-    "totalSourceRows": 157868,
-    "totalMigratedRows": 157868,
+    "totalSourceRows": 135,
+    "totalMigratedRows": 135,
     "sourceCounts": {
+      "ad_campaigns": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "admin_security_audit_events": {
+        "source": 2,
+        "written": 2,
+        "hash": "83d1a8fad3e0e838194abc81da17358e9d6b4571956c764857783b4165568dfa"
+      },
+      "admin_session_revocations": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "analytics_events": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "corpus_documents": {
+        "source": 2,
+        "written": 2,
+        "hash": "965ad7a3c701a0f54ac220c5f0654e426a41534db80317e5105b395bf4c16810"
+      },
+      "editorial_prompt_supersessions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "editorial_prompt_versions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "editorial_prompts": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "editorial_provider_configurations": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "editorial_writer_configuration_binding_supersessions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "editorial_writer_configuration_bindings": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "editorial_writing_policies": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "event_sources": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "event_tags": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "events": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "evidence_records": {
+        "source": 2,
+        "written": 2,
+        "hash": "b052dd0ec56e32e428f76d7ecf963cf1cc13ea5dd7643fce7fa528556b73c0fa"
+      },
+      "evidence_validation_records": {
+        "source": 2,
+        "written": 2,
+        "hash": "d716886dbd4317054ccbd1331d632f20d22e60a4a4bf0ba89aa8ec9ce49a9eab"
+      },
+      "factory_artifacts": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_audit_records": {
+        "source": 6,
+        "written": 6,
+        "hash": "3b8dab7a48adab83402ff9781f484b66e6a64fcd2f87e154e055c5dd3e687ae8"
+      },
+      "factory_authority_preparations": {
+        "source": 1,
+        "written": 1,
+        "hash": "f480234a1653b2496f1e34a80a18d7af075f82b134dccf7590238875bb1ba7c4"
+      },
+      "factory_confidence_assessments": {
+        "source": 1,
+        "written": 1,
+        "hash": "ae1404d710e3fe571028d2bc25f23fd880bb29e344448e9e4d1e2af9a9b9c9a1"
+      },
+      "factory_editorial_certification_case_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_certification_invariant_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_certification_runs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_arc_milestones": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_arc_phases": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_arcs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_boundaries": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_continuity": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_phase_milestones": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_phases": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_transitions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_composition_turning_points": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_compositions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_decisions": {
+        "source": 5,
+        "written": 5,
+        "hash": "dc4024ba54fbd2768c5fd89b75d959f550632ee6c676de0d962f559623d04ed8"
+      },
+      "factory_editorial_evidence_set_inputs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_evidence_sets": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_generation_units": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_citation_evidence": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_citation_sentences": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_citations": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_paragraph_milestones": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_paragraphs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_prompt_refs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_provenance": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_revisions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_sections": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_sentence_claims": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_sentence_milestones": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narrative_sentences": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_narratives": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_reviews": {
+        "source": 1,
+        "written": 1,
+        "hash": "63a5805ef2bf3b81e1d873242b347b7fbdbea61d5ca3cc35bd5cb6ae35358f24"
+      },
+      "factory_editorial_timeline_candidate_evidence": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_timeline_candidate_exclusions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_timeline_candidate_milestones": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_editorial_timeline_candidates": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_feedback_consumptions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_governance_handoffs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_governance_submissions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_institutional_events": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_objects": {
+        "source": 1,
+        "written": 1,
+        "hash": "ff27dad274a0f010b28a3c43cd0269cf8b0f8b00b14b40d0b7e1ac7dae1eee85"
+      },
+      "factory_operational_notifications": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_operations_control": {
+        "source": 1,
+        "written": 1,
+        "hash": "0763d259aefbce9a6133fd4ba97a5920d5d2f2e497dfc7765f198a9711084b48"
+      },
+      "factory_package_drafts": {
+        "source": 1,
+        "written": 1,
+        "hash": "7be5b97f3a47645f5a23478e377b6c670509d5e6e77cfd1d675403605df9a010"
+      },
+      "factory_package_versions": {
+        "source": 1,
+        "written": 1,
+        "hash": "091f1815811c07bae8f0933bc80f1dde1e5616ce59e3831e9270e7ed875f138b"
+      },
+      "factory_pipeline_runs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_pipeline_steps": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_publication_verifications": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_revision_plans": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_runtime_audit_records": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_runtime_executions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_runtime_jobs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_runtime_prompts": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_runtime_workers": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_submission_audit_records": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_submission_lineage": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_topic_execution_history": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_topic_work_items": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_worker_capabilities": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_worker_permissions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_worker_policies": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "factory_worker_versions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "governance_approvals": {
+        "source": 2,
+        "written": 2,
+        "hash": "5673ffd091cd2c47318fff5335e6cad7be4ba3484022bf3f774213b0aa2c2dc0"
+      },
+      "governance_audit_records": {
+        "source": 15,
+        "written": 15,
+        "hash": "9f1063a40bb7094c4be840b8151851b3a517284c61ac0068063450d2d3e26335"
+      },
+      "governance_decisions": {
+        "source": 2,
+        "written": 2,
+        "hash": "c10fe11033de0dfeef3d9966cb2da6cf92b07412007faaaab306712b471962b7"
+      },
+      "governance_disputes": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "governance_feedback_packages": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "governance_publication_packages": {
+        "source": 1,
+        "written": 1,
+        "hash": "9c925089cc0cf2655abb94a5f3d3608db49ac4930206a9972e0d9857c892a367"
+      },
+      "governance_queues": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_admissions": {
+        "source": 1,
+        "written": 1,
+        "hash": "0d3a5d8bb10c15097fc33ff3b091a4250830e96254b9fcf49667818e11758f4b"
+      },
+      "historical_library_certification_case_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_certification_failure_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_certification_invariant_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_certification_lifecycle_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_certification_runs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_certification_stage_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_continuity_edges": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_feedback_links": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_lifecycle_audit": {
+        "source": 1,
+        "written": 1,
+        "hash": "469ba9c6cbb28cb7be318f2e7129fb51486747087a9656909da14729ad6a6672"
+      },
+      "historical_library_merges": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_preservations": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_published_revisions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_published_snapshots": {
+        "source": 1,
+        "written": 1,
+        "hash": "9e135e61fae6de207aa7b92229f4b59d4f470814d5a0b4bacc7ff7cafdc52092"
+      },
+      "historical_library_retirements": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_split_children": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_splits": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_supersessions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_library_withdrawals": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_object_aliases": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_object_merges": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_object_retirements": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_object_revisions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_objects": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_relationship_disputes": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_relationship_merges": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_relationship_retirements": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_relationship_revisions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "historical_relationships": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "institutional_actor_appointments": {
+        "source": 9,
+        "written": 9,
+        "hash": "b92a8803458b0f51f5dd7c314c44b0fedff7fc93d4057467841b6ef2b9b8d796"
+      },
+      "milestone_participation_disputes": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "milestone_participation_revisions": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "milestone_participations": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "operational_alert_history": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "operational_alerts": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "operational_health_assessments": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "operational_metric_measurements": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "operational_migration_ledger": {
+        "source": 58,
+        "written": 58,
+        "hash": "8f2def2eeb267733c940dfe77fb2061ebfdff303c665a8cdb767cc8cbaa38a13"
+      },
+      "operational_replay_requests": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "operational_scheduled_runs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "platform_certification_case_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "platform_certification_failure_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "platform_certification_invariant_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "platform_certification_runs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "platform_certification_stage_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "projection_engine_certification_case_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "projection_engine_certification_failure_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "projection_engine_certification_invariant_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "projection_engine_certification_projection_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "projection_engine_certification_runs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "projection_engine_certification_stage_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "provider_execution_leases": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "provider_execution_limits": {
+        "source": 1,
+        "written": 1,
+        "hash": "0dbf2720c51510e9e2bfdd8dd087e9f65742d5e05761cc9110e3233fb933bdb4"
+      },
+      "provider_execution_metrics": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "provider_rate_limit_events": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "provider_runtime_state": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_certification_case_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_certification_failure_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_certification_invariant_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_certification_lifecycle_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_certification_runs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_certification_stage_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_continuity_projections": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_projection_lineage": {
+        "source": 7,
+        "written": 7,
+        "hash": "186b6a851348f736b015d6014f0ee1b6700d6bb4912cc45c05a4871f99063dcd"
+      },
+      "published_memory_projection_rebuild_reports": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "published_memory_projections": {
+        "source": 7,
+        "written": 7,
+        "hash": "3d8be100e88aa812a0158717673c4907247c9fa96b54687e64b45dab24327646"
+      },
+      "relationship_recovery_reports": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "search_certification_case_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "search_certification_failure_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "search_certification_invariant_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "search_certification_runs": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "search_certification_search_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "search_certification_stage_results": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "source_authority_records": {
+        "source": 2,
+        "written": 2,
+        "hash": "560729f0164d468f6dcce309e0f955bcbb394bc3dc4815f6b12c0cfd1a767a95"
+      },
+      "source_authority_snapshots": {
+        "source": 2,
+        "written": 2,
+        "hash": "f7ba485c174edae49300b684ac6c095d6298eb57355e27eba6f3ac3b672e8400"
+      },
+      "source_relevance_diagnostics": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "sources": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "tag_aliases": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "tag_governance": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "tag_merges": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "tag_redirects": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "tags": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "taxonomy_categories": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "taxonomy_category_aliases": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "taxonomy_category_merges": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "taxonomy_category_redirects": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "timeline_events": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "timeline_requests": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "timeline_slug_history": {
+        "source": 0,
+        "written": 0,
+        "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
       "timelines": {
         "source": 0,
         "written": 0,

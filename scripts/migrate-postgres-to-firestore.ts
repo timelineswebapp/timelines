@@ -10,9 +10,11 @@ loadEnvConfig(process.cwd());
 
 const PRODUCTION_PROJECT_ID = "tiimeliines";
 const STAGING_PROJECT_ID = "timelines-staging";
+const STAGING_ACTIVE_CORPUS_ID = "staging-synthetic-corpus";
 const STAGING_RUNTIME_SERVICE_ACCOUNT = "timelines-runtime@timelines-staging.iam.gserviceaccount.com";
 const environment = process.env.TIMELINES_ENVIRONMENT;
 const PROJECT_ID = environment === "staging" ? STAGING_PROJECT_ID : environment === "production" ? PRODUCTION_PROJECT_ID : null;
+const ACTIVE_CORPUS_ID = process.env.ACTIVE_CORPUS_ID;
 const STORAGE_BUCKET = process.env.STORAGE_BUCKET || `${PROJECT_ID}-institutional-archive`;
 const MIGRATION_ID = "TL-SERVERLESS-MIGRATION-001";
 const BATCH_SIZE = 250;
@@ -26,13 +28,28 @@ if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
 if (!PROJECT_ID) {
   throw new Error("TIMELINES_ENVIRONMENT must explicitly identify staging or production for migration.");
 }
+if (!ACTIVE_CORPUS_ID || !/^[a-z][a-z0-9-]{2,119}$/.test(ACTIVE_CORPUS_ID)) {
+  throw new Error("ACTIVE_CORPUS_ID must be an explicit canonical corpus identifier for migration.");
+}
+if (environment === "staging" && ACTIVE_CORPUS_ID !== STAGING_ACTIVE_CORPUS_ID) {
+  throw new Error("Refusing to migrate staging data outside the staging synthetic corpus.");
+}
 if ((process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT) !== PROJECT_ID) {
   throw new Error(`Refusing to migrate outside the declared ${environment} project.`);
 }
 
 async function initializeFirebase() {
   const requestedImpersonation = process.env.GOOGLE_IMPERSONATE_SERVICE_ACCOUNT;
+  const directStagingAccessToken = process.env.GOOGLE_STAGING_MIGRATION_SOURCE_ACCESS_TOKEN;
   let authClient: GoogleAuth | Impersonated | undefined;
+  if (directStagingAccessToken) {
+    if (environment !== "staging" || requestedImpersonation) {
+      throw new Error("GOOGLE_STAGING_MIGRATION_SOURCE_ACCESS_TOKEN is permitted only for an unimpersonated staging migration.");
+    }
+    const client = new OAuth2Client();
+    client.setCredentials({ access_token: directStagingAccessToken });
+    authClient = new GoogleAuth({ authClient: client, projectId: PROJECT_ID! }) as GoogleAuth;
+  }
   if (requestedImpersonation) {
     if (environment !== "staging" || requestedImpersonation !== STAGING_RUNTIME_SERVICE_ACCOUNT) {
       throw new Error("GOOGLE_IMPERSONATE_SERVICE_ACCOUNT is permitted only for the staging runtime identity.");
@@ -59,6 +76,10 @@ async function initializeFirebase() {
 let db!: Firestore;
 let storage!: Storage;
 const sql = postgres(process.env.DATABASE_URL, { max: 2, connect_timeout: 15, idle_timeout: 20 });
+
+function corpusCollection(name: string) {
+  return db.collection("corpora").doc(ACTIVE_CORPUS_ID!).collection(name);
+}
 
 type TableInfo = { tableName: string; primaryKeys: string[]; estimatedRows: number };
 type MigrationCount = { source: number; written: number; hash: string };
@@ -89,6 +110,46 @@ function topicId(title: string) {
 
 function safeDocumentId(value: string) {
   return value.replaceAll("/", "_").slice(0, 1400);
+}
+
+function readerTimestamp(value: unknown, fallback: string) {
+  return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : fallback;
+}
+
+function readerTags(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((tag): tag is Record<string, unknown> => Boolean(tag) && typeof tag === "object" && typeof tag.id === "number" && typeof tag.slug === "string" && typeof tag.name === "string")
+    : [];
+}
+
+function readerTimelinePayload(payload: Record<string, unknown>, createdAt: string) {
+  if (payload.projection_type !== "timeline") return payload;
+  const timelineCreatedAt = readerTimestamp(payload.createdAt, createdAt);
+  const timelineUpdatedAt = readerTimestamp(payload.updatedAt, timelineCreatedAt);
+  const events = Array.isArray(payload.events)
+    ? payload.events.filter((event): event is Record<string, unknown> => Boolean(event) && typeof event === "object" && typeof event.id === "number").map((event) => ({
+        ...event,
+        datePrecision: event.datePrecision === "day" || event.datePrecision === "month" || event.datePrecision === "approximate" ? event.datePrecision : "year",
+        createdAt: readerTimestamp(event.createdAt, timelineCreatedAt),
+        updatedAt: readerTimestamp(event.updatedAt, timelineUpdatedAt),
+        importance: typeof event.importance === "number" ? event.importance : 0,
+        location: typeof event.location === "string" ? event.location : null,
+        imageUrl: typeof event.imageUrl === "string" ? event.imageUrl : null,
+        sources: Array.isArray(event.sources) ? event.sources : [],
+        tags: readerTags(event.tags),
+        timelineLinks: Array.isArray(event.timelineLinks) ? event.timelineLinks : []
+      }))
+    : [];
+  return {
+    ...payload,
+    createdAt: timelineCreatedAt,
+    updatedAt: timelineUpdatedAt,
+    orderingMode: payload.orderingMode === "editorial" ? "editorial" : "chronology",
+    tags: readerTags(payload.tags),
+    events,
+    eventCount: events.length,
+    relatedTimelines: Array.isArray(payload.relatedTimelines) ? payload.relatedTimelines : []
+  };
 }
 
 function canonicalRow(row: Record<string, unknown>): Record<string, unknown> {
@@ -220,7 +281,7 @@ async function migrateTables(inventory: TableInfo[]) {
         if (!apply) continue;
         const id = legacyDocumentId(table, row);
         const payload = await maybeOffloadLargeBody(collection, id, row);
-        bulkWriter.set(db.collection(collection).doc(id), {
+        bulkWriter.set(corpusCollection(collection).doc(id), {
           migrationId: MIGRATION_ID,
           legacyTable: table.tableName,
           legacyPrimaryKey: Object.fromEntries(table.primaryKeys.map((key) => [key, row[key]])),
@@ -275,26 +336,26 @@ async function materializeActiveProjections() {
   const tags = new Map<string, { id: number; slug: string; name: string }>();
   for (const row of projections) {
     const type = String(row.projection_type);
-    const payload = row.payload as Record<string, unknown>;
+    const payload = readerTimelinePayload(row.payload as Record<string, unknown>, String(row.created_at));
     const legacyId = legacyProjectionDocumentId(String(row.projection_type), typeof row.slug === "string" ? row.slug : null, row.payload as Record<string, unknown>);
-    if (legacyId) bulk.delete(db.collection("platformReadModels").doc(safeDocumentId(legacyId)));
+    if (legacyId) bulk.delete(corpusCollection("platformReadModels").doc(safeDocumentId(legacyId)));
     if (!new Set(["timeline", "milestone", "historical_object", "relationship"]).has(type)) {
-      bulk.delete(db.collection("platformReadModels").doc(`projection--${String(row.id)}`));
+      bulk.delete(corpusCollection("platformReadModels").doc(`projection--${String(row.id)}`));
     }
-    if (type === "timeline" && typeof payload.id === "number") bulk.delete(db.collection("sitemapDocuments").doc(`timeline--${payload.id}`));
-    if (type === "milestone" && typeof payload.id === "number") bulk.delete(db.collection("sitemapDocuments").doc(`milestone--${payload.id}`));
+    if (type === "timeline" && typeof payload.id === "number") bulk.delete(corpusCollection("sitemapDocuments").doc(`timeline--${payload.id}`));
+    if (type === "milestone" && typeof payload.id === "number") bulk.delete(corpusCollection("sitemapDocuments").doc(`milestone--${payload.id}`));
   }
   for (const row of projections) {
     const type = String(row.projection_type);
     const slug = typeof row.slug === "string" ? row.slug : null;
-    const payload = row.payload as Record<string, unknown>;
+    const payload = readerTimelinePayload(row.payload as Record<string, unknown>, String(row.created_at));
     const id = new Set(["timeline", "milestone", "historical_object", "relationship"]).has(type) ? `projection--${String(row.id)}` : null;
     const sortTimestamp = Timestamp.fromDate(new Date(String(row.created_at)));
     if (id) {
       const authorityKeys = type === "relationship"
         ? [payload.source_authority_ref, payload.target_authority_ref].flatMap((ref) => ref && typeof ref === "object" ? [`${String((ref as Record<string, unknown>).authorityType)}:${String((ref as Record<string, unknown>).authorityId)}`] : [])
         : typeof payload.id === "number" ? [`${type}:${payload.id}`] : [];
-      bulk.set(db.collection("platformReadModels").doc(safeDocumentId(id)), {
+      bulk.set(corpusCollection("platformReadModels").doc(safeDocumentId(id)), {
         projectionType: type,
         lifecycle: "active",
         slug,
@@ -322,7 +383,7 @@ async function materializeActiveProjections() {
       const current = categoryCounts.get(categorySlug);
       categoryCounts.set(categorySlug, { name: category, count: (current?.count || 0) + 1, updatedAt: String(payload.updatedAt || row.created_at) });
       const topic = topicId(String(payload.title || slug));
-      bulk.set(db.collection("topicLedgers").doc(topic.id), {
+      bulk.set(corpusCollection("topicLedgers").doc(topic.id), {
         topicId: topic.id, normalizedTitle: topic.normalized, displayTitle: payload.title, scope: `en:timeline:${topic.normalized}`, slug,
         aliases: [topic.normalized], origin: "migration", priority: 0, state: "PUBLISHED", currentStage: "published", timelineId: payload.id,
         activeJobId: null, deterministicTaskIdentity: null, leaseOwner: null, leaseExpiresAt: null, attemptCount: 0, maximumAttempts: 5,
@@ -346,7 +407,7 @@ async function materializeActiveProjections() {
       const entityType = String(payload.type || payload.entity_type || "search");
       const publicId = Number(payload.id || payload.entity_id || 0);
       const searchId = publicId > 0 ? `${entityType}--${publicId}` : `legacy--${row.id}`;
-      bulk.set(db.collection("searchDocuments").doc(safeDocumentId(searchId)), {
+      bulk.set(corpusCollection("searchDocuments").doc(safeDocumentId(searchId)), {
         type: entityType, publicId, slug: payload.slug || slug, title: payload.title || "", searchableText: searchable,
         tokens: tokens(searchable), payload, published: true, publishedMemoryId: row.published_snapshot_id, updatedAt: sortTimestamp
       });
@@ -354,7 +415,7 @@ async function materializeActiveProjections() {
     if (type === "sitemap" && Array.isArray(payload.entries)) {
       payload.entries.forEach((entry, index) => {
         if (!entry || typeof entry !== "object") return;
-        bulk.set(db.collection("sitemapDocuments").doc(`projection--${String(row.id)}--${index}`), {
+        bulk.set(corpusCollection("sitemapDocuments").doc(`projection--${String(row.id)}--${index}`), {
           ...(entry as Record<string, unknown>),
           published: true,
           publishedMemoryId: row.published_snapshot_id,
@@ -365,11 +426,11 @@ async function materializeActiveProjections() {
     const sourceList = Array.isArray(payload.sources) ? payload.sources : [];
     for (const source of sourceList) if (source && typeof source === "object" && typeof (source as Record<string, unknown>).id === "number") maxSourceId = Math.max(maxSourceId, Number((source as Record<string, unknown>).id));
   }
-  for (const [slug, category] of categoryCounts) bulk.set(db.collection("categoryDocuments").doc(slug), { slug, ...category, updatedAt: Timestamp.fromDate(new Date(category.updatedAt)) });
-  for (const tag of tags.values()) bulk.set(db.collection("tagDocuments").doc(tag.slug), { ...tag, updatedAt: Timestamp.now() });
+  for (const [slug, category] of categoryCounts) bulk.set(corpusCollection("categoryDocuments").doc(slug), { slug, ...category, updatedAt: Timestamp.fromDate(new Date(category.updatedAt)) });
+  for (const tag of tags.values()) bulk.set(corpusCollection("tagDocuments").doc(tag.slug), { ...tag, updatedAt: Timestamp.now() });
   for (const row of continuityRows) {
     const sourcePublishedSnapshotId = String(row.source_published_snapshot_id);
-    bulk.set(db.collection("continuityDocuments").doc(sourcePublishedSnapshotId), {
+    bulk.set(corpusCollection("continuityDocuments").doc(sourcePublishedSnapshotId), {
       sourcePublishedSnapshotId,
       targetPublishedSnapshotId: row.target_published_snapshot_id || null,
       continuityType: row.continuity_type,
@@ -380,7 +441,7 @@ async function materializeActiveProjections() {
       createdAt: Timestamp.fromDate(new Date(String(row.created_at)))
     });
   }
-  bulk.set(db.collection("counters").doc("publicIds"), { timeline: maxTimelineId, event: maxEventId, source: maxSourceId, tag: maxTagId, migrationId: MIGRATION_ID, updatedAt: Timestamp.now() });
+  bulk.set(corpusCollection("counters").doc("publicIds"), { timeline: maxTimelineId, event: maxEventId, source: maxSourceId, tag: maxTagId, migrationId: MIGRATION_ID, updatedAt: Timestamp.now() });
   await bulk.close();
   return { activeProjections: projections.length, continuity: continuityRows.length, maxTimelineId, maxEventId, maxSourceId, maxTagId, categories: categoryCounts.size, tags: tags.size };
 }
@@ -388,8 +449,8 @@ async function materializeActiveProjections() {
 async function verify(inventory: TableInfo[], counts?: Record<string, MigrationCount>) {
   const requiredCollections = ["topicLedgers", "factoryRuns", "factoryObjects", "factoryArtifacts", "sourceRecords", "sourceSnapshots", "corpusDocuments", "evidenceRecords", "evidenceValidations", "governancePackages", "governanceDecisions", "governanceApprovals", "libraryAdmissions", "publishedMemory", "platformReadModelHistory", "platformReadModels", "searchDocuments", "sitemapDocuments", "auditEvents"];
   const collectionCounts: Record<string, number> = {};
-  for (const collection of requiredCollections) collectionCounts[collection] = (await db.collection(collection).count().get()).data().count;
-  const activeProjectionCount = (await db.collection("platformReadModels").where("lifecycle", "==", "active").count().get()).data().count;
+  for (const collection of requiredCollections) collectionCounts[collection] = (await corpusCollection(collection).count().get()).data().count;
+  const activeProjectionCount = (await corpusCollection("platformReadModels").where("lifecycle", "==", "active").count().get()).data().count;
   const postgresActive = Number((await sql<Array<{ count: number }>>`SELECT COUNT(*)::int count FROM published_memory_projections WHERE lifecycle='active' AND projection_type IN ('timeline','milestone','historical_object','relationship')`)[0]?.count || 0);
   const tableParity: Array<{ table: string; collection: string; source: number; migrated: number; matches: boolean }> = [];
   for (let offset = 0; offset < inventory.length; offset += 10) {
@@ -398,7 +459,7 @@ async function verify(inventory: TableInfo[], counts?: Record<string, MigrationC
       const escapedTable = table.tableName.replaceAll('"', '""');
       const sourceRows = await sql.unsafe<Array<{ count: number }>>(`SELECT COUNT(*)::int count FROM "${escapedTable}"`);
       const prefix = `${table.tableName}--`;
-      const migrated = (await db.collection(collectionFor(table.tableName))
+      const migrated = (await corpusCollection(collectionFor(table.tableName))
         .where(FieldPath.documentId(), ">=", prefix)
         .where(FieldPath.documentId(), "<", `${prefix}\uf8ff`)
         .count()
