@@ -141,3 +141,11 @@ test("synthetic certification restores and executes the real institutional harne
   assert.match(fixtures, /immutableAppointmentRecordsRetained/);
   assert.match(fixtures, /postRevocationAuthorizationRejected/);
 });
+
+test("serverless migration requires an explicit environment-owned project", async () => {
+  const migration = await readFile("scripts/migrate-postgres-to-firestore.ts", "utf8");
+  assert.match(migration, /TIMELINES_ENVIRONMENT/);
+  assert.match(migration, /STAGING_PROJECT_ID = "timelines-staging"/);
+  assert.match(migration, /PRODUCTION_PROJECT_ID = "tiimeliines"/);
+  assert.match(migration, /Refusing to migrate outside the declared/);
+});

@@ -8,7 +8,10 @@ import postgres from "postgres";
 
 loadEnvConfig(process.cwd());
 
-const PROJECT_ID = "tiimeliines";
+const PRODUCTION_PROJECT_ID = "tiimeliines";
+const STAGING_PROJECT_ID = "timelines-staging";
+const environment = process.env.TIMELINES_ENVIRONMENT;
+const PROJECT_ID = environment === "staging" ? STAGING_PROJECT_ID : environment === "production" ? PRODUCTION_PROJECT_ID : null;
 const MIGRATION_ID = "TL-SERVERLESS-MIGRATION-001";
 const BATCH_SIZE = 250;
 const LARGE_DOCUMENT_BYTES = 300_000;
@@ -18,8 +21,11 @@ const verifyOnly = args.has("--verify");
 const startTable = process.argv.slice(2).find((argument) => argument.startsWith("--start-table="))?.split("=", 2)[1];
 
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
-if ((process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || PROJECT_ID) !== PROJECT_ID) {
-  throw new Error("Refusing to migrate outside tiimeliines.");
+if (!PROJECT_ID) {
+  throw new Error("TIMELINES_ENVIRONMENT must explicitly identify staging or production for migration.");
+}
+if ((process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT) !== PROJECT_ID) {
+  throw new Error(`Refusing to migrate outside the declared ${environment} project.`);
 }
 
 if (getApps().length === 0) initializeApp({ projectId: PROJECT_ID, storageBucket: process.env.STORAGE_BUCKET || `${PROJECT_ID}-institutional-archive` });
