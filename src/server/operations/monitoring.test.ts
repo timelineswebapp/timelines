@@ -65,6 +65,21 @@ test("webhook alert delivery posts structured alert payloads", async () => {
   assert.match(String(calls[0]?.init.body), /platform-health-unavailable/);
 });
 
+test("webhook alert delivery signs a controlled receiver request when the shared secret is present", async () => {
+  const calls: Array<{ url: string; init: RequestInit }> = [];
+  await deliverOperationalAlert({
+    severity: "warning",
+    key: "staging-alert-rehearsal",
+    message: "Controlled staging delivery.",
+    env: { OPERATIONS_WARNING_WEBHOOK_URL: "https://alerts.example/internal/staging-alert-receiver", BACKEND_SHARED_SECRET: "a".repeat(32) },
+    fetchImpl: (async (url, init) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response("ok", { status: 201 });
+    }) as typeof fetch
+  });
+  assert.match(String(calls[0]?.init.headers instanceof Headers ? calls[0]?.init.headers.get("x-timelines-internal-signature") : (calls[0]?.init.headers as Record<string, string>)?.["x-timelines-internal-signature"]), /^[a-f0-9]{64}$/u);
+});
+
 test("PITR, retention, deployment, and incident controls are complete", () => {
   assert.equal(validatePitrReadinessConfiguration().ok, true);
   assert.equal(validateRetentionConfiguration().ok, true);

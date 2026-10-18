@@ -24,6 +24,7 @@ export const CORPUS_COLLECTIONS = [
   "governancePackages",
   "governanceQueues",
   "libraryAdmissions",
+  "operationalAlertReceipts",
   "platformReadModels",
   "publicationLifecycle",
   "publishedMemory",

@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { Timestamp } from "firebase-admin/firestore";
 import { z } from "zod";
-import { ACTIVE_CORPUS_ID, PUBLIC_API_VERSION } from "./config";
+import { ACTIVE_CORPUS_ID, PUBLIC_API_VERSION, RUNTIME_ENVIRONMENT } from "./config";
 import { assertActiveCorpus, corpusCollection } from "./corpus";
 import { normalizeTopic } from "./normalization";
 import { topicRequestSchema } from "./schemas";
@@ -42,6 +42,12 @@ export const sourceSubmissionCommandSchema = z.object({
     if (url.protocol !== "https:" || url.username || url.password) context.addIssue({ code: z.ZodIssueCode.custom, path: ["submittedUrl"], message: "A credential-free HTTPS URL is required." });
   } catch { context.addIssue({ code: z.ZodIssueCode.custom, path: ["submittedUrl"], message: "A valid HTTPS URL is required." }); }
 });
+export const stagingAlertReceiptSchema = z.object({
+  severity: z.enum(["info", "warning", "critical"]),
+  key: z.string().trim().min(1).max(120),
+  message: z.string().trim().min(1).max(1_000),
+  details: z.record(z.string(), z.unknown()).default({})
+}).strict();
 
 const readModelTypes = new Set(["timeline", "milestone", "historical_object", "relationship", "search", "sitemap"]);
 const MAX_PUBLIC_SEARCH_QUERY_LENGTH = 120;
@@ -315,6 +321,33 @@ async function internalFactoryV2SourceSubmissionInspection(request: Request, res
   return success(response, await inspectSourceSubmissionCandidate(new V2FirestoreRepository(), idSchema.parse(candidateId)));
 }
 
+async function stagingAlertReceipt(request: Request, response: Response) {
+  if (RUNTIME_ENVIRONMENT !== "staging") return failure(response, 404, "NOT_FOUND", "Route not found.");
+  const serializedBody = JSON.stringify(request.body ?? {});
+  const authorized = validInternalRequest({
+    secret: process.env.BACKEND_SHARED_SECRET,
+    timestamp: request.header("x-timelines-internal-timestamp") || undefined,
+    signature: request.header("x-timelines-internal-signature") || undefined,
+    method: request.method,
+    path: request.path,
+    serializedBody
+  });
+  if (!authorized) return failure(response, 401, "UNAUTHORIZED", "Signed internal request required.");
+  const receipt = stagingAlertReceiptSchema.parse(request.body);
+  const receiptId = createHash("sha256").update(`${request.header("x-timelines-internal-timestamp")}.${request.header("x-timelines-internal-signature")}`).digest("hex").slice(0, 48);
+  const reference = corpusCollection("operationalAlertReceipts").doc(receiptId);
+  const existing = await reference.get();
+  if (!existing.exists) {
+    await reference.create({
+      ...receipt,
+      receiptId,
+      receivedAt: Timestamp.now(),
+      environment: RUNTIME_ENVIRONMENT
+    });
+  }
+  return success(response, { receiptId, duplicate: existing.exists }, existing.exists ? 200 : 201);
+}
+
 export async function handlePublicApi(request: Request, response: Response) {
   response.set("Cache-Control", "no-store");
   try {
@@ -338,6 +371,7 @@ export async function handlePublicApi(request: Request, response: Response) {
     if (request.method === "POST" && request.path === "/internal/factory-v2/deferred-reentry") return await createInternalFactoryV2DeferredReentry(request, response);
     if (request.method === "POST" && request.path === "/internal/factory-v2/source-submissions") return await createInternalFactoryV2SourceSubmission(request, response);
     if (request.method === "GET" && request.path === "/internal/factory-v2/source-submissions") return await internalFactoryV2SourceSubmissions(request, response);
+    if (request.method === "POST" && request.path === "/internal/staging-alert-receiver") return await stagingAlertReceipt(request, response);
     const sourceSubmissionInspection = request.path.match(/^\/internal\/factory-v2\/source-submissions\/([A-Za-z0-9][A-Za-z0-9._:-]{2,159})$/u);
     if (request.method === "GET" && sourceSubmissionInspection) return await internalFactoryV2SourceSubmissionInspection(request, response, sourceSubmissionInspection[1]!);
     if (request.method === "GET" && request.path === "/continuity") return await continuity(request, response);

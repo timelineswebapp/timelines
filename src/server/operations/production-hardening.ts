@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createHmac } from "node:crypto";
 import { alertDefinitions, operationalMetrics } from "@/src/server/operations/monitoring";
 
 type Severity = "info" | "warning" | "critical";
@@ -210,15 +211,24 @@ export async function deliverOperationalAlert(input: {
   const webhookUrl = env[route.webhookEnv];
   if (!webhookUrl) throw new Error(`Alert webhook is not configured: ${route.webhookEnv}.`);
   const fetchImpl = input.fetchImpl ?? fetch;
+  const body = JSON.stringify({
+    severity: input.severity,
+    key: input.key,
+    message: input.message,
+    details: input.details ?? {}
+  });
+  const secret = env.OPERATIONS_WEBHOOK_SHARED_SECRET || env.BACKEND_SHARED_SECRET;
+  const timestamp = String(Date.now());
+  const signedHeaders: Record<string, string> = secret && secret.length >= 32
+    ? {
+        "x-timelines-internal-timestamp": timestamp,
+        "x-timelines-internal-signature": createHmac("sha256", secret).update(`${timestamp}.POST.${new URL(webhookUrl).pathname}.${body}`).digest("hex")
+      }
+    : {};
   const response = await fetchImpl(webhookUrl, {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      severity: input.severity,
-      key: input.key,
-      message: input.message,
-      details: input.details ?? {}
-    })
+    headers: { "content-type": "application/json", ...signedHeaders },
+    body
   });
   return { delivered: response.ok, channel: route.channel, status: response.status };
 }

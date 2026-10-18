@@ -4,7 +4,7 @@ import test from "node:test";
 import { normalizeTopic } from "./normalization";
 import { evidenceFirstTaskPayloadSchema, generatedTimelineSchema, institutionalTaskPayloadSchema, taskPayloadSchema, timelineEditorialPlanSchema, topicRequestSchema } from "./schemas";
 import { ACTIVE_CORPUS_ID } from "./config";
-import { boundedInteger, deferredReentryCommandSchema, scalarQueryString, sourceSubmissionCommandSchema, verifiedClientIp } from "./public-api";
+import { boundedInteger, deferredReentryCommandSchema, scalarQueryString, sourceSubmissionCommandSchema, stagingAlertReceiptSchema, verifiedClientIp } from "./public-api";
 import { createHmac } from "node:crypto";
 import { internalRequestSignature, validInternalRequest } from "./internal-auth";
 
@@ -237,6 +237,14 @@ test("mandatory contract suite verifies internal request method, path, body, and
   assert.equal(validInternalRequest({ ...valid, path: "/internal/factory-v2/deferred" }), false);
   assert.equal(validInternalRequest({ ...valid, timestamp: "1e3" }), false);
   assert.equal(validInternalRequest({ ...valid, now: Number(timestamp) + 300_001 }), false);
+});
+
+test("staging alert receipts require a bounded, structured severity payload", () => {
+  const valid = { severity: "critical", key: "staging-alert-rehearsal", message: "Controlled staging delivery.", details: { run: "TL-STAGING-004" } };
+  assert.equal(stagingAlertReceiptSchema.safeParse(valid).success, true);
+  assert.equal(stagingAlertReceiptSchema.safeParse({ ...valid, severity: "fatal" }).success, false);
+  assert.equal(stagingAlertReceiptSchema.safeParse({ ...valid, key: "" }).success, false);
+  assert.equal(stagingAlertReceiptSchema.safeParse({ ...valid, unexpected: true }).success, false);
 });
 
 test("signed public topic intake rejects noncanonical timestamps and altered bodies", () => {
