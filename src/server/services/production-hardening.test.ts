@@ -147,5 +147,7 @@ test("serverless migration requires an explicit environment-owned project", asyn
   assert.match(migration, /TIMELINES_ENVIRONMENT/);
   assert.match(migration, /STAGING_PROJECT_ID = "timelines-staging"/);
   assert.match(migration, /PRODUCTION_PROJECT_ID = "tiimeliines"/);
+  assert.match(migration, /STAGING_RUNTIME_SERVICE_ACCOUNT/);
+  assert.match(migration, /GOOGLE_IMPERSONATE_SERVICE_ACCOUNT is permitted only for the staging runtime identity/);
   assert.match(migration, /Refusing to migrate outside the declared/);
 });

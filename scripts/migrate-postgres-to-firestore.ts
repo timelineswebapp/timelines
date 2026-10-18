@@ -1,17 +1,19 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { loadEnvConfig } from "@next/env";
-import { getApps, initializeApp } from "firebase-admin/app";
-import { FieldPath, Timestamp, getFirestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
+import { FieldPath, Firestore, Timestamp } from "@google-cloud/firestore";
+import { Storage } from "@google-cloud/storage";
+import { GoogleAuth, Impersonated, OAuth2Client } from "google-auth-library";
 import postgres from "postgres";
 
 loadEnvConfig(process.cwd());
 
 const PRODUCTION_PROJECT_ID = "tiimeliines";
 const STAGING_PROJECT_ID = "timelines-staging";
+const STAGING_RUNTIME_SERVICE_ACCOUNT = "timelines-runtime@timelines-staging.iam.gserviceaccount.com";
 const environment = process.env.TIMELINES_ENVIRONMENT;
 const PROJECT_ID = environment === "staging" ? STAGING_PROJECT_ID : environment === "production" ? PRODUCTION_PROJECT_ID : null;
+const STORAGE_BUCKET = process.env.STORAGE_BUCKET || `${PROJECT_ID}-institutional-archive`;
 const MIGRATION_ID = "TL-SERVERLESS-MIGRATION-001";
 const BATCH_SIZE = 250;
 const LARGE_DOCUMENT_BYTES = 300_000;
@@ -28,8 +30,34 @@ if ((process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT) !== PROJECT
   throw new Error(`Refusing to migrate outside the declared ${environment} project.`);
 }
 
-if (getApps().length === 0) initializeApp({ projectId: PROJECT_ID, storageBucket: process.env.STORAGE_BUCKET || `${PROJECT_ID}-institutional-archive` });
-const db = getFirestore();
+async function initializeFirebase() {
+  const requestedImpersonation = process.env.GOOGLE_IMPERSONATE_SERVICE_ACCOUNT;
+  let authClient: GoogleAuth | Impersonated | undefined;
+  if (requestedImpersonation) {
+    if (environment !== "staging" || requestedImpersonation !== STAGING_RUNTIME_SERVICE_ACCOUNT) {
+      throw new Error("GOOGLE_IMPERSONATE_SERVICE_ACCOUNT is permitted only for the staging runtime identity.");
+    }
+    const sourceAccessToken = process.env.GOOGLE_IMPERSONATION_SOURCE_ACCESS_TOKEN;
+    const sourceClient = sourceAccessToken
+      ? (() => {
+          const client = new OAuth2Client();
+          client.setCredentials({ access_token: sourceAccessToken });
+          return client;
+        })()
+      : await new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] }).getClient();
+    const impersonatedClient = new Impersonated({
+      sourceClient,
+      targetPrincipal: STAGING_RUNTIME_SERVICE_ACCOUNT,
+      targetScopes: ["https://www.googleapis.com/auth/cloud-platform"],
+      lifetime: 3_600
+    });
+    authClient = new GoogleAuth({ authClient: impersonatedClient, projectId: PROJECT_ID! });
+  }
+  return authClient;
+}
+
+let db!: Firestore;
+let storage!: Storage;
 const sql = postgres(process.env.DATABASE_URL, { max: 2, connect_timeout: 15, idle_timeout: 20 });
 
 type TableInfo = { tableName: string; primaryKeys: string[]; estimatedRows: number };
@@ -153,7 +181,7 @@ async function maybeOffloadLargeBody(collection: string, documentId: string, row
   }
   if (!apply) return { ...row, largeObjectWouldBeArchived: true, originalBytes: Buffer.byteLength(serialized) };
   const objectPath = `institutional-source-archive/${MIGRATION_ID}/${collection}/${documentId}.json`;
-  await getStorage().bucket().file(objectPath).save(serialized, {
+  await storage.bucket(STORAGE_BUCKET).file(objectPath).save(serialized, {
     resumable: false,
     contentType: "application/json",
     metadata: { cacheControl: "private, max-age=31536000, immutable", metadata: { sha256: hash(serialized), migrationId: MIGRATION_ID } }
@@ -399,6 +427,9 @@ async function verify(inventory: TableInfo[], counts?: Record<string, MigrationC
 
 async function main() {
   const startedAt = new Date().toISOString();
+  const authClient = await initializeFirebase();
+  db = new Firestore({ projectId: PROJECT_ID!, ...(authClient ? { auth: authClient } : {}) } as never);
+  storage = new Storage({ projectId: PROJECT_ID!, ...(authClient ? { authClient } : {}) });
   const inventory = await tableInventory();
   if (verifyOnly) {
     const verification = await verify(inventory);
