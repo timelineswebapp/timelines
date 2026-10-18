@@ -92,3 +92,11 @@ The staging canonical URL, Open Graph identity, and server-owned host policy rem
 ## Final repository regression
 
 After the capacity-profile change, strict TypeScript and the complete mandatory root suite passed (**307 tests, 0 failures**). The Tier-1 security gate also passed with zero high/critical runtime findings in both root and Functions production audits. The recorded lint-tooling-only advisory remains subject to its existing release-review conditions and is not a runtime exception.
+
+## 2026-10-18 — bounded capacity execution
+
+The restored Neon session was independently constrained to `timelines-staging` / `hidden-darkness-27048706`, database `timelines-staging-primary`; the GCP project remained `timelines-staging` (`673364478850`), discovery remained `PAUSED`, and the staging website returned HTTP 200. The canonical URL guard first failed closed without `NEXT_PUBLIC_SITE_URL`, then accepted only `https://timelines-staging.vercel.app`.
+
+All four authorised capacity profiles completed the governed Factory → Governance → Historical Library → Published Memory workflow: 3, 12, 30, and 60 labelled synthetic milestones respectively (105 new capacity objects). The database contains 106 published snapshots and active projections of 5 timelines plus 106 milestone/search/sitemap records. Each profile's Factory, Governance, and Library actor was post-revocation denied (12/12 checks); immutable appointment/revocation records remain by design. No provider research, discovery, real appointment, production resource, or production publication was invoked.
+
+**Firestore/public-reader capacity parity: BLOCKED_ISOLATION.** Materialisation was not attempted with the active local GCP account because it is `booktown10@gmail.com`, not a TiMELiNES staging principal, and lacks `iam.serviceAccounts.getAccessToken` on `timelines-runtime@timelines-staging.iam.gserviceaccount.com`. Granting cross-account token creation would weaken the intended isolation and was not performed. Consequently representative deployed API/pagination/concurrent-reader evidence remains not executed. The certification command was corrected to close its SQL pool deterministically; strict TypeScript passed.

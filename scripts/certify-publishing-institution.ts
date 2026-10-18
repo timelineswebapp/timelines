@@ -6,7 +6,7 @@ import { buildGovernancePublicationPackage } from "@/src/server/services/factory
 import { governanceService } from "@/src/server/services/governance-service";
 import { historicalLibraryService } from "@/src/server/services/historical-library-service";
 import { publishedMemoryProjectionService } from "@/src/server/services/published-memory-projection-service";
-import { getWriteSql } from "@/src/server/db/client";
+import { closeSql, getWriteSql } from "@/src/server/db/client";
 import { resolveInstitutionalActor } from "@/src/server/security/institutional-actor-resolution";
 import type { AdminOperatorIdentity } from "@/src/server/security/admin-identity";
 import type { GovernanceActorRef } from "@/src/server/governance/contracts";
@@ -308,7 +308,12 @@ async function main() {
   }, null, 2));
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await closeSql();
+    process.exit(process.exitCode ?? 0);
+  });
