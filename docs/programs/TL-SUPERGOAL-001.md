@@ -398,3 +398,7 @@ Completed for this increment:
 ## Next authorized action
 
 Continue the next unmet authenticated-control, public-reader resilience, or infrastructure/security requirement only where it can be completed as an independently verifiable end-to-end package. Any future browser-triggered mutation must retain server-derived operator attribution and direct route coverage; rerun the process-local OpenJDK 21, isolated-port Firestore emulator procedure whenever a package changes Firestore data access or security rules. No deployment, publication, discovery, re-entry dispatch, or historical-policy change is authorized. The separate Phase-2 historical identity/capacity boundary remains Founder-governed.
+
+## 2026-10-18 — TL-STAGING-004 status
+
+The Founder has now authorized bounded, synthetic-only staging institutional transitions. At checkpoint `9d10403`, resolver-owned actor attribution and immutable synthetic appointment/revocation lifecycle were verified only against `timelines-staging-primary`; the target's Neon project, GCP project, paused discovery, Vercel staging identity, and production non-access were rechecked. No Factory-ready synthetic package was present, so the full journey was not started and all temporary appointments were revoked. The remaining authorized work is a governed synthetic Factory/evidence fixture seed followed by the full staging journey and public/operational qualification. Phase 2 remains blocked and uncertified; no production resource changed.
