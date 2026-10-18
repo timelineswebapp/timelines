@@ -428,3 +428,7 @@ The bounded Cloud Run latency profile then separated transport from handler exec
 ## 2026-10-18 — staging Admin-session acceptance
 
 The canonical staging Vercel alias was moved from its stale prior deployment to ready isolated release `dpl_9WCvzzTjXQ52HagWMmNr8DUVtX5c`. A synthetic MFA Admin session then proved live identity/session behavior without any institutional mutation: valid read-only Admin access 200; expiry denial 401; RBAC denial for an MFA-attested `auditor` 403; durable staging revocation denial 401. The isolated `timelines-staging-primary` database retained the labelled revocation record and the correlated `admin_auth_succeeded` plus `admin_rbac_rejected` audit records. This closes the staging P0-A acceptance gate only. No production identity, deployment, data, or authority changed.
+
+## 2026-10-18 — structural responsive staging verification
+
+The canonical staging synthetic reader was reloaded at 320×568, 768×1024, and 1440×900. Each accessibility-tree inspection preserved the heading plus labeled navigation, event-detail, and copy-link controls. The authorised structural responsive-browser gate is therefore complete. This remains distinct from an actual screen-reader-user audit and representative real-corpus/public-Internet capacity qualification, which are not claimed as complete.

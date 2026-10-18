@@ -337,3 +337,7 @@ Desktop and `390×844` staging-browser checks confirmed keyboard traversal, labe
 ### 2026-10-18 — P0-A staging Admin identity/session evidence closed
 
 The staging canonical alias had remained pinned to an older release; it now resolves to ready deployment `dpl_9WCvzzTjXQ52HagWMmNr8DUVtX5c` only in `timelines-app/timelines-staging`. A synthetic MFA session to the read-only Admin timelines endpoint passed before revocation (200), an expired session failed closed (401), an MFA-attested `auditor` was rejected for the Admin-only route (403), and the same valid session failed closed after a durable labelled staging revocation (401). The direct staging database verification found `admin_auth_succeeded` and `admin_rbac_rejected` audit rows for the synthetic operator plus the retained revocation record. This closes P0-A in the authorised production-like staging environment; production identity/operator enrollment remains outside scope and is not represented as complete.
+
+### 2026-10-18 — P0-E structural responsive matrix closed
+
+The canonical isolated staging synthetic timeline route was reloaded at 320×568, 768×1024, and 1440×900. At all three viewports, the accessibility tree retained the timeline heading and labeled navigation, event-detail, and copy-link controls. This closes the authorised structural responsive-device check. A screen-reader-user audit and representative real-corpus/public-Internet capacity evidence remain launch-evidence boundaries; neither is silently promoted to verified status.
