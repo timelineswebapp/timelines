@@ -185,6 +185,7 @@ export type CreateFactoryPackageDraftInput = ActorInput & {
   packageType: FactoryPackageType;
   factoryObjectRefs: string[];
   artifactRefs: string[];
+  validatedEvidenceRefs?: EvidenceRef[];
   riskSummary: {
     unresolvedAuthorityRisks: string[];
     validationWarnings: string[];
