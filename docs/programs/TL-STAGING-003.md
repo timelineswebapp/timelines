@@ -131,3 +131,13 @@ This completes the authorised **staging** P0-A identity/session/role/expiry/revo
 ## 2026-10-18 — responsive public-reader matrix
 
 The canonical isolated staging reader at `/timeline/synthetic-communications-milestone` was reloaded at **320×568**, **768×1024**, and **1440×900**. At every viewport, the accessibility tree retained the page heading, labeled navigation-menu control, event-detail control, and copy-link control. This closes the structural responsive-device portion of P0-E for the authorised synthetic reader journey. It does not substitute for a screen-reader-user audit, visual-regression comparison, representative production corpus, or public-Internet capacity certification.
+
+## 2026-10-18 — final qualification revalidation
+
+Read-only final-qualification checks reconfirmed GCP project `timelines-staging` / `673364478850` as active, `topic-discovery-daily` as `PAUSED`, and the staging canonical hostname as ready Vercel deployment `dpl_9WCvzzTjXQ52HagWMmNr8DUVtX5c`. The website health endpoint and public Function GET routes (`/`, `/read-models`, `/search`, `/sitemap`) returned HTTP 200. An initial 404 observation was traced to `HEAD` probes against GET-only routes and discarded; it is not an API failure.
+
+Commit `060d0a9` adds four strictly staging-gated capacity-fixture profiles (3, 12, 30, and 60 milestones across distinct synthetic periods, with 2–5 sources each). Strict TypeScript and the focused Factory/Library/Published-Memory/public-contract matrix passed (**114/114**). No profile was executed: the only local database URL is an independently identified non-staging `neondb`, and the active native Chrome session is unrelated BookTown/Firebase. That account and URL were deliberately excluded. Restoring the intended TiMELiNES staging Neon session is required before fixture mutation, migration, bounded concurrent load, and immutable fixture revocation.
+
+The recovery policy requires 24 hours of provider recovery history, while Neon Free offers six. The logical backup/restore rehearsal remains passed but cannot be declared PITR-policy compliant. See [`TL-TIER1-FINAL-QUALIFICATION-REPORT.md`](TL-TIER1-FINAL-QUALIFICATION-REPORT.md) for the authoritative matrix.
+
+The post-change repository verification passed strict TypeScript, the complete root suite (**307/307**), and the Tier-1 security gate (zero high/critical runtime findings in root and Functions production audits). The existing accepted tooling-only advisory remains bounded by its recorded release-review conditions.
