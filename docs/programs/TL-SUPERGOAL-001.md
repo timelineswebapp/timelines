@@ -450,3 +450,7 @@ Strict TypeScript, the full mandatory root suite (**307/307**), and the Tier-1 s
 The isolated TiMELiNES staging Neon session was restored and verified. The authorised 3/12/30/60 milestone capacity profiles completed the full governed synthetic database workflow, yielding 105 capacity objects, 106 published snapshots, 5 active timeline projections, and 106 active milestone/search/sitemap projections. Post-revocation denial passed for all 12 synthetic institutional principals. This remains staging-only and did not activate discovery, use real authority, or modify production.
 
 The next authorised operation is blocked by identity isolation: the local active GCP identity is a BookTown account, not a TiMELiNES staging principal, and cannot impersonate the staging runtime. No cross-account IAM grant was made. Firestore materialisation and representative deployed-reader/performance evidence remain pending an intended TiMELiNES staging GCP identity. Berlin Phase-2 remains locked and uncertified; Neon Free retains its separate six-hour-versus-24-hour recovery policy blocker.
+
+### 2026-10-29 — staging identity recheck
+
+No local non-BookTown GCP identity is currently authorised for `timelines-staging`: `timelineswebapp@gmail.com` is denied project access. No production or BookTown credential was used for staging work, and no IAM change was made. The remaining staging corpus materialisation and capacity acceptance work remains correctly blocked on a TiMELiNES staging principal.
