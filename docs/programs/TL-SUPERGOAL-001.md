@@ -462,3 +462,7 @@ The candidate has been upgraded to Next `16.4.6` and Zod `4.6.7` with explicit Z
 ### 2026-11-25 — isolated deployment access remains unavailable
 
 The configured TiMELiNES user `timelineswebapp@gmail.com` is denied `timelines-staging` read access; only the explicitly excluded BookTown account can inspect it locally. The local Vercel credential is invalid, preventing a deployment or deployment attestation in `timelines-app/timelines-staging`. No login, IAM grant, provider mutation, or production action was attempted. The remaining release path requires an already-authorised TiMELiNES staging GCP principal plus a Vercel session scoped to the existing staging project; it must not use BookTown or production credentials.
+
+### 2026-11-25 — Founder-authorised production source promotion
+
+The Founder explicitly selected direct production pre-launch work because there are no users or real data. The fully verified source release was fast-forwarded without divergence to GitHub `main` at `93f0860`. This is the repository's configured production deployment trigger. GitHub presently provides no check run, Action, or provider-deployment attestation for that commit, and the local Vercel token is invalid; deployment completion is therefore **NOT_YET_ATTESTED**. No production content, institutional authority, discovery, Governance submission, publication, or Berlin certification control was changed. An authorised TiMELiNES Vercel session is required solely to attest the resulting production deployment and execute the production smoke matrix.
