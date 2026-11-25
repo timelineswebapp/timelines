@@ -45,8 +45,14 @@ function isPublicMilestoneExposureAllowed(milestone: EventRecord): boolean {
   return timelineLinks.length === 0 || timelineLinks.some((timeline) => !isHeldFromPublicPublication(timeline.slug));
 }
 
-async function heldTimelineMilestoneIds(): Promise<Set<number> | null> {
+type HeldTimelinePublicationMetadata = {
+  milestoneIds: Set<number>;
+  tagSlugs: Set<string>;
+};
+
+async function heldTimelinePublicationMetadata(): Promise<HeldTimelinePublicationMetadata | null> {
   const eventIds = new Set<number>();
+  const tagSlugs = new Set<string>();
   // The hold set is deliberately small and founder-owned. Reading these
   // records server-side keeps the sitemap from advertising a held timeline's
   // milestone routes without exposing the record to a reader.
@@ -56,14 +62,22 @@ async function heldTimelineMilestoneIds(): Promise<Set<number> | null> {
       return null;
     }
     const payload = snapshot.payload as Partial<TimelineDetail>;
-    if (!Array.isArray(payload.events) || payload.events.some((event) => !event || typeof event.id !== "number")) {
+    if (
+      !Array.isArray(payload.events) ||
+      payload.events.some((event) => !event || typeof event.id !== "number") ||
+      !Array.isArray(payload.tags) ||
+      payload.tags.some((tag) => !tag || typeof tag.slug !== "string")
+    ) {
       return null;
     }
     for (const event of payload.events) {
       eventIds.add(event.id);
     }
+    for (const tag of payload.tags) {
+      tagSlugs.add(tag.slug);
+    }
   }
-  return eventIds;
+  return { milestoneIds: eventIds, tagSlugs };
 }
 
 function payloadAs<T>(snapshot: PublishedReadModelSnapshot | null): T | null {
@@ -245,16 +259,16 @@ export const platformReadModelService = {
   },
 
   async listMilestoneSitemapEntries(): Promise<Array<{ id: number; title: string; updatedAt: string }>> {
-    const [documents, heldMilestoneIds] = await Promise.all([
+    const [documents, heldMetadata] = await Promise.all([
       platformReadModelRepository.listSitemapDocuments(),
-      heldTimelineMilestoneIds()
+      heldTimelinePublicationMetadata()
     ]);
     // If the source of the public hold cannot be verified, do not publish any
     // milestone sitemap entries. This prevents a transient backend failure from
     // silently re-promoting Berlin through search engines.
-    if (heldMilestoneIds === null) return [];
+    if (heldMetadata === null) return [];
     return documents
-      .filter((document) => document.kind === "milestone" && typeof document.id === "number" && !heldMilestoneIds.has(document.id) && typeof document.title === "string")
+      .filter((document) => document.kind === "milestone" && typeof document.id === "number" && !heldMetadata.milestoneIds.has(document.id) && typeof document.title === "string")
       .map((document) => ({ id: document.id as number, title: document.title as string, updatedAt: String(document.updatedAt || new Date(0).toISOString()) }));
   },
 
@@ -263,7 +277,14 @@ export const platformReadModelService = {
   },
 
   async listTags(): Promise<TagRecord[]> {
-    return platformReadModelRepository.listTags();
+    const [tags, heldMetadata] = await Promise.all([
+      platformReadModelRepository.listTags(),
+      heldTimelinePublicationMetadata()
+    ]);
+    // Tag index routes are reader promotion surfaces too. Do not emit any of
+    // them if the held record cannot be verified server-side.
+    if (heldMetadata === null) return [];
+    return tags.filter((tag) => !heldMetadata.tagSlugs.has(tag.slug));
   },
 
   async getCategoryDetail(slug: string): Promise<CategoryDetail | null> {
@@ -272,6 +293,8 @@ export const platformReadModelService = {
   },
 
   async getTagDetail(slug: string): Promise<TagDetail | null> {
+    const heldMetadata = await heldTimelinePublicationMetadata();
+    if (heldMetadata === null || heldMetadata.tagSlugs.has(slug)) return null;
     const detail = await platformReadModelRepository.getTagDetail(slug);
     return detail ? { ...detail, timelines: filterPublicTimelineExposure(detail.timelines) } : null;
   },
