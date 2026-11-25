@@ -72,6 +72,12 @@ async function heldTimelinePublicationMetadata(): Promise<HeldTimelinePublicatio
     }
     for (const event of payload.events) {
       eventIds.add(event.id);
+      if (!Array.isArray(event.tags) || event.tags.some((tag) => !tag || typeof tag.slug !== "string")) {
+        return null;
+      }
+      for (const tag of event.tags) {
+        tagSlugs.add(tag.slug);
+      }
     }
     for (const tag of payload.tags) {
       tagSlugs.add(tag.slug);

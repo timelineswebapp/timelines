@@ -484,3 +484,5 @@ Vercel Analytics and Speed Insights are enabled for the public production hostna
 Per Founder instruction, the reader now enforces a server-owned public-publication hold for `the-fall-of-the-berlin-wall`. It removes public timeline/search/listing/SEO exposure without changing the historical record, institutional authority, or locked Phase-2 criterion. Berlin remains **BLOCKED_FOUNDER / UNCERTIFIED**. The source release passed strict TypeScript, **308/308** root tests, production build, and the Tier-1 security gate before deployment attestation.
 
 The release follow-up also suppresses Berlin-derived tag routes from the public tag index and sitemap, with a server-side fail-closed check of the held projection. This closes the only remaining public Berlin promotion path discovered during live smoke verification.
+
+The final derivation includes tags attached to held milestones as well as the held timeline, closing the event-level sitemap exposure observed in the previous release.

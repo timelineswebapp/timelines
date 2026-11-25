@@ -5,7 +5,7 @@ import { platformReadModelService } from "@/src/server/services/platform-read-mo
 
 const heldSlug = "the-fall-of-the-berlin-wall";
 
-function timeline(slug: string, events: Array<{ id: number }> = [], tags: Array<{ id: number; slug: string; name: string }> = []) {
+function timeline(slug: string, events: Array<{ id: number; tags: Array<{ id: number; slug: string; name: string }> }> = [], tags: Array<{ id: number; slug: string; name: string }> = []) {
   return {
     id: slug === heldSlug ? 2 : 1,
     title: slug,
@@ -32,7 +32,7 @@ test("Founder-held Berlin timeline is removed from public lists, routes, search,
     { snapshotId: "held", authorityRef: { authorityType: "timeline", authorityId: "held" }, readModelType: "timeline", slug: heldSlug, payload: timeline(heldSlug) },
     { snapshotId: "visible", authorityRef: { authorityType: "timeline", authorityId: "visible" }, readModelType: "timeline", slug: "apollo", payload: timeline("apollo") }
   ];
-  platformReadModelRepository.getPublishedReadModelBySlug = async () => ({ snapshotId: "held", authorityRef: { authorityType: "timeline", authorityId: "held" }, readModelType: "timeline", slug: heldSlug, payload: timeline(heldSlug, [{ id: 200 }], [{ id: 2, slug: "berlin", name: "Berlin" }]) });
+  platformReadModelRepository.getPublishedReadModelBySlug = async () => ({ snapshotId: "held", authorityRef: { authorityType: "timeline", authorityId: "held" }, readModelType: "timeline", slug: heldSlug, payload: timeline(heldSlug, [{ id: 200, tags: [{ id: 3, slug: "east-berlin", name: "East Berlin" }] }], [{ id: 2, slug: "berlin", name: "Berlin" }]) });
   platformReadModelRepository.searchPublishedReadModels = async () => ({
     total: 1,
     matches: [{ rank: 1, snapshot: { snapshotId: "held", authorityRef: { authorityType: "search", authorityId: "held" }, readModelType: "search", slug: heldSlug, payload: { type: "timeline", id: 2, timeline: timeline(heldSlug) } } }]
@@ -45,6 +45,7 @@ test("Founder-held Berlin timeline is removed from public lists, routes, search,
   ];
   platformReadModelRepository.listTags = async () => [
     { id: 2, slug: "berlin", name: "Berlin" },
+    { id: 3, slug: "east-berlin", name: "East Berlin" },
     { id: 1, slug: "apollo", name: "Apollo" }
   ];
   try {

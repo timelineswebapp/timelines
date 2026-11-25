@@ -377,3 +377,5 @@ The remaining dependency is not Neon: it is a TiMELiNES staging GCP principal ca
 **2026-11-25 Berlin hold:** Founder instruction is implemented as a server-owned public-publication hold for `the-fall-of-the-berlin-wall`; it is not data deletion, certification change, or workflow activation. The hold removes the timeline and its Berlin-only milestones from verified reader and sitemap surfaces, failing closed for milestone sitemap publication if the held source cannot be verified. Regression coverage and the complete release matrix passed (**308/308** root tests, TypeScript, optimized build, and zero high/critical security gate). Do not lift this hold until the existing Founder-governed Phase-2 affected-community requirement is actually satisfied and certified.
 
 Live verification identified Berlin-derived tag sitemap entries, so the final hold now derives and suppresses the held timeline's tags too, failing closed if the source record is unavailable. This is included in the same **308/308** verified release matrix.
+
+The tag derivation includes the held timeline's milestone tags, which is necessary to cover `east-berlin` and other event-level promotion paths.
