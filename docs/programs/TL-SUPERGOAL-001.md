@@ -474,3 +474,7 @@ Vercel confirms production deployment `timelines-fg1rh4v9v-timelines-app.vercel.
 ### 2026-11-25 — production launch-gate recheck
 
 Production Neon is directly verified as `timelines` / `little-leaf-72675905`, branch `production` / `br-winter-fog-a4ih8do6`, on Neon Free with six-hour history retention. The programme’s 24-hour recovery requirement remains unfulfilled. Vercel production configuration, inspected by variable name only, has no operational delivery webhooks, isolated restore database target, or scheduled SEO canonical-origin variable. It therefore cannot evidence on-call alert delivery or production restore rehearsal. Google Cloud Monitoring remains inaccessible under a verified TiMELiNES identity; the active browser account is BookTown and was not used. Direct production deployment and reader/API smoke are complete, but Tier-1 launch/advertising is blocked by recovery retention and drill, named on-call delivery, qualified human screen-reader acceptance, representative capacity, production operator/revocation evidence, and the locked Berlin certification disposition. No protected workflow was activated or changed.
+
+### 2026-11-25 — production telemetry availability
+
+Vercel Analytics and Speed Insights are enabled for the public production hostname. Speed Insights shows zero real-user events, so the integration is available but does not supply Core Web Vitals, real-user latency, or capacity acceptance evidence. It does not clear the representative-capacity gate.
