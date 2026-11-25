@@ -8,6 +8,7 @@ const milestonePage = readFileSync("app/milestone/[id]/[slug]/page.tsx", "utf8")
 const styles = readFileSync("app/globals.css", "utf8");
 const homePage = readFileSync("app/page.tsx", "utf8");
 const homeFeed = readFileSync("components/timeline/HomeTimelineFeed.tsx", "utf8");
+const requestTimelineForm = readFileSync("components/ui/RequestTimelineForm.tsx", "utf8");
 
 test("timeline event cards retain accessible deep-link detail interaction without institutional copy", () => {
   assert.doesNotMatch(eventRow, /View canonical milestone/);
@@ -48,4 +49,15 @@ test("homepage presents an explicit availability state when its snapshot fails",
   assert.match(homeFeed, /onClick=\{loadContinuation\}/);
   assert.match(homeFeed, /disabled=\{isLoadingContinuation\}/);
   assert.doesNotMatch(homeFeed, /window\.location\.reload\(\)/);
+});
+
+test("public beta home copy and topic requests are honest about editorial review", () => {
+  assert.match(homePage, /Public beta/);
+  assert.match(homePage, /growing, curated library/);
+  assert.match(homePage, /editorial consideration/);
+  assert.match(homePage, /Search a person, event, or subject/);
+  assert.match(requestTimelineForm, /recorded for editorial consideration/);
+  assert.match(requestTimelineForm, /currently under editorial review/);
+  assert.doesNotMatch(requestTimelineForm, /researching it now|already being researched/);
+  assert.match(requestTimelineForm, /role="dialog" aria-modal="true" aria-labelledby="request-timeline-title"/);
 });

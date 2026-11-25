@@ -379,3 +379,5 @@ The remaining dependency is not Neon: it is a TiMELiNES staging GCP principal ca
 Live verification identified Berlin-derived tag sitemap entries, so the final hold now derives and suppresses the held timeline's tags too, failing closed if the source record is unavailable. This is included in the same **308/308** verified release matrix.
 
 The tag derivation includes the held timeline's milestone tags, which is necessary to cover `east-berlin` and other event-level promotion paths.
+
+**2026-11-26 public-beta reader increment:** The public homepage now gives readers an explicit, truthful public-beta orientation, clearer search guidance, and an editorial-consideration path for missing subjects. Topic-request outcomes no longer claim autonomous research activity: queued and processing requests are described as editorial consideration/review, consistent with discovery remaining paused. The request modal now exposes dialog semantics. Strict TypeScript, **309/309** root tests, optimized production build, and the Tier-1 security gate passed. This improves the public-beta journey; it does not change the Tier-1 blockers or activate discovery.

@@ -41,9 +41,9 @@ export function RequestTimelineForm({
       }
       const statusMessages = {
         AVAILABLE: "This topic is already available.",
-        QUEUED: "Topic queued. TiMELiNES is researching it now.",
-        PROCESSING: "This topic is already being researched.",
-        FAILED: "Research could not be completed. The request is available for editorial review."
+        QUEUED: "Your request has been recorded for editorial consideration.",
+        PROCESSING: "This request is currently under editorial review.",
+        FAILED: "This request could not be recorded. Please try again later."
       } as const;
       setMessage(payload.status ? statusMessages[payload.status] : "Topic queued for research.");
       if (variant === "modal") {
@@ -75,9 +75,9 @@ export function RequestTimelineForm({
       {isOpen ? (
         variant === "modal" ? (
           <div className="request-modal-backdrop" onClick={() => setIsOpen(false)}>
-            <section className="request-modal glass" onClick={(event) => event.stopPropagation()}>
+            <section className="request-modal glass" role="dialog" aria-modal="true" aria-labelledby="request-timeline-title" onClick={(event) => event.stopPropagation()}>
               <div className="request-modal-header">
-                <strong>Request a timeline</strong>
+                <strong id="request-timeline-title">Suggest a topic</strong>
                 <button type="button" className="sheet-icon-button" onClick={() => setIsOpen(false)} aria-label="Close request form">
                   <CloseIcon />
                 </button>

@@ -486,3 +486,7 @@ Per Founder instruction, the reader now enforces a server-owned public-publicati
 The release follow-up also suppresses Berlin-derived tag routes from the public tag index and sitemap, with a server-side fail-closed check of the held projection. This closes the only remaining public Berlin promotion path discovered during live smoke verification.
 
 The final derivation includes tags attached to held milestones as well as the held timeline, closing the event-level sitemap exposure observed in the previous release.
+
+### 2026-11-26 — public-beta reader clarity
+
+The reader homepage now states its public-beta and curated-library posture, gives visitors a specific subject-search prompt, and describes missing-topic submission as editorial consideration. The request component no longer claims that a queued request causes autonomous research; processing means editorial review. Its modal has explicit dialog semantics. This source increment passed strict TypeScript, **309/309** root tests, production build, and the Tier-1 security gate. Discovery, Governance, publication, historical authority, and the Free-plan recovery boundary remain unchanged.

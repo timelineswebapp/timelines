@@ -49,16 +49,27 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: sanitizeJsonLd(homepageJsonLd) }}
       />
-      <section className="home-search-strip" aria-label="Search timelines">
-        <SearchBar
-          className="home-search-form home-search-form-solo"
-          placeholder="timeline of.."
-          inputId="home-timeline-search"
-        />
+      <section className="home-intro glass" aria-labelledby="home-intro-title">
+        <p className="eyebrow">Public beta</p>
+        <h1 id="home-intro-title" className="home-intro-title">Find the story in the sequence.</h1>
+        <p className="home-intro-copy">
+          TiMELiNES is a growing, curated library of historical, scientific, and technological timelines. Start with a subject, then follow the events that shaped it.
+        </p>
+        <div className="home-search-strip" aria-label="Search timelines">
+          <SearchBar
+            className="home-search-form home-search-form-solo"
+            placeholder="Search a person, event, or subject"
+            inputId="home-timeline-search"
+          />
+        </div>
       </section>
 
       <section id="request-timeline" className="home-request-strip">
-        <RequestTimelineForm triggerLabel="MISSING A TOPIC?" variant="modal" />
+        <div className="home-request-copy">
+          <p className="eyebrow">Shape the library</p>
+          <p>Can&apos;t find a subject? Send it for editorial consideration.</p>
+        </div>
+        <RequestTimelineForm triggerLabel="SUGGEST A TOPIC" variant="modal" />
       </section>
 
       {SHOW_HOME_TAXONOMY_SECTION ? (
