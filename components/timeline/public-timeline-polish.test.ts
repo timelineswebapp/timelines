@@ -9,6 +9,7 @@ const styles = readFileSync("app/globals.css", "utf8");
 const homePage = readFileSync("app/page.tsx", "utf8");
 const homeFeed = readFileSync("components/timeline/HomeTimelineFeed.tsx", "utf8");
 const requestTimelineForm = readFileSync("components/ui/RequestTimelineForm.tsx", "utf8");
+const siteNavigationMenu = readFileSync("components/layout/SiteNavigationMenu.tsx", "utf8");
 
 test("timeline event cards retain accessible deep-link detail interaction without institutional copy", () => {
   assert.doesNotMatch(eventRow, /View canonical milestone/);
@@ -66,4 +67,11 @@ test("public beta home copy and topic requests are honest about editorial review
   assert.match(requestTimelineForm, /triggerRef\.current\.focus\(\)/);
   assert.match(requestTimelineForm, /previousFocusRef\.current\?\.focus\(\)/);
   assert.match(requestTimelineForm, /event\.key !== "Tab"/);
+});
+
+test("public navigation does not promise universal fact-checking or guarantees", () => {
+  assert.match(siteNavigationMenu, /Editorial approach/);
+  assert.match(siteNavigationMenu, /growing public beta/);
+  assert.match(siteNavigationMenu, /reader corrections help improve the library/);
+  assert.doesNotMatch(siteNavigationMenu, /direct historical fact-checking|guarantee strict chronological alignment/);
 });

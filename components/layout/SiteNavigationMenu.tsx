@@ -295,8 +295,8 @@ function MissionPanel() {
         Whether you are exploring the 250th anniversary of the Illuminati, tracking the commercialization of deep space, or diving into the history of science, TiMELiNES organizes information to make it beautiful and easy to understand.
       </p>
       <article className="site-menu-core-card">
-        <span>Curation Core</span>
-        <strong>Every timeline added to our collection goes through direct historical fact-checking to guarantee strict chronological alignment.</strong>
+        <span>Editorial approach</span>
+        <strong>We curate public timelines for clarity and chronological context. TiMELiNES is a growing public beta, and reader corrections help improve the library.</strong>
       </article>
     </div>
   );

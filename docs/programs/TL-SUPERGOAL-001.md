@@ -496,3 +496,7 @@ Vercel attested this release as production deployment `timelines-ejr5olk88-timel
 ### 2026-11-26 — public topic-dialog keyboard completion
 
 The public beta’s topic-suggestion dialog now focuses its request input when opened, returns focus to the invoking control when closed, contains Tab navigation, and closes on Escape, backdrop, or close button. Its unknown-status fallback is now the same truthful editorial-consideration wording used by queued requests. Strict TypeScript, lint, **309/309** root tests, optimized production build, and the Tier-1 security gate passed. This closes a concrete keyboard dialog defect; qualified human screen-reader acceptance remains an independent launch gate.
+
+### 2026-11-26 — public-claim integrity
+
+The navigation drawer’s universal fact-checking/chronology guarantee was replaced with accurate public-beta editorial language and a reader-correction path. A regression prevents restoration of the unsupported guarantee. Strict TypeScript, lint, **310/310** root tests, optimized production build, and the Tier-1 security gate passed. This is a transparency correction only; no historical record, institutional authority, certification threshold, discovery, Governance, or publication state changed.
