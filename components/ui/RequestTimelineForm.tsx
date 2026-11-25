@@ -27,6 +27,10 @@ export function RequestTimelineForm({
   function closeModal() {
     setIsOpen(false);
     window.requestAnimationFrame(() => {
+      if (triggerRef.current) {
+        triggerRef.current.focus();
+        return;
+      }
       previousFocusRef.current?.focus();
     });
   }

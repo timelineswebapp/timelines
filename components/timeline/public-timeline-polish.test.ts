@@ -63,6 +63,7 @@ test("public beta home copy and topic requests are honest about editorial review
   assert.match(requestTimelineForm, /role="dialog" aria-modal="true" aria-labelledby="request-timeline-title"/);
   assert.match(requestTimelineForm, /event\.key === "Escape"/);
   assert.match(requestTimelineForm, /requestInputRef\.current\?\.focus\(\)/);
+  assert.match(requestTimelineForm, /triggerRef\.current\.focus\(\)/);
   assert.match(requestTimelineForm, /previousFocusRef\.current\?\.focus\(\)/);
   assert.match(requestTimelineForm, /event\.key !== "Tab"/);
 });
