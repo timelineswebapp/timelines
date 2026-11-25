@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { CloseIcon, SendIcon } from "@/components/ui/Icons";
 import { readPublicRequestResponse } from "@/src/lib/public-request-client";
 
@@ -15,6 +15,55 @@ export function RequestTimelineForm({
   const [error, setError] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOpen, setIsOpen] = useState(variant !== "modal");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const requestInputRef = useRef<HTMLInputElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  function openModal() {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setIsOpen(true);
+  }
+
+  function closeModal() {
+    setIsOpen(false);
+    window.requestAnimationFrame(() => {
+      previousFocusRef.current?.focus();
+    });
+  }
+
+  function handleModalKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeModal();
+      return;
+    }
+
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusable = event.currentTarget.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled])'
+    );
+    const first = focusable.item(0);
+    const last = focusable.item(focusable.length - 1);
+    if (!first || !last) {
+      return;
+    }
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  useEffect(() => {
+    if (variant === "modal" && isOpen) {
+      requestInputRef.current?.focus();
+    }
+  }, [isOpen, variant]);
 
   async function onSubmit(formData: FormData) {
     setIsSubmitting(true);
@@ -45,10 +94,10 @@ export function RequestTimelineForm({
         PROCESSING: "This request is currently under editorial review.",
         FAILED: "This request could not be recorded. Please try again later."
       } as const;
-      setMessage(payload.status ? statusMessages[payload.status] : "Topic queued for research.");
+      setMessage(payload.status ? statusMessages[payload.status] : "Your request has been recorded for editorial consideration.");
       if (variant === "modal") {
         window.setTimeout(() => {
-          setIsOpen(false);
+          closeModal();
           setMessage("");
         }, 1200);
       }
@@ -65,8 +114,9 @@ export function RequestTimelineForm({
         <button
           type="button"
           className="eyebrow request-toggle-button"
-          onClick={() => setIsOpen((current) => !current)}
+          onClick={() => (isOpen ? closeModal() : openModal())}
           aria-expanded={isOpen}
+          ref={triggerRef}
         >
           {triggerLabel}
         </button>
@@ -74,11 +124,11 @@ export function RequestTimelineForm({
 
       {isOpen ? (
         variant === "modal" ? (
-          <div className="request-modal-backdrop" onClick={() => setIsOpen(false)}>
-            <section className="request-modal glass" role="dialog" aria-modal="true" aria-labelledby="request-timeline-title" onClick={(event) => event.stopPropagation()}>
+          <div className="request-modal-backdrop" onClick={closeModal}>
+            <section className="request-modal glass" role="dialog" aria-modal="true" aria-labelledby="request-timeline-title" onClick={(event) => event.stopPropagation()} onKeyDown={handleModalKeyDown}>
               <div className="request-modal-header">
                 <strong id="request-timeline-title">Suggest a topic</strong>
-                <button type="button" className="sheet-icon-button" onClick={() => setIsOpen(false)} aria-label="Close request form">
+                <button type="button" className="sheet-icon-button" onClick={closeModal} aria-label="Close request form">
                   <CloseIcon />
                 </button>
               </div>
@@ -88,6 +138,7 @@ export function RequestTimelineForm({
                   <input
                     className="input request-input"
                     name="query"
+                    ref={requestInputRef}
                     placeholder="Request a timeline or event"
                     minLength={3}
                     maxLength={120}
