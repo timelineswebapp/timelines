@@ -153,3 +153,7 @@ Firestore materialisation and deployed public capacity tests are **BLOCKED_ISOLA
 ## 2026-10-29 — GCP identity revalidation
 
 `timelines-staging` remains `ACTIVE` (project number `673364478850`), but no locally configured non-BookTown principal is authorised for it. The active account is `booktown10@gmail.com` and was excluded. The available `timelineswebapp@gmail.com` account was directly denied read access to the staging project; therefore it cannot obtain a staging runtime token either. No credential was changed, no IAM binding was added, and no Firestore mutation, discovery, Governance/publication transition, or production action was attempted. The capacity corpus remains database-qualified only; its Firestore materialisation and deployed acceptance tests remain blocked pending an already-authorised TiMELiNES staging GCP principal.
+
+## 2026-11-25 — candidate dependency security update
+
+The staging release candidate has been remediated for current high/critical dependency findings: Next `16.4.6`, Zod `4.6.7`, and Functions `body-parser` `2.4.0`. Explicit Zod v4 record schemas preserve the pre-existing bounded validation contracts. Root TypeScript, **307/307** root tests, Functions build and **375/375** tests (two intentional emulator skips), production build, and the Tier-1 security gate passed; both production dependency audits are zero high/critical. This was a local release-candidate update only. Staging deployment/materialisation remains blocked by the documented lack of an authorised TiMELiNES staging GCP identity.

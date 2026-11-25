@@ -46,7 +46,7 @@ function releaseIdentity(repositoryRoot: string) {
   return z
     .object({
       generationReleaseId: z.string().regex(/^[a-f0-9]{64}$/u),
-      manifest: z.record(z.unknown()),
+      manifest: z.record(z.string(), z.unknown()),
     })
     .parse(JSON.parse(raw));
 }

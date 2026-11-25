@@ -32,7 +32,7 @@ const criterionAllowlist = new Map<string, { criterion: CanonicalCriterion; find
   criterionMappings.map(([label, criterion, findingCode]) => [label, { criterion, findingCode }])
 );
 
-const providerShape: z.ZodRawShape = {
+const providerShape: Record<string, z.ZodType> = {
   material_findings_json: z.string().trim().min(2).max(20_000),
   overall_publication_judgment: z.string().trim().min(2).max(80),
   summary: z.string().trim().min(40).max(1600)

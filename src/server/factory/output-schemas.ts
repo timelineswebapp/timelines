@@ -71,7 +71,7 @@ const candidateSchema = baseOutputSchema.extend({
           "candidate_context_record"
         ])
         .optional(),
-      payload: z.record(z.unknown()),
+      payload: z.record(z.string(), z.unknown()),
       evidence: z.array(evidenceSchema).min(1),
       sources: z.array(citationSchema).min(1)
     })
@@ -88,7 +88,7 @@ const compactResearchClaimSchema = z.object({
 const compactResearchCandidateSchema = z.object({
   title: z.string().min(1),
   objectType: z.enum(["candidate_source", "candidate_context_record"]),
-  payload: z.record(z.unknown()).default({}),
+  payload: z.record(z.string(), z.unknown()).default({}),
   evidenceRecordIds: z.array(z.string().min(1)).min(1)
 }).strict();
 
@@ -115,7 +115,7 @@ const compactExtractionCandidateSchema = z.object({
     "candidate_relationship",
     "candidate_context_record"
   ]),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   evidenceRecordIds: z.array(z.string().min(1)).min(1)
 }).strict();
 

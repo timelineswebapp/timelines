@@ -50,6 +50,7 @@ function assertApprovedRootTopology(): void {
 
 function assertOnlyApprovedHighFindings(report: AuditReport): void {
   const findings = highOrCritical(report);
+  if (findings.length === 0) return;
   if (findings.length !== approvedNames.size || findings.some((name) => !approvedNames.has(name))) {
     throw new Error(`UNAPPROVED_ROOT_AUDIT_HIGH_CRITICAL:${findings.join(",")}`);
   }

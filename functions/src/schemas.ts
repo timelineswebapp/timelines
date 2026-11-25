@@ -3,7 +3,7 @@ import { z } from "zod";
 const boundedText = (min: number, max: number) => z.string().trim().min(min).max(max);
 const safeUrl = z.string().trim().url().max(2048).refine((value) => new URL(value).protocol === "https:", "HTTPS URL required.");
 const requestLanguageSchema = boundedText(2, 20);
-const requestMetadataSchema = z.record(z.unknown()).default({}).refine(
+const requestMetadataSchema = z.record(z.string(), z.unknown()).default({}).refine(
   (value) => Object.keys(value).length <= 32 && JSON.stringify(value).length <= 4096,
   "Metadata must contain at most 32 keys and serialize to at most 4096 characters."
 );

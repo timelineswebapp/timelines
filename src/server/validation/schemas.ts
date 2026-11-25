@@ -62,7 +62,7 @@ export const participationPrioritySchema = z.enum(["PRIMARY", "SUPPORTING", "CON
 export const uuidParamSchema = z.string().trim().uuid();
 
 const actorSchema = z.string().trim().min(2).max(120).default("admin");
-const provenanceSchema = z.record(z.unknown()).default({});
+const provenanceSchema = z.record(z.string(), z.unknown()).default({});
 const governanceDecisionIdSchema = z.string().trim().uuid();
 
 export const sourceSchema = z.object({
@@ -138,7 +138,7 @@ export const timelineSchema = z.object({
 
 const requestLanguageSchema = z.string().trim().min(2).max(20).default("en");
 const requestEmailSchema = z.string().trim().email().max(254);
-const requestMetadataSchema = z.record(z.unknown()).default({}).refine(
+const requestMetadataSchema = z.record(z.string(), z.unknown()).default({}).refine(
   (value) => Object.keys(value).length <= 32 && JSON.stringify(value).length <= 4096,
   "Metadata must contain at most 32 keys and serialize to at most 4096 characters."
 );
@@ -384,7 +384,7 @@ export const historicalRelationshipRevisionSchema = historicalRelationshipSchema
 
 export const historicalRelationshipMergeSchema = z.object({
   targetRelationshipId: governanceDecisionIdSchema,
-  continuityPath: z.record(z.unknown()).default({}),
+  continuityPath: z.record(z.string(), z.unknown()).default({}),
   reason: trimmedString(3, 1000),
   provenance: provenanceSchema,
   actor: actorSchema,
@@ -393,7 +393,7 @@ export const historicalRelationshipMergeSchema = z.object({
 
 export const historicalRelationshipActionSchema = z.object({
   reason: trimmedString(3, 1000),
-  continuityPath: z.record(z.unknown()).default({}),
+  continuityPath: z.record(z.string(), z.unknown()).default({}),
   provenance: provenanceSchema,
   actor: actorSchema,
   governanceDecisionId: governanceDecisionIdSchema
@@ -590,25 +590,25 @@ const historicalLibraryLifecycleBaseSchema = z.object({
 });
 
 export const historicalLibraryRevisionSchema = historicalLibraryLifecycleBaseSchema.extend({
-  revisedSnapshot: z.record(z.unknown()),
+  revisedSnapshot: z.record(z.string(), z.unknown()),
   amendmentSummary: trimmedString(3, 2000)
 });
 
 export const historicalLibraryRetirementSchema = historicalLibraryLifecycleBaseSchema.extend({
-  continuityPath: z.record(z.unknown()).default({})
+  continuityPath: z.record(z.string(), z.unknown()).default({})
 });
 
 export const historicalLibraryMergeSchema = historicalLibraryLifecycleBaseSchema.extend({
   targetPublishedRecordId: governanceDecisionIdSchema,
-  continuityPath: z.record(z.unknown()).default({})
+  continuityPath: z.record(z.string(), z.unknown()).default({})
 });
 
 export const historicalLibraryPreservationSchema = historicalLibraryLifecycleBaseSchema.extend({
-  preservationMetadata: z.record(z.unknown()).default({})
+  preservationMetadata: z.record(z.string(), z.unknown()).default({})
 });
 
 export const historicalLibraryWithdrawalSchema = historicalLibraryLifecycleBaseSchema.extend({
-  continuityPath: z.record(z.unknown()).default({})
+  continuityPath: z.record(z.string(), z.unknown()).default({})
 });
 
 export const historicalLibrarySupersessionSchema = historicalLibraryLifecycleBaseSchema.extend({
@@ -617,8 +617,8 @@ export const historicalLibrarySupersessionSchema = historicalLibraryLifecycleBas
 
 export const historicalLibrarySplitSchema = historicalLibraryLifecycleBaseSchema.extend({
   childPublishedRecordIds: z.array(governanceDecisionIdSchema).min(2).max(100),
-  provenance: z.record(z.unknown()),
-  redirects: z.record(z.record(z.unknown()))
+  provenance: z.record(z.string(), z.unknown()),
+  redirects: z.record(z.string(), z.record(z.string(), z.unknown()))
 });
 
 export const historicalLibraryFeedbackGenerationSchema = z.object({
@@ -684,7 +684,7 @@ export const factoryObjectSchema = z.object({
     "candidate_context_record"
   ]),
   title: trimmedString(2, 200),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   provenance: provenanceSchema,
   actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
@@ -694,7 +694,7 @@ export const factoryArtifactSchema = z.object({
   factoryObjectId: z.string().trim().uuid().nullable().optional(),
   artifactType: z.enum(["validation", "evidence", "enrichment", "generation", "audit"]),
   title: trimmedString(2, 200),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
   authoritySafe: z.boolean().default(false),
   modelProvider: z.string().trim().max(120).nullable().optional().transform((value) => value || null),
   modelName: z.string().trim().max(120).nullable().optional().transform((value) => value || null),
@@ -802,8 +802,8 @@ export const factoryRuntimePromptSchema = z.object({
   promptKey: trimmedString(2, 120),
   title: trimmedString(2, 200),
   template: trimmedString(10, 10000),
-  inputSchema: z.record(z.unknown()).default({}),
-  outputSchema: z.record(z.unknown()).default({}),
+  inputSchema: z.record(z.string(), z.unknown()).default({}),
+  outputSchema: z.record(z.string(), z.unknown()).default({}),
   actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
@@ -813,8 +813,8 @@ export const factoryRuntimeJobSchema = z.object({
   promptId: z.string().trim().uuid(),
   providerKey: z.enum(["qwen14"]).optional(),
   priority: z.coerce.number().int().min(0).max(100).default(0),
-  input: z.record(z.unknown()),
-  configuration: z.record(z.unknown()).default({}),
+  input: z.record(z.string(), z.unknown()),
+  configuration: z.record(z.string(), z.unknown()).default({}),
   actor: actorSchema.optional(),
   reason: trimmedString(3, 1000)
 });
@@ -845,7 +845,7 @@ const forbiddenPublicationLineageFields = [
 
 export const factoryPipelineStartSchema = z.object({
   pipelineId: z.enum(["historical_research_pipeline", "historical_extraction_pipeline", "publication_candidate_pipeline"]),
-  input: z.record(z.unknown()).default({}),
+  input: z.record(z.string(), z.unknown()).default({}),
   actor: actorSchema,
   reason: trimmedString(3, 1000)
 }).superRefine((value, context) => {
@@ -888,8 +888,8 @@ export const factoryGovernanceHandoffSubmissionSchema = z.object({
   reason: trimmedString(3, 1000)
 });
 
-const editorialEvidenceReviewSchema = z.array(z.record(z.unknown())).min(1).max(200);
-const editorialSourceReviewSchema = z.array(z.record(z.unknown())).min(1).max(200);
+const editorialEvidenceReviewSchema = z.array(z.record(z.string(), z.unknown())).min(1).max(200);
+const editorialSourceReviewSchema = z.array(z.record(z.string(), z.unknown())).min(1).max(200);
 
 export const factoryCandidateValidationSchema = z.object({
   factoryPackageDraftId: z.string().trim().uuid(),
@@ -934,8 +934,8 @@ export const factoryEditorialDecisionSchema = z.discriminatedUnion("decision", [
   }),
   z.object({
     decision: z.literal("require_revision"),
-    evidenceReviewed: z.array(z.record(z.unknown())).max(200).optional(),
-    sourcesReviewed: z.array(z.record(z.unknown())).max(200).optional(),
+    evidenceReviewed: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
+    sourcesReviewed: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
     actor: actorSchema,
     reason: trimmedString(3, 1000)
   })
@@ -943,11 +943,11 @@ export const factoryEditorialDecisionSchema = z.discriminatedUnion("decision", [
 
 export const factoryAuthorityPreparationSchema = z.object({
   editorialReviewId: z.string().trim().uuid(),
-  canonicalIdentityMapping: z.record(z.unknown()),
-  authorityReferences: z.record(z.unknown()),
-  sourceTraceability: z.record(z.unknown()),
-  evidenceTraceability: z.record(z.unknown()),
-  revisionTraceability: z.record(z.unknown()),
+  canonicalIdentityMapping: z.record(z.string(), z.unknown()),
+  authorityReferences: z.record(z.string(), z.unknown()),
+  sourceTraceability: z.record(z.string(), z.unknown()),
+  evidenceTraceability: z.record(z.string(), z.unknown()),
+  revisionTraceability: z.record(z.string(), z.unknown()),
   actor: actorSchema,
   reason: trimmedString(3, 1000)
 });

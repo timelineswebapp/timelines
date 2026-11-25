@@ -98,7 +98,7 @@ export const scopeAmendmentProposalSchema = z.object({
   affectedFields: stringList(1, 20, 120),
   reason: boundedText(20, 2000),
   evidenceSegmentIds: z.array(idSchema).min(1).max(50).refine(unique),
-  proposedPatch: z.record(z.unknown()).refine((value) => JSON.stringify(value).length <= 16_384, "Amendment patch is too large."),
+  proposedPatch: z.record(z.string(), z.unknown()).refine((value) => JSON.stringify(value).length <= 16_384, "Amendment patch is too large."),
   automaticApprovalAllowed: z.literal(false)
 }).strict();
 
@@ -567,7 +567,7 @@ export const v2FailureRecordSchema = z.object({
   }).strict().nullable().default(null),
   blockingArtifactIds: z.array(idSchema).max(50).refine(unique),
   attemptsConsumed: z.number().int().nonnegative().max(100),
-  budgetConsumed: z.record(z.number().nonnegative()).refine((value) => Object.keys(value).length <= 20),
+  budgetConsumed: z.record(z.string(), z.number().nonnegative()).refine((value) => Object.keys(value).length <= 20),
   autonomousOutcome: autonomousTerminalOutcomeSchema.nullable().default(null)
 }).strict();
 

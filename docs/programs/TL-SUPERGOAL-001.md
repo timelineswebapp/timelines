@@ -454,3 +454,7 @@ The next authorised operation is blocked by identity isolation: the local active
 ### 2026-10-29 — staging identity recheck
 
 No local non-BookTown GCP identity is currently authorised for `timelines-staging`: `timelineswebapp@gmail.com` is denied project access. No production or BookTown credential was used for staging work, and no IAM change was made. The remaining staging corpus materialisation and capacity acceptance work remains correctly blocked on a TiMELiNES staging principal.
+
+### 2026-11-25 — release security hardening
+
+The candidate has been upgraded to Next `16.4.6` and Zod `4.6.7` with explicit Zod v4 record contracts; Functions now resolve patched `body-parser` `2.4.0`. Root TypeScript, **307/307** root tests, Functions build and **375/375** tests (two intentional emulator skips), optimized production build, and the Tier-1 security gate pass. Root and Functions production audits are zero high/critical. No environment or production resource was changed; staging GCP identity, human acceptance, recovery-policy, and Founder promotion boundaries remain intact.

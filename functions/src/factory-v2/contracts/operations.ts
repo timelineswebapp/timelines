@@ -77,8 +77,8 @@ export const topicOperationSchema = z.object({
   state: z.enum(["QUEUED", "RUNNING", "FAILED", "DEFERRED", "COMPLETED"]),
   stage: z.enum(["A1_SCHEMAS", "A2_SCOPE_ACQUISITION", "A3_CLAIMS", "A4_AUTHORITY_CONFLICTS", "A5_RESOLUTION_REUSE", "COMPLETE"]),
   scopeState: boundedText(2, 80), researchMapState: boundedText(2, 80), currentBlockingReason: boundedText(2, 1000).nullable(),
-  counts: z.record(z.number().int().nonnegative()).refine((value) => Object.keys(value).length <= 50),
-  budgetsConsumed: z.record(z.number().nonnegative()).refine((value) => Object.keys(value).length <= 20),
+  counts: z.record(z.string(), z.number().int().nonnegative()).refine((value) => Object.keys(value).length <= 50),
+  budgetsConsumed: z.record(z.string(), z.number().nonnegative()).refine((value) => Object.keys(value).length <= 20),
   elapsedMs: z.number().int().nonnegative().max(86_400_000),
   finalVerdict: z.enum(["PENDING", "PASS", "FAIL"]),
   terminalFailureRecordId: idSchema.nullable().default(null),
@@ -127,5 +127,5 @@ export const auditRecordSchema = z.object({
   actorType: z.enum(["SERVICE", "MODEL", "POLICY", "HUMAN"]),
   actorId: boundedText(2, 240),
   artifactRefs: z.array(z.object({ collection: boundedText(2, 120), id: idSchema, payloadHash: hashSchema.nullable() }).strict()).max(100),
-  details: z.record(z.union([z.string().max(1000), z.number(), z.boolean(), z.null()])).refine((value) => Object.keys(value).length <= 50)
+  details: z.record(z.string(), z.union([z.string().max(1000), z.number(), z.boolean(), z.null()])).refine((value) => Object.keys(value).length <= 50)
 }).strict();

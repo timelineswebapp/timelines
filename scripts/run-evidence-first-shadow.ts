@@ -45,7 +45,7 @@ function releaseIdentity(repositoryRoot: string) {
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024
   });
-  return z.object({ generationReleaseId: z.string().regex(/^[a-f0-9]{64}$/u), manifest: z.record(z.unknown()) }).parse(JSON.parse(raw));
+  return z.object({ generationReleaseId: z.string().regex(/^[a-f0-9]{64}$/u), manifest: z.record(z.string(), z.unknown()) }).parse(JSON.parse(raw));
 }
 
 function lineageAndScopeAreValid(record: StoredResult): boolean {
