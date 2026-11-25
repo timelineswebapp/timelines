@@ -157,3 +157,7 @@ Firestore materialisation and deployed public capacity tests are **BLOCKED_ISOLA
 ## 2026-11-25 — candidate dependency security update
 
 The staging release candidate has been remediated for current high/critical dependency findings: Next `16.4.6`, Zod `4.6.7`, and Functions `body-parser` `2.4.0`. Explicit Zod v4 record schemas preserve the pre-existing bounded validation contracts. Root TypeScript, **307/307** root tests, Functions build and **375/375** tests (two intentional emulator skips), production build, and the Tier-1 security gate passed; both production dependency audits are zero high/critical. This was a local release-candidate update only. Staging deployment/materialisation remains blocked by the documented lack of an authorised TiMELiNES staging GCP identity.
+
+## 2026-11-25 — release-path credential recheck
+
+Read-only checks reconfirmed that `timelineswebapp@gmail.com` is denied access to `timelines-staging`; only the expressly excluded BookTown account can read the project. The local Vercel CLI credential is also invalid, so no staging deployment can be attested or created from this workstation. No credential refresh, IAM change, deployment, provider mutation, or production action was attempted. The next valid action is to use an already-authorised TiMELiNES staging GCP principal and an authenticated Vercel session scoped to `timelines-app/timelines-staging`; neither condition permits use of BookTown or production credentials.

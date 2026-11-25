@@ -458,3 +458,7 @@ No local non-BookTown GCP identity is currently authorised for `timelines-stagin
 ### 2026-11-25 — release security hardening
 
 The candidate has been upgraded to Next `16.4.6` and Zod `4.6.7` with explicit Zod v4 record contracts; Functions now resolve patched `body-parser` `2.4.0`. Root TypeScript, **307/307** root tests, Functions build and **375/375** tests (two intentional emulator skips), optimized production build, and the Tier-1 security gate pass. Root and Functions production audits are zero high/critical. No environment or production resource was changed; staging GCP identity, human acceptance, recovery-policy, and Founder promotion boundaries remain intact.
+
+### 2026-11-25 — isolated deployment access remains unavailable
+
+The configured TiMELiNES user `timelineswebapp@gmail.com` is denied `timelines-staging` read access; only the explicitly excluded BookTown account can inspect it locally. The local Vercel credential is invalid, preventing a deployment or deployment attestation in `timelines-app/timelines-staging`. No login, IAM grant, provider mutation, or production action was attempted. The remaining release path requires an already-authorised TiMELiNES staging GCP principal plus a Vercel session scoped to the existing staging project; it must not use BookTown or production credentials.
