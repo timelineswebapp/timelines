@@ -25,6 +25,47 @@ import { platformReadModelRepository } from "@/src/server/repositories/platform-
 
 const MAX_RELATIONSHIP_READ_LIMIT = 100;
 
+// Founder-directed public-publication hold. The underlying published record,
+// provenance, and certification state are deliberately retained; this list only
+// controls reader exposure until the hold is formally lifted.
+const PUBLIC_PUBLICATION_HOLD_TIMELINE_SLUGS = new Set([
+  "the-fall-of-the-berlin-wall"
+]);
+
+function isHeldFromPublicPublication(slug: string): boolean {
+  return PUBLIC_PUBLICATION_HOLD_TIMELINE_SLUGS.has(slug);
+}
+
+function filterPublicTimelineExposure<T extends { slug: string }>(timelines: T[]): T[] {
+  return timelines.filter((timeline) => !isHeldFromPublicPublication(timeline.slug));
+}
+
+function isPublicMilestoneExposureAllowed(milestone: EventRecord): boolean {
+  const timelineLinks = milestone.timelineLinks || [];
+  return timelineLinks.length === 0 || timelineLinks.some((timeline) => !isHeldFromPublicPublication(timeline.slug));
+}
+
+async function heldTimelineMilestoneIds(): Promise<Set<number> | null> {
+  const eventIds = new Set<number>();
+  // The hold set is deliberately small and founder-owned. Reading these
+  // records server-side keeps the sitemap from advertising a held timeline's
+  // milestone routes without exposing the record to a reader.
+  for (const slug of PUBLIC_PUBLICATION_HOLD_TIMELINE_SLUGS) {
+    const snapshot = await platformReadModelRepository.getPublishedReadModelBySlug("timeline", slug);
+    if (!snapshot) {
+      return null;
+    }
+    const payload = snapshot.payload as Partial<TimelineDetail>;
+    if (!Array.isArray(payload.events) || payload.events.some((event) => !event || typeof event.id !== "number")) {
+      return null;
+    }
+    for (const event of payload.events) {
+      eventIds.add(event.id);
+    }
+  }
+  return eventIds;
+}
+
 function payloadAs<T>(snapshot: PublishedReadModelSnapshot | null): T | null {
   return snapshot ? (snapshot.payload as T) : null;
 }
@@ -165,12 +206,23 @@ export const platformReadModelService = {
   },
 
   async listFeaturedTimelines(limit = 12, offset = 0): Promise<TimelineSummary[]> {
-    const snapshots = await platformReadModelRepository.listPublishedReadModels("timeline", limit, offset);
-    return snapshots.map((snapshot) => snapshot.payload as unknown as TimelineDetail | TimelineSummary);
+    // The current hold set is deliberately bounded. Fetch one extra projection
+    // per hold so regular public lists retain their requested cardinality without
+    // introducing an unbounded scan of Published Memory.
+    const snapshots = await platformReadModelRepository.listPublishedReadModels(
+      "timeline",
+      Math.min(50, limit + PUBLIC_PUBLICATION_HOLD_TIMELINE_SLUGS.size),
+      offset
+    );
+    return filterPublicTimelineExposure(
+      snapshots.map((snapshot) => snapshot.payload as unknown as TimelineDetail | TimelineSummary)
+    ).slice(0, limit);
   },
 
   async getTimelineBySlug(slug: string): Promise<TimelineDetail | null> {
-    return payloadAs<TimelineDetail>(await platformReadModelRepository.getPublishedReadModelBySlug("timeline", slug));
+    if (isHeldFromPublicPublication(slug)) return null;
+    const timeline = payloadAs<TimelineDetail>(await platformReadModelRepository.getPublishedReadModelBySlug("timeline", slug));
+    return timeline ? { ...timeline, relatedTimelines: filterPublicTimelineExposure(timeline.relatedTimelines) } : null;
   },
 
   async resolveTimelineRoute(slug: string): Promise<{ timeline: TimelineDetail | null; redirectSlug: string | null }> {
@@ -180,20 +232,29 @@ export const platformReadModelService = {
 
   async listStaticSlugs(limit = 50): Promise<string[]> {
     const snapshots = await platformReadModelRepository.listPublishedReadModels("timeline", limit);
-    return snapshots.map((snapshot) => snapshot.slug).filter((slug): slug is string => Boolean(slug));
+    return snapshots
+      .map((snapshot) => snapshot.slug)
+      .filter((slug): slug is string => typeof slug === "string" && !isHeldFromPublicPublication(slug));
   },
 
   async listSitemapEntries(): Promise<Array<{ slug: string; updatedAt: string }>> {
     const documents = await platformReadModelRepository.listSitemapDocuments();
     return documents
-      .filter((document) => document.kind === "timeline" && typeof document.slug === "string")
+      .filter((document) => document.kind === "timeline" && typeof document.slug === "string" && !isHeldFromPublicPublication(document.slug))
       .map((document) => ({ slug: document.slug as string, updatedAt: String(document.updatedAt || new Date(0).toISOString()) }));
   },
 
   async listMilestoneSitemapEntries(): Promise<Array<{ id: number; title: string; updatedAt: string }>> {
-    const documents = await platformReadModelRepository.listSitemapDocuments();
+    const [documents, heldMilestoneIds] = await Promise.all([
+      platformReadModelRepository.listSitemapDocuments(),
+      heldTimelineMilestoneIds()
+    ]);
+    // If the source of the public hold cannot be verified, do not publish any
+    // milestone sitemap entries. This prevents a transient backend failure from
+    // silently re-promoting Berlin through search engines.
+    if (heldMilestoneIds === null) return [];
     return documents
-      .filter((document) => document.kind === "milestone" && typeof document.id === "number" && typeof document.title === "string")
+      .filter((document) => document.kind === "milestone" && typeof document.id === "number" && !heldMilestoneIds.has(document.id) && typeof document.title === "string")
       .map((document) => ({ id: document.id as number, title: document.title as string, updatedAt: String(document.updatedAt || new Date(0).toISOString()) }));
   },
 
@@ -206,19 +267,26 @@ export const platformReadModelService = {
   },
 
   async getCategoryDetail(slug: string): Promise<CategoryDetail | null> {
-    return platformReadModelRepository.getCategoryDetail(slug);
+    const detail = await platformReadModelRepository.getCategoryDetail(slug);
+    return detail ? { ...detail, timelines: filterPublicTimelineExposure(detail.timelines) } : null;
   },
 
   async getTagDetail(slug: string): Promise<TagDetail | null> {
-    return platformReadModelRepository.getTagDetail(slug);
+    const detail = await platformReadModelRepository.getTagDetail(slug);
+    return detail ? { ...detail, timelines: filterPublicTimelineExposure(detail.timelines) } : null;
   },
 
   async getMilestone(eventId: number): Promise<EventRecord | null> {
-    return platformReadModelRepository.getMilestone(eventId);
+    const milestone = await platformReadModelRepository.getMilestone(eventId);
+    if (!milestone || !isPublicMilestoneExposureAllowed(milestone)) return null;
+    return {
+      ...milestone,
+      timelineLinks: milestone.timelineLinks?.filter((timeline) => !isHeldFromPublicPublication(timeline.slug))
+    };
   },
 
   async getMilestoneContext(eventId: number): Promise<MilestoneContext | null> {
-    const milestone = await platformReadModelRepository.getMilestone(eventId);
+    const milestone = await platformReadModelService.getMilestone(eventId);
     const context = milestone?.historicalContext;
     return context ? (context as MilestoneContext) : null;
   },
@@ -256,7 +324,7 @@ export const platformReadModelService = {
   },
 
   async getEventShareContext(eventId: number): Promise<EventShareContext | null> {
-    const event = await platformReadModelRepository.getMilestone(eventId);
+    const event = await platformReadModelService.getMilestone(eventId);
     const link = event?.timelineLinks?.[0];
     if (!event || !link) return null;
     const timeline = await platformReadModelService.getTimelineBySlug(link.slug);
@@ -271,14 +339,20 @@ export const platformReadModelService = {
     const boundedLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
     const boundedOffset = Math.max(0, Math.min(10_000, Math.trunc(offset)));
     const { matches, total } = await platformReadModelRepository.searchPublishedReadModels(normalized, boundedLimit, boundedOffset);
-    const projectedItems = matches
+    const allProjectedItems = matches
       .map(({ snapshot, rank }) => projectionToSearchItem(snapshot.payload, rank))
       .filter((item): item is SearchResultItem => Boolean(item))
-      .slice(0, boundedLimit);
-    if (projectedItems.length > 0) {
-      return { query: normalized, total, items: projectedItems };
-    }
-    return { query: normalized, total, items: [] };
+      .filter((item) => item.type !== "timeline" || !isHeldFromPublicPublication(item.timeline.slug))
+      .filter((item) => item.type !== "milestone" || item.milestone.timelineLinks.some((timeline) => !isHeldFromPublicPublication(timeline.slug)));
+    const projectedItems = allProjectedItems.slice(0, boundedLimit);
+    // A public hold must not advertise a hidden match in a direct search.
+    // The backend remains the authoritative full corpus; this bounded reader
+    // result intentionally reports only the currently exposable page.
+    return {
+      query: normalized,
+      total: Math.max(0, total - (matches.length - allProjectedItems.length)),
+      items: projectedItems
+    };
   },
 
   async resolveContinuity(publishedSnapshotId: string): Promise<ContinuityResolution> {

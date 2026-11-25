@@ -478,3 +478,7 @@ Production Neon is directly verified as `timelines` / `little-leaf-72675905`, br
 ### 2026-11-25 — production telemetry availability
 
 Vercel Analytics and Speed Insights are enabled for the public production hostname. Speed Insights shows zero real-user events, so the integration is available but does not supply Core Web Vitals, real-user latency, or capacity acceptance evidence. It does not clear the representative-capacity gate.
+
+### 2026-11-25 — Berlin public-promotion disposition
+
+Per Founder instruction, the reader now enforces a server-owned public-publication hold for `the-fall-of-the-berlin-wall`. It removes public timeline/search/listing/SEO exposure without changing the historical record, institutional authority, or locked Phase-2 criterion. Berlin remains **BLOCKED_FOUNDER / UNCERTIFIED**. The source release passed strict TypeScript, **308/308** root tests, production build, and the Tier-1 security gate before deployment attestation.
