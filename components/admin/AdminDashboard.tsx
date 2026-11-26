@@ -107,6 +107,10 @@ export function AdminDashboard({ initialDatabaseConnected }: { initialDatabaseCo
         }
       });
 
+      const contentType = response.headers.get("content-type") || "";
+      if (!/^application\/json(?:\s*;|$)/iu.test(contentType)) {
+        throw new Error("The institution returned an invalid response. No operational change was made.");
+      }
       const payload = (await response.json()) as {
         ok: boolean;
         data?: T;

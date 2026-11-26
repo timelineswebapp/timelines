@@ -5,6 +5,7 @@ import { factoryOperationsRepository } from "@/src/server/repositories/factory-o
 import { requestRepository } from "@/src/server/repositories/request-repository";
 import { factoryOperationsService } from "@/src/server/services/factory-operations-service";
 import { reliabilityService } from "@/src/server/services/reliability-service";
+import { currentInstitutionStatus, getFounderCurrentState } from "@/src/server/services/founder-current-state";
 
 function healthStatus(value: string): "Healthy" | "Warning" | "Critical" {
   const normalized = value.toLowerCase();
@@ -43,19 +44,18 @@ function activityMessage(eventType: string, stage: string, category?: string): s
 
 export const founderOperationsService = {
   async getHome(): Promise<FounderHomeReadModel> {
-    const [snapshot, notifications, reliability, recentPublications, activityRows, requests] = await Promise.all([
+    const [snapshot, notifications, reliability, recentPublications, activityRows, requests, current] = await Promise.all([
       factoryOperationsService.getSnapshot(),
       factoryOperationsService.getFounderInbox(),
       reliabilityService.dashboard(),
       factoryOperationsRepository.listRecentPublications(20),
       factoryOperationsRepository.listGlobalActivity(50),
-      requestRepository.list()
+      requestRepository.list(),
+      getFounderCurrentState()
     ]);
     const topicsById = new Map(snapshot.queue.map((topic) => [topic.id, topic]));
-    const health = reliability.health.map((item) => ({ name: item.institution, status: healthStatus(item.status) }));
-    const institutionStatus = health.some((item) => item.status === "Critical")
-      ? "Critical"
-      : health.some((item) => item.status === "Warning") ? "Warning" : "Healthy";
+    const health = [{ name: "current public corpus", status: currentInstitutionStatus(current) }];
+    const institutionStatus = currentInstitutionStatus(current);
     const inbox: FounderInboxItem[] = notifications.map((item) => {
       const topic = topicsById.get(item.topicId);
       return {
@@ -90,6 +90,15 @@ export const founderOperationsService = {
         failedTopics: snapshot.failures.length + snapshot.deadLetters.length
       },
       health,
+      current,
+      legacy: {
+        factoryStatus: snapshot.control.mode === "running" ? "Running" : snapshot.control.mode === "stopped" ? "Stopped" : "Paused",
+        recordCount: snapshot.queue.length,
+        inboxCount: inbox.length,
+        failedTopics: snapshot.failures.length + snapshot.deadLetters.length,
+        mostRecentActivityAt: activityRows[0]?.occurredAt || null,
+        alerts: reliability.alerts.map((alert) => ({ severity: alert.severity, message: alert.message, lastObservedAt: alert.lastObservedAt }))
+      },
       inbox,
       recentPublications,
       activity,

@@ -306,37 +306,36 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
     <section className="glass section-card fos-command-card" aria-labelledby="institution-summary-title">
       <div className="fos-command-heading">
         <div>
-          <span className="eyebrow">Institution Summary</span>
-          <h2 id="institution-summary-title">Is everything operating?</h2>
-          <p className="muted">Publishing health, current workload, and Factory control.</p>
+          <span className="eyebrow">Current Public Corpus</span>
+          <h2 id="institution-summary-title">Is the reader platform healthy?</h2>
+          <p className="muted">Live V2 and public-reader state. Legacy Factory records are shown separately below.</p>
         </div>
         <div className="fos-factory-control" aria-label="Factory control">
           <span className={`fos-state-indicator fos-state-${home?.summary.factoryStatus.toLowerCase() || "stopped"}`} />
           <div>
-            <span className="small muted">Factory</span>
-            <strong>{(home?.summary.processing || 0) > 0 ? "Processing" : home?.summary.factoryStatus || "Unavailable"}</strong>
+            <span className="small muted">Public corpus</span>
+            <strong>{home?.current.publicCorpus === "available" ? "Available" : home?.current.publicCorpus === "empty" ? "Empty" : "Unavailable"}</strong>
           </div>
-          {home?.summary.factoryStatus === "Stopped" ? <button className="button" disabled={pendingAction !== null} onClick={() => void command("start")}>Start Factory</button> : null}
-          {home?.summary.factoryStatus === "Paused" ? <button className="button" disabled={pendingAction !== null} onClick={() => void command("resume")}>Resume Factory</button> : null}
-          {home?.summary.factoryStatus === "Running" ? <button className="button secondary" disabled={pendingAction !== null} onClick={() => void command("pause_after_current")}>{(home?.summary.processing || 0) > 0 ? "Pause After Current Topic" : "Pause Factory"}</button> : null}
         </div>
       </div>
       <div className="fos-stat-grid fos-stat-grid-wide">
         {[
-          ["Institution", home?.summary.institutionStatus || "—"],
-          ["Published Today", home?.summary.publishedToday ?? "—"],
-          ["Processing", home?.summary.processing ?? "—"],
-          ["Queue", home?.summary.queueDepth ?? "—"],
-          ["Inbox", home?.summary.inboxCount ?? "—"],
-          ["Failed", home?.summary.failedTopics ?? "—"]
+          ["Current status", home?.summary.institutionStatus || "—"],
+          ["Public corpus", home?.current.publicCorpus || "—"],
+          ["Deferred", home?.current.deferredTopics ?? "—"],
+          ["Scheduled retries", home?.current.scheduledRetries ?? "—"],
+          ["Due retries", home?.current.dueRetries ?? "—"],
+          ["Delivery failures", home?.current.terminalDeliveryFailures ?? "—"]
         ].map(([label, value]) => <div className="fos-metric" key={label}><strong className={`fos-stat ${value === "Healthy" ? "fos-status-success" : value === "Critical" ? "fos-status-danger" : ""}`}>{value}</strong><span className="small muted">{label}</span></div>)}
       </div>
-      <div className="fos-mode-summary"><span className="small muted">Mode</span><strong>{home?.summary.factoryMode || "—"}</strong><span className="small muted">{home?.summary.factoryMode === "Autonomous" ? "Processes Topics continuously." : home?.summary.factoryMode === "Maintenance" ? "Finishes current work before pausing." : "Processes Topics under Founder supervision."}</span></div>
+      <div className="fos-mode-summary"><span className="small muted">Checked</span><strong>{home?.current.assessedAt ? formatOperationalTime(home.current.assessedAt) : "—"}</strong><span className="small muted">Current status is read-only and does not start discovery, research, governance, or publication.</span></div>
     </section>
     <section className="glass section-card stack fos-add-topics">
-      <span className="eyebrow">Add Topics</span><h2 style={{ margin: 0 }}>What should TiMELiNES publish next?</h2>
-      <p className="muted">Enter one Topic, or separate multiple Topics with commas or new lines.</p>
-      <div className="fos-topic-entry"><textarea aria-label="Topics to publish" className="input fos-topic-textarea" value={title} maxLength={4000} rows={4} onChange={(event) => setTitle(event.target.value)} placeholder={"Telephone\nSteam Engine\nApollo Program"} /><button className="button fos-queue-button" disabled={title.trim().length < 3} onClick={() => void addTopic()}>Queue Topics</button></div>
+      <span className="eyebrow">Legacy Factory Archive</span><h2 style={{ margin: 0 }}>Historical operational evidence</h2>
+      <p className="muted">The legacy Factory is {home?.legacy.factoryStatus.toLowerCase() || "unavailable"} and remains preserved, read-only, and excluded from current public-corpus health.</p>
+      <div className="fos-stat-grid fos-stat-grid-wide">
+        {[["Records", home?.legacy.recordCount ?? "—"], ["Historical inbox", home?.legacy.inboxCount ?? "—"], ["Dead letters", home?.legacy.failedTopics ?? "—"], ["Last activity", home?.legacy.mostRecentActivityAt ? formatOperationalTime(home.legacy.mostRecentActivityAt) : "—"]].map(([label, value]) => <div className="fos-metric" key={label}><strong className="fos-stat">{value}</strong><span className="small muted">{label}</span></div>)}
+      </div>
     </section>
     <section className="glass section-card">
       <span className="eyebrow">Terminal Enqueue Failures</span>
@@ -350,11 +349,9 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
       </div>
     </section>
     <section className="glass section-card">
-      <span className="eyebrow">Founder Inbox</span><h2>What requires your attention</h2>
-      {home?.inbox.length ? home.inbox.map((item) => <article className="fos-list-card" key={item.id}>
-        <div><strong>{item.topic}</strong><p className="small muted">{item.reason}</p></div>
-        <div className="admin-action-row">{item.actions.map((action) => <button className={action === "approve" || action === "retry" ? "button" : "button secondary"} disabled={pendingAction !== null} key={action} onClick={() => void inboxAction(item.id, item.topicId, action)}>{founderActionLabel(action)}</button>)}</div>
-      </article>) : <div className="fos-empty-state"><strong>Everything is progressing automatically.</strong><p className="muted">No Founder decisions are currently required.</p></div>}
+      <span className="eyebrow">Historical Alerts</span><h2>Legacy observations</h2>
+      <p className="muted">These archived alerts do not describe current V2/public-corpus health and cannot be acted on from this page.</p>
+      {home?.legacy.alerts.length ? home.legacy.alerts.map((alert, index) => <article className="fos-list-card" key={`${alert.lastObservedAt}:${index}`}><div><strong>{alert.severity === "critical" ? "Critical historical observation" : "Historical observation"}</strong><p className="small muted">{alert.message}</p><p className="small muted">Last observed {formatOperationalTime(alert.lastObservedAt)}</p></div><span className="pill">Archived</span></article>) : <div className="fos-empty-state"><strong>No historical alerts are recorded.</strong></div>}
     </section>
     <section className="glass section-card">
       <span className="eyebrow">Visitor Requests</span><h2>Topics requested by visitors</h2>

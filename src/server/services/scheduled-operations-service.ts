@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
 import { getWriteSql } from "@/src/server/db/client";
 import { reliabilityRepository } from "@/src/server/repositories/reliability-repository";
 import { schedulerRepository, type ScheduledOperationKey } from "@/src/server/repositories/scheduler-repository";
 import { reliabilityService } from "@/src/server/services/reliability-service";
+import { getVerifiedPublicSiteUrl } from "@/src/lib/public-site";
 
 type Definition = { key: ScheduledOperationKey; cadenceMs: number; timeoutMs: number };
 export const scheduledOperationDefinitions: Definition[] = [
@@ -21,21 +21,15 @@ function scheduleBucket(now: number, cadenceMs: number): string {
   return new Date(Math.floor(now / cadenceMs) * cadenceMs).toISOString();
 }
 
-function runCommand(command: string, args: string[], timeoutMs: number): Promise<Record<string, unknown>> {
-  return new Promise((resolveRun, reject) => {
-    const child = spawn(command, args, { cwd: process.cwd(), env: process.env, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    const timer = setTimeout(() => { child.kill("SIGTERM"); reject(new Error(`${command} timed out after ${timeoutMs}ms.`)); }, timeoutMs);
-    child.stdout.on("data", (chunk) => { stdout = `${stdout}${String(chunk)}`.slice(-20_000); });
-    child.stderr.on("data", (chunk) => { stderr = `${stderr}${String(chunk)}`.slice(-20_000); });
-    child.on("error", (error) => { clearTimeout(timer); reject(error); });
-    child.on("exit", (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolveRun({ command, exitCode: code, stdout: stdout.trim() });
-      else reject(new Error(`${command} exited ${code}: ${stderr.slice(-4000)}`));
-    });
-  });
+const NEON_FREE_HISTORY_HOURS = 6;
+
+function manualRecoveryCapability(operation: "backup_execution" | "restore_verification") {
+  return {
+    capability: "manual_or_isolated_only",
+    operation,
+    providerHistoryHours: NEON_FREE_HISTORY_HOURS,
+    reason: "Vercel serverless runtimes must not execute repository backup or restore commands. Neon Free provides six hours of history and does not satisfy the Tier-1 recovery policy."
+  };
 }
 
 async function executeOperation(key: ScheduledOperationKey, timeoutMs: number): Promise<Record<string, unknown>> {
@@ -75,14 +69,9 @@ async function executeOperation(key: ScheduledOperationKey, timeoutMs: number): 
     if (!result || result.invalid > 0) throw new Error(`Publication integrity failed: ${JSON.stringify(result || {})}`);
     return result;
   }
-  if (key === "backup_execution") return runCommand("npm", ["run", "ops:backup"], timeoutMs);
-  if (key === "restore_verification") {
-    if (!process.env.RESTORE_DATABASE_URL) throw new Error("RESTORE_DATABASE_URL is required for isolated scheduled restore verification.");
-    return runCommand("npm", ["run", "ops:restore:scheduled"], timeoutMs);
-  }
+  if (key === "backup_execution" || key === "restore_verification") return manualRecoveryCapability(key);
   if (key === "seo_validation") {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-    if (!siteUrl) throw new Error("NEXT_PUBLIC_SITE_URL is required for SEO validation.");
+    const siteUrl = getVerifiedPublicSiteUrl();
     const projections = await sql<Array<{ slug: string; payload: Record<string, unknown> }>>`
       SELECT slug,payload FROM published_memory_projections
       WHERE projection_type='timeline' AND lifecycle='active' AND slug IS NOT NULL
@@ -104,8 +93,11 @@ async function executeOperation(key: ScheduledOperationKey, timeoutMs: number): 
     if (failures.length) throw new Error(`SEO validation failed: ${JSON.stringify(failures)}`);
     return { checked: projections.length, failures: [] };
   }
-  if (!process.env.SYNTHETIC_DATABASE_URL) throw new Error("SYNTHETIC_DATABASE_URL is required for isolated publication certification.");
-  return runCommand("npm", ["run", "ops:synthetic:publication"], timeoutMs);
+  return {
+    capability: "staging_only",
+    operation: key,
+    reason: "Synthetic publication certification is an isolated staging procedure and is intentionally not executed from production maintenance."
+  };
 }
 
 export const scheduledOperationsService = {

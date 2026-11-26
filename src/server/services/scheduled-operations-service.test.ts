@@ -29,19 +29,18 @@ test("scheduled projection and publication verification persist bounded diagnost
   assert.match(source, /schedulerRepository\.fail/);
 });
 
-test("scheduled backup and isolated restore verification reuse certified operations", async () => {
+test("production maintenance never runs repository backup or restore commands inside Vercel", async () => {
   const source = await readFile("src/server/services/scheduled-operations-service.ts", "utf8");
-  assert.match(source, /\["run", "ops:backup"\]/);
-  assert.match(source, /\["run", "ops:restore:scheduled"\]/);
-  assert.match(source, /RESTORE_DATABASE_URL is required/);
-  const script = await readFile("scripts/verify-scheduled-restore.ts", "utf8");
-  assert.match(script, /requiredRecoveryValidationQueries/);
+  assert.doesNotMatch(source, /ops:backup/);
+  assert.doesNotMatch(source, /ops:restore:scheduled/);
+  assert.match(source, /manual_or_isolated_only/);
+  assert.match(source, /providerHistoryHours: NEON_FREE_HISTORY_HOURS/);
 });
 
-test("synthetic publication verification executes against an isolated database", async () => {
+test("synthetic publication verification remains staging-only from production maintenance", async () => {
   const source = await readFile("src/server/services/scheduled-operations-service.ts", "utf8");
   const script = await readFile("scripts/run-synthetic-publication-certification.ts", "utf8");
-  assert.match(source, /ops:synthetic:publication/);
+  assert.match(source, /capability: "staging_only"/);
   assert.match(script, /SYNTHETIC_DATABASE_URL/);
   assert.match(script, /refuses to use the canonical production database/);
   assert.match(script, /ops:publication:certify/);

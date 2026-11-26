@@ -41,6 +41,23 @@ export type FounderHomeReadModel = {
     failedTopics: number;
   };
   health: Array<{ name: string; status: "Healthy" | "Warning" | "Critical" }>;
+  current: {
+    availability: "available" | "unavailable";
+    publicCorpus: "available" | "empty" | "unavailable";
+    deferredTopics: number;
+    scheduledRetries: number;
+    dueRetries: number;
+    terminalDeliveryFailures: number;
+    assessedAt: string;
+  };
+  legacy: {
+    factoryStatus: "Running" | "Paused" | "Stopped";
+    recordCount: number;
+    inboxCount: number;
+    failedTopics: number;
+    mostRecentActivityAt: string | null;
+    alerts: Array<{ severity: "warning" | "critical"; message: string; lastObservedAt: string }>;
+  };
   inbox: FounderInboxItem[];
   recentPublications: FounderRecentPublication[];
   activity: FounderActivity[];

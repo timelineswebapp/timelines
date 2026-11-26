@@ -20,11 +20,17 @@ jobs:
     env:
       TIMELINES_BASE_URL: ${{ secrets.TIMELINES_BASE_URL }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      FACTORY_SCHEDULER_ENABLED: ${{ secrets.FACTORY_SCHEDULER_ENABLED }}
     steps:
       - name: Invoke institutions in certified order
         shell: bash
         run: |
           set -Eeuo pipefail
+
+          if [[ "${FACTORY_SCHEDULER_ENABLED:-}" != "true" ]]; then
+            echo "Factory scheduler is deliberately disabled. No institution routes were invoked."
+            exit 0
+          fi
 
           if [[ -z "${TIMELINES_BASE_URL}" || -z "${CRON_SECRET}" ]]; then
             echo "::error::TIMELINES_BASE_URL and CRON_SECRET repository secrets are required."

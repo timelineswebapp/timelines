@@ -198,9 +198,9 @@ test("TL-EXECUTION-LINEAGE-001 replay invalidation boundaries preserve certified
   assert.equal(governanceReplay.historicalLibraryAdmissionId, undefined);
 });
 
-test("Founder Operating System exposes operational controls without implementation language", async () => {
+test("Founder Operating System separates current public health from read-only legacy records", async () => {
   const source = await readFile("components/admin/AdminFactoryOperations.tsx", "utf8");
-  for (const label of ["Add Topics", "Queue Topics", "Production Queue", "Founder Inbox", "Operational Health", "Factory Mode"]) {
+  for (const label of ["Current Public Corpus", "Legacy Factory Archive", "Historical Alerts", "Production Queue", "Operational Health", "Factory Mode"]) {
     assert.match(source, new RegExp(label));
   }
   assert.doesNotMatch(source, />Replay Boundary</);
