@@ -58,7 +58,8 @@ export default async function HomePage() {
           />
         </div>
         <div id="request-timeline" className="home-request-strip">
-          <RequestTimelineForm triggerLabel="SUGGEST A TOPIC" variant="modal" />
+          <span className="home-request-prompt">Can&apos;t find a timeline?</span>
+          <RequestTimelineForm triggerLabel="Suggest a topic" variant="modal" />
         </div>
       </section>
 

@@ -56,7 +56,10 @@ test("homepage prioritizes search and a concise topic suggestion action", () => 
   assert.match(homePage, /className="home-primary-actions"/);
   assert.doesNotMatch(homePage, /className="home-primary-actions glass"/);
   assert.match(homePage, /Search a person, event, or subject/);
-  assert.match(homePage, /triggerLabel="SUGGEST A TOPIC"/);
+  assert.match(homePage, /Can&apos;t find a timeline\?/);
+  assert.match(homePage, /triggerLabel="Suggest a topic"/);
+  assert.match(styles, /\.home-request-strip[\s\S]*justify-content: flex-end/);
+  assert.match(styles, /\.search-input[\s\S]*border-radius: 16px/);
   assert.doesNotMatch(homePage, /Public beta|Find the story in the sequence|Shape the library|growing, curated library/);
   assert.match(requestTimelineForm, /recorded for editorial consideration/);
   assert.match(requestTimelineForm, /currently under editorial review/);

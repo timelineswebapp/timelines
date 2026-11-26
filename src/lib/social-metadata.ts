@@ -17,6 +17,14 @@ function buildTimelineMetadataDescription(timeline: TimelineDetail): string {
   return `Canonical chronology of ${timeline.title}: ${timeline.eventCount} dated milestones${sourceText}, organized for historical reference.`;
 }
 
+function buildTimelineShareTitle(timelineTitle: string): string {
+  const subject = timelineTitle
+    .replace(/^the\s+/iu, "")
+    .replace(/\s+timeline$/iu, "")
+    .trim();
+  return `Timeline of ${subject || timelineTitle}`;
+}
+
 export function resolveTimelineShareEvent(
   timeline: TimelineDetail,
   eventId: number | null
@@ -73,7 +81,7 @@ export function buildTimelinePageMetadata(timeline: TimelineDetail, shareEvent: 
   const canonicalPath = buildTimelinePath(timeline.slug);
   const canonicalUrl = buildPublicUrl(canonicalPath);
   const imageUrl = buildPublicUrl(buildTimelineOgImagePath(timeline.slug));
-  const title = `Timeline of ${timeline.title} | TiMELiNES`;
+  const title = buildTimelineShareTitle(timeline.title);
   const description = buildTimelineMetadataDescription(timeline);
 
   return {

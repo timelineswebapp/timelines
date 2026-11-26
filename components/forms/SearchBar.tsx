@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/src/lib/utils";
-import { CloseIcon, SendIcon } from "@/components/ui/Icons";
+import { CloseIcon, SearchIcon } from "@/components/ui/Icons";
 
 export function SearchBar({
   defaultValue = "",
@@ -79,7 +79,7 @@ export function SearchBar({
           </button>
         ) : null}
         <button className="search-send-button" type="submit" aria-label="Search timelines">
-          <SendIcon />
+          <SearchIcon />
         </button>
       </div>
     </form>

@@ -38,6 +38,15 @@ export function SendIcon({ className }: IconProps) {
   );
 }
 
+export function SearchIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className={className}>
+      <circle cx="8.6" cy="8.6" r="4.7" fill="none" stroke="currentColor" strokeWidth="1.7" />
+      <path d="m12.1 12.1 3.7 3.7" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
 export function CloseIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true" className={className}>

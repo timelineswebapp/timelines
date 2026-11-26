@@ -23,4 +23,6 @@ test("public search trims queries and presents an accessible empty-result state"
   assert.match(source, /role="status" aria-live="polite"/u);
   assert.match(source, /No matching timelines or milestones/u);
   assert.match(form, /maxLength=\{120\}/u);
+  assert.match(form, /SearchIcon/u);
+  assert.doesNotMatch(form, /SendIcon/u);
 });
