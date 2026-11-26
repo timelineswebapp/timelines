@@ -4,10 +4,11 @@ import { serverlessBackendClient } from "@/src/server/serverless/backend-client"
 export type FounderCurrentState = {
   availability: "available" | "unavailable";
   publicCorpus: "available" | "empty" | "unavailable";
-  deferredTopics: number;
-  scheduledRetries: number;
-  dueRetries: number;
-  terminalDeliveryFailures: number;
+  operationalTelemetry: "available" | "unavailable";
+  deferredTopics: number | null;
+  scheduledRetries: number | null;
+  dueRetries: number | null;
+  terminalDeliveryFailures: number | null;
   assessedAt: string;
 };
 
@@ -15,7 +16,7 @@ type CurrentStateInput = Omit<FounderCurrentState, "assessedAt">;
 
 export function currentInstitutionStatus(input: CurrentStateInput): "Healthy" | "Warning" | "Critical" {
   if (input.availability === "unavailable" || input.publicCorpus === "unavailable") return "Critical";
-  if (input.terminalDeliveryFailures > 0 || input.publicCorpus === "empty") return "Warning";
+  if (input.operationalTelemetry === "unavailable" || (input.terminalDeliveryFailures ?? 0) > 0 || input.publicCorpus === "empty") return "Warning";
   return "Healthy";
 }
 
@@ -26,31 +27,32 @@ export function currentInstitutionStatus(input: CurrentStateInput): "Healthy" | 
  */
 export async function getFounderCurrentState(): Promise<FounderCurrentState> {
   const assessedAt = new Date().toISOString();
-  try {
-    const [deferredTopics, retryHealth, enqueueFailures, timelines] = await Promise.all([
-      factoryV2AdminService.listDeferredTopics(1),
-      factoryV2AdminService.getGenerationRetryQueueHealth(),
-      factoryV2AdminService.listGenerationEnqueueFailures(100),
-      serverlessBackendClient.listReadModels<unknown>("timeline", 1, 0)
-    ]);
+  const [timelines, deferredTopics, retryHealth, enqueueFailures] = await Promise.allSettled([
+    serverlessBackendClient.listReadModels<unknown>("timeline", 1, 0),
+    factoryV2AdminService.listDeferredTopics(1),
+    factoryV2AdminService.getGenerationRetryQueueHealth(),
+    factoryV2AdminService.listGenerationEnqueueFailures(100)
+  ]);
+  if (timelines.status === "fulfilled") {
     return {
       availability: "available",
-      publicCorpus: Array.isArray(timelines) && timelines.length > 0 ? "available" : "empty",
-      deferredTopics: deferredTopics.length,
-      scheduledRetries: retryHealth.scheduledCount,
-      dueRetries: retryHealth.dueCount,
-      terminalDeliveryFailures: enqueueFailures.length,
-      assessedAt
-    };
-  } catch {
-    return {
-      availability: "unavailable",
-      publicCorpus: "unavailable",
-      deferredTopics: 0,
-      scheduledRetries: 0,
-      dueRetries: 0,
-      terminalDeliveryFailures: 0,
+      publicCorpus: Array.isArray(timelines.value) && timelines.value.length > 0 ? "available" : "empty",
+      operationalTelemetry: deferredTopics.status === "fulfilled" && retryHealth.status === "fulfilled" && enqueueFailures.status === "fulfilled" ? "available" : "unavailable",
+      deferredTopics: deferredTopics.status === "fulfilled" ? deferredTopics.value.length : null,
+      scheduledRetries: retryHealth.status === "fulfilled" ? retryHealth.value.scheduledCount : null,
+      dueRetries: retryHealth.status === "fulfilled" ? retryHealth.value.dueCount : null,
+      terminalDeliveryFailures: enqueueFailures.status === "fulfilled" ? enqueueFailures.value.length : null,
       assessedAt
     };
   }
+  return {
+    availability: "unavailable",
+    publicCorpus: "unavailable",
+    operationalTelemetry: "unavailable",
+    deferredTopics: null,
+    scheduledRetries: null,
+    dueRetries: null,
+    terminalDeliveryFailures: null,
+    assessedAt
+  };
 }

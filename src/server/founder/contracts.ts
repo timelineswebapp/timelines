@@ -44,10 +44,11 @@ export type FounderHomeReadModel = {
   current: {
     availability: "available" | "unavailable";
     publicCorpus: "available" | "empty" | "unavailable";
-    deferredTopics: number;
-    scheduledRetries: number;
-    dueRetries: number;
-    terminalDeliveryFailures: number;
+    operationalTelemetry: "available" | "unavailable";
+    deferredTopics: number | null;
+    scheduledRetries: number | null;
+    dueRetries: number | null;
+    terminalDeliveryFailures: number | null;
     assessedAt: string;
   };
   legacy: {

@@ -308,7 +308,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         <div>
           <span className="eyebrow">Current Public Corpus</span>
           <h2 id="institution-summary-title">Is the reader platform healthy?</h2>
-          <p className="muted">Live V2 and public-reader state. Legacy Factory records are shown separately below.</p>
+          <p className="muted">Public-reader state and protected V2 telemetry. Legacy Factory records are shown separately below.</p>
         </div>
         <div className="fos-factory-control" aria-label="Factory control">
           <span className={`fos-state-indicator fos-state-${home?.summary.factoryStatus.toLowerCase() || "stopped"}`} />
@@ -322,6 +322,7 @@ export function AdminFactoryOperations({ token, fetchAdmin, statusHandlers, view
         {[
           ["Current status", home?.summary.institutionStatus || "—"],
           ["Public corpus", home?.current.publicCorpus || "—"],
+          ["V2 telemetry", home?.current.operationalTelemetry || "—"],
           ["Deferred", home?.current.deferredTopics ?? "—"],
           ["Scheduled retries", home?.current.scheduledRetries ?? "—"],
           ["Due retries", home?.current.dueRetries ?? "—"],
