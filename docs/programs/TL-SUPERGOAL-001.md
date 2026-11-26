@@ -506,3 +506,5 @@ Vercel attested commit `3e5913b` as production deployment `timelines-n9v8veaci-t
 ### 2026-11-26 — founder-directed reader simplification
 
 The homepage now places only the labelled timeline search and keyboard-accessible “SUGGEST A TOPIC” control beneath the logo, before featured timelines. The former public-beta badge, headline, explanatory copy, and topic-request explanation were removed from this primary task path at Founder direction. Strict TypeScript, **310/310** root tests, optimized production build, and the Tier-1 security gate passed. No content, institutional authority, discovery, Governance, publication, or certification boundary changed.
+
+Vercel attested commit `63ff863` as production deployment `timelines-dv54d0ljs-timelines-app.vercel.app`, **READY** after 2m16s. The immutable deployment and the public domain both showed the simplified homepage flow.
