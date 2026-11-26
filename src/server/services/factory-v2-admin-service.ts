@@ -18,9 +18,26 @@ const generationRetryQueueItemSchema = z.object({ topicId: boundedId, jobId: bou
 const generationRetryQueueHealthSchema = z.object({ scheduledCount: z.number().int().nonnegative(), dueCount: z.number().int().nonnegative(), oldestDueAt: timestamp.nullable() }).strict();
 const generationEnqueueFailureItemSchema = z.object({ topicId: boundedId, jobId: boundedId, generation: z.number().int().positive(), origin: z.enum(["user", "autonomous"]), state: z.literal("FAILED"), failedAt: timestamp, enqueueRetryCount: z.number().int().nonnegative(), lastErrorPresent: z.boolean() }).strict();
 
-function parseBridgeDto<T>(schema: z.ZodType<T>, value: unknown): T {
+function responseShape(value: unknown) {
+  if (Array.isArray(value)) return { type: "array", length: value.length };
+  if (value === null) return { type: "null" };
+  if (typeof value === "object") return { type: "object", keys: Object.keys(value as Record<string, unknown>).sort().slice(0, 20) };
+  return { type: typeof value };
+}
+
+function parseBridgeDto<T>(operation: string, schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
-  if (!result.success) throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Factory operational data is temporarily unavailable.");
+  if (!result.success) {
+    console.error(JSON.stringify({
+      level: "error",
+      component: "factory_v2_admin_service",
+      event: "factory_v2_bridge_dto_invalid",
+      operation,
+      response: responseShape(value),
+      issues: result.error.issues.slice(0, 10).map((issue) => ({ code: issue.code, path: issue.path.map(String) }))
+    }));
+    throw new ApiError(502, "SERVERLESS_BACKEND_INVALID_RESPONSE", "Factory operational data is temporarily unavailable.");
+  }
   return result.data;
 }
 
@@ -35,12 +52,12 @@ export type GenerationRetryQueueHealth = z.infer<typeof generationRetryQueueHeal
 export type GenerationEnqueueFailureItem = z.infer<typeof generationEnqueueFailureItemSchema>;
 
 export const factoryV2AdminService = {
-  async listDeferredTopics(limit = 25) { return parseBridgeDto(z.array(deferredTopicSchema).max(100), await serverlessBackendClient.listDeferredFactoryV2Topics<unknown>(limit)); },
-  async listGenerationRetryQueue(limit = 25) { return parseBridgeDto(z.array(generationRetryQueueItemSchema).max(100), await serverlessBackendClient.listGenerationRetryQueue<unknown>(limit)); },
-  async getGenerationRetryQueueHealth() { return parseBridgeDto(generationRetryQueueHealthSchema, await serverlessBackendClient.getGenerationRetryQueueHealth<unknown>()); },
-  async listGenerationEnqueueFailures(limit = 25) { return parseBridgeDto(z.array(generationEnqueueFailureItemSchema).max(100), await serverlessBackendClient.listGenerationEnqueueFailures<unknown>(limit)); },
-  async createDeferredReentry(input: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) { return parseBridgeDto(reentryResultSchema, await serverlessBackendClient.createDeferredFactoryV2Reentry<unknown>(input)); },
-  async createSourceSubmission(input: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string }) { return parseBridgeDto(sourceSubmissionResultSchema, await serverlessBackendClient.createFactoryV2SourceSubmission<unknown>(input)); },
-  async listSourceSubmissions(limit = 25) { return parseBridgeDto(z.array(sourceSubmissionSchema).max(100), await serverlessBackendClient.listFactoryV2SourceSubmissions<unknown>(limit)); },
-  async getSourceSubmissionInspection(candidateId: string) { return parseBridgeDto(sourceSubmissionInspectionSchema, await serverlessBackendClient.getFactoryV2SourceSubmissionInspection<unknown>(candidateId)); }
+  async listDeferredTopics(limit = 25) { return parseBridgeDto("list_deferred_topics", z.array(deferredTopicSchema).max(100), await serverlessBackendClient.listDeferredFactoryV2Topics<unknown>(limit)); },
+  async listGenerationRetryQueue(limit = 25) { return parseBridgeDto("list_generation_retry_queue", z.array(generationRetryQueueItemSchema).max(100), await serverlessBackendClient.listGenerationRetryQueue<unknown>(limit)); },
+  async getGenerationRetryQueueHealth() { return parseBridgeDto("get_generation_retry_queue_health", generationRetryQueueHealthSchema, await serverlessBackendClient.getGenerationRetryQueueHealth<unknown>()); },
+  async listGenerationEnqueueFailures(limit = 25) { return parseBridgeDto("list_generation_enqueue_failures", z.array(generationEnqueueFailureItemSchema).max(100), await serverlessBackendClient.listGenerationEnqueueFailures<unknown>(limit)); },
+  async createDeferredReentry(input: { operationId: string; trigger: "RELEVANT_EVIDENCE_CHANGE" | "AUTHORIZED_RETRY"; relevantChangeArtifactId: string | null; authorizedBy: string | null; authorizationReason: string | null }) { return parseBridgeDto("create_deferred_reentry", reentryResultSchema, await serverlessBackendClient.createDeferredFactoryV2Reentry<unknown>(input)); },
+  async createSourceSubmission(input: { operationId: string; submittedUrl: string; rationale: string; submittedBy: string }) { return parseBridgeDto("create_source_submission", sourceSubmissionResultSchema, await serverlessBackendClient.createFactoryV2SourceSubmission<unknown>(input)); },
+  async listSourceSubmissions(limit = 25) { return parseBridgeDto("list_source_submissions", z.array(sourceSubmissionSchema).max(100), await serverlessBackendClient.listFactoryV2SourceSubmissions<unknown>(limit)); },
+  async getSourceSubmissionInspection(candidateId: string) { return parseBridgeDto("get_source_submission_inspection", sourceSubmissionInspectionSchema, await serverlessBackendClient.getFactoryV2SourceSubmissionInspection<unknown>(candidateId)); }
 };
