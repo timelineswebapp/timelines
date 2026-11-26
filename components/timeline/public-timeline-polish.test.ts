@@ -52,11 +52,11 @@ test("homepage presents an explicit availability state when its snapshot fails",
   assert.doesNotMatch(homeFeed, /window\.location\.reload\(\)/);
 });
 
-test("public beta home copy and topic requests are honest about editorial review", () => {
-  assert.match(homePage, /Public beta/);
-  assert.match(homePage, /growing, curated library/);
-  assert.match(homePage, /editorial consideration/);
+test("homepage prioritizes search and a concise topic suggestion action", () => {
+  assert.match(homePage, /className="home-primary-actions glass"/);
   assert.match(homePage, /Search a person, event, or subject/);
+  assert.match(homePage, /triggerLabel="SUGGEST A TOPIC"/);
+  assert.doesNotMatch(homePage, /Public beta|Find the story in the sequence|Shape the library|growing, curated library/);
   assert.match(requestTimelineForm, /recorded for editorial consideration/);
   assert.match(requestTimelineForm, /currently under editorial review/);
   assert.doesNotMatch(requestTimelineForm, /researching it now|already being researched/);

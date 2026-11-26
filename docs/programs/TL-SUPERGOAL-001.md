@@ -502,3 +502,7 @@ The public beta’s topic-suggestion dialog now focuses its request input when o
 The navigation drawer’s universal fact-checking/chronology guarantee was replaced with accurate public-beta editorial language and a reader-correction path. A regression prevents restoration of the unsupported guarantee. Strict TypeScript, lint, **310/310** root tests, optimized production build, and the Tier-1 security gate passed. This is a transparency correction only; no historical record, institutional authority, certification threshold, discovery, Governance, or publication state changed.
 
 Vercel attested commit `3e5913b` as production deployment `timelines-n9v8veaci-timelines-app.vercel.app`, **READY** after 1m43s. Direct reader inspection of that immutable deployment and the public domain confirmed the updated editorial panel. The public reader controls were available, but Tier-1 certification remains blocked by its independent gates.
+
+### 2026-11-26 — founder-directed reader simplification
+
+The homepage now places only the labelled timeline search and keyboard-accessible “SUGGEST A TOPIC” control beneath the logo, before featured timelines. The former public-beta badge, headline, explanatory copy, and topic-request explanation were removed from this primary task path at Founder direction. Strict TypeScript, **310/310** root tests, optimized production build, and the Tier-1 security gate passed. No content, institutional authority, discovery, Governance, publication, or certification boundary changed.
