@@ -53,7 +53,8 @@ test("homepage presents an explicit availability state when its snapshot fails",
 });
 
 test("homepage prioritizes search and a concise topic suggestion action", () => {
-  assert.match(homePage, /className="home-primary-actions glass"/);
+  assert.match(homePage, /className="home-primary-actions"/);
+  assert.doesNotMatch(homePage, /className="home-primary-actions glass"/);
   assert.match(homePage, /Search a person, event, or subject/);
   assert.match(homePage, /triggerLabel="SUGGEST A TOPIC"/);
   assert.doesNotMatch(homePage, /Public beta|Find the story in the sequence|Shape the library|growing, curated library/);

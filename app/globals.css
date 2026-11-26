@@ -1018,9 +1018,7 @@ main {
 
 .home-primary-actions {
   display: grid;
-  gap: 18px;
-  padding: clamp(24px, 5vw, 42px);
-  border-radius: var(--radius-xl);
+  gap: 10px;
 }
 
 .home-search-strip {
@@ -1043,6 +1041,24 @@ main {
 .home-request-strip {
   display: grid;
   justify-items: start;
+}
+
+.home-request-strip .request-toggle-button {
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--highlight-strong);
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.home-request-strip .request-toggle-button:hover,
+.home-request-strip .request-toggle-button:focus-visible {
+  color: var(--text);
 }
 
 .request-form-compact {

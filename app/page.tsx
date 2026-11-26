@@ -49,7 +49,7 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: sanitizeJsonLd(homepageJsonLd) }}
       />
-      <section className="home-primary-actions glass" aria-label="Explore timelines">
+      <section className="home-primary-actions" aria-label="Explore timelines">
         <div className="home-search-strip" aria-label="Search timelines">
           <SearchBar
             className="home-search-form home-search-form-solo"
