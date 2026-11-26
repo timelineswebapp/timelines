@@ -589,6 +589,7 @@ async function createGovernancePackage(
   const packageId = deterministicUuid(payload.jobId, "governance-package", GOVERNANCE_POLICY_VERSION);
   const queueId = authorityId(packageId, "publication-readiness-queue");
   const policy = evaluateRoutinePolicy(timeline, sources, quality, sourceAuthority, readerEditorial);
+  const requiresFounderReview = requiresHumanGovernanceReview(payload, policy);
   const now = Timestamp.now();
   await db.runTransaction(async (transaction) => {
     const ledgerRef = corpusCollection("topicLedgers").doc(payload.topicId);
@@ -618,12 +619,12 @@ async function createGovernancePackage(
         evidenceQuery: { topicId: payload.topicId, validationResult: "PASSED" },
         policyVersion: GOVERNANCE_POLICY_VERSION,
         policyEvaluation: policy,
-        lifecycle: policy.outcome === "routine" ? "GOVERNANCE_READY" : "AWAITING_REVIEW",
+        lifecycle: requiresFounderReview ? "AWAITING_REVIEW" : "GOVERNANCE_READY",
         immutable: true,
         createdAt: now
       });
     }
-    if (policy.outcome === "exceptional") {
+    if (requiresFounderReview) {
       if (!existingPackage.exists) {
         transaction.create(corpusCollection("governanceQueues").doc(queueId), {
           queueId,
@@ -633,7 +634,9 @@ async function createGovernancePackage(
           origin: payload.origin,
           allowedActions: ["approve", "reject", "request_revision", "escalate"],
           lifecycle: "ENTERED",
-          reasons: policy.reasons,
+          reasons: payload.origin === "autonomous"
+            ? [...policy.reasons, "AUTONOMOUS_FOUNDER_REVIEW_REQUIRED"]
+            : policy.reasons,
           createdAt: now
         });
       }
@@ -645,6 +648,19 @@ async function createGovernancePackage(
     }
   });
   return { packageId, policy };
+}
+
+/**
+ * Autonomous work may prepare a complete evidence package, but it must never
+ * advance through the routine institutional transition without a Founder-led
+ * Governance decision. This is server-owned and cannot be relaxed by a task
+ * payload or client request.
+ */
+export function requiresHumanGovernanceReview(
+  payload: Pick<TaskPayload, "origin">,
+  policy: { outcome: "routine" | "exceptional" }
+): boolean {
+  return payload.origin === "autonomous" || policy.outcome === "exceptional";
 }
 
 export async function executeGeneration(payload: TaskPayload, leaseOwner: string) {
@@ -742,7 +758,7 @@ export async function executeGeneration(payload: TaskPayload, leaseOwner: string
       readerEditorial,
       readerEditorialArtifactId
     );
-    if (governance.policy.outcome === "routine") {
+    if (!requiresHumanGovernanceReview(payload, governance.policy)) {
       await enqueueInstitutionalTask({ ...payload, packageId: governance.packageId, decision: "routine" });
       return { status: "GOVERNANCE_QUEUED", packageId: governance.packageId };
     }
