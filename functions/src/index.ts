@@ -7,6 +7,7 @@ import { executeEvidenceFirstShadowGeneration, executeGeneration, executeInstitu
 import { evidenceFirstTaskPayloadSchema, institutionalTaskPayloadSchema, taskPayloadSchema } from "./schemas";
 import { claimAutonomousTopic, retryDeferredEnqueues } from "./topic-ledger";
 import { discoverTopics } from "./vertex";
+import { runNonPublicCostPilot } from "./non-public-cost-pilot";
 
 function taskName(request: Request) {
   return request.header("x-cloudtasks-taskname") || request.header("x-cloud-tasks-taskname") || "";
@@ -140,3 +141,6 @@ export async function topicDiscovery(request: Request, response: Response) {
     response.status(500).json({ ok: false, error: { code: "DISCOVERY_FAILED", message: "Topic discovery failed." } });
   }
 }
+
+/** Isolated, Scheduler-only, non-public cost measurement path. */
+export const nonPublicCostPilot = runNonPublicCostPilot;
