@@ -45,6 +45,30 @@ function isExpired(state: PilotState, now: Timestamp): boolean {
   return now.toMillis() >= state.expiresAt.toMillis();
 }
 
+type TokenUsage = { promptTokens: number; outputTokens: number; thoughtTokens: number; totalTokens: number };
+
+function tokenUsage(value: unknown): TokenUsage {
+  if (!value || typeof value !== "object") return { promptTokens: 0, outputTokens: 0, thoughtTokens: 0, totalTokens: 0 };
+  const usage = value as Record<string, unknown>;
+  const number = (key: string) => typeof usage[key] === "number" && Number.isFinite(usage[key]) ? usage[key] as number : 0;
+  if ("discoveryResearch" in usage || "discoveryStructured" in usage) {
+    const research = tokenUsage(usage.discoveryResearch);
+    const structured = tokenUsage(usage.discoveryStructured);
+    return {
+      promptTokens: research.promptTokens + structured.promptTokens,
+      outputTokens: research.outputTokens + structured.outputTokens,
+      thoughtTokens: research.thoughtTokens + structured.thoughtTokens,
+      totalTokens: research.totalTokens + structured.totalTokens
+    };
+  }
+  return {
+    promptTokens: number("promptTokenCount"),
+    outputTokens: number("candidatesTokenCount"),
+    thoughtTokens: number("thoughtsTokenCount"),
+    totalTokens: number("totalTokenCount")
+  };
+}
+
 export async function runNonPublicCostPilot(request: Request, response: Response) {
   if (!requireScheduler(request, response)) return;
   const started = Date.now();
@@ -115,6 +139,7 @@ export async function runNonPublicCostPilot(request: Request, response: Response
     if (selected.length > 0) await batch.commit();
 
     let dossierWritten = 0;
+    let dossierUsage: unknown = null;
     const dossierCandidate = selected[0];
     if (dossierCandidate && state.dossiers < MAX_DOSSIERS) {
       const research = await researchTopic(dossierCandidate.title);
@@ -133,14 +158,30 @@ export async function runNonPublicCostPilot(request: Request, response: Response
         createdAt: now
       });
       dossierWritten = 1;
+      dossierUsage = research.execution.usageMetadata;
     }
 
     const writes = selected.length + dossierWritten + 1;
+    const discoveryUsage = tokenUsage(discovery.execution.usageMetadata);
+    const dossierTokens = tokenUsage(dossierUsage);
+    const totalUsage: TokenUsage = {
+      promptTokens: discoveryUsage.promptTokens + dossierTokens.promptTokens,
+      outputTokens: discoveryUsage.outputTokens + dossierTokens.outputTokens,
+      thoughtTokens: discoveryUsage.thoughtTokens + dossierTokens.thoughtTokens,
+      totalTokens: discoveryUsage.totalTokens + dossierTokens.totalTokens
+    };
     await reference.set({
       discoveryCards: FieldValue.increment(selected.length),
       dossiers: FieldValue.increment(dossierWritten),
       functionInvocations: FieldValue.increment(1),
       firestoreDocumentWrites: FieldValue.increment(writes),
+      vertexUsage: {
+        promptTokens: FieldValue.increment(totalUsage.promptTokens),
+        outputTokens: FieldValue.increment(totalUsage.outputTokens),
+        thoughtTokens: FieldValue.increment(totalUsage.thoughtTokens),
+        totalTokens: FieldValue.increment(totalUsage.totalTokens),
+        measuredInvocations: FieldValue.increment(1)
+      },
       lastInvocation: {
         at: now,
         latencyMs: Date.now() - started,
@@ -148,7 +189,8 @@ export async function runNonPublicCostPilot(request: Request, response: Response
         dossiersCreated: dossierWritten,
         vertex: {
           discoveryUsageMetadata: discovery.execution.usageMetadata,
-          dossierUsageMetadata: dossierWritten ? "recorded_on_dossier" : null
+          dossierUsageMetadata: dossierUsage,
+          aggregateTokens: totalUsage
         },
         storageWrites: 0
       },

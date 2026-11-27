@@ -710,6 +710,14 @@ export async function discoverTopics(knownTopicSummary: string) {
   return {
     ...discoverySchema.parse(JSON.parse(body)),
     researchBody,
-    execution: executionMetadata({ prompt, response: body, startedAt, usageMetadata: response.usageMetadata })
+    execution: executionMetadata({
+      prompt,
+      response: body,
+      startedAt,
+      usageMetadata: {
+        discoveryResearch: research.usageMetadata,
+        discoveryStructured: response.usageMetadata
+      }
+    })
   };
 }
