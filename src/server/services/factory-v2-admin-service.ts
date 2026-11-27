@@ -6,7 +6,14 @@ const boundedId = z.string().min(1).max(160);
 const timestamp = z.string().datetime();
 const deferredTopicSchema = z.object({
   topicId: boundedId, runId: boundedId, generation: z.number().int().positive(), stage: z.string().min(1).max(160), updatedAt: timestamp, terminalFailureRecordId: boundedId.nullable(),
-  outcome: z.object({ classification: z.enum(["PUBLIC_EVIDENCE_LIMITATION", "RESEARCH_BUDGET_EXHAUSTED"]), reentryState: z.enum(["REQUIRES_RELEVANT_CHANGE", "REQUIRES_AUTHORIZED_RETRY"]), detailedReason: z.string().min(1).max(240) }).strict(),
+  outcome: z.object({
+    policyVersion: z.literal("autonomous-public-evidence.1"),
+    classification: z.enum(["PUBLIC_EVIDENCE_LIMITATION", "RESEARCH_BUDGET_EXHAUSTED"]),
+    disposition: z.literal("DEFERRED"),
+    reentryState: z.enum(["REQUIRES_RELEVANT_CHANGE", "REQUIRES_AUTHORIZED_RETRY"]),
+    detailedReason: z.string().min(1).max(240),
+    publicEvidenceBasis: z.enum(["GOVERNED_CAPACITY_EXHAUSTED"]).nullable()
+  }).strict(),
   operationalFeasibility: z.object({ state: z.literal("REENTRY_CONDITION_REQUIRED"), requiredCondition: z.enum(["RELEVANT_EVIDENCE_CHANGE", "AUTHORIZED_RETRY"]), terminalAt: timestamp, attemptsConsumed: z.number().int().nonnegative(), budgetConsumed: z.record(z.string().min(1).max(120), z.number().finite().nonnegative()), failureClass: z.string().min(1).max(160) }).strict(),
   reentryRequests: z.array(z.object({ requestId: boundedId, trigger: z.enum(["RELEVANT_EVIDENCE_CHANGE", "AUTHORIZED_RETRY"]), requestedAt: timestamp, state: z.enum(["REQUESTED", "CONSUMED"]), consumedAt: timestamp.nullable(), queuedRunId: boundedId.nullable() }).strict()).max(5)
 }).strict();
